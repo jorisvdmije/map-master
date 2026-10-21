@@ -6,10 +6,10 @@ A TypeScript library in development for drawing and editing geometry on web maps
 
 ## Status
 
-The first drawing milestone is implemented: draw lines on a MapLibre map, preview
-the next segment, finish or cancel, and export committed features as GeoJSON.
-The API is experimental. Polygon drawing, selection, deletion, vertex editing,
-import, and undo/redo are planned. Code and contributor documentation use English.
+Line and polygon drawing are implemented: preview, validate, finish or cancel,
+and export committed features together as GeoJSON through one GeometryEditor API.
+The API is experimental. Selection, deletion, vertex editing, import, and undo/redo
+are planned. Code and contributor documentation use English.
 
 ## Try the demo
 
@@ -20,7 +20,9 @@ npm run dev
 
 Open <http://localhost:5173>. Choose **Draw a line**, click at least two different
 positions, and press **Enter** or **Finish**. Press **Escape** or **Cancel** to
-discard the current draft. **Export GeoJSON** downloads committed lines only.
+discard the current draft. Choose **Polygon** for an outline with at least three
+corners; Enter, Finish, or clicking the first corner closes a valid ring.
+**Export GeoJSON** downloads committed lines and polygons only.
 The map can still be dragged and zoomed while drawing.
 
 The demo uses OpenStreetMap tiles with attribution. Tiles are optional and load
@@ -28,7 +30,9 @@ after drawing is ready; use <http://localhost:5173/?basemap=off> for a demo with
 external map requests. Use an appropriate map provider for your own application.
 The editor itself does not fetch map tiles or send geometry to a service.
 
-See the [LineEditor API and integration guide](docs/line-editor.md).
+See the [GeometryEditor API guide](docs/geometry-editor.md) and
+[code walkthrough](docs/code-walkthrough.md). The earlier LineEditor API remains
+available as a compatibility facade.
 
 ## Development
 
@@ -50,6 +54,7 @@ npm run check
 | `npm test` | Run core behavior tests and test the packed library in an isolated consumer. |
 | `npm run test:browser` | Build the package and run real Chromium interaction and demo tests. |
 | `npm run build:demo` | Build the library and a deployable demo in `examples/basic/dist/`. |
+| `npm run benchmark:polygon` | Measure validation on fixed polygon fixtures; see [baseline and limits](docs/performance.md). |
 | `npm run check` | Run all type checks, linting, tests, and the production demo build. |
 | `npm pack` | Build and create a local installable archive. |
 

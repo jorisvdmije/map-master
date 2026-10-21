@@ -1,6 +1,6 @@
 import { Map, NavigationControl, setWorkerUrl } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-import { LineEditor } from '@geo/editor';
+import { GeometryEditor, type GeometryType, type ValidationError } from '@geo/editor';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
 
@@ -14,12 +14,30 @@ function element<T extends HTMLElement>(id: string): T {
 }
 
 const start = element<HTMLButtonElement>('start');
+const lineTool = element<HTMLButtonElement>('tool-line');
+const polygonTool = element<HTMLButtonElement>('tool-polygon');
 const finish = element<HTMLButtonElement>('finish');
 const cancel = element<HTMLButtonElement>('cancel');
 const download = element<HTMLButtonElement>('export');
 const output = element<HTMLTextAreaElement>('output');
 const status = element('status');
-let editor: LineEditor | undefined;
+let editor: GeometryEditor | undefined;
+let selected: GeometryType = 'LineString';
+const validationMessages: Record<Exclude<ValidationError, 'too-few-vertices'>, string> = {
+  'zero-area': 'These points form a straight line. Place a point off the line.',
+  'self-intersection': 'Polygon edges cannot cross, touch, or overlap.',
+  'duplicate-vertex': 'A corner is used more than once. Cancel to start again.',
+  'antimeridian-crossing': 'Polygons across the date line are not supported yet.',
+};
+
+function selectTool(kind: GeometryType): void {
+  selected = kind;
+  lineTool.setAttribute('aria-pressed', String(kind === 'LineString'));
+  polygonTool.setAttribute('aria-pressed', String(kind === 'Polygon'));
+  element('start-label').textContent = kind === 'Polygon' ? 'Draw a polygon' : 'Draw a line';
+  element('finish-instruction').textContent = kind === 'Polygon'
+    ? 'Press Enter or click your first corner to close the polygon.' : 'Press Enter to save your line.';
+}
 
 const map = new Map({
   container: 'map',
@@ -40,24 +58,35 @@ map.on('error', () => {
 });
 
 map.on('load', () => {
-  editor = new LineEditor(map);
+  editor = new GeometryEditor(map);
   const activeEditor = editor;
+  let exportedCount = -1;
   const update = (): void => {
     const state = activeEditor.getState();
-    const drawing = state.mode === 'draw-line';
+    const drawing = state.mode !== 'idle';
+    const polygon = selected === 'Polygon';
+    const error = state.validationError;
     start.disabled = drawing;
+    lineTool.disabled = drawing;
+    polygonTool.disabled = drawing;
     finish.disabled = !state.canFinish;
     cancel.disabled = !drawing;
     download.disabled = state.featureCount === 0;
-    element('feature-count').textContent = `${state.featureCount} ${state.featureCount === 1 ? 'line' : 'lines'}`;
-    status.textContent = drawing
-      ? `${state.vertexCount} ${state.vertexCount === 1 ? 'point' : 'points'} placed. ${state.canFinish ? 'Ready to finish.' : 'Place at least two points.'}`
+    element('feature-count').textContent = `${state.featureCount} ${state.featureCount === 1 ? 'feature' : 'features'}`;
+    const invalid = error !== null && error !== 'too-few-vertices';
+    status.classList.toggle('is-invalid', invalid);
+    status.textContent = invalid ? validationMessages[error] : drawing
+      ? `${state.vertexCount} ${state.vertexCount === 1 ? 'point' : 'points'} placed. ${state.canFinish ? 'Ready to finish.' : `Place at least ${polygon ? 'three corners' : 'two points'}.`}`
       : 'Ready when you are.';
     element('map-hint').textContent = drawing
-      ? 'Click to add a point · Enter to finish · Esc to cancel'
+      ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
+        : 'Click to add a point · Enter to finish · Esc to cancel'
       : 'Your next idea, on the map.';
     element('mode-dot').classList.toggle('drawing', drawing);
-    output.value = JSON.stringify(activeEditor.exportGeoJSON(), null, 2);
+    if (exportedCount !== state.featureCount) {
+      output.value = JSON.stringify(activeEditor.exportGeoJSON(), null, 2);
+      exportedCount = state.featureCount;
+    }
   };
   activeEditor.onChange(update);
   update();
@@ -76,7 +105,9 @@ map.on('load', () => {
   } }, firstOverlay);
 });
 
-start.addEventListener('click', () => { editor?.startLine(); });
+lineTool.addEventListener('click', () => { selectTool('LineString'); });
+polygonTool.addEventListener('click', () => { selectTool('Polygon'); });
+start.addEventListener('click', () => { editor?.draw(selected); });
 finish.addEventListener('click', () => { editor?.finish(); });
 cancel.addEventListener('click', () => { editor?.cancel(); });
 download.addEventListener('click', () => {

@@ -1,5 +1,9 @@
 # LineEditor: first drawing milestone
 
+For new integrations, use [GeometryEditor](geometry-editor.md), which supports
+both lines and polygons. LineEditor remains a line-only compatibility facade
+around that same implementation; `startLine()` maps to `draw('LineString')`.
+
 Status: experimental API. Supports 2D GeoJSON LineString features on a flat
 Mercator MapLibre GL JS 6.15 map. The application provides the map, its CSS,
 worker configuration, map services, and persistence.
@@ -52,7 +56,7 @@ See the [MapLibre documentation](https://maplibre.org/maplibre-gl-js/docs/).
 | `startLine()` | Activate drawing and focus the map canvas. Calling it again preserves the active draft. |
 | `finish()` | Commit clicked positions and return a `LineFeature`; return `null` if there are fewer than two distinct positions. |
 | `cancel()` | Discard only the current draft. Existing features remain intact. |
-| `getState()` | Return a snapshot with `mode`, `vertexCount`, `featureCount`, and `canFinish`. |
+| `getState()` | Return a snapshot with `mode`, `vertexCount`, `featureCount`, `canFinish`, and `validationError`. |
 | `exportGeoJSON()` | Return an independent `LineCollection` snapshot of committed features. |
 | `onCreate(listener)` | Subscribe to committed feature creation; return an unsubscribe function. |
 | `onChange(listener)` | Subscribe to editing-state changes; return an unsubscribe function. Read initial state with `getState()`. |

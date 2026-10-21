@@ -9,28 +9,35 @@
   <body>
     <header class="header">
       <a class="brand" href="/" aria-label="geo home"><span class="brand-mark">g.</span>geo<span class="brand-divider"></span><span class="brand-caption">Drawing playground</span></a>
-      <span class="milestone"><span class="dot"></span> Milestone 02 <span class="milestone-label">/ Line drawing</span></span>
+      <span class="milestone"><span class="dot"></span> Milestone 03 <span class="milestone-label">/ Lines + polygons</span></span>
     </header>
     <main class="workspace">
       <aside class="sidebar" aria-label="Drawing tools">
-        <div class="section-heading"><span class="eyebrow">THE PLAYGROUND</span><span class="step">01 / 01</span></div>
-        <h1>A line starts<br />with a point.</h1>
+        <div class="section-heading"><span class="eyebrow">THE PLAYGROUND</span><span class="step">02 TOOLS</span></div>
+        <h1>A shape starts<br />with a point.</h1>
         <p class="intro">Draw directly on the map.<br />Take your geometry anywhere.</p>
-        <div class="tool-card">
-          <div class="tool-icon" aria-hidden="true"><svg width="27" height="27" viewBox="0 0 28 28" fill="none"><path d="M6 21L13 7L22 15" stroke="currentColor" stroke-width="2"/><circle cx="6" cy="21" r="2.5" fill="white" stroke="currentColor" stroke-width="2"/><circle cx="13" cy="7" r="2.5" fill="white" stroke="currentColor" stroke-width="2"/><circle cx="22" cy="15" r="2.5" fill="white" stroke="currentColor" stroke-width="2"/></svg></div>
-          <div><strong>LineString</strong><span>Connect two or more points</span></div>
-          <span class="tool-selected" aria-hidden="true">✓</span>
+        <div class="tool-selector" role="group" aria-label="Geometry type">
+          <button id="tool-line" class="tool-card" aria-label="Line drawing" aria-pressed="true" disabled>
+            <span class="tool-icon" aria-hidden="true"><svg width="27" height="27" viewBox="0 0 28 28" fill="none"><path d="M6 21L13 7L22 15" stroke="currentColor" stroke-width="2"/><circle cx="6" cy="21" r="2.5" fill="white" stroke="currentColor" stroke-width="2"/><circle cx="13" cy="7" r="2.5" fill="white" stroke="currentColor" stroke-width="2"/><circle cx="22" cy="15" r="2.5" fill="white" stroke="currentColor" stroke-width="2"/></svg></span>
+            <span class="tool-label"><strong>Line</strong><span>2+ points</span></span>
+            <span class="tool-selected" aria-hidden="true">✓</span>
+          </button>
+          <button id="tool-polygon" class="tool-card" aria-label="Polygon drawing" aria-pressed="false" disabled>
+            <span class="tool-icon" aria-hidden="true"><svg width="27" height="27" viewBox="0 0 28 28" fill="none"><path d="M5 21L9 6L23 11L21 23Z" fill="currentColor" fill-opacity=".1" stroke="currentColor" stroke-width="2"/><circle cx="5" cy="21" r="2" fill="white" stroke="currentColor"/><circle cx="9" cy="6" r="2" fill="white" stroke="currentColor"/><circle cx="23" cy="11" r="2" fill="white" stroke="currentColor"/><circle cx="21" cy="23" r="2" fill="white" stroke="currentColor"/></svg></span>
+            <span class="tool-label"><strong>Polygon</strong><span>3+ corners</span></span>
+            <span class="tool-selected" aria-hidden="true">✓</span>
+          </button>
         </div>
-        <button id="start" class="button primary" disabled><span aria-hidden="true">＋</span> Draw a line</button>
+        <button id="start" class="button primary" disabled><span aria-hidden="true">＋</span><span id="start-label">Draw a line</span></button>
         <div class="button-row"><button id="finish" class="button secondary" aria-keyshortcuts="Enter" disabled>Finish <kbd aria-hidden="true">↵</kbd></button><button id="cancel" class="button secondary" aria-keyshortcuts="Escape" disabled>Cancel <kbd aria-hidden="true">esc</kbd></button></div>
         <div id="status" class="status" role="status">Loading the map…</div>
         <section class="instructions" aria-label="Instructions">
           <h2>MAKE YOUR MARK</h2>
-          <ol><li><span>1</span>Click the map to place points.</li><li><span>2</span>Move your mouse to see the next segment.</li><li><span>3</span>Press Enter to save your line.</li></ol>
+          <ol><li><span>1</span>Click the map to place points.</li><li><span>2</span>Move your mouse to preview the shape.</li><li><span>3</span><span class="instruction-text" id="finish-instruction">Press Enter to save your line.</span></li></ol>
           <p>Drag to pan. Scroll to zoom.<br />Escape discards your current drawing.</p>
         </section>
         <section class="data-section" aria-label="Drawing data">
-          <div class="section-heading"><h2>YOUR GEOMETRY</h2><span id="feature-count" class="count">0 lines</span></div>
+          <div class="section-heading"><h2>YOUR GEOMETRY</h2><span id="feature-count" class="count">0 features</span></div>
           <button id="export" class="button export" disabled>Export GeoJSON <span aria-hidden="true">↗</span></button>
           <details><summary>Inspect GeoJSON <span>{ }</span></summary><textarea id="output" aria-label="GeoJSON output" readonly spellcheck="false">{"type":"FeatureCollection","features":[]}</textarea></details>
         </section>

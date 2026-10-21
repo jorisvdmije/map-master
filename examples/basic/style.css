@@ -20,24 +20,29 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 3px soli
 .step { font-family: monospace; font-size: 10px; color: #9ca69b; }
 h1 { font-size: 34px; font-weight: 500; letter-spacing: -1.5px; line-height: 1.13; margin: 24px 0 12px; }
 .intro { color: #7c877d; font-size: 13px; line-height: 1.7; margin: 0 0 25px; }
-.tool-card { border: 1px solid #bacdbd; background: #eef3e9; border-radius: 9px; padding: 13px 11px; display: flex; gap: 11px; align-items: center; margin-bottom: 16px; }
+.tool-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 16px; }
+.tool-card { color: inherit; text-align: left; border: 1px solid #bacdbd; background: #eef3e9; border-radius: 9px; padding: 11px; display: flex; gap: 8px; flex-direction: column; position: relative; }
+.tool-card[aria-pressed="false"] { background: transparent; border-color: #dce2d7; }
+.tool-card[aria-pressed="false"] .tool-selected { visibility: hidden; }
+.tool-card:not(:disabled):hover { background: #eef3e9; }
 .tool-icon { color: #38785e; display: flex; }
 .tool-card strong { font-size: 12px; font-weight: 650; display: block; }
 .tool-card span:not(.tool-selected) { display: block; color: #7d8a7a; font-size: 10px; margin-top: 4px; }
-.tool-selected { color: #2b7054; margin-left: auto; font-size: 14px; }
+.tool-selected { color: #2b7054; position: absolute; right: 10px; top: 10px; font-size: 14px; }
 .button { border-radius: 7px; min-height: 42px; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; font-weight: 600; transition: background .15s; }
 .primary { background: #196b55; color: white; width: 100%; }
 .primary:not(:disabled):hover { background: #115340; }
-.primary > span { font-size: 19px; font-weight: 400; }
+.primary > span[aria-hidden] { font-size: 19px; font-weight: 400; }
 .button-row { display: flex; gap: 8px; margin-top: 8px; }
 .secondary { flex: 1; color: #526052; background: transparent; border-color: #d5ddd1; min-height: 35px; font-size: 11px; }
 .secondary:not(:disabled):hover { background: #e9eee5; }
 kbd { border: 1px solid #d3dacd; border-radius: 3px; font-family: inherit; font-size: 9px; padding: 0 4px; font-weight: 400; }
 .status { font-size: 10px; line-height: 1.5; color: #6b7a6b; margin-top: 13px; min-height: 30px; }
+.status.is-invalid { color: #a8412a; }
 .instructions { padding: 24px 0 18px; border-top: 1px solid #e0e5da; margin-top: 12px; }
 .instructions ol { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 13px; }
 .instructions li { display: flex; gap: 10px; align-items: flex-start; color: #677765; font-size: 11px; line-height: 1.6; }
-.instructions li span { display: inline-flex; justify-content: center; border: 1px solid #d9e0d2; font-size: 9px; width: 17px; height: 17px; flex-shrink: 0; border-radius: 50%; }
+.instructions li > span:first-child { display: inline-flex; justify-content: center; border: 1px solid #d9e0d2; font-size: 9px; width: 17px; height: 17px; flex-shrink: 0; border-radius: 50%; }
 .instructions p { color: #99a191; font-size: 10px; line-height: 1.8; margin-bottom: 0; }
 .data-section { border-top: 1px solid #e0e5da; padding: 20px 0; }
 .count { color: #6e7f68; font-size: 10px; background: #edf1e7; padding: 4px 7px; border-radius: 4px; }

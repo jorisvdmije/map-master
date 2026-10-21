@@ -59,6 +59,10 @@ real Chromium interactions. MapLibre is both a pinned development dependency
 for verification and a peer dependency supplied by consuming applications;
 `@types/geojson` provides the namespace expected by its declarations.
 
+The runtime dependency `robust-predicates` (3.0.3, Unlicense) supplies robust
+orientation predicates for polygon validation and winding. Its purpose and the
+validation policy are described in the [GeometryEditor guide](docs/geometry-editor.md).
+
 ## Public API and releases
 
 Start with prereleases and explicitly document that the API is experimental.

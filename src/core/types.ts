@@ -13,9 +13,29 @@ export interface LineCollection {
   features: LineFeature[];
 }
 
+export interface PolygonFeature {
+  type: 'Feature';
+  id: string;
+  geometry: { type: 'Polygon'; coordinates: Coordinate[][] };
+  properties: Record<string, never>;
+}
+
+export type GeometryType = 'LineString' | 'Polygon';
+export type GeometryFeature = LineFeature | PolygonFeature;
+
+export interface GeometryFeatureCollection {
+  type: 'FeatureCollection';
+  features: GeometryFeature[];
+}
+
+export type ValidationError = 'too-few-vertices' | 'duplicate-vertex'
+  | 'zero-area' | 'self-intersection' | 'antimeridian-crossing';
+
 export interface EditorState {
-  mode: 'idle' | 'draw-line';
+  mode: 'idle' | 'draw-line' | 'draw-polygon';
   vertexCount: number;
   featureCount: number;
   canFinish: boolean;
+  /** Why the clicked draft cannot be committed; null when valid or idle. */
+  validationError: ValidationError | null;
 }

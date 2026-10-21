@@ -1,8 +1,9 @@
 # Architecture proposal
 
-Status: the core/map separation and line-drawing milestone are implemented.
+Status: the core/map separation and line/polygon drawing milestones are implemented.
 Additional geometry and editing capabilities below remain design direction.
-See the [LineEditor guide](line-editor.md) for the current public API.
+See the [GeometryEditor guide](geometry-editor.md) for the current public API and
+the [code walkthrough](code-walkthrough.md) for the implemented structure.
 
 ## Scope
 

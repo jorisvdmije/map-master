@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { LineSession } from '../src/core/line-session.js';
+import { DrawingSession } from '../src/core/drawing-session.js';
 import type { Coordinate } from '../src/core/types.js';
 
-function session(): LineSession {
+function session(): DrawingSession {
   let id = 0;
-  return new LineSession(() => `feature-${++id}`);
+  return new DrawingSession(() => `feature-${++id}`);
 }
 
 describe('line drawing state', () => {
@@ -12,7 +12,7 @@ describe('line drawing state', () => {
     const tool = session();
     expect(tool.add([4, 52])).toBe(false);
     expect(tool.finish()).toBeNull();
-    tool.start();
+    tool.start('LineString');
     tool.add([4, 52]);
     expect(tool.finish()).toBeNull();
     expect(tool.exportGeoJSON()).toEqual({ type: 'FeatureCollection', features: [] });
@@ -21,10 +21,10 @@ describe('line drawing state', () => {
 
   it('ignores consecutive duplicate points and preserves an already active draft', () => {
     const tool = session();
-    tool.start();
+    tool.start('LineString');
     tool.add([4, 52]);
     expect(tool.add([4, 52])).toBe(false);
-    expect(tool.start()).toBe(false);
+    expect(tool.start('LineString')).toBe(false);
     expect(tool.state.vertexCount).toBe(1);
     expect(tool.finish()).toBeNull();
   });
@@ -33,7 +33,7 @@ describe('line drawing state', () => {
     [NaN, 52], [4, Infinity], [181, 52], [-181, 52], [4, 91], [4, -91],
   ])('rejects invalid position [%s, %s] without changing the draft', (lng, lat) => {
     const tool = session();
-    tool.start();
+    tool.start('LineString');
     tool.add([4, 52]);
     expect(() => tool.add([lng, lat])).toThrow(RangeError);
     expect(tool.getDraft()).toEqual([[4, 52]]);
@@ -41,7 +41,7 @@ describe('line drawing state', () => {
 
   it('commits once with stable unique IDs and longitude/latitude order', () => {
     const tool = session();
-    tool.start();
+    tool.start('LineString');
     tool.add([4, 52]);
     tool.add([5, 53]);
     expect(tool.finish()).toEqual({
@@ -49,8 +49,8 @@ describe('line drawing state', () => {
       geometry: { type: 'LineString', coordinates: [[4, 52], [5, 53]] },
     });
     expect(tool.finish()).toBeNull();
-    expect(tool.state).toEqual({ mode: 'idle', vertexCount: 0, canFinish: false, featureCount: 1 });
-    tool.start();
+    expect(tool.state).toEqual({ mode: 'idle', vertexCount: 0, canFinish: false, featureCount: 1, validationError: null });
+    tool.start('LineString');
     tool.add([6, 54]);
     tool.add([7, 55]);
     expect(tool.finish()?.id).toBe('feature-2');
@@ -60,7 +60,7 @@ describe('line drawing state', () => {
   it('isolates state from input, draft, return-value, and export mutations', () => {
     const tool = session();
     const point: Coordinate = [4, 52];
-    tool.start();
+    tool.start('LineString');
     tool.add(point);
     point[0] = 90;
     tool.getDraft()[0]?.splice(0, 2, 90, 90);
@@ -77,13 +77,13 @@ describe('line drawing state', () => {
 
   it('cancels only the draft, and can start another line afterwards', () => {
     const tool = session();
-    tool.start(); tool.add([4, 52]); tool.add([5, 53]); tool.finish();
+    tool.start('LineString'); tool.add([4, 52]); tool.add([5, 53]); tool.finish();
     const saved = tool.exportGeoJSON();
-    tool.start(); tool.add([6, 54]);
+    tool.start('LineString'); tool.add([6, 54]);
     expect(tool.cancel()).toBe(true);
     expect(tool.cancel()).toBe(false);
     expect(tool.exportGeoJSON()).toEqual(saved);
-    tool.start(); tool.add([7, 55]); tool.add([8, 56]);
+    tool.start('LineString'); tool.add([7, 55]); tool.add([8, 56]);
     expect(tool.finish()?.geometry.coordinates).toEqual([[7, 55], [8, 56]]);
   });
 });

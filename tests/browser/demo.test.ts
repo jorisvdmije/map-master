@@ -20,9 +20,30 @@ it('runs the demo with its real controls and a built package, without a tile ser
   await page.getByRole('button', { name: 'Finish' }).click();
   const output = document.querySelector<HTMLTextAreaElement>('#output');
   expect(output?.value).toContain('LineString');
-  const saved = output?.value;
+  let saved = output?.value;
   await start.click();
   await userEvent.click(canvas, { position: { x: 130, y: 200 } });
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  expect(output?.value).toBe(saved);
+
+  await page.getByRole('button', { name: 'Polygon drawing' }).click();
+  await page.getByRole('button', { name: 'Draw a polygon' }).click();
+  await expect.element(page.getByRole('button', { name: 'Line drawing' })).toBeDisabled();
+  await userEvent.click(canvas, { position: { x: 150, y: 150 } });
+  await userEvent.click(canvas, { position: { x: 350, y: 150 } });
+  await userEvent.click(canvas, { position: { x: 250, y: 350 } });
+  await page.getByRole('button', { name: 'Finish' }).click();
+  expect(output?.value).toContain('Polygon');
+  expect(output?.value).toContain('LineString');
+  saved = output?.value;
+
+  await page.getByRole('button', { name: 'Draw a polygon' }).click();
+  await userEvent.click(canvas, { position: { x: 150, y: 150 } });
+  await userEvent.click(canvas, { position: { x: 350, y: 350 } });
+  await userEvent.click(canvas, { position: { x: 150, y: 350 } });
+  await userEvent.click(canvas, { position: { x: 350, y: 150 } });
+  await expect.element(page.getByRole('button', { name: 'Finish' })).toBeDisabled();
+  expect(document.querySelector('#status')?.textContent).toContain('cannot cross');
   await page.getByRole('button', { name: 'Cancel' }).click();
   expect(output?.value).toBe(saved);
 

@@ -43,7 +43,7 @@ afterEach(() => {
 
 describe('MapLibre line editor in Chromium', () => {
   it('rejects competing editors on one map', () => {
-    expect(() => new LineEditor(map)).toThrow('Only one LineEditor');
+    expect(() => new LineEditor(map)).toThrow('Only one geometry editor');
   });
 
   it('keeps separate maps independent and destroys an editor when its map is removed', async () => {

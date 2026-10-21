@@ -32,7 +32,8 @@
     "prepack": "npm run build",
     "test:browser": "npm run build && vitest run --config vitest.browser.config.ts",
     "dev": "npm run build && vite",
-    "build:demo": "npm run build && vite build"
+    "build:demo": "npm run build && vite build",
+    "benchmark:polygon": "npm run build && node scripts/benchmark-polygon.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -49,5 +50,8 @@
   },
   "peerDependencies": {
     "maplibre-gl": "^6.15.0"
+  },
+  "dependencies": {
+    "robust-predicates": "3.0.3"
   }
 }
