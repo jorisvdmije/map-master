@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f8f9f6" />
+    <title>geo — Drawing playground</title>
+  </head>
+  <body>
+    <header class="header">
+      <a class="brand" href="/" aria-label="geo home"><span class="brand-mark">g.</span>geo<span class="brand-divider"></span><span class="brand-caption">Drawing playground</span></a>
+      <span class="milestone"><span class="dot"></span> Milestone 02 <span class="milestone-label">/ Line drawing</span></span>
+    </header>
+    <main class="workspace">
+      <aside class="sidebar" aria-label="Drawing tools">
+        <div class="section-heading"><span class="eyebrow">THE PLAYGROUND</span><span class="step">01 / 01</span></div>
+        <h1>A line starts<br />with a point.</h1>
+        <p class="intro">Draw directly on the map.<br />Take your geometry anywhere.</p>
+        <div class="tool-card">
+          <div class="tool-icon" aria-hidden="true"><svg width="27" height="27" viewBox="0 0 28 28" fill="none"><path d="M6 21L13 7L22 15" stroke="currentColor" stroke-width="2"/><circle cx="6" cy="21" r="2.5" fill="white" stroke="currentColor" stroke-width="2"/><circle cx="13" cy="7" r="2.5" fill="white" stroke="currentColor" stroke-width="2"/><circle cx="22" cy="15" r="2.5" fill="white" stroke="currentColor" stroke-width="2"/></svg></div>
+          <div><strong>LineString</strong><span>Connect two or more points</span></div>
+          <span class="tool-selected" aria-hidden="true">✓</span>
+        </div>
+        <button id="start" class="button primary" disabled><span aria-hidden="true">＋</span> Draw a line</button>
+        <div class="button-row"><button id="finish" class="button secondary" aria-keyshortcuts="Enter" disabled>Finish <kbd aria-hidden="true">↵</kbd></button><button id="cancel" class="button secondary" aria-keyshortcuts="Escape" disabled>Cancel <kbd aria-hidden="true">esc</kbd></button></div>
+        <div id="status" class="status" role="status">Loading the map…</div>
+        <section class="instructions" aria-label="Instructions">
+          <h2>MAKE YOUR MARK</h2>
+          <ol><li><span>1</span>Click the map to place points.</li><li><span>2</span>Move your mouse to see the next segment.</li><li><span>3</span>Press Enter to save your line.</li></ol>
+          <p>Drag to pan. Scroll to zoom.<br />Escape discards your current drawing.</p>
+        </section>
+        <section class="data-section" aria-label="Drawing data">
+          <div class="section-heading"><h2>YOUR GEOMETRY</h2><span id="feature-count" class="count">0 lines</span></div>
+          <button id="export" class="button export" disabled>Export GeoJSON <span aria-hidden="true">↗</span></button>
+          <details><summary>Inspect GeoJSON <span>{ }</span></summary><textarea id="output" aria-label="GeoJSON output" readonly spellcheck="false">{"type":"FeatureCollection","features":[]}</textarea></details>
+        </section>
+        <div class="sidebar-footer"><span class="dot"></span> Built with geo + MapLibre</div>
+      </aside>
+      <section class="map-panel" aria-label="Interactive map">
+        <div id="map"></div>
+        <div class="location-label"><span class="location-cross" aria-hidden="true">⌖</span><div><strong>Amsterdam</strong><span>THE NETHERLANDS</span></div></div>
+        <div class="map-hint"><span id="mode-dot" class="dot"></span><span id="map-hint">Your next idea, on the map.</span></div>
+        <div class="map-caption">52.372° N &nbsp; 4.895° E</div>
+      </section>
+    </main>
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>

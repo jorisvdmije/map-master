@@ -1,6 +1,8 @@
 # Architecture proposal
 
-Status: proposed starting point, not an implemented API.
+Status: the core/map separation and line-drawing milestone are implemented.
+Additional geometry and editing capabilities below remain design direction.
+See the [LineEditor guide](line-editor.md) for the current public API.
 
 ## Scope
 

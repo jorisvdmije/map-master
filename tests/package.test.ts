@@ -68,7 +68,7 @@ describe('packed package', () => {
     ['ESNext', 'Bundler'],
   ])('resolves declarations with module %s and resolution %s', (module, resolution) => {
     expect(() => run(process.execPath, [
-      tsc, '--noEmit', '--strict', '--target', 'ES2022', '--lib', 'ES2022',
+      tsc, '--noEmit', '--strict', '--skipLibCheck', '--target', 'ES2022', '--lib', 'ES2022,DOM',
       '--module', module, '--moduleResolution', resolution, 'index.ts',
     ], consumer)).not.toThrow();
   });

@@ -1,0 +1,41 @@
+import { expect, it, vi } from 'vitest';
+import { page, userEvent } from 'vitest/browser';
+import html from '../../examples/basic/index.html?raw';
+
+it('runs the demo with its real controls and a built package, without a tile service', async () => {
+  history.replaceState(null, '', `${location.pathname}?basemap=off`);
+  const documentHTML = new DOMParser().parseFromString(html, 'text/html');
+  document.body.innerHTML = documentHTML.body.innerHTML;
+  document.querySelectorAll('script').forEach((script) => { script.remove(); });
+  await import('../../examples/basic/main.js');
+  const start = page.getByRole('button', { name: 'Draw a line' });
+  await expect.element(start).toBeEnabled();
+  await start.click();
+  const canvas = document.querySelector('canvas');
+  if (!canvas) throw new Error('Demo did not create a map canvas.');
+  await userEvent.click(canvas, { position: { x: 200, y: 180 } });
+  await expect.element(page.getByRole('button', { name: 'Finish' })).toBeDisabled();
+  await userEvent.click(canvas, { position: { x: 310, y: 280 } });
+  await userEvent.click(canvas, { position: { x: 440, y: 220 } });
+  await page.getByRole('button', { name: 'Finish' }).click();
+  const output = document.querySelector<HTMLTextAreaElement>('#output');
+  expect(output?.value).toContain('LineString');
+  const saved = output?.value;
+  await start.click();
+  await userEvent.click(canvas, { position: { x: 130, y: 200 } });
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  expect(output?.value).toBe(saved);
+
+  // Inspect the actual download payload; avoid leaving a download in the test runner.
+  const createURL = vi.spyOn(URL, 'createObjectURL');
+  const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  await page.getByRole('button', { name: 'Export GeoJSON' }).click();
+  const blob = createURL.mock.calls.at(-1)?.[0];
+  expect(blob).toBeInstanceOf(Blob);
+  if (!(blob instanceof Blob)) throw new Error('Export did not produce a Blob.');
+  expect(blob.type).toBe('application/geo+json');
+  expect(await blob.text()).toBe(saved);
+  expect(anchorClick).toHaveBeenCalledOnce();
+  createURL.mockRestore();
+  anchorClick.mockRestore();
+});

@@ -1,7 +1,7 @@
 # Incremental roadmap
 
-Steps 0 and 1 have been implemented locally; subsequent steps are planned. The
-step 1 workflow still needs a GitHub remote to run in hosted CI. Each row describes
+Steps 0, 1, and 2 have been implemented locally; subsequent steps are planned. The
+workflow still needs a GitHub remote to run in hosted CI. Each row describes
 a reviewable change or a milestone that can be split further when needed. Create
 each branch from updated `main` after its dependencies have merged.
 
@@ -9,7 +9,7 @@ each branch from updated `main` after its dependencies have merged.
 | --- | --- | --- |
 | 0 | `docs/project-foundation` | Agree on initial scope, architecture, and contribution workflow. |
 | 1 | `chore/tooling` | Strict TypeScript, package build, linting, test runner, lockfile, and CI configuration. A minimal consumer can import the built package and its declarations. |
-| 2 | `feat/draw-line` | MapLibre example; start a line, add vertices, see a preview, finish, cancel, and export committed data as GeoJSON. Tests cover the criteria below. |
+| 2 | `feat/draw-line` | Implemented: MapLibre demo, draft preview, finish/cancel, GeoJSON export, core/package tests, and real Chromium interaction tests. See the [API guide](line-editor.md). |
 | 3 | `feat/draw-polygon` | Draw a single outer ring, close it correctly, reject degenerate shapes, and document/test the self-intersection policy. Holes are deferred. |
 | 4 | `feat/select-feature` | Select one feature with visible feedback and deselect it. Hit testing works at different zoom levels; selection does not change feature data. |
 | 5 | `feat/delete-feature` | Delete the selected feature through the API and controls. Clear selection consistently and emit one committed deletion event. |

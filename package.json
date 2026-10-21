@@ -25,18 +25,29 @@
   "scripts": {
     "clean": "node --input-type=module -e \"import { rmSync } from 'node:fs'; rmSync('dist', { recursive: true, force: true });\"",
     "build": "npm run clean && tsc -p tsconfig.build.json",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.tools.json",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.core.json && tsc -p tsconfig.tools.json && tsc -p tsconfig.example.json",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
-    "check": "npm run typecheck && npm run lint && npm test",
-    "prepack": "npm run build"
+    "check": "npm run typecheck && npm run lint && npm test && npm run test:browser && npm run build:demo",
+    "prepack": "npm run build",
+    "test:browser": "npm run build && vitest run --config vitest.browser.config.ts",
+    "dev": "npm run build && vite",
+    "build:demo": "npm run build && vite build"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@types/geojson": "7946.0.16",
     "@types/node": "22.20.5",
+    "@vitest/browser-playwright": "5.0.5",
     "eslint": "10.13.0",
+    "maplibre-gl": "6.15.0",
+    "playwright": "1.64.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.0",
+    "vite": "8.3.5",
     "vitest": "5.0.5"
+  },
+  "peerDependencies": {
+    "maplibre-gl": "^6.15.0"
   }
 }

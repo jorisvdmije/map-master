@@ -3,7 +3,7 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
-  globalIgnores(['dist/**', 'coverage/**', 'tests/fixtures/**']),
+  globalIgnores(['dist/**', 'coverage/**', 'tests/fixtures/**', 'examples/basic/dist/**', '**/__screenshots__/**']),
   {
     files: ['**/*.mjs'],
     extends: [js.configs.recommended],
@@ -13,7 +13,7 @@ export default defineConfig(
     extends: [js.configs.recommended, tseslint.configs.recommendedTypeChecked],
     languageOptions: {
       parserOptions: {
-        project: ['./tsconfig.json', './tsconfig.tools.json'],
+        project: ['./tsconfig.json', './tsconfig.tools.json', './tsconfig.example.json'],
         tsconfigRootDir: import.meta.dirname,
       },
     },

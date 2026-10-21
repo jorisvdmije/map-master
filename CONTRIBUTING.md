@@ -31,22 +31,33 @@ When hosted, configure required checks and review rules appropriate to the team.
 - New dependencies have a documented purpose and compatible licensing.
 - Performance-sensitive changes include comparable measurements on a fixed dataset.
 
-Run `npm ci` after cloning, then `npm run check` before submitting a code change.
-The check command includes type checking, linting, and package integration tests;
-the tests build the package through the `prepack` hook. See the
+Run `npm ci` and `npx playwright install chromium` after cloning, then
+`npm run check` before submitting a code change. On Linux, use
+`npx playwright install --with-deps chromium` to include system dependencies.
+The check command includes type checking, linting, core/package/browser tests,
+and the production demo build. Package tests build through the `prepack` hook. See the
 [README](README.md#development) for individual commands and supported Node versions.
 Documentation-only changes need link and diff checks, not application tests.
 
 Add behavior tests under `tests/` using Vitest. Consumer fixtures are checked
 inside their isolated installation instead of against repository source files.
 The package integration test uses npm's CLI path, so invoke it through `npm test`.
+Put real MapLibre interaction tests in `tests/browser/`, run with
+`npm run test:browser`. Use local styles so tests do not depend on tile services.
+The complete demo test consumes the built package and checks its buttons and
+download payload. During development, `npm run dev` resolves the editor to source
+for live updates; the production demo resolves it through package exports.
 
 Tool dependencies are pinned in `package.json` and `package-lock.json`. TypeScript
 6.0 is intentionally used because the installed typescript-eslint release does
 not yet support TypeScript 7. Update the compiler and lint tooling together.
 TypeScript builds the package, ESLint/typescript-eslint check code, Vitest runs
 tests, and `@types/node` supplies types for development tools only. These are
-development dependencies, not runtime dependencies for consumers.
+development dependencies, not runtime dependencies for consumers. Vite serves
+and builds the demo, and Playwright plus the Vitest browser provider exercise
+real Chromium interactions. MapLibre is both a pinned development dependency
+for verification and a peer dependency supplied by consuming applications;
+`@types/geojson` provides the namespace expected by its declarations.
 
 ## Public API and releases
 

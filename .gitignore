@@ -5,3 +5,5 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 *.log
+**/__screenshots__/
+.vitest/
