@@ -9,7 +9,7 @@ src/
   index.ts                   Public classes and TypeScript types
   core/
     types.ts                 Coordinates, features, modes, validation diagnostics
-    drawing-session.ts       Draft, features indexed by ID, selection, commit/cancel/export
+    drawing-session.ts       Draft, features indexed by ID, selection, create/delete/export
     polygon.ts               Ring validity, closure, exterior winding
   maplibre/
     geometry-editor.ts       Public API, map input, events, gesture/lifecycle cleanup
@@ -53,7 +53,7 @@ flowchart LR
   Core --> Data[Draft and committed GeoJSON]
   Editor --> Renderer[MapLibreRenderer]
   Renderer --> Map[MapLibre sources and layers]
-  Editor --> Events[onChange / onCreate]
+  Editor --> Events[onChange / onCreate / onDelete]
   Events --> UI
 ```
 
@@ -70,6 +70,13 @@ scan all geometries. UUIDs are promoted from a private rendering property to kee
 them intact through MapLibre's vector-tile conversion. That detail stays entirely
 inside the renderer and never appears in exported GeoJSON.
 
+Deleting follows a committed change path: `deleteSelected()` asks the session
+to copy and remove the selected feature, then clears selection. The controller
+clears the highlight, uploads the remaining features, emits `onDelete` with
+independent snapshots, and emits `onChange` for the updated UI. A second call
+without a selection does nothing. The core remains authoritative while MapLibre
+updates asynchronously: stale hits for removed IDs are ignored by the controller.
+
 The session is the single source of truth. A preview cannot accidentally enter
 exports, cancellation cannot delete committed features, and callbacks cannot
 mutate internal state through shared references. Geometry tests run without a
@@ -80,7 +87,7 @@ resources. It rebuilds them on style changes. A WeakSet prevents competing
 editors on one map while independent maps remain supported. A map removal also
 disposes its editor; explicit destroy is safe to repeat.
 
-Future deletion, editing, and history should extend the editor API
+Future editing and history should extend the editor API
 and core commit behavior. Application code should not have to learn which
 MapLibre source holds a selected feature. Avoid creating one wrapper method for
 every MapLibre camera or basemap operation: those operations already belong to

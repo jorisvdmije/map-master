@@ -2,8 +2,8 @@
 
 Status: experimental. Supports 2D LineString and single-outer-ring Polygon
 features on a flat Mercator MapLibre GL JS 6.15 map. Desktop mouse and keyboard
-input and single-feature selection are tested in Chromium. Holes, multipart features, import,
-deletion, and vertex editing are not implemented yet.
+input, single-feature selection, and deletion are tested in Chromium. Holes,
+multipart features, import, undo/redo, and vertex editing are not implemented yet.
 
 ## One editor API
 
@@ -49,8 +49,10 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `canFinish`, `validationError`. |
 | `select(id \| null)` | Select a committed feature by ID, or clear selection with `null`. Available only while idle. |
 | `getSelected()` | Independent snapshot of the selected feature, or `null`. |
+| `deleteSelected()` | Delete the selected committed feature and clear selection. Return its independent snapshot, or `null` with no selection. Available only while idle. |
 | `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed lines and polygons. |
 | `onCreate(listener)` | One event per committed feature, with an independent snapshot per listener. Returns an unsubscribe function. |
+| `onDelete(listener)` | One event per committed deletion, with an independent snapshot of the removed feature per listener. Returns an unsubscribe function. |
 | `onChange(listener)` | Editing-state notification after state changes. Read the initial state with `getState()`. Returns an unsubscribe function. |
 | `destroy()` | Remove owned resources/listeners and restore drawing gesture settings. Idempotent. |
 
@@ -68,7 +70,7 @@ Callbacks run synchronously. Exceptions are reported asynchronously without
 interrupting a commit or other observers. MapLibre renders committed data
 asynchronously; listen to the map's `error` event for rendering failures.
 After destruction, exports remain readable and selection is cleared;
-drawing, selecting, and subscribing throw.
+drawing, selecting, deleting, and subscribing throw.
 
 ## Selection
 
@@ -96,8 +98,8 @@ editor.select(null);
 
 Selection emits `onChange` only when the selected ID changes. Selecting the same
 ID again is a no-op. It does not emit `onCreate`, rewrite geometry, change IDs or
-properties, or add selection metadata to exports. Use creation/committed-change
-events for persistence; `onChange` also represents transient UI state.
+properties, or add selection metadata to exports. Use `onCreate` and `onDelete`
+for persistence; `onChange` also represents transient UI state.
 
 An unknown ID throws `RangeError` and preserves the previous selection. Selecting
 anything, including `null`, during drawing throws without changing the draft.
@@ -108,6 +110,50 @@ to have been rendered; MapLibre source updates are asynchronous.
 
 Selection survives style replacement. Destroying the editor clears selection
 without emitting callbacks; a new editor starts with empty data and no selection.
+
+## Deletion
+
+Call `deleteSelected()` or use the demo's **Delete** button after selecting a
+line or polygon. Delete/Backspace also remove the selection while the map canvas
+is focused. Modified, repeated, composing, or already-prevented key events are
+ignored, as are shortcuts in inputs and other elements. With no selection, the
+API returns `null` without notifications or rendering updates; keyboard events
+are left untouched.
+
+```ts
+const unsubscribe = editor.onDelete((feature) => {
+  console.log('Deleted:', feature.id, feature.geometry.type);
+  // Persist the deletion using your application's own backend.
+});
+
+// Select through a map click, or editor.select(aKnownFeatureId), then:
+const removed = editor.deleteSelected(); // GeometryFeature | null
+// Call unsubscribe() when this observer is no longer needed.
+```
+
+The core removes exactly the selected feature and clears selection atomically.
+Remaining IDs, coordinates, properties, and insertion order stay unchanged.
+The controller clears the highlight, updates the committed source, calls
+`onDelete`, then calls `onChange`. Inside a deletion callback, exports and
+selection already reflect the deletion. Each observer and the return value own
+independent snapshots. Observer exceptions follow the same asynchronous error
+reporting policy as creation callbacks; they cannot roll back the deletion or
+prevent later listeners from running. Repeating deletion after selection has
+cleared is a no-op.
+
+Deleting through the API during drawing throws without changing the draft or
+stored features; Delete/Backspace during drawing are ignored. Escape continues
+to cancel the draft. After destruction, deleting or subscribing throws. Destroy
+and map removal are lifecycle cleanup and do not emit deletion events.
+
+MapLibre updates asynchronously, so a deleted outline may remain visible briefly.
+The controller ignores stale rendered IDs absent from the core; a click cannot
+reselect a deleted feature. A style replacement restores only surviving data.
+
+Deletion is immediate and in-memory. It does not contact a backend, ask for
+confirmation, or offer undo yet. Applications can place their own confirmation
+before calling `deleteSelected()` if their workflow needs it. Retaining a removed
+snapshot does not currently provide restoration; import/history are later steps.
 
 ## Polygon contract
 
@@ -141,7 +187,8 @@ The existing `LineEditor` remains available as a small facade around the same
 engine: `startLine()` forwards to `draw('LineString')`, with line-only return and
 event types. New integrations should use `GeometryEditor` for both shape types.
 There is no second implementation of drawing behind the facade.
-The facade also supports `select(id | null)` and a line-only `getSelected()`.
+The facade also supports `select(id | null)`, line-only `getSelected()` and
+`deleteSelected()` return types, and line-only `onDelete` callbacks.
 
 The editor does not extend MapLibre's prototype or attach custom methods to
 `map`. Using `map.flyTo(...)` for the camera and `editor.draw(...)` for geometry
@@ -162,7 +209,9 @@ per added vertex. Incrementally drawing all n vertices therefore has O(n³)
 total validation work. Validity is cached for state reads and finishing;
 pointer motion does not run topology checks. Preview work is O(n) per rendered
 frame and coalesced with requestAnimationFrame. Draft and committed data have
-separate sources; a commit currently replaces the entire committed source.
+separate sources; creation and deletion currently replace the entire committed
+source. Deletion uses an indexed removal in the core, but the following export
+and upload still scale with all remaining features and vertices.
 
 Committed features are stored in insertion order in an ID-indexed Map. Selection
 lookup does not scan the collection, and a selected snapshot copies only that
@@ -173,5 +222,5 @@ events, and exports never contain that rendering property. See MapLibre's
 [query and feature-state API](https://maplibre.org/maplibre-gl-js/docs/API/classes/Map/).
 
 The repeatable [benchmarks](performance.md) characterize core validation and
-selection. Large-dataset rendering, interaction latency, memory, touch input, and
+selection and deletion/export. Large-dataset rendering, interaction latency, memory, touch input, and
 other browser engines still require measurement before production-scale claims.

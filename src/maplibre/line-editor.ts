@@ -25,12 +25,21 @@ export class LineEditor {
     return feature && isLine(feature) ? feature : null;
   }
 
+  deleteSelected(): LineFeature | null {
+    const feature = this.editor.deleteSelected();
+    return feature && isLine(feature) ? feature : null;
+  }
+
   exportGeoJSON(): LineCollection {
     return { type: 'FeatureCollection', features: this.editor.exportGeoJSON().features.filter(isLine) };
   }
 
   onCreate(listener: (feature: LineFeature) => void): () => void {
     return this.editor.onCreate((feature) => { if (isLine(feature)) listener(feature); });
+  }
+
+  onDelete(listener: (feature: LineFeature) => void): () => void {
+    return this.editor.onDelete((feature) => { if (isLine(feature)) listener(feature); });
   }
 
   onChange(listener: (state: EditorState) => void): () => void {

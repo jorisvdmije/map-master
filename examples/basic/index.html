@@ -9,7 +9,7 @@
   <body>
     <header class="header">
       <a class="brand" href="/" aria-label="geo home"><span class="brand-mark">g.</span>geo<span class="brand-divider"></span><span class="brand-caption">Drawing playground</span></a>
-      <span class="milestone"><span class="dot"></span> Milestone 04 <span class="milestone-label">/ Draw + select</span></span>
+      <span class="milestone"><span class="dot"></span> Milestone 05 <span class="milestone-label">/ Draw · select · delete</span></span>
     </header>
     <main class="workspace">
       <aside class="sidebar" aria-label="Drawing tools">
@@ -33,12 +33,15 @@
         <div id="status" class="status" role="status">Loading the map…</div>
         <section id="selection" class="selection-card" aria-label="Selected geometry" hidden>
           <div><strong id="selection-type"></strong><span id="selection-detail"></span></div>
-          <button id="deselect" class="button secondary" disabled>Deselect</button>
+          <div class="selection-actions">
+            <button id="deselect" class="button secondary" disabled>Deselect</button>
+            <button id="delete-selected" class="button danger" aria-label="Delete selected shape" aria-keyshortcuts="Delete Backspace" disabled>Delete <kbd aria-hidden="true">del</kbd></button>
+          </div>
         </section>
         <section class="instructions" aria-label="Instructions">
           <h2>MAKE YOUR MARK</h2>
           <ol><li><span>1</span>Click the map to place points.</li><li><span>2</span>Move your mouse to preview the shape.</li><li><span>3</span><span class="instruction-text" id="finish-instruction">Press Enter to save your line.</span></li></ol>
-          <p>Drag to pan. Scroll to zoom.<br />When finished, click a shape to select it.<br />Escape cancels drawing or clears selection.</p>
+          <p>Drag to pan. Scroll to zoom.<br />Click a shape to select it; Delete removes it.<br />Escape cancels drawing or clears selection.</p>
         </section>
         <section class="data-section" aria-label="Drawing data">
           <div class="section-heading"><h2>YOUR GEOMETRY</h2><span id="feature-count" class="count">0 features</span></div>

@@ -59,8 +59,10 @@ See the [MapLibre documentation](https://maplibre.org/maplibre-gl-js/docs/).
 | `getState()` | Return a snapshot with `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `canFinish`, and `validationError`. |
 | `select(id \| null)` | Select one committed line while idle, or clear selection. |
 | `getSelected()` | Independent `LineFeature` snapshot, or `null`. |
+| `deleteSelected()` | Delete the selected line while idle; return a `LineFeature` snapshot, or `null` with no selection. |
 | `exportGeoJSON()` | Return an independent `LineCollection` snapshot of committed features. |
 | `onCreate(listener)` | Subscribe to committed feature creation; return an unsubscribe function. |
+| `onDelete(listener)` | Subscribe to committed line deletion; receive a `LineFeature` snapshot and return an unsubscribe function. |
 | `onChange(listener)` | Subscribe to editing-state changes; return an unsubscribe function. Read initial state with `getState()`. |
 | `destroy()` | Cancel the draft, restore gestures/cursor, remove owned layers, sources and listeners. Safe to call repeatedly. |
 
@@ -69,7 +71,7 @@ TypeScript types. Export coordinates use `[longitude, latitude]` decimal degrees
 Every committed line gets a UUID and empty properties. Mutating returned objects
 does not change the editor, and each creation listener receives its own snapshot.
 
-After destruction, data snapshots remain readable; drawing and subscribing throw
+After destruction, data snapshots remain readable; drawing, deleting, selecting, and subscribing throw
 an error. A new editor starts with an empty collection. Export before destroying
 if the host needs to retain data; import is not implemented yet.
 
@@ -92,6 +94,9 @@ to the map's `error` event for worker or rendering errors.
 - Replacing the map style recreates the editor's layers and restores its data.
 - While idle, clicking a line selects it. Empty space or focused Escape clears
   selection. See the shared [selection contract](geometry-editor.md#selection).
+- Delete/Backspace remove the selected line only with canvas focus. See the
+  shared [deletion contract](geometry-editor.md#deletion), including no-selection
+  behavior and the absence of undo in this milestone.
 
 ## Scope and performance
 
@@ -103,7 +108,7 @@ remain stable for the lifetime of stored features; the application owns saving.
 Committed features and the draft use separate GeoJSON sources. Pointer movement
 updates only the draft and is coalesced to one update per animation frame. The
 browser tests verify that moving the pointer does not rewrite committed data.
-Completing a line currently replaces the committed source; large-dataset
+Completing or deleting a line currently replaces the committed source; large-dataset
 performance is not yet characterized.
 
 The production demo includes the MapLibre renderer and worker, so its size is

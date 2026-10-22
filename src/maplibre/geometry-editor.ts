@@ -11,6 +11,7 @@ export class GeometryEditor {
   private readonly canvas: HTMLCanvasElement;
   private readonly view: Window;
   private readonly createListeners = new Set<(feature: GeometryFeature) => void>();
+  private readonly deleteListeners = new Set<(feature: GeometryFeature) => void>();
   private readonly changeListeners = new Set<(state: EditorState) => void>();
   private cursor: Coordinate | undefined;
   private frame: number | undefined;
@@ -59,6 +60,20 @@ export class GeometryEditor {
     return this.session.getSelected();
   }
 
+  /** Delete the selected feature and return its snapshot, or null if nothing is selected. */
+  deleteSelected(): GeometryFeature | null {
+    this.assertAlive();
+    const feature = this.session.deleteSelected();
+    if (!feature) return null;
+    this.renderer.renderSelection(null);
+    this.renderer.renderCommitted(this.exportGeoJSON());
+    for (const listener of this.deleteListeners) {
+      this.notify(() => listener(structuredClone(feature)));
+    }
+    this.emitChange();
+    return feature;
+  }
+
   /** Start drawing. Finish/cancel the current draft before changing geometry type. */
   draw(kind: GeometryType): void {
     this.assertAlive();
@@ -105,6 +120,12 @@ export class GeometryEditor {
     return () => { this.createListeners.delete(listener); };
   }
 
+  onDelete(listener: (feature: GeometryFeature) => void): () => void {
+    this.assertAlive();
+    this.deleteListeners.add(listener);
+    return () => { this.deleteListeners.delete(listener); };
+  }
+
   onChange(listener: (state: EditorState) => void): () => void {
     this.assertAlive();
     this.changeListeners.add(listener);
@@ -141,7 +162,9 @@ export class GeometryEditor {
     if (input.button !== 0
       || input.ctrlKey || input.metaKey || input.altKey || input.shiftKey || input.detail > 1) return;
     if (state.mode === 'idle') {
-      this.select(this.renderer.pick(event.point));
+      const id = this.renderer.pick(event.point);
+      // MapLibre may still show a deleted feature until its asynchronous source update finishes.
+      if (id === null || this.session.hasFeature(id)) this.select(id);
       return;
     }
     // Closing tolerance is in CSS pixels, independent of map zoom.
@@ -177,9 +200,11 @@ export class GeometryEditor {
       || event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey
     ) return;
     if (this.session.state.mode === 'idle') {
-      if (event.key === 'Escape' && this.session.state.selectedFeatureId !== null) {
+      if (this.session.state.selectedFeatureId !== null
+        && (event.key === 'Escape' || event.key === 'Delete' || event.key === 'Backspace')) {
         event.preventDefault();
-        this.select(null);
+        if (event.key === 'Escape') this.select(null);
+        else this.deleteSelected();
       }
       return;
     }
@@ -239,6 +264,7 @@ export class GeometryEditor {
     this.map.off('remove', this.handleMapRemove);
     this.canvas.removeEventListener('keydown', this.handleKey);
     this.createListeners.clear();
+    this.deleteListeners.clear();
     this.changeListeners.clear();
     editors.delete(this.map);
     if (removeResources) this.renderer.destroy();

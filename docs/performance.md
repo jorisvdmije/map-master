@@ -60,3 +60,28 @@ Browser tests separately verify that selecting/deselecting never calls `setData`
 on the committed source, and that highlighting survives style replacement.
 Actual hit-query latency, rendering time, event listeners, memory, and complex
 selected geometries need browser benchmarks before setting scale guarantees.
+
+## Deletion and export
+
+Run `npm run benchmark:deletion`. It uses the same fixed two-vertex line fixtures
+as the selection benchmark: 10, 1,000, and 10,000 features. Every sample starts
+with a fresh session and its middle feature selected. The timer measures deletion
+plus export of all survivors, reflecting the core work before a renderer update.
+Fixture creation/selection, assertions, events, rendering-property mapping, and
+MapLibre processing are excluded. Each size gets 10 warmups and 50 timed samples.
+
+Local baseline on 2026-10-22: Apple M2 Pro, macOS arm64, Node.js 22.23.1.
+
+| Stored features before deletion | Median delete + export (ms) | p95 (ms) |
+| --- | ---: | ---: |
+| 10 | 0.003 | 0.004 |
+| 1,000 | 0.064 | 0.383 |
+| 10,000 | 1.904 | 2.853 |
+
+Removing the ID uses the core Map index; copying the removed snapshot scales
+with its vertices. Export then copies all surviving geometries. The current
+renderer replaces the committed source once per successful deletion, just as
+it does after creation. Large datasets may benefit from incremental source
+updates later; these core numbers do not measure browser responsiveness or
+guarantee a supported dataset size. Repeat the same fixtures on the same machine
+for future comparisons; no earlier deletion baseline or CI threshold exists.

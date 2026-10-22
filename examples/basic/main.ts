@@ -23,6 +23,7 @@ const output = element<HTMLTextAreaElement>('output');
 const status = element('status');
 const selection = element('selection');
 const deselect = element<HTMLButtonElement>('deselect');
+const deleteSelected = element<HTMLButtonElement>('delete-selected');
 let editor: GeometryEditor | undefined;
 let selected: GeometryType = 'LineString';
 const validationMessages: Record<Exclude<ValidationError, 'too-few-vertices'>, string> = {
@@ -71,6 +72,7 @@ map.on('load', () => {
     const selectedFeature = activeEditor.getSelected();
     selection.hidden = selectedFeature === null;
     deselect.disabled = selectedFeature === null;
+    deleteSelected.disabled = selectedFeature === null;
     if (selectedFeature) {
       element('selection-type').textContent = selectedFeature.geometry.type === 'Polygon' ? 'Polygon' : 'Line';
       const count = selectedFeature.geometry.type === 'Polygon'
@@ -89,12 +91,12 @@ map.on('load', () => {
     status.classList.toggle('is-invalid', invalid);
     status.textContent = invalid ? validationMessages[error] : drawing
       ? `${state.vertexCount} ${state.vertexCount === 1 ? 'point' : 'points'} placed. ${state.canFinish ? 'Ready to finish.' : `Place at least ${polygon ? 'three corners' : 'two points'}.`}`
-      : selectedFeature ? 'Shape selected. Click empty space or press Escape to deselect.'
+      : selectedFeature ? 'Shape selected. Delete removes it; Escape deselects it.'
         : state.featureCount > 0 ? 'Click a shape to select it, or draw another.' : 'Ready when you are.';
     element('map-hint').textContent = drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
-      : selectedFeature ? 'Shape selected · Click empty space or Esc to deselect'
+      : selectedFeature ? 'Shape selected · Delete to remove · Esc to deselect'
         : state.featureCount > 0 ? 'Click a line or polygon to select it' : 'Your next idea, on the map.';
     element('mode-dot').classList.toggle('drawing', drawing);
     element('mode-dot').classList.toggle('selected', selectedFeature !== null);
@@ -126,6 +128,11 @@ start.addEventListener('click', () => { editor?.draw(selected); });
 finish.addEventListener('click', () => { editor?.finish(); });
 cancel.addEventListener('click', () => { editor?.cancel(); });
 deselect.addEventListener('click', () => { editor?.select(null); });
+deleteSelected.addEventListener('click', () => {
+  if (!editor?.deleteSelected()) return;
+  // The selected card is now hidden; keep keyboard focus on a useful control.
+  start.focus({ preventScroll: true });
+});
 download.addEventListener('click', () => {
   if (!editor) return;
   const blob = new Blob([JSON.stringify(editor.exportGeoJSON(), null, 2)], { type: 'application/geo+json' });

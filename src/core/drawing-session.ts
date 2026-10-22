@@ -99,4 +99,18 @@ export class DrawingSession {
     const feature = this.selectedFeatureId === null ? undefined : this.features.get(this.selectedFeatureId);
     return feature ? copyFeature(feature) : null;
   }
+
+  hasFeature(id: string): boolean {
+    return this.features.has(id);
+  }
+
+  /** Commit deletion of the selection; an idle editor without selection is a no-op. */
+  deleteSelected(): GeometryFeature | null {
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before deleting.');
+    const feature = this.getSelected();
+    if (!feature) return null;
+    this.features.delete(feature.id);
+    this.selectedFeatureId = null;
+    return feature;
+  }
 }

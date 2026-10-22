@@ -25,6 +25,17 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   tool.select(null);
   const selected: editor.GeometryFeature | null = tool.getSelected();
   void selected;
+  const unsubscribe = tool.onDelete((feature) => {
+    const id: string = feature.id;
+    if (feature.geometry.type === 'Polygon') {
+      const rings: editor.Coordinate[][] = feature.geometry.coordinates;
+      void rings;
+    }
+    void id;
+  });
+  const deleted: editor.GeometryFeature | null = tool.deleteSelected();
+  void deleted;
+  unsubscribe();
   const result = tool.exportGeoJSON();
   tool.destroy();
   return result;
@@ -41,6 +52,13 @@ export function integrate(map: Map): editor.LineCollection {
     const type: 'LineString' = feature.geometry.type;
     void [id, type];
   });
+  tool.cancel();
+  tool.onDelete((feature) => {
+    const type: 'LineString' = feature.geometry.type;
+    void type;
+  });
+  const deleted: editor.LineFeature | null = tool.deleteSelected();
+  void deleted;
   const result = tool.exportGeoJSON();
   tool.destroy();
   return result;

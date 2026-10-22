@@ -1,6 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import html from '../../examples/basic/index.html?raw';
+import type { GeometryFeatureCollection } from '../../src/index.js';
 
 it('runs the demo with its real controls and a built package, without a tile service', async () => {
   history.replaceState(null, '', `${location.pathname}?basemap=off`);
@@ -58,6 +59,18 @@ it('runs the demo with its real controls and a built package, without a tile ser
   expect(output?.value).toBe(saved);
 
   // Inspect the actual download payload; avoid leaving a download in the test runner.
+  const mixed = JSON.parse(saved ?? '{}') as GeometryFeatureCollection;
+  await expect.poll(async () => {
+    await userEvent.click(canvas, { position: { x: 260, y: 175 } });
+    return document.querySelector<HTMLElement>('#selection')?.hidden;
+  }).toBe(false);
+  await page.getByRole('button', { name: 'Delete selected shape', exact: true }).click();
+  expect(document.querySelector<HTMLElement>('#selection')?.hidden).toBe(true);
+  expect(document.activeElement).toBe(document.querySelector('#start'));
+  expect(document.querySelector('#feature-count')?.textContent).toBe('1 feature');
+  expect(output?.value).toBe(JSON.stringify({ type: 'FeatureCollection', features: [mixed.features[0]] }, null, 2));
+  saved = output?.value;
+
   const createURL = vi.spyOn(URL, 'createObjectURL');
   const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
   await page.getByRole('button', { name: 'Export GeoJSON' }).click();
@@ -69,4 +82,13 @@ it('runs the demo with its real controls and a built package, without a tile ser
   expect(anchorClick).toHaveBeenCalledOnce();
   createURL.mockRestore();
   anchorClick.mockRestore();
+
+  await expect.poll(async () => {
+    await userEvent.click(canvas, { position: { x: 200, y: 180 } });
+    return document.querySelector<HTMLElement>('#selection')?.hidden;
+  }).toBe(false);
+  await userEvent.keyboard('{Delete}');
+  await expect.element(page.getByRole('button', { name: 'Export GeoJSON' })).toBeDisabled();
+  expect(document.querySelector('#feature-count')?.textContent).toBe('0 features');
+  expect(output?.value).toBe(JSON.stringify({ type: 'FeatureCollection', features: [] }, null, 2));
 });
