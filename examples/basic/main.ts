@@ -21,6 +21,8 @@ const cancel = element<HTMLButtonElement>('cancel');
 const download = element<HTMLButtonElement>('export');
 const output = element<HTMLTextAreaElement>('output');
 const status = element('status');
+const selection = element('selection');
+const deselect = element<HTMLButtonElement>('deselect');
 let editor: GeometryEditor | undefined;
 let selected: GeometryType = 'LineString';
 const validationMessages: Record<Exclude<ValidationError, 'too-few-vertices'>, string> = {
@@ -66,6 +68,16 @@ map.on('load', () => {
     const drawing = state.mode !== 'idle';
     const polygon = selected === 'Polygon';
     const error = state.validationError;
+    const selectedFeature = activeEditor.getSelected();
+    selection.hidden = selectedFeature === null;
+    deselect.disabled = selectedFeature === null;
+    if (selectedFeature) {
+      element('selection-type').textContent = selectedFeature.geometry.type === 'Polygon' ? 'Polygon' : 'Line';
+      const count = selectedFeature.geometry.type === 'Polygon'
+        ? (selectedFeature.geometry.coordinates[0]?.length ?? 1) - 1
+        : selectedFeature.geometry.coordinates.length;
+      element('selection-detail').textContent = `${count} ${selectedFeature.geometry.type === 'Polygon' ? 'corners' : 'points'}`;
+    }
     start.disabled = drawing;
     lineTool.disabled = drawing;
     polygonTool.disabled = drawing;
@@ -77,12 +89,15 @@ map.on('load', () => {
     status.classList.toggle('is-invalid', invalid);
     status.textContent = invalid ? validationMessages[error] : drawing
       ? `${state.vertexCount} ${state.vertexCount === 1 ? 'point' : 'points'} placed. ${state.canFinish ? 'Ready to finish.' : `Place at least ${polygon ? 'three corners' : 'two points'}.`}`
-      : 'Ready when you are.';
+      : selectedFeature ? 'Shape selected. Click empty space or press Escape to deselect.'
+        : state.featureCount > 0 ? 'Click a shape to select it, or draw another.' : 'Ready when you are.';
     element('map-hint').textContent = drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
-      : 'Your next idea, on the map.';
+      : selectedFeature ? 'Shape selected · Click empty space or Esc to deselect'
+        : state.featureCount > 0 ? 'Click a line or polygon to select it' : 'Your next idea, on the map.';
     element('mode-dot').classList.toggle('drawing', drawing);
+    element('mode-dot').classList.toggle('selected', selectedFeature !== null);
     if (exportedCount !== state.featureCount) {
       output.value = JSON.stringify(activeEditor.exportGeoJSON(), null, 2);
       exportedCount = state.featureCount;
@@ -110,6 +125,7 @@ polygonTool.addEventListener('click', () => { selectTool('Polygon'); });
 start.addEventListener('click', () => { editor?.draw(selected); });
 finish.addEventListener('click', () => { editor?.finish(); });
 cancel.addEventListener('click', () => { editor?.cancel(); });
+deselect.addEventListener('click', () => { editor?.select(null); });
 download.addEventListener('click', () => {
   if (!editor) return;
   const blob = new Blob([JSON.stringify(editor.exportGeoJSON(), null, 2)], { type: 'application/geo+json' });

@@ -39,6 +39,11 @@ h1 { font-size: 34px; font-weight: 500; letter-spacing: -1.5px; line-height: 1.1
 kbd { border: 1px solid #d3dacd; border-radius: 3px; font-family: inherit; font-size: 9px; padding: 0 4px; font-weight: 400; }
 .status { font-size: 10px; line-height: 1.5; color: #6b7a6b; margin-top: 13px; min-height: 30px; }
 .status.is-invalid { color: #a8412a; }
+.selection-card { border: 1px solid #b9cdf7; background: #edf3ff; border-radius: 8px; padding: 10px 12px; gap: 12px; align-items: center; margin-bottom: 8px; }
+.selection-card:not([hidden]) { display: flex; }
+.selection-card strong { color: #2458b3; font-size: 12px; display: block; }
+.selection-card span { font-size: 10px; color: #647a9c; display: block; margin-top: 3px; }
+.selection-card .button { margin-left: auto; flex: none; padding: 0 10px; color: #2458b3; border-color: #b9cdf7; }
 .instructions { padding: 24px 0 18px; border-top: 1px solid #e0e5da; margin-top: 12px; }
 .instructions ol { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 13px; }
 .instructions li { display: flex; gap: 10px; align-items: flex-start; color: #677765; font-size: 11px; line-height: 1.6; }
@@ -61,6 +66,7 @@ textarea { width: 100%; height: 140px; margin-top: 12px; resize: vertical; borde
 .location-label div span { display: block; margin-top: 4px; font-size: 8px; letter-spacing: 1.5px; color: #99a38e; }
 .map-hint { position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); background: #ffffffee; color: #677761; border: 1px solid #ffffff; border-radius: 25px; padding: 12px 18px; display: flex; align-items: center; gap: 9px; font-size: 10px; white-space: nowrap; pointer-events: none; box-shadow: 0 3px 15px #29463412; }
 .drawing { background: #df772e; }
+.selected { background: #2563eb; }
 .map-caption { position: absolute; bottom: 20px; left: 25px; font-family: monospace; font-size: 9px; color: #6c7d6b; pointer-events: none; }
 .maplibregl-ctrl-top-right { top: 14px; right: 14px; }
 .maplibregl-ctrl-group { border-radius: 7px; overflow: hidden; box-shadow: 0 2px 10px #29463415 !important; }

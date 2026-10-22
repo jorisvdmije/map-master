@@ -6,9 +6,10 @@ A TypeScript library in development for drawing and editing geometry on web maps
 
 ## Status
 
-Line and polygon drawing are implemented: preview, validate, finish or cancel,
-and export committed features together as GeoJSON through one GeometryEditor API.
-The API is experimental. Selection, deletion, vertex editing, import, and undo/redo
+Line and polygon drawing and single-feature selection are implemented: preview,
+validate, finish or cancel, select/deselect, and export committed features together
+as GeoJSON through one GeometryEditor API.
+The API is experimental. Deletion, vertex editing, import, and undo/redo
 are planned. Code and contributor documentation use English.
 
 ## Try the demo
@@ -24,6 +25,9 @@ discard the current draft. Choose **Polygon** for an outline with at least three
 corners; Enter, Finish, or clicking the first corner closes a valid ring.
 **Export GeoJSON** downloads committed lines and polygons only.
 The map can still be dragged and zoomed while drawing.
+When idle, click a line or polygon to select it in blue. Click empty space, press
+Escape with map focus, or choose **Deselect** to clear selection. Selection never
+changes the exported geometry.
 
 The demo uses OpenStreetMap tiles with attribution. Tiles are optional and load
 after drawing is ready; use <http://localhost:5173/?basemap=off> for a demo with no
@@ -55,6 +59,7 @@ npm run check
 | `npm run test:browser` | Build the package and run real Chromium interaction and demo tests. |
 | `npm run build:demo` | Build the library and a deployable demo in `examples/basic/dist/`. |
 | `npm run benchmark:polygon` | Measure validation on fixed polygon fixtures; see [baseline and limits](docs/performance.md). |
+| `npm run benchmark:selection` | Measure core ID lookup and selected snapshots on fixed datasets. |
 | `npm run check` | Run all type checks, linting, tests, and the production demo build. |
 | `npm pack` | Build and create a local installable archive. |
 

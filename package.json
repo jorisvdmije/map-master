@@ -33,7 +33,8 @@
     "test:browser": "npm run build && vitest run --config vitest.browser.config.ts",
     "dev": "npm run build && vite",
     "build:demo": "npm run build && vite build",
-    "benchmark:polygon": "npm run build && node scripts/benchmark-polygon.mjs"
+    "benchmark:polygon": "npm run build && node scripts/benchmark-polygon.mjs",
+    "benchmark:selection": "npm run build && node scripts/benchmark-selection.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

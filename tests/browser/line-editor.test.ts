@@ -202,7 +202,7 @@ describe('MapLibre line editor in Chromium', () => {
     map.setStyle(style(), { diff: false });
     await loaded;
     expect(editor.exportGeoJSON()).toEqual(committed);
-    await expect.poll(() => source('-features').getData()).toEqual(committed);
+    await expect.poll(() => source('-features').getData()).toMatchObject(committed);
   });
 
   it('isolates event snapshots and allows unsubscribing', async () => {

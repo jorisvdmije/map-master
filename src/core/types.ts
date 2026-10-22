@@ -35,6 +35,8 @@ export interface EditorState {
   mode: 'idle' | 'draw-line' | 'draw-polygon';
   vertexCount: number;
   featureCount: number;
+  /** UI selection only; never serialized into GeoJSON. */
+  selectedFeatureId: string | null;
   canFinish: boolean;
   /** Why the clicked draft cannot be committed; null when valid or idle. */
   validationError: ValidationError | null;

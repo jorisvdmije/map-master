@@ -37,6 +37,16 @@ it('runs the demo with its real controls and a built package, without a tile ser
   expect(output?.value).toContain('LineString');
   saved = output?.value;
 
+  // Select a polygon interior away from the existing line, then use the UI to clear it.
+  await expect.poll(async () => {
+    await userEvent.click(canvas, { position: { x: 260, y: 175 } });
+    return document.querySelector<HTMLElement>('#selection')?.hidden;
+  }).toBe(false);
+  expect(document.querySelector('#selection-type')?.textContent).toBe('Polygon');
+  expect(output?.value).toBe(saved);
+  await page.getByRole('button', { name: 'Deselect', exact: true }).click();
+  expect(document.querySelector<HTMLElement>('#selection')?.hidden).toBe(true);
+
   await page.getByRole('button', { name: 'Draw a polygon' }).click();
   await userEvent.click(canvas, { position: { x: 150, y: 150 } });
   await userEvent.click(canvas, { position: { x: 350, y: 350 } });

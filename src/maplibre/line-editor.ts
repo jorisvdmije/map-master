@@ -14,6 +14,11 @@ export class LineEditor {
   cancel(): void { this.editor.cancel(); }
   destroy(): void { this.editor.destroy(); }
   getState(): EditorState { return this.editor.getState(); }
+  select(id: string | null): void { this.editor.select(id); }
+  getSelected(): LineFeature | null {
+    const feature = this.editor.getSelected();
+    return feature && isLine(feature) ? feature : null;
+  }
 
   finish(): LineFeature | null {
     const feature = this.editor.finish();

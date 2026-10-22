@@ -46,10 +46,24 @@ export class GeometryEditor {
     return this.session.state;
   }
 
+  /** Select one committed feature, or pass null to clear selection. */
+  select(id: string | null): void {
+    this.assertAlive();
+    if (!this.session.select(id)) return;
+    this.renderer.renderSelection(id);
+    this.emitChange();
+  }
+
+  /** An independent snapshot of the selected feature, or null. */
+  getSelected(): GeometryFeature | null {
+    return this.session.getSelected();
+  }
+
   /** Start drawing. Finish/cancel the current draft before changing geometry type. */
   draw(kind: GeometryType): void {
     this.assertAlive();
     if (!this.session.start(kind)) return;
+    this.renderer.renderSelection(null);
     this.previousCursor = this.canvas.style.cursor;
     this.canvas.style.cursor = 'crosshair';
     this.restoreDoubleClickZoom = this.map.doubleClickZoom.isEnabled();
@@ -124,8 +138,12 @@ export class GeometryEditor {
   private readonly handleClick = (event: MapMouseEvent): void => {
     const input = event.originalEvent;
     const state = this.session.state;
-    if (state.mode === 'idle' || input.button !== 0
+    if (input.button !== 0
       || input.ctrlKey || input.metaKey || input.altKey || input.shiftKey || input.detail > 1) return;
+    if (state.mode === 'idle') {
+      this.select(this.renderer.pick(event.point));
+      return;
+    }
     // Closing tolerance is in CSS pixels, independent of map zoom.
     if (state.mode === 'draw-polygon' && state.vertexCount >= 3) {
       const first = this.session.getDraft()[0];
@@ -157,7 +175,14 @@ export class GeometryEditor {
   private readonly handleKey = (event: KeyboardEvent): void => {
     if (event.target !== this.canvas || event.defaultPrevented || event.isComposing
       || event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey
-      || this.session.state.mode === 'idle') return;
+    ) return;
+    if (this.session.state.mode === 'idle') {
+      if (event.key === 'Escape' && this.session.state.selectedFeatureId !== null) {
+        event.preventDefault();
+        this.select(null);
+      }
+      return;
+    }
     if (event.key === 'Enter' || event.key === 'Escape') {
       event.preventDefault();
       if (event.key === 'Enter') this.finish();
@@ -168,6 +193,7 @@ export class GeometryEditor {
   private readonly handleStyleLoad = (): void => {
     this.renderer.mount();
     this.renderer.renderCommitted(this.exportGeoJSON());
+    this.renderer.renderSelection(this.session.state.selectedFeatureId);
     this.schedulePreview();
   };
 
@@ -196,6 +222,7 @@ export class GeometryEditor {
     if (this.destroyed) return;
     this.destroyed = true;
     const wasDrawing = this.session.cancel();
+    this.session.select(null);
     if (this.frame !== undefined) this.view.cancelAnimationFrame(this.frame);
     this.frame = undefined;
     if (wasDrawing) {

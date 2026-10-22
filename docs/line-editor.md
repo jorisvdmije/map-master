@@ -56,7 +56,9 @@ See the [MapLibre documentation](https://maplibre.org/maplibre-gl-js/docs/).
 | `startLine()` | Activate drawing and focus the map canvas. Calling it again preserves the active draft. |
 | `finish()` | Commit clicked positions and return a `LineFeature`; return `null` if there are fewer than two distinct positions. |
 | `cancel()` | Discard only the current draft. Existing features remain intact. |
-| `getState()` | Return a snapshot with `mode`, `vertexCount`, `featureCount`, `canFinish`, and `validationError`. |
+| `getState()` | Return a snapshot with `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `canFinish`, and `validationError`. |
+| `select(id \| null)` | Select one committed line while idle, or clear selection. |
+| `getSelected()` | Independent `LineFeature` snapshot, or `null`. |
 | `exportGeoJSON()` | Return an independent `LineCollection` snapshot of committed features. |
 | `onCreate(listener)` | Subscribe to committed feature creation; return an unsubscribe function. |
 | `onChange(listener)` | Subscribe to editing-state changes; return an unsubscribe function. Read initial state with `getState()`. |
@@ -88,6 +90,8 @@ to the map's `error` event for worker or rendering errors.
 - Finishing, cancelling, or destroying restores the previous cursor and
   double-click zoom setting. The editor owns those two settings while drawing.
 - Replacing the map style recreates the editor's layers and restores its data.
+- While idle, clicking a line selects it. Empty space or focused Escape clears
+  selection. See the shared [selection contract](geometry-editor.md#selection).
 
 ## Scope and performance
 

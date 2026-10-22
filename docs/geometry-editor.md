@@ -2,7 +2,7 @@
 
 Status: experimental. Supports 2D LineString and single-outer-ring Polygon
 features on a flat Mercator MapLibre GL JS 6.15 map. Desktop mouse and keyboard
-input is tested in Chromium. Holes, multipart features, import, selection,
+input and single-feature selection are tested in Chromium. Holes, multipart features, import,
 deletion, and vertex editing are not implemented yet.
 
 ## One editor API
@@ -46,7 +46,9 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `draw('LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
 | `finish()` | Commit a valid draft once, returning a `GeometryFeature`. An invalid/incomplete draft returns `null` and remains active. |
 | `cancel()` | Discard only the draft. |
-| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `canFinish`, `validationError`. |
+| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `canFinish`, `validationError`. |
+| `select(id \| null)` | Select a committed feature by ID, or clear selection with `null`. Available only while idle. |
+| `getSelected()` | Independent snapshot of the selected feature, or `null`. |
 | `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed lines and polygons. |
 | `onCreate(listener)` | One event per committed feature, with an independent snapshot per listener. Returns an unsubscribe function. |
 | `onChange(listener)` | Editing-state notification after state changes. Read the initial state with `getState()`. Returns an unsubscribe function. |
@@ -65,7 +67,47 @@ an idle editor cannot finish even though it has no validation error.
 Callbacks run synchronously. Exceptions are reported asynchronously without
 interrupting a commit or other observers. MapLibre renders committed data
 asynchronously; listen to the map's `error` event for rendering failures.
-After destruction, snapshots remain readable; drawing/subscribing throw.
+After destruction, exports remain readable and selection is cleared;
+drawing, selecting, and subscribing throw.
+
+## Selection
+
+While idle, a plain left click selects one visible committed feature. Clicking
+empty space clears selection. Lines and polygon outlines have a query box
+extending 6 CSS pixels on each side of the pointer, independent of zoom. Outline
+hits take priority over polygon interiors; among hits in the same layer, the
+topmost rendered feature wins. There is no overlap cycling or multiselection yet.
+Host layers and draft geometry are excluded from picking.
+
+The selected outline turns blue and thicker; polygon fill also turns blue.
+Escape clears selection when the canvas is focused. Modified clicks/shortcuts
+and drag gestures do not change selection. No separate selection mode is needed.
+
+```ts
+// `editor` is an existing GeometryEditor instance, currently idle.
+editor.onChange((state) => {
+  console.log('Selection:', state.selectedFeatureId);
+});
+const first = editor.exportGeoJSON().features[0];
+if (first) editor.select(first.id);
+const selected = editor.getSelected(); // GeometryFeature | null
+editor.select(null);
+```
+
+Selection emits `onChange` only when the selected ID changes. Selecting the same
+ID again is a no-op. It does not emit `onCreate`, rewrite geometry, change IDs or
+properties, or add selection metadata to exports. Use creation/committed-change
+events for persistence; `onChange` also represents transient UI state.
+
+An unknown ID throws `RangeError` and preserves the previous selection. Selecting
+anything, including `null`, during drawing throws without changing the draft.
+Starting a drawing clears selection; finish/cancel return to idle with nothing
+selected. Programmatic selection does not move the camera or take keyboard focus,
+and can select a stored offscreen feature. Click selection requires the feature
+to have been rendered; MapLibre source updates are asynchronous.
+
+Selection survives style replacement. Destroying the editor clears selection
+without emitting callbacks; a new editor starts with empty data and no selection.
 
 ## Polygon contract
 
@@ -99,6 +141,7 @@ The existing `LineEditor` remains available as a small facade around the same
 engine: `startLine()` forwards to `draw('LineString')`, with line-only return and
 event types. New integrations should use `GeometryEditor` for both shape types.
 There is no second implementation of drawing behind the facade.
+The facade also supports `select(id | null)` and a line-only `getSelected()`.
 
 The editor does not extend MapLibre's prototype or attach custom methods to
 `map`. Using `map.flyTo(...)` for the camera and `editor.draw(...)` for geometry
@@ -121,6 +164,14 @@ pointer motion does not run topology checks. Preview work is O(n) per rendered
 frame and coalesced with requestAnimationFrame. Draft and committed data have
 separate sources; a commit currently replaces the entire committed source.
 
-The repeatable [validation benchmark](performance.md) characterizes only the core
-algorithm. Large-dataset rendering, interaction latency, memory, touch input, and
+Committed features are stored in insertion order in an ID-indexed Map. Selection
+lookup does not scan the collection, and a selected snapshot copies only that
+feature. Selection rendering uses MapLibre feature state rather than `setData`.
+The renderer adds a private `__geo_editor_id` property to its own data and uses
+`promoteId` so string UUIDs survive the vector-tile pipeline. The core, public
+events, and exports never contain that rendering property. See MapLibre's
+[query and feature-state API](https://maplibre.org/maplibre-gl-js/docs/API/classes/Map/).
+
+The repeatable [benchmarks](performance.md) characterize core validation and
+selection. Large-dataset rendering, interaction latency, memory, touch input, and
 other browser engines still require measurement before production-scale claims.

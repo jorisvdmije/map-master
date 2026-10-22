@@ -16,11 +16,15 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   });
   tool.onChange((state) => {
     const error: editor.ValidationError | null = state.validationError;
-    void error;
+    const selectedId: string | null = state.selectedFeatureId;
+    void [error, selectedId];
   });
   // @ts-expect-error unsupported geometry must be rejected by the public types
   tool.draw('Circle');
   tool.cancel();
+  tool.select(null);
+  const selected: editor.GeometryFeature | null = tool.getSelected();
+  void selected;
   const result = tool.exportGeoJSON();
   tool.destroy();
   return result;
@@ -30,6 +34,8 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
 export function integrate(map: Map): editor.LineCollection {
   const tool = new editor.LineEditor(map);
   tool.startLine();
+  const selected: editor.LineFeature | null = tool.getSelected();
+  void selected;
   tool.onCreate((feature) => {
     const id: string = feature.id;
     const type: 'LineString' = feature.geometry.type;

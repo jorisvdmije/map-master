@@ -15,7 +15,8 @@ function copyFeature(feature: GeometryFeature): GeometryFeature {
 export class DrawingSession {
   private kind: GeometryType | null = null;
   private draft: Coordinate[] = [];
-  private features: GeometryFeature[] = [];
+  private readonly features = new Map<string, GeometryFeature>();
+  private selectedFeatureId: string | null = null;
   private validationError: ValidationError | null = null;
 
   constructor(private readonly createId: () => string) {}
@@ -24,7 +25,8 @@ export class DrawingSession {
     return {
       mode: this.kind === null ? 'idle' : this.kind === 'LineString' ? 'draw-line' : 'draw-polygon',
       vertexCount: this.draft.length,
-      featureCount: this.features.length,
+      featureCount: this.features.size,
+      selectedFeatureId: this.selectedFeatureId,
       canFinish: this.kind !== null && this.validationError === null,
       validationError: this.validationError,
     };
@@ -35,6 +37,7 @@ export class DrawingSession {
     if (this.kind === kind) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before changing tools.');
     this.kind = kind;
+    this.selectedFeatureId = null;
     this.validationError = 'too-few-vertices';
     return true;
   }
@@ -64,7 +67,7 @@ export class DrawingSession {
     const feature: GeometryFeature = this.kind === 'Polygon'
       ? { ...common, geometry: { type: 'Polygon', coordinates: [closePolygon(this.draft)] } }
       : { ...common, geometry: { type: 'LineString', coordinates: this.draft } };
-    this.features.push(feature);
+    this.features.set(feature.id, feature);
     this.draft = [];
     this.kind = null;
     this.validationError = null;
@@ -80,6 +83,20 @@ export class DrawingSession {
   }
 
   exportGeoJSON(): GeometryFeatureCollection {
-    return { type: 'FeatureCollection', features: this.features.map(copyFeature) };
+    return { type: 'FeatureCollection', features: Array.from(this.features.values(), copyFeature) };
+  }
+
+  /** Selection is separate from feature data and available only outside drawing. */
+  select(id: string | null): boolean {
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before selecting.');
+    if (id !== null && !this.features.has(id)) throw new RangeError(`Unknown feature ID: ${id}`);
+    if (id === this.selectedFeatureId) return false;
+    this.selectedFeatureId = id;
+    return true;
+  }
+
+  getSelected(): GeometryFeature | null {
+    const feature = this.selectedFeatureId === null ? undefined : this.features.get(this.selectedFeatureId);
+    return feature ? copyFeature(feature) : null;
   }
 }
