@@ -24,6 +24,8 @@ const status = element('status');
 const selection = element('selection');
 const deselect = element<HTMLButtonElement>('deselect');
 const deleteSelected = element<HTMLButtonElement>('delete-selected');
+const editSelected = element<HTMLButtonElement>('edit-selected');
+const removeVertex = element<HTMLButtonElement>('remove-vertex');
 let editor: GeometryEditor | undefined;
 let selected: GeometryType = 'LineString';
 const validationMessages: Record<Exclude<ValidationError, 'too-few-vertices'>, string> = {
@@ -63,19 +65,28 @@ map.on('error', () => {
 map.on('load', () => {
   editor = new GeometryEditor(map);
   const activeEditor = editor;
-  let exportedCount = -1;
+  let exportedRevision = -1;
   const update = (): void => {
     const state = activeEditor.getState();
     const drawing = state.mode !== 'idle';
+    const editing = state.mode.startsWith('edit-');
     const polygon = selected === 'Polygon';
     const error = state.validationError;
     const selectedFeature = activeEditor.getSelected();
     selection.hidden = selectedFeature === null;
-    deselect.disabled = selectedFeature === null;
-    deleteSelected.disabled = selectedFeature === null;
+    deselect.disabled = selectedFeature === null || editing;
+    deleteSelected.disabled = selectedFeature === null || editing;
+    editSelected.disabled = selectedFeature === null || editing;
+    element('editing-tools').hidden = !editing;
+    element('finish-label').textContent = editing ? 'Save' : 'Finish';
+    element('drawing-instructions').hidden = editing;
+    removeVertex.disabled = !editing || state.selectedVertexIndex === null
+      || state.vertexCount <= (state.mode === 'edit-polygon' ? 3 : 2);
+    element('vertex-status').textContent = state.selectedVertexIndex === null
+      ? 'Click a corner to select it.' : `Corner ${state.selectedVertexIndex + 1} of ${state.vertexCount} selected.`;
     if (selectedFeature) {
       element('selection-type').textContent = selectedFeature.geometry.type === 'Polygon' ? 'Polygon' : 'Line';
-      const count = selectedFeature.geometry.type === 'Polygon'
+      const count = editing ? state.vertexCount : selectedFeature.geometry.type === 'Polygon'
         ? (selectedFeature.geometry.coordinates[0]?.length ?? 1) - 1
         : selectedFeature.geometry.coordinates.length;
       element('selection-detail').textContent = `${count} ${selectedFeature.geometry.type === 'Polygon' ? 'corners' : 'points'}`;
@@ -89,20 +100,23 @@ map.on('load', () => {
     element('feature-count').textContent = `${state.featureCount} ${state.featureCount === 1 ? 'feature' : 'features'}`;
     const invalid = error !== null && error !== 'too-few-vertices';
     status.classList.toggle('is-invalid', invalid);
-    status.textContent = invalid ? validationMessages[error] : drawing
+    status.textContent = invalid ? editing && error === 'duplicate-vertex'
+      ? 'Two corners coincide. Move or remove a corner.' : validationMessages[error]
+      : editing ? `${state.vertexCount} corners. Save to apply changes, or Cancel to restore the original.` : drawing
       ? `${state.vertexCount} ${state.vertexCount === 1 ? 'point' : 'points'} placed. ${state.canFinish ? 'Ready to finish.' : `Place at least ${polygon ? 'three corners' : 'two points'}.`}`
-      : selectedFeature ? 'Shape selected. Delete removes it; Escape deselects it.'
+      : selectedFeature ? 'Shape selected. Edit its corners, delete it, or deselect it.'
         : state.featureCount > 0 ? 'Click a shape to select it, or draw another.' : 'Ready when you are.';
-    element('map-hint').textContent = drawing
+    element('map-hint').textContent = editing ? 'Drag corners · Click small points to add · Enter to save'
+      : drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
-      : selectedFeature ? 'Shape selected · Delete to remove · Esc to deselect'
+      : selectedFeature ? 'Shape selected · Edit vertices to reshape · Esc to deselect'
         : state.featureCount > 0 ? 'Click a line or polygon to select it' : 'Your next idea, on the map.';
     element('mode-dot').classList.toggle('drawing', drawing);
     element('mode-dot').classList.toggle('selected', selectedFeature !== null);
-    if (exportedCount !== state.featureCount) {
+    if (exportedRevision !== state.dataRevision) {
       output.value = JSON.stringify(activeEditor.exportGeoJSON(), null, 2);
-      exportedCount = state.featureCount;
+      exportedRevision = state.dataRevision;
     }
   };
   activeEditor.onChange(update);
@@ -128,6 +142,11 @@ start.addEventListener('click', () => { editor?.draw(selected); });
 finish.addEventListener('click', () => { editor?.finish(); });
 cancel.addEventListener('click', () => { editor?.cancel(); });
 deselect.addEventListener('click', () => { editor?.select(null); });
+editSelected.addEventListener('click', () => { editor?.editSelected(); });
+removeVertex.addEventListener('click', () => {
+  const index = editor?.getState().selectedVertexIndex;
+  if (index !== undefined && index !== null) editor?.removeVertex(index);
+});
 deleteSelected.addEventListener('click', () => {
   if (!editor?.deleteSelected()) return;
   // The selected card is now hidden; keep keyboard focus on a useful control.

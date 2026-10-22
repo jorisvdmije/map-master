@@ -48,6 +48,9 @@ kbd { border: 1px solid #d3dacd; border-radius: 3px; font-family: inherit; font-
 .selection-actions .secondary { color: #2458b3; border-color: #b9cdf7; }
 .danger { background: #fff4f1; border-color: #e5b8aa; color: #9d3820; }
 .danger:not(:disabled):hover { background: #ffe5dc; }
+.editing-tools { border-top: 1px solid #e0e5da; margin-top: 12px; padding: 20px 0; }
+.editing-tools p { color: #677765; font-size: 11px; line-height: 1.6; }
+.editing-tools .button { width: 100%; }
 .instructions { padding: 24px 0 18px; border-top: 1px solid #e0e5da; margin-top: 12px; }
 .instructions ol { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 13px; }
 .instructions li { display: flex; gap: 10px; align-items: flex-start; color: #677765; font-size: 11px; line-height: 1.6; }

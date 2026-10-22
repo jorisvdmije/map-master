@@ -1,13 +1,14 @@
 import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
 import { samePosition } from '../core/polygon.js';
 import type { Coordinate, EditorState, GeometryFeatureCollection } from '../core/types.js';
+import { vertexHandles } from './vertex-handles.js';
 
 const emptyCollection = () => ({ type: 'FeatureCollection' as const, features: [] });
 // String UUIDs need promoteId to survive MapLibre's numeric vector-tile IDs.
 // This property exists only in render data; the core/export never receives it.
 const renderIdProperty = '__geo_editor_id';
 type PreviewFeature = {
-  type: 'Feature'; properties: Record<string, never>;
+  type: 'Feature'; properties: { kind?: 'vertex' | 'midpoint'; active?: boolean };
   geometry: { type: 'Point'; coordinates: Coordinate }
     | { type: 'LineString'; coordinates: Coordinate[] }
     | { type: 'Polygon'; coordinates: Coordinate[][] };
@@ -19,28 +20,34 @@ export class MapLibreRenderer {
   private readonly draftId: string;
   private readonly layers: LayerSpecification[];
   private selectedFeatureId: string | null = null;
+  private editingFeatureId: string | null = null;
 
   constructor(private readonly map: MapLibreMap, namespace: string) {
     this.featuresId = `${namespace}-features`;
     this.draftId = `${namespace}-draft`;
     const selected: ExpressionSpecification = ['boolean', ['feature-state', 'selected'], false];
     const color: ExpressionSpecification = ['case', selected, '#2563eb', '#116b5b'];
+    const editing: ExpressionSpecification = ['boolean', ['feature-state', 'editing'], false];
     this.layers = [
       { id: `${namespace}-fill`, type: 'fill', source: this.featuresId,
         filter: ['==', '$type', 'Polygon'],
-        paint: { 'fill-color': color, 'fill-opacity': ['case', selected, 0.3, 0.18] } },
+        paint: { 'fill-color': color, 'fill-opacity': ['case', editing, 0, selected, 0.3, 0.18] } },
       { id: this.featuresId, type: 'line', source: this.featuresId,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': color, 'line-width': ['case', selected, 6, 4] } },
+        paint: { 'line-color': color, 'line-width': ['case', selected, 6, 4], 'line-opacity': ['case', editing, 0, 1] } },
       { id: `${namespace}-draft-fill`, type: 'fill', source: this.draftId,
         filter: ['==', '$type', 'Polygon'],
         paint: { 'fill-color': '#df772e', 'fill-opacity': 0.12 } },
       { id: this.draftId, type: 'line', source: this.draftId,
         filter: ['in', '$type', 'LineString', 'Polygon'],
         paint: { 'line-color': '#df772e', 'line-width': 3, 'line-dasharray': [2, 1.5] } },
+      { id: `${namespace}-midpoints`, type: 'circle', source: this.draftId,
+        filter: ['==', 'kind', 'midpoint'],
+        paint: { 'circle-radius': 4, 'circle-color': '#fff', 'circle-stroke-color': '#df772e', 'circle-stroke-width': 1 } },
       { id: `${namespace}-vertices`, type: 'circle', source: this.draftId,
-        filter: ['==', '$type', 'Point'],
-        paint: { 'circle-radius': 5, 'circle-color': '#fff',
+        filter: ['==', 'kind', 'vertex'],
+        paint: { 'circle-radius': ['case', ['boolean', ['get', 'active'], false], 7, 5],
+          'circle-color': ['case', ['boolean', ['get', 'active'], false], '#df772e', '#fff'],
           'circle-stroke-color': '#df772e', 'circle-stroke-width': 2 } },
     ];
   }
@@ -77,6 +84,15 @@ export class MapLibreRenderer {
     this.selectedFeatureId = id;
   }
 
+  /** Hide only the committed version of the feature being previewed as an edit. */
+  renderEditing(id: string | null): void {
+    if (this.map.getSource(this.featuresId)) {
+      if (this.editingFeatureId !== null) this.map.removeFeatureState({ source: this.featuresId, id: this.editingFeatureId }, 'editing');
+      if (id !== null) this.map.setFeatureState({ source: this.featuresId, id }, { editing: true });
+    }
+    this.editingFeatureId = id;
+  }
+
   /** Prefer outlines near the pointer, then polygon interiors, in rendered order. */
   pick({ x, y }: { x: number; y: number }): string | null {
     const fillId = this.layers[0]!.id;
@@ -89,13 +105,18 @@ export class MapLibreRenderer {
   }
 
   renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState): void {
-    const features: PreviewFeature[] = coordinates.map((position) => ({
-      type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: position },
+    const editing = state.mode.startsWith('edit-');
+    const polygon = state.mode === 'draw-polygon' || state.mode === 'edit-polygon';
+    const handles = editing ? vertexHandles(this.map, coordinates, polygon)
+      : coordinates.map((coordinate, index) => ({ kind: 'vertex' as const, index, coordinate }));
+    const features: PreviewFeature[] = handles.map((handle) => ({
+      type: 'Feature', properties: { kind: handle.kind, active: editing && handle.kind === 'vertex' && handle.index === state.selectedVertexIndex },
+      geometry: { type: 'Point', coordinates: handle.coordinate },
     }));
     const last = coordinates.at(-1);
-    if (last && cursor && !samePosition(last, cursor)) coordinates.push(cursor);
+    if (!editing && last && cursor && !samePosition(last, cursor)) coordinates.push(cursor);
     const first = coordinates[0];
-    if (state.mode === 'draw-polygon' && first && coordinates.length >= 3) {
+    if (polygon && first && coordinates.length >= 3) {
       if (!samePosition(first, coordinates.at(-1)!)) coordinates.push([...first]);
       features.push({ type: 'Feature', properties: {},
         geometry: { type: 'Polygon', coordinates: [coordinates] } });

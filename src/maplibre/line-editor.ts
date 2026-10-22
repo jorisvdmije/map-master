@@ -1,5 +1,5 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import type { EditorState, GeometryFeature, LineCollection, LineFeature } from '../core/types.js';
+import type { Coordinate, EditorState, GeometryFeature, LineCollection, LineFeature } from '../core/types.js';
 import { GeometryEditor } from './geometry-editor.js';
 
 const isLine = (feature: GeometryFeature): feature is LineFeature => feature.geometry.type === 'LineString';
@@ -15,6 +15,12 @@ export class LineEditor {
   destroy(): void { this.editor.destroy(); }
   getState(): EditorState { return this.editor.getState(); }
   select(id: string | null): void { this.editor.select(id); }
+  editSelected(): boolean { return this.editor.editSelected(); }
+  getDraft(): Coordinate[] { return this.editor.getDraft(); }
+  selectVertex(index: number | null): void { this.editor.selectVertex(index); }
+  moveVertex(index: number, coordinate: Coordinate): void { this.editor.moveVertex(index, coordinate); }
+  insertVertex(index: number, coordinate: Coordinate): void { this.editor.insertVertex(index, coordinate); }
+  removeVertex(index: number): boolean { return this.editor.removeVertex(index); }
   getSelected(): LineFeature | null {
     const feature = this.editor.getSelected();
     return feature && isLine(feature) ? feature : null;
@@ -40,6 +46,10 @@ export class LineEditor {
 
   onDelete(listener: (feature: LineFeature) => void): () => void {
     return this.editor.onDelete((feature) => { if (isLine(feature)) listener(feature); });
+  }
+
+  onUpdate(listener: (feature: LineFeature) => void): () => void {
+    return this.editor.onUpdate((feature) => { if (isLine(feature)) listener(feature); });
   }
 
   onChange(listener: (state: EditorState) => void): () => void {

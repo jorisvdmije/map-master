@@ -6,11 +6,10 @@ A TypeScript library in development for drawing and editing geometry on web maps
 
 ## Status
 
-Line and polygon drawing, single-feature selection, and deletion are implemented:
-preview, validate, finish or cancel, select/deselect, delete, and export committed features together
+Line and polygon drawing, single-feature selection, deletion, and vertex editing are implemented:
+preview, validate, finish or cancel, select/deselect, delete, move/insert/remove vertices, and export committed features together
 as GeoJSON through one GeometryEditor API.
-The API is experimental. Vertex editing, import, and undo/redo
-are planned. Code and contributor documentation use English.
+The API is experimental. Import and undo/redo are planned. Code and contributor documentation use English.
 
 ## Try the demo
 
@@ -30,6 +29,11 @@ Escape with map focus, or choose **Deselect** to clear selection. Selection neve
 changes the exported geometry.
 To remove the selected shape, use **Delete** or press Delete/Backspace with map
 focus. Remaining geometry stays intact. Deletion has no undo in this milestone.
+
+Select a shape and choose **Edit vertices**. Drag a corner to move it, click a
+small midpoint to insert one, and use **Remove vertex** or Delete/Backspace to
+remove the selected corner. **Save** or Enter commits valid changes; **Cancel**
+or Escape restores the original. Export keeps the saved version during editing.
 
 The demo uses OpenStreetMap tiles with attribution. Tiles are optional and load
 after drawing is ready; use <http://localhost:5173/?basemap=off> for a demo with no
@@ -63,6 +67,7 @@ npm run check
 | `npm run benchmark:polygon` | Measure validation on fixed polygon fixtures; see [baseline and limits](docs/performance.md). |
 | `npm run benchmark:selection` | Measure core ID lookup and selected snapshots on fixed datasets. |
 | `npm run benchmark:deletion` | Measure one core deletion plus export of all surviving features. |
+| `npm run benchmark:editing` | Measure moving one corner of fixed polygon drafts. |
 | `npm run check` | Run all type checks, linting, tests, and the production demo build. |
 | `npm pack` | Build and create a local installable archive. |
 

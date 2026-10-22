@@ -24,8 +24,8 @@ not CI thresholds or supported dataset guarantees.
 
 The validator is O(n²) per added corner. Drawing all n corners incrementally
 does O(n³) total validation work; a future import must validate each complete
-ring once instead of replaying every click. Pointer motion uses cached validity
-and does not invoke the validator. For much larger rings, incremental checks or
+ring once instead of replaying every click. Drawing pointer motion uses cached validity and does not invoke the validator.
+Moving a corner in an edit does validate the changed draft. For much larger rings, incremental checks or
 an intersection index need evaluation against this baseline.
 
 This benchmark does not measure MapLibre rendering, input-to-preview latency,
@@ -85,3 +85,25 @@ it does after creation. Large datasets may benefit from incremental source
 updates later; these core numbers do not measure browser responsiveness or
 guarantee a supported dataset size. Repeat the same fixtures on the same machine
 for future comparisons; no earlier deletion baseline or CI threshold exists.
+
+## Core vertex movement
+
+Run `npm run benchmark:editing`. Fixed regular polygons have 10, 100, or 1,000
+corners centered at `[4.895, 52.372]` with radius 0.01 degrees. Setup is excluded;
+each sample moves the first corner between its original position and a position
+0.0001 degrees farther east. The timer includes draft mutation and validation.
+There are 20 warmups and 50 samples per size, with validity checked after timing.
+
+Local baseline on 2026-10-22: Apple M2 Pro, macOS arm64, Node.js 22.23.1.
+
+| Corners | Median move + validation (ms) | p95 (ms) |
+| --- | ---: | ---: |
+| 10 | 0.013 | 0.040 |
+| 100 | 0.107 | 0.130 |
+| 1,000 | 7.777 | 10.574 |
+
+This is the first edit baseline; it uses the same ring family as validation.
+Pointer moves are coalesced per animation frame, but validation is still O(n²).
+These figures exclude handles, previews, UI callbacks, and MapLibre rendering;
+they are not frame-rate guarantees. Export and the committed source are unchanged
+during dragging; saving a changed edit uploads the full collection once.

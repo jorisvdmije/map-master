@@ -2,16 +2,19 @@ import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { DrawingSession } from '../core/drawing-session.js';
 import type { Coordinate, EditorState, GeometryFeatureCollection, GeometryFeature, GeometryType } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
+import { VertexInteraction } from './vertex-interaction.js';
 
 const editors = new WeakSet<MapLibreMap>();
 /** Public drawing API. MapLibre input and rendering stay behind this boundary. */
 export class GeometryEditor {
   private readonly session: DrawingSession;
   private readonly renderer: MapLibreRenderer;
+  private readonly vertices: VertexInteraction;
   private readonly canvas: HTMLCanvasElement;
   private readonly view: Window;
   private readonly createListeners = new Set<(feature: GeometryFeature) => void>();
   private readonly deleteListeners = new Set<(feature: GeometryFeature) => void>();
+  private readonly updateListeners = new Set<(feature: GeometryFeature) => void>();
   private readonly changeListeners = new Set<(state: EditorState) => void>();
   private cursor: Coordinate | undefined;
   private frame: number | undefined;
@@ -34,10 +37,18 @@ export class GeometryEditor {
     this.session = new DrawingSession(() => view.crypto.randomUUID());
     this.renderer = new MapLibreRenderer(map, `geo-editor-${view.crypto.randomUUID()}`);
     this.renderer.mount();
+    this.vertices = new VertexInteraction(map, {
+      state: () => this.session.state, draft: () => this.session.getDraft(),
+      select: (index) => { this.draftChanged(this.session.selectVertex(index)); },
+      move: (index, coordinate) => { this.draftChanged(this.session.moveVertex(index, coordinate)); },
+      insert: (index, coordinate) => { this.draftChanged(this.session.insertVertex(index, coordinate)); },
+      remove: (index) => { this.draftChanged(this.session.removeVertex(index)); },
+    });
     editors.add(map);
     map.on('click', this.handleClick);
     map.on('mousemove', this.handleMove);
     map.on('mouseout', this.handleLeave);
+    map.on('move', this.handleCameraMove);
     map.on('style.load', this.handleStyleLoad);
     map.on('remove', this.handleMapRemove);
     this.canvas.addEventListener('keydown', this.handleKey);
@@ -60,6 +71,40 @@ export class GeometryEditor {
     return this.session.getSelected();
   }
 
+  getDraft(): Coordinate[] { return this.session.getDraft(); }
+
+  /** Begin a cancellable edit of the selected feature; false with no selection/already editing. */
+  editSelected(): boolean {
+    this.assertAlive();
+    if (!this.session.editSelected()) return false;
+    this.renderer.renderEditing(this.session.state.selectedFeatureId);
+    this.enterInteraction();
+    this.schedulePreview();
+    return true;
+  }
+
+  selectVertex(index: number | null): void {
+    this.assertAlive(); this.vertices.stop();
+    this.draftChanged(this.session.selectVertex(index));
+  }
+
+  moveVertex(index: number, coordinate: Coordinate): void {
+    this.assertAlive(); this.vertices.stop();
+    this.draftChanged(this.session.moveVertex(index, coordinate));
+  }
+
+  insertVertex(index: number, coordinate: Coordinate): void {
+    this.assertAlive(); this.vertices.stop();
+    this.draftChanged(this.session.insertVertex(index, coordinate));
+  }
+
+  removeVertex(index: number): boolean {
+    this.assertAlive(); this.vertices.stop();
+    const changed = this.session.removeVertex(index);
+    this.draftChanged(changed);
+    return changed;
+  }
+
   /** Delete the selected feature and return its snapshot, or null if nothing is selected. */
   deleteSelected(): GeometryFeature | null {
     this.assertAlive();
@@ -79,6 +124,10 @@ export class GeometryEditor {
     this.assertAlive();
     if (!this.session.start(kind)) return;
     this.renderer.renderSelection(null);
+    this.enterInteraction();
+  }
+
+  private enterInteraction(): void {
     this.previousCursor = this.canvas.style.cursor;
     this.canvas.style.cursor = 'crosshair';
     this.restoreDoubleClickZoom = this.map.doubleClickZoom.isEnabled();
@@ -90,13 +139,18 @@ export class GeometryEditor {
   /** Commit a valid draft; otherwise return null and keep drawing active. */
   finish(): GeometryFeature | null {
     this.assertAlive();
+    this.vertices.stop();
+    const before = this.session.state;
     const feature = this.session.finish();
     if (!feature) return null;
     this.leaveDrawing();
-    this.renderer.renderCommitted(this.exportGeoJSON());
-    for (const listener of this.createListeners) {
-      // Each listener owns its snapshot; it cannot mutate state or another listener's data.
-      this.notify(() => listener(structuredClone(feature)));
+    if (this.session.state.dataRevision !== before.dataRevision) {
+      this.renderer.renderCommitted(this.exportGeoJSON());
+      const listeners = before.mode.startsWith('edit-') ? this.updateListeners : this.createListeners;
+      for (const listener of listeners) {
+        // Each listener owns its snapshot; it cannot mutate state or another listener's data.
+        this.notify(() => listener(structuredClone(feature)));
+      }
     }
     this.emitChange();
     return feature;
@@ -104,6 +158,7 @@ export class GeometryEditor {
 
   cancel(): void {
     this.assertAlive();
+    this.vertices.stop(true);
     if (!this.session.cancel()) return;
     this.leaveDrawing();
     this.emitChange();
@@ -124,6 +179,12 @@ export class GeometryEditor {
     this.assertAlive();
     this.deleteListeners.add(listener);
     return () => { this.deleteListeners.delete(listener); };
+  }
+
+  onUpdate(listener: (feature: GeometryFeature) => void): () => void {
+    this.assertAlive();
+    this.updateListeners.add(listener);
+    return () => { this.updateListeners.delete(listener); };
   }
 
   onChange(listener: (state: EditorState) => void): () => void {
@@ -156,11 +217,18 @@ export class GeometryEditor {
     }
   }
 
+  private draftChanged(changed: boolean): void {
+    if (!changed || this.destroyed) return;
+    this.schedulePreview();
+    this.emitChange();
+  }
+
   private readonly handleClick = (event: MapMouseEvent): void => {
     const input = event.originalEvent;
     const state = this.session.state;
     if (input.button !== 0
       || input.ctrlKey || input.metaKey || input.altKey || input.shiftKey || input.detail > 1) return;
+    if (state.mode.startsWith('edit-')) return;
     if (state.mode === 'idle') {
       const id = this.renderer.pick(event.point);
       // MapLibre may still show a deleted feature until its asynchronous source update finishes.
@@ -183,14 +251,14 @@ export class GeometryEditor {
   };
 
   private readonly handleMove = (event: MapMouseEvent): void => {
-    if (this.session.state.mode === 'idle') return;
+    if (!this.session.state.mode.startsWith('draw-')) return;
     const { lng, lat } = event.lngLat.wrap();
     this.cursor = [lng, lat];
     this.schedulePreview();
   };
 
   private readonly handleLeave = (): void => {
-    if (this.session.state.mode === 'idle') return;
+    if (!this.session.state.mode.startsWith('draw-')) return;
     this.cursor = undefined;
     this.schedulePreview();
   };
@@ -208,6 +276,11 @@ export class GeometryEditor {
       }
       return;
     }
+    if (this.session.state.mode.startsWith('edit-') && (event.key === 'Delete' || event.key === 'Backspace')) {
+      const index = this.session.state.selectedVertexIndex;
+      if (index !== null) { event.preventDefault(); this.removeVertex(index); }
+      return;
+    }
     if (event.key === 'Enter' || event.key === 'Escape') {
       event.preventDefault();
       if (event.key === 'Enter') this.finish();
@@ -216,13 +289,19 @@ export class GeometryEditor {
   };
 
   private readonly handleStyleLoad = (): void => {
+    this.vertices.stop(true);
     this.renderer.mount();
     this.renderer.renderCommitted(this.exportGeoJSON());
     this.renderer.renderSelection(this.session.state.selectedFeatureId);
+    this.renderer.renderEditing(this.session.state.mode.startsWith('edit-') ? this.session.state.selectedFeatureId : null);
     this.schedulePreview();
   };
 
   private readonly handleMapRemove = (): void => { this.dispose(false); };
+
+  private readonly handleCameraMove = (): void => {
+    if (this.session.state.mode.startsWith('edit-')) this.schedulePreview();
+  };
 
   private schedulePreview(): void {
     if (this.frame !== undefined) return;
@@ -241,11 +320,13 @@ export class GeometryEditor {
     else this.map.doubleClickZoom.disable();
     this.restoreDoubleClickZoom = false;
     this.renderer.clearPreview();
+    this.renderer.renderEditing(null);
   }
 
   private dispose(removeResources: boolean): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.vertices.destroy(removeResources);
     const wasDrawing = this.session.cancel();
     this.session.select(null);
     if (this.frame !== undefined) this.view.cancelAnimationFrame(this.frame);
@@ -260,11 +341,13 @@ export class GeometryEditor {
     this.map.off('click', this.handleClick);
     this.map.off('mousemove', this.handleMove);
     this.map.off('mouseout', this.handleLeave);
+    this.map.off('move', this.handleCameraMove);
     this.map.off('style.load', this.handleStyleLoad);
     this.map.off('remove', this.handleMapRemove);
     this.canvas.removeEventListener('keydown', this.handleKey);
     this.createListeners.clear();
     this.deleteListeners.clear();
+    this.updateListeners.clear();
     this.changeListeners.clear();
     editors.delete(this.map);
     if (removeResources) this.renderer.destroy();

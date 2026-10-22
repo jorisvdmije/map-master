@@ -9,11 +9,13 @@ src/
   index.ts                   Public classes and TypeScript types
   core/
     types.ts                 Coordinates, features, modes, validation diagnostics
-    drawing-session.ts       Draft, features indexed by ID, selection, create/delete/export
+    drawing-session.ts       Draft, features indexed by ID, selection, create/edit/delete/export
     polygon.ts               Ring validity, closure, exterior winding
   maplibre/
     geometry-editor.ts       Public API, map input, events, gesture/lifecycle cleanup
     renderer.ts              Sources/layers, picking, selection styling, draft vertices
+    vertex-interaction.ts    Pointer capture, vertex gestures, cancellation
+    vertex-handles.ts        Shared screen-space corner/midpoint definitions
     line-editor.ts           Compatibility facade for the earlier line-only API
 examples/basic/              Consumer UI; calls the same API as another app would
 tests/                       Core behavior and isolated packed-package integration
@@ -87,8 +89,12 @@ resources. It rebuilds them on style changes. A WeakSet prevents competing
 editors on one map while independent maps remain supported. A map removal also
 disposes its editor; explicit destroy is safe to repeat.
 
-Future editing and history should extend the editor API
-and core commit behavior. Application code should not have to learn which
+Editing copies the selected feature into the draft. Vertex operations change
+only that draft; finish replaces the stored geometry while keeping its ID and
+properties. The controller emits onUpdate only when dataRevision changed. Cancel
+discards the draft, so there is no stored geometry to reconstruct.
+
+Future history should extend the editor API and core commit behavior. Application code should not have to learn which
 MapLibre source holds a selected feature. Avoid creating one wrapper method for
 every MapLibre camera or basemap operation: those operations already belong to
 the host's map API.

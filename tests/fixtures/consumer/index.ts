@@ -25,6 +25,15 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   tool.select(null);
   const selected: editor.GeometryFeature | null = tool.getSelected();
   void selected;
+  tool.editSelected();
+  const draft: editor.Coordinate[] = tool.getDraft();
+  tool.selectVertex(0);
+  tool.moveVertex(0, [4.9, 52.3]);
+  tool.insertVertex(1, [4.91, 52.31]);
+  const removedVertex: boolean = tool.removeVertex(1);
+  tool.onUpdate((feature) => { const id: string = feature.id; void id; });
+  tool.cancel();
+  void [draft, removedVertex];
   const unsubscribe = tool.onDelete((feature) => {
     const id: string = feature.id;
     if (feature.geometry.type === 'Polygon') {

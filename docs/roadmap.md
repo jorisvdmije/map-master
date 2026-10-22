@@ -1,6 +1,6 @@
 # Incremental roadmap
 
-Steps 0–5 have been implemented locally; subsequent steps are planned. The
+Steps 0–6 have been implemented locally; subsequent steps are planned. The
 workflow still needs a GitHub remote to run in hosted CI. Each row describes
 a reviewable change or a milestone that can be split further when needed. Create
 each branch from updated `main` after its dependencies have merged.
@@ -13,7 +13,7 @@ each branch from updated `main` after its dependencies have merged.
 | 3 | `feat/draw-polygon` | Implemented: unified GeometryEditor API, single outer ring, automatic closure/CCW winding, explicit validity policy, mixed export, demo, and core/browser/package tests. See the [API guide](geometry-editor.md). Holes are deferred. |
 | 4 | `feat/select-feature` | Implemented: click/API selection, blue highlight, empty-space/Escape/API deselection, zoom-independent click margin, explicit overlap policy, style restoration, unchanged exports, and core/browser/package tests. |
 | 5 | `feat/delete-feature` | Implemented: deleteSelected/onDelete API, Delete control and focused Delete/Backspace, atomic selection cleanup, unchanged survivors, stale-hit protection, updated export, and core/browser/package tests. Undo is deferred. |
-| 6 | `feat/edit-vertices` | Move, insert, and remove vertices while preserving IDs and valid geometry. Cancel restores the geometry from before the interaction. |
+| 6 | `feat/edit-vertices` | Implemented: cancellable vertex editing, move/insert/remove via API and mouse, stable IDs, validity checks, onUpdate, gesture cleanup, and core/browser/package/demo tests. |
 | 7 | `feat/import-geojson` | Import supported features, preserve IDs/properties, reject invalid data without partial writes, and test export/import round trips. |
 | 8 | `feat/history` | Undo/redo committed create, edit, and delete actions. One drag is one history entry; cancellation adds none. |
 
@@ -40,8 +40,7 @@ and other gestures behave while drawing, and verify that previous map interactio
 settings are restored after leaving the mode.
 
 The demo now includes line/polygon tools, Start, Finish, Cancel, and Export
-controls, plus click selection, Deselect, and Delete. Vertex editing follows
-in its own change.
+controls, plus click selection, Deselect, Delete, Edit vertices, Remove vertex, and Save.
 
 ## Beta and stable release gates
 

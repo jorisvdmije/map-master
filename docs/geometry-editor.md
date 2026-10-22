@@ -2,8 +2,8 @@
 
 Status: experimental. Supports 2D LineString and single-outer-ring Polygon
 features on a flat Mercator MapLibre GL JS 6.15 map. Desktop mouse and keyboard
-input, single-feature selection, and deletion are tested in Chromium. Holes,
-multipart features, import, undo/redo, and vertex editing are not implemented yet.
+input, selection, deletion, and vertex editing are tested in Chromium. Holes,
+multipart features, import, and undo/redo are not implemented yet.
 
 ## One editor API
 
@@ -46,7 +46,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `draw('LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
 | `finish()` | Commit a valid draft once, returning a `GeometryFeature`. An invalid/incomplete draft returns `null` and remains active. |
 | `cancel()` | Discard only the draft. |
-| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `canFinish`, `validationError`. |
+| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedVertexIndex`, `dataRevision`, `canFinish`, `validationError`. |
 | `select(id \| null)` | Select a committed feature by ID, or clear selection with `null`. Available only while idle. |
 | `getSelected()` | Independent snapshot of the selected feature, or `null`. |
 | `deleteSelected()` | Delete the selected committed feature and clear selection. Return its independent snapshot, or `null` with no selection. Available only while idle. |
@@ -62,7 +62,7 @@ is a GeoJSON FeatureCollection containing both shape types. Each feature has a U
 empty properties, and `[longitude, latitude]` coordinates. Imports and editable
 properties will be introduced with explicit policies in later milestones.
 
-Modes are `idle`, `draw-line`, and `draw-polygon`. `validationError` is `null`
+Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, and `edit-polygon`. `validationError` is `null`
 when idle or when the current draft is valid. Check `canFinish` to enable Finish;
 an idle editor cannot finish even though it has no validation error.
 
@@ -98,7 +98,7 @@ editor.select(null);
 
 Selection emits `onChange` only when the selected ID changes. Selecting the same
 ID again is a no-op. It does not emit `onCreate`, rewrite geometry, change IDs or
-properties, or add selection metadata to exports. Use `onCreate` and `onDelete`
+properties, or add selection metadata to exports. Use `onCreate`, `onUpdate`, and `onDelete`
 for persistence; `onChange` also represents transient UI state.
 
 An unknown ID throws `RangeError` and preserves the previous selection. Selecting
@@ -155,6 +155,48 @@ confirmation, or offer undo yet. Applications can place their own confirmation
 before calling `deleteSelected()` if their workflow needs it. Retaining a removed
 snapshot does not currently provide restoration; import/history are later steps.
 
+## Vertex editing
+
+Select a feature and call `editSelected()` to begin an independent editing draft.
+It returns false with no selection or when already editing, and throws during drawing.
+The selected ID stays selected after saving or cancelling. `getSelected()` and
+`exportGeoJSON()` continue returning the saved version until a valid `finish()`.
+
+```ts
+editor.select(featureId);
+editor.editSelected();
+editor.moveVertex(0, [4.895, 52.373]);
+editor.insertVertex(1, [4.896, 52.374]);
+editor.removeVertex(1);
+editor.finish(); // Or editor.cancel() to discard the entire edit.
+```
+
+`getDraft()` returns copied coordinates without a polygon's closing duplicate.
+`selectVertex(index | null)` selects a draft corner. Indexes are zero-based;
+`insertVertex(index, coordinate)` inserts before that index, with `vertexCount`
+allowed for appending (the closing edge for polygons). Invalid indexes or
+coordinates throw without changing the draft. Vertex commands require editing.
+`removeVertex(index)` returns false at the minimum of two line points or three
+polygon corners; otherwise it removes the corner and clears vertex selection.
+
+Drag a large handle to move a corner, or click/drag a small midpoint to insert
+one. Delete/Backspace removes the selected corner only while the map has focus.
+Enter/Save commits; Escape/Cancel discards. Invalid intermediate shapes stay
+visible but cannot be saved. Coincident consecutive line points and invalid
+polygon topology are rejected. A saved polygon is closed and wound CCW.
+
+`onUpdate(listener)` fires once for a changed saved geometry, with the same ID
+and properties. It returns an unsubscribe function. Cancel and unchanged saves
+emit no update; edits never emit creation or deletion events. `dataRevision`
+increases only for committed data changes, so UI exports can avoid work during
+pointer motion. `onChange` also reports transient draft and selection changes.
+
+Dragging temporarily disables pan and restores its previous setting. Pointer
+cancellation or window blur rolls back that gesture; Cancel discards the full
+session. Style replacement preserves the edit and recreates overlays; destroy
+cancels it and removes listeners/handles without emitting an update. Desktop
+mouse input is supported; touch editing is deferred.
+
 ## Polygon contract
 
 - At least three distinct, non-collinear corners, with finite world-bounded
@@ -168,8 +210,7 @@ snapshot does not currently provide restoration; import/history are later steps.
 - Checks use planar longitude/latitude segments. An edge with longitude change
   greater than 180 degrees is rejected. Dateline splitting, polar geometry,
   terrain/globe, and alternate projections are outside the supported scope.
-- Invalid drafts remain visible but cannot be committed. Add more points where
-  appropriate, or cancel and redraw. Moving/removing draft vertices comes later.
+- Invalid drafts remain visible but cannot be committed. Add more points while drawing, move/remove corners while editing, or cancel.
 
 Errors are `too-few-vertices`, `zero-area`, `duplicate-vertex`,
 `self-intersection`, and `antimeridian-crossing`. The first detected error is
@@ -207,7 +248,9 @@ workflow are our own implementation. MapLibre remains a host-supplied peer.
 Polygon validation compares edge pairs: O(n²) for a draft with n corners, once
 per added vertex. Incrementally drawing all n vertices therefore has O(n³)
 total validation work. Validity is cached for state reads and finishing;
-pointer motion does not run topology checks. Preview work is O(n) per rendered
+drawing pointer motion does not run topology checks. Editing validates changed
+positions, coalesced to at most one move per animation frame; large rings can
+therefore exceed an interactive frame budget. Preview work is O(n) per rendered
 frame and coalesced with requestAnimationFrame. Draft and committed data have
 separate sources; creation and deletion currently replace the entire committed
 source. Deletion uses an indexed removal in the core, but the following export
