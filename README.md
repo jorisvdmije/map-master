@@ -6,7 +6,7 @@ A TypeScript library in development for drawing and editing geometry on web maps
 
 ## Status
 
-Line and polygon drawing, single-feature selection, deletion, vertex editing, GeoJSON import, and undo/redo are implemented:
+Line and polygon drawing, single-feature selection, deletion, vertex editing, GeoJSON import, undo/redo, and drawing snapping are implemented:
 preview, validate, finish or cancel, select/deselect, delete, move/insert/remove vertices, and export committed features together
 as GeoJSON through one GeometryEditor API.
 The API is experimental. Code and contributor documentation use English.
@@ -24,6 +24,11 @@ discard the current draft. Choose **Polygon** for an outline with at least three
 corners; Enter, Finish, or clicking the first corner closes a valid ring.
 **Export GeoJSON** downloads committed lines and polygons only.
 The map can still be dragged and zoomed while drawing.
+**Snap to vertices & edges** is enabled in the demo: drawing within 18 CSS pixels
+of an existing corner or edge shows a purple indicator and places the point there.
+Corners take priority. Hold **Alt** to draw freely or turn off the checkbox.
+Library integrations opt in with `{ snapping: { enabled: true } }`; see the
+[snapping API](docs/geometry-editor.md#snapping-while-drawing).
 When idle, click a line or polygon to select it in blue. Click empty space, press
 Escape with map focus, or choose **Deselect** to clear selection. Selection never
 changes the exported geometry.
@@ -79,6 +84,7 @@ npm run check
 | `npm run benchmark:editing` | Measure moving one corner of fixed polygon drafts. |
 | `npm run benchmark:import` | Measure atomic imports of fixed line and polygon datasets. |
 | `npm run benchmark:history` | Measure undoing a middle deletion, with and without export. |
+| `npm run benchmark:snapping` | Measure projected index building and nearby-point queries on fixed polygon grids. |
 | `npm run check` | Run all type checks, linting, tests, and the production demo build. |
 | `npm pack` | Build and create a local installable archive. |
 

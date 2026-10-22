@@ -20,6 +20,7 @@ const finish = element<HTMLButtonElement>('finish');
 const cancel = element<HTMLButtonElement>('cancel');
 const undo = element<HTMLButtonElement>('undo');
 const redo = element<HTMLButtonElement>('redo');
+const snapping = element<HTMLInputElement>('snapping');
 const download = element<HTMLButtonElement>('export');
 const importFile = element<HTMLInputElement>('import-file');
 const importStatus = element('import-status');
@@ -68,11 +69,14 @@ map.on('error', () => {
 });
 
 map.on('load', () => {
-  editor = new GeometryEditor(map);
+  editor = new GeometryEditor(map, { snapping: { enabled: true } });
   const activeEditor = editor;
   let exportedRevision = -1;
   const update = (): void => {
     const state = activeEditor.getState();
+    snapping.disabled = state.mode.startsWith('edit-');
+    snapping.checked = activeEditor.getSnapping().enabled;
+    updateSnapStatus();
     const drawing = state.mode !== 'idle';
     const editing = state.mode.startsWith('edit-');
     const polygon = selected === 'Polygon';
@@ -127,6 +131,13 @@ map.on('load', () => {
       exportedRevision = state.dataRevision;
     }
   };
+  const updateSnapStatus = (): void => {
+    const snap = activeEditor.getSnap();
+    element('snap-status').textContent = snap
+      ? snap.featureId === null ? 'Snapped to start · Click to close' : `Snapped to ${snap.kind}`
+      : activeEditor.getSnapping().enabled ? 'Draw near an existing shape to snap.' : 'Snapping is off.';
+  };
+  activeEditor.onSnap(updateSnapStatus);
   activeEditor.onChange(update);
   update();
 
@@ -144,6 +155,9 @@ map.on('load', () => {
   } }, firstOverlay);
 });
 
+snapping.addEventListener('change', () => {
+  editor?.setSnapping({ enabled: snapping.checked });
+});
 lineTool.addEventListener('click', () => { selectTool('LineString'); });
 polygonTool.addEventListener('click', () => { selectTool('Polygon'); });
 start.addEventListener('click', () => { editor?.draw(selected); });

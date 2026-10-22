@@ -1,6 +1,6 @@
 import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
 import { samePosition } from '../core/polygon.js';
-import type { Coordinate, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
+import type { Coordinate, SnapResult, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
 import { vertexHandles } from './vertex-handles.js';
 
 const emptyCollection = () => ({ type: 'FeatureCollection' as const, features: [] });
@@ -8,7 +8,7 @@ const emptyCollection = () => ({ type: 'FeatureCollection' as const, features: [
 // This property exists only in render data; the core/export never receives it.
 const renderIdProperty = '__geo_editor_id';
 type PreviewFeature = {
-  type: 'Feature'; properties: { kind?: 'vertex' | 'midpoint'; active?: boolean };
+  type: 'Feature'; properties: { kind?: 'vertex' | 'midpoint' | 'snap'; active?: boolean; snapKind?: 'vertex' | 'edge' };
   geometry: { type: 'Point'; coordinates: Coordinate }
     | { type: 'LineString'; coordinates: Coordinate[] }
     | { type: 'Polygon'; coordinates: Coordinate[][] };
@@ -49,6 +49,10 @@ export class MapLibreRenderer {
         paint: { 'circle-radius': ['case', ['boolean', ['get', 'active'], false], 7, 5],
           'circle-color': ['case', ['boolean', ['get', 'active'], false], '#df772e', '#fff'],
           'circle-stroke-color': '#df772e', 'circle-stroke-width': 2 } },
+      { id: `${namespace}-snap`, type: 'circle', source: this.draftId,
+        filter: ['==', 'kind', 'snap'],
+        paint: { 'circle-radius': ['case', ['==', ['get', 'snapKind'], 'vertex'], 8, 6],
+          'circle-color': '#7c3aed', 'circle-opacity': 0.85, 'circle-stroke-color': '#fff', 'circle-stroke-width': 3 } },
     ];
   }
 
@@ -109,7 +113,7 @@ export class MapLibreRenderer {
     return typeof id === 'string' || typeof id === 'number' ? id : null;
   }
 
-  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState): void {
+  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null): void {
     const editing = state.mode.startsWith('edit-');
     const polygon = state.mode === 'draw-polygon' || state.mode === 'edit-polygon';
     const handles = editing ? vertexHandles(this.map, coordinates, polygon)
@@ -118,6 +122,8 @@ export class MapLibreRenderer {
       type: 'Feature', properties: { kind: handle.kind, active: editing && handle.kind === 'vertex' && handle.index === state.selectedVertexIndex },
       geometry: { type: 'Point', coordinates: handle.coordinate },
     }));
+    if (snap) features.push({ type: 'Feature', properties: { kind: 'snap', snapKind: snap.kind },
+      geometry: { type: 'Point', coordinates: [...snap.coordinate] } });
     const last = coordinates.at(-1);
     if (!editing && last && cursor && !samePosition(last, cursor)) coordinates.push(cursor);
     const first = coordinates[0];

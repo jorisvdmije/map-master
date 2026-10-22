@@ -38,7 +38,8 @@
     "benchmark:deletion": "npm run build && node scripts/benchmark-deletion.mjs",
     "benchmark:editing": "npm run build && node scripts/benchmark-editing.mjs",
     "benchmark:import": "npm run build && node scripts/benchmark-import.mjs",
-    "benchmark:history": "npm run build && node scripts/benchmark-history.mjs"
+    "benchmark:history": "npm run build && node scripts/benchmark-history.mjs",
+    "benchmark:snapping": "npm run build && node scripts/benchmark-snapping.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

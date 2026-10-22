@@ -6,7 +6,7 @@ const publicApi: typeof import('@geo/editor') = editor;
 void publicApi;
 
 export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
-  const options: editor.EditorOptions = { historyLimit: 50 };
+  const options: editor.EditorOptions = { historyLimit: 50, snapping: { enabled: true, distance: 18 } };
   const tool = new editor.GeometryEditor(map, options);
   const batch: editor.GeometryFeatureCollection = tool.importGeoJSON({ type: 'FeatureCollection', features: [] });
   tool.onImport((collection) => { const count: number = collection.features.length; void count; });
@@ -14,6 +14,11 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const importError = new editor.GeoJSONImportError('duplicate-id', '$.id', 'Duplicate');
   const code: editor.ImportErrorCode = importError.code;
   void [batch, properties, code];
+  tool.setSnapping({ vertices: true, edges: true });
+  const snapping: editor.SnappingOptions = tool.getSnapping();
+  const snap: editor.SnapResult | null = tool.getSnap();
+  tool.onSnap((result) => { const id: editor.FeatureId | null | undefined = result?.featureId; void id; });
+  void [snapping, snap];
   tool.draw('Polygon');
   tool.onCreate((feature) => {
     if (feature.geometry.type === 'Polygon') {

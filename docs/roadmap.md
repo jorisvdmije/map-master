@@ -1,6 +1,6 @@
 # Incremental roadmap
 
-Steps 0–8 have been implemented locally; subsequent steps are planned. The
+Steps 0–9 have been implemented locally; subsequent steps are planned. The
 workflow still needs a GitHub remote to run in hosted CI. Each row describes
 a reviewable change or a milestone that can be split further when needed. Create
 each branch from updated `main` after its dependencies have merged.
@@ -16,9 +16,10 @@ each branch from updated `main` after its dependencies have merged.
 | 6 | `feat/edit-vertices` | Implemented: cancellable vertex editing, move/insert/remove via API and mouse, stable IDs, validity checks, onUpdate, gesture cleanup, and core/browser/package/demo tests. |
 | 7 | `feat/import-geojson` | Implemented: atomic append of supported GeoJSON, typed IDs/nested properties, validation errors, onImport, file-picker demo, round trips, and core/browser/package tests. |
 | 8 | `feat/history` | Implemented: bounded undo/redo for create, saved edits, delete, and import batches; stable IDs/properties/order, onHistory, clearHistory, UI/shortcuts, and core/browser/package tests. Cancellation adds no action. |
+| 9 | `feat/snapping` | Implemented: drawing snaps to committed vertices/edges, pixel tolerance, vertex priority, indicator, Alt bypass, toggle/API/events, camera/revision cache invalidation, and core/browser/package/demo tests plus a benchmark. |
 
 Steps 2–7 produce the first small CRUD editor. Step 8 adds recovery from user
-mistakes. Later candidates include snapping, touch interactions, feature dragging,
+mistakes. Step 9 adds precise placement against existing shapes. Later candidates include snapping during vertex editing, touch interactions, feature dragging,
 holes, multipart geometry, rotation, cutting, splitting, and framework wrappers.
 Prioritize those using actual application requirements.
 
@@ -40,7 +41,7 @@ and other gestures behave while drawing, and verify that previous map interactio
 settings are restored after leaving the mode.
 
 The demo now includes line/polygon tools, Start, Finish, Cancel, and Export
-controls, plus click selection, Deselect, Delete, Edit vertices, Remove vertex, Save, GeoJSON import, Undo, and Redo.
+controls, plus click selection, Deselect, Delete, Edit vertices, Remove vertex, Save, GeoJSON import, Undo, Redo, and a snapping toggle.
 
 ## Beta and stable release gates
 

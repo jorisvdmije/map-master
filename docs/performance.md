@@ -161,3 +161,43 @@ bytes. No memory or maximum-dataset guarantee is implied by this first baseline.
 Events, renderer uploads, MapLibre worker processing, and painting are excluded.
 The existing full-source renderer still makes visible undo/redo scale with the
 entire collection. These are observations, not CI timing thresholds.
+
+## Drawing snapping
+
+Run `npm run benchmark:snapping`. Fixtures contain 10, 1,000, or 10,000 squares
+with four distinct corners, on a fixed 100-column grid. A simple linear test
+projection makes each square 50 pixels wide with 100-pixel spacing. Each sample
+builds a fresh projected index, then queries 1,000 deterministic positions
+5 pixels above an edge midpoint (all must hit an edge). There are 10 warmups
+and 50 samples. Query times are per-query averages within a batch; p95 describes
+those batch averages, not individual input-event latency.
+
+Local baseline on 2026-10-22: Apple M2 Pro, macOS arm64, Node.js 22.23.1.
+
+| Polygons | Median build (ms) | p95 build (ms) | Median query (µs) | p95 query (µs) |
+| --- | ---: | ---: | ---: | ---: |
+| 10 | 0.037 | 0.090 | 0.244 | 0.330 |
+| 1,000 | 8.211 | 9.108 | 0.826 | 1.149 |
+| 10,000 | 128.993 | 156.724 | 1.779 | 4.859 |
+
+The static bounds hierarchy includes every committed vertex and segment. It
+uses O(v) retained space and O(v log² v) construction with recursive sorting.
+Queries prune disjoint bounds rather than scanning all features. Worst-case
+queries still approach O(v), especially with many overlapping/long edges; this
+separated grid is not that worst case. Vertices take priority over edges, and
+final distances are Euclidean CSS-pixel distances.
+
+The MapLibre adapter copies committed geometry once per data revision, projects
+it on the first query, and reuses the index for subsequent pointer frames. Camera
+movement invalidates the projected index; revision changes also refresh source
+data. Disabled snapping does no candidate work. Hover never uploads the committed
+source; only the draft/indicator source changes. Browser tests verify cache reuse,
+camera/data invalidation, and unchanged data/history during pointer motion.
+
+Index construction is synchronous: the 10,000-polygon build already exceeds a
+16.7 ms frame budget **before** actual MapLibre projection/rendering costs.
+Large datasets or frequent camera movement need a world-space/coarse candidate
+index, incremental updates, or worker evaluation before claiming smooth interaction
+at that scale. This first baseline excludes source export/copy, MapLibre's actual
+projection/unprojection, camera animation, painting, and observer callbacks. It
+is a repeatable microbenchmark, not a dataset or frame-rate guarantee.

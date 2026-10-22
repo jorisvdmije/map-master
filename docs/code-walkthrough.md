@@ -13,9 +13,11 @@ src/
     history.ts               Bounded undo/redo stacks of committed feature changes
     geojson-import.ts        Validate/copy entire import batches and JSON properties
     polygon.ts               Ring validity, closure, exterior winding
+    snapping.ts              Projected candidate index, nearest vertex/edge policy
   maplibre/
     geometry-editor.ts       Public API, map input, events, gesture/lifecycle cleanup
     renderer.ts              Sources/layers, picking, selection styling, draft vertices
+    snapping.ts              Map projection and camera/data-revision cache
     vertex-interaction.ts    Pointer capture, vertex gestures, cancellation
     vertex-handles.ts        Shared screen-space corner/midpoint definitions
     line-editor.ts           Compatibility facade for the earlier line-only API
@@ -29,9 +31,11 @@ tests/                       Core behavior and isolated packed-package integrati
 1. A demo button calls `editor.draw('Polygon')`. The controller tells
    `DrawingSession.start()` to enter drawing mode, focuses the canvas, switches
    the cursor, and temporarily disables double-click zoom.
-2. MapLibre supplies a click position in longitude/latitude. The controller
-   ignores drag gestures, modified clicks, and double-click duplicates, then
-   passes the coordinate to `DrawingSession.add()`.
+2. MapLibre supplies a click in screen pixels. The controller ignores drag
+   gestures, unsupported modifiers, and double-click duplicates. It checks the
+   polygon close target, then resolves optional snapping against existing geometry
+   (Alt bypasses snapping). It passes the resulting geographic coordinate to
+   `DrawingSession.add()`.
 3. The session copies the coordinate into its draft and validates the proposed
    ring. It stores the result so `getState()` and UI updates are cheap. The
    session neither calls MapLibre nor creates DOM elements.
@@ -110,6 +114,20 @@ order, checks whether the current selection still exists, and increments the
 revision once. The controller refreshes the map and emits one onHistory event.
 An action-count limit and clearHistory release old references; destruction also
 clears both stacks. UI selection and unfinished drafts never enter history.
+
+Snapping sits before draft mutation. `core/snapping.ts` accepts projection
+functions instead of importing MapLibre. It indexes vertex points and edge bounds
+in a static binary hierarchy, checks nearby candidates, and gives vertices
+priority. Exact vertices reuse source coordinates; edge interiors are inverse
+projected. `maplibre/snapping.ts` keeps one committed snapshot per data revision
+and caches the projected index until data or the camera changes. Pointer moves
+resolve at most once per animation frame; click resolution is synchronous.
+The controller applies the same resolved coordinate to preview and draft input.
+Snap notifications and the purple marker are transient; `DrawingSession` stores
+only the resulting clicked coordinate. Existing shapes and history are unchanged
+until a normal drawing commit. There is no second geometry store to synchronize.
+See the [snapping contract](geometry-editor.md#snapping-while-drawing) and
+[performance baseline](performance.md#drawing-snapping) for scope and costs.
 
 Application code should not have to learn which
 MapLibre source holds a selected feature. Avoid creating one wrapper method for

@@ -1,12 +1,19 @@
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { DrawingSession } from '../core/drawing-session.js';
-import type { Coordinate, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, GeometryType } from '../core/types.js';
+import type { Coordinate, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, GeometryType } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
+import { MapLibreSnapping } from './snapping.js';
+import type { ScreenPoint } from '../core/snapping.js';
 import { VertexInteraction } from './vertex-interaction.js';
 
 const editors = new WeakSet<MapLibreMap>();
 /** Public drawing API. MapLibre input and rendering stay behind this boundary. */
 export class GeometryEditor {
+  private readonly snapping: MapLibreSnapping;
+  private snap: SnapResult | null = null;
+  private pointer: ScreenPoint | undefined;
+  private altPressed = false;
+  private readonly snapListeners = new Set<(result: SnapResult | null) => void>();
   private readonly session: DrawingSession;
   private readonly renderer: MapLibreRenderer;
   private readonly vertices: VertexInteraction;
@@ -37,6 +44,7 @@ export class GeometryEditor {
     }
     this.view = view;
     this.session = new DrawingSession(() => view.crypto.randomUUID(), options.historyLimit);
+    this.snapping = new MapLibreSnapping(map, options.snapping);
     this.renderer = new MapLibreRenderer(map, `geo-editor-${view.crypto.randomUUID()}`);
     this.renderer.mount();
     this.vertices = new VertexInteraction(map, {
@@ -54,10 +62,57 @@ export class GeometryEditor {
     map.on('style.load', this.handleStyleLoad);
     map.on('remove', this.handleMapRemove);
     this.canvas.addEventListener('keydown', this.handleKey);
+    this.view.addEventListener('keydown', this.handleSnapModifier);
+    this.view.addEventListener('keyup', this.handleSnapModifier);
+    this.view.addEventListener('blur', this.handleSnapBlur);
   }
 
   getState(): EditorState {
     return this.session.state;
+  }
+
+  getSnapping(): SnappingOptions { return this.snapping.getOptions(); }
+  setSnapping(options: Partial<SnappingOptions>): void {
+    this.assertAlive();
+    if (!this.snapping.setOptions(options)) return;
+    if (this.pointer && this.session.state.mode.startsWith('draw-')) {
+      const resolved = this.resolvePointer(this.pointer);
+      this.cursor = resolved.coordinate;
+      this.setSnap(resolved.snap);
+    }
+    this.schedulePreview();
+    this.emitChange();
+  }
+  getSnap(): SnapResult | null { return this.snap ? { ...this.snap, coordinate: [...this.snap.coordinate] } : null; }
+  onSnap(listener: (result: SnapResult | null) => void): () => void {
+    this.assertAlive(); this.snapListeners.add(listener);
+    return () => { this.snapListeners.delete(listener); };
+  }
+
+  private setSnap(result: SnapResult | null): void {
+    const previous = this.snap;
+    this.snap = result;
+    // Pixel distance may change while the same exact vertex remains acquired.
+    if (previous?.kind === result?.kind && previous?.featureId === result?.featureId && previous?.index === result?.index
+      && previous?.coordinate[0] === result?.coordinate[0] && previous?.coordinate[1] === result?.coordinate[1]) return;
+    for (const listener of this.snapListeners) this.notify(() => listener(result ? structuredClone(result) : null));
+  }
+
+  private resolvePointer(point: ScreenPoint): { coordinate: Coordinate; snap: SnapResult | null; close: boolean } {
+    const options = this.snapping.getOptions();
+    const state = this.session.state;
+    const first = state.mode === 'draw-polygon' && state.vertexCount >= 3 ? this.session.getDraft()[0] : undefined;
+    if (first) {
+      const projected = this.map.project(first);
+      const distance = Math.hypot(projected.x - point.x, projected.y - point.y);
+      const snapping = options.enabled && options.vertices && !this.altPressed;
+      if (distance <= (snapping ? Math.max(8, options.distance) : 8)) return {
+        coordinate: first, close: true,
+        snap: snapping ? { kind: 'vertex', featureId: null, index: 0, coordinate: first, distance } : null,
+      };
+    }
+    const snap = this.altPressed ? null : this.snapping.resolve(point, state.dataRevision, () => this.session.exportGeoJSON());
+    return { coordinate: snap?.coordinate ?? this.map.unproject([point.x, point.y]).wrap().toArray(), snap, close: false };
   }
 
   /** Select one committed feature, or pass null to clear selection. */
@@ -273,24 +328,23 @@ export class GeometryEditor {
     const input = event.originalEvent;
     const state = this.session.state;
     if (input.button !== 0
-      || input.ctrlKey || input.metaKey || input.altKey || input.shiftKey || input.detail > 1) return;
+      || input.ctrlKey || input.metaKey || input.shiftKey || input.detail > 1) return;
     if (state.mode.startsWith('edit-')) return;
     if (state.mode === 'idle') {
+      if (input.altKey) return;
       const id = this.renderer.pick(event.point);
       // MapLibre may still show a deleted feature until its asynchronous source update finishes.
       if (id === null || this.session.hasFeature(id)) this.select(id);
       return;
     }
-    // Closing tolerance is in CSS pixels, independent of map zoom.
-    if (state.mode === 'draw-polygon' && state.vertexCount >= 3) {
-      const first = this.session.getDraft()[0];
-      if (first && this.map.project(first).dist(event.point) <= 8) {
-        this.finish();
-        return;
-      }
-    }
-    const { lng, lat } = event.lngLat.wrap();
-    if (!this.session.add([lng, lat])) return;
+    this.pointer = { x: event.point.x, y: event.point.y };
+    this.altPressed = input.altKey;
+    const resolved = this.resolvePointer(this.pointer);
+    this.setSnap(resolved.snap);
+    if (this.destroyed || !this.session.state.mode.startsWith('draw-')) return;
+    this.schedulePreview();
+    if (resolved.close) { this.finish(); return; }
+    if (!this.session.add(resolved.coordinate)) return;
     this.cursor = undefined;
     this.schedulePreview();
     this.emitChange();
@@ -298,15 +352,31 @@ export class GeometryEditor {
 
   private readonly handleMove = (event: MapMouseEvent): void => {
     if (!this.session.state.mode.startsWith('draw-')) return;
-    const { lng, lat } = event.lngLat.wrap();
-    this.cursor = [lng, lat];
+    this.pointer = { x: event.point.x, y: event.point.y };
+    this.altPressed = event.originalEvent.altKey;
     this.schedulePreview();
   };
 
   private readonly handleLeave = (): void => {
     if (!this.session.state.mode.startsWith('draw-')) return;
+    this.pointer = undefined;
     this.cursor = undefined;
+    this.setSnap(null);
     this.schedulePreview();
+  };
+
+  private readonly handleSnapModifier = (event: KeyboardEvent): void => {
+    if (event.key !== 'Alt' || !this.session.state.mode.startsWith('draw-')) return;
+    this.altPressed = event.type === 'keydown';
+    this.schedulePreview();
+  };
+
+  private readonly handleSnapBlur = (): void => {
+    this.altPressed = false;
+    this.pointer = undefined;
+    this.cursor = undefined;
+    this.setSnap(null);
+    if (this.session.state.mode.startsWith('draw-')) this.schedulePreview();
   };
 
   private readonly handleKey = (event: KeyboardEvent): void => {
@@ -356,18 +426,28 @@ export class GeometryEditor {
   private readonly handleMapRemove = (): void => { this.dispose(false); };
 
   private readonly handleCameraMove = (): void => {
-    if (this.session.state.mode.startsWith('edit-')) this.schedulePreview();
+    this.snapping.invalidateCamera();
+    if (this.session.state.mode !== 'idle') this.schedulePreview();
   };
 
   private schedulePreview(): void {
     if (this.frame !== undefined) return;
     this.frame = this.view.requestAnimationFrame(() => {
       this.frame = undefined;
-      this.renderer.renderPreview(this.session.getDraft(), this.cursor, this.session.state);
+      if (this.pointer && this.session.state.mode.startsWith('draw-')) {
+        const resolved = this.resolvePointer(this.pointer);
+        this.cursor = resolved.coordinate;
+        this.setSnap(resolved.snap);
+      }
+      if (this.destroyed) return;
+      this.renderer.renderPreview(this.session.getDraft(), this.cursor, this.session.state, this.snap);
     });
   }
 
   private leaveDrawing(): void {
+    this.pointer = undefined;
+    this.altPressed = false;
+    this.setSnap(null);
     this.cursor = undefined;
     if (this.frame !== undefined) this.view.cancelAnimationFrame(this.frame);
     this.frame = undefined;
@@ -382,6 +462,9 @@ export class GeometryEditor {
   private dispose(removeResources: boolean): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.pointer = undefined;
+    this.snap = null;
+    this.snapping.clear();
     this.vertices.destroy(removeResources);
     const wasDrawing = this.session.cancel();
     this.session.clearHistory();
@@ -402,6 +485,10 @@ export class GeometryEditor {
     this.map.off('style.load', this.handleStyleLoad);
     this.map.off('remove', this.handleMapRemove);
     this.canvas.removeEventListener('keydown', this.handleKey);
+    this.view.removeEventListener('keydown', this.handleSnapModifier);
+    this.view.removeEventListener('keyup', this.handleSnapModifier);
+    this.view.removeEventListener('blur', this.handleSnapBlur);
+    this.snapListeners.clear();
     this.createListeners.clear();
     this.deleteListeners.clear();
     this.updateListeners.clear();

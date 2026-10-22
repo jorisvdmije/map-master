@@ -36,9 +36,28 @@ export interface GeometryFeatureCollection {
 export type ValidationError = 'too-few-vertices' | 'duplicate-vertex'
   | 'zero-area' | 'self-intersection' | 'antimeridian-crossing';
 
+export interface SnappingOptions {
+  enabled: boolean;
+  /** Acquisition radius in CSS pixels, default 18, range (0, 100]. */
+  distance: number;
+  vertices: boolean;
+  edges: boolean;
+}
+export interface SnapResult {
+  kind: 'vertex' | 'edge';
+  /** null identifies the current polygon's first corner (click to close). */
+  featureId: FeatureId | null;
+  /** Vertex index or segment start index in the open ring/line. */
+  index: number;
+  coordinate: Coordinate;
+  distance: number;
+}
+
 export interface EditorOptions {
   /** Maximum retained actions, default 100; 0 disables history. Not a byte limit. */
   historyLimit?: number;
+  /** Drawing snapping is opt-in; vertices/edges default true, distance defaults to 18. */
+  snapping?: Partial<SnappingOptions>;
 }
 
 export type HistoryAction = 'create' | 'edit' | 'delete' | 'import';

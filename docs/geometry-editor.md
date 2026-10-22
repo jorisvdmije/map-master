@@ -2,7 +2,7 @@
 
 Status: experimental. Supports 2D LineString and single-outer-ring Polygon
 features on a flat Mercator MapLibre GL JS 6.15 map. Desktop mouse and keyboard
-input, selection, deletion, vertex editing, GeoJSON import, and undo/redo are tested in Chromium.
+input, selection, deletion, vertex editing, GeoJSON import, undo/redo, and drawing snapping are tested in Chromium.
 Holes and multipart features are not implemented yet.
 
 ## One editor API
@@ -42,7 +42,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 
 | Member | Contract |
 | --- | --- |
-| `new GeometryEditor(map, options?)` | Attach after `style.load` or `load`. One editor per map, including the LineEditor facade. `historyLimit` defaults to 100. |
+| `new GeometryEditor(map, options?)` | Attach after `style.load` or `load`. One editor per map, including the LineEditor facade. `historyLimit` defaults to 100; `snapping.enabled` defaults to false. |
 | `draw('LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
 | `finish()` | Commit a valid draft once, returning a `GeometryFeature`. An invalid/incomplete draft returns `null` and remains active. |
 | `cancel()` | Discard only the draft. |
@@ -60,6 +60,9 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `onCreate(listener)` | One event per committed feature, with an independent snapshot per listener. Returns an unsubscribe function. |
 | `onDelete(listener)` | One event per committed deletion, with an independent snapshot of the removed feature per listener. Returns an unsubscribe function. |
 | `onChange(listener)` | Editing-state notification after state changes. Read the initial state with `getState()`. Returns an unsubscribe function. |
+| `getSnapping()` / `setSnapping(options)` | Read an isolated options snapshot or atomically merge partial snapping options. A changed configuration emits `onChange`, without changing data/history. |
+| `getSnap()` | Independent `SnapResult` snapshot or `null` when no drawing snap is active. |
+| `onSnap(listener)` | Notify when the snap target/coordinate changes or is released (`null`). Returns an unsubscribe function. |
 | `destroy()` | Remove owned resources/listeners and restore drawing gesture settings. Idempotent. |
 
 `GeometryFeature` is the union of `LineFeature` and `PolygonFeature`. Inspect
@@ -346,6 +349,74 @@ Destroy/map removal clears history without emitting history events. History is
 local to one editor instance and is not included in GeoJSON or persisted across
 reloads. LineEditor supports the same history methods, options, and events.
 
+## Snapping while drawing
+
+```ts
+const editor = new GeometryEditor(map, {
+  snapping: { enabled: true, distance: 18, vertices: true, edges: true },
+});
+editor.draw('Polygon'); // Also applies to drawing a LineString.
+editor.setSnapping({ distance: 24 }); // Partial update; other options stay intact.
+editor.setSnapping({ enabled: false });
+const options = editor.getSnapping();
+const unsubscribe = editor.onSnap((snap) => {
+  // null on release; otherwise kind, featureId, index, coordinate, distance.
+  console.log(snap);
+});
+```
+
+Snapping is opt-in in the library and enabled by default in the demo. The
+behavior takes inspiration from [Geoman's snapping helper](https://geoman.io/docs/maplibre/helper-modes/helper-snapping)
+(pixel tolerance and vertex priority) and its [Alt bypass](https://geoman.io/docs/leaflet/options/snapping).
+The implementation is independent; it does not depend on Geoman or copy Pro code.
+
+- The default tolerance is **18 CSS pixels**, independent of device-pixel ratio
+  and zoom. `distance` must be finite, greater than 0 and at most 100; boolean
+  options require booleans. Invalid updates leave all previous options intact.
+- The nearest vertex within tolerance wins, even if an edge is closer. Without
+  an eligible vertex, the nearest point on an edge wins. `vertices` and `edges`
+  can be disabled independently. An exact distance tie chooses the later feature
+  in collection order, then the lower vertex/edge index within that feature.
+- Candidates are all committed lines and polygons owned by this editor, including
+  imported geometry and polygon closing edges. Host map layers and ordinary
+  draft vertices/edges are excluded. There is no snapping during vertex editing yet.
+- Vertex snapping copies the exact stored coordinate. Edge snapping projects
+  onto the displayed straight segment in screen space and inverse-projects the
+  result; it is not geodesic or planar longitude/latitude interpolation.
+  This follows the visual flat Mercator edge. Planar geometry validation remains
+  a separate check, and snapping cannot make an invalid polygon committable.
+- A purple indicator marks the acquired point. Preview and click resolution use
+  the same calculation; clicks always resolve again, so they cannot commit a
+  stale hover result. Holding **Alt** temporarily bypasses external snapping,
+  including Alt+click; releasing Alt recalculates at the stationary pointer.
+- After three polygon corners, its first corner takes priority as a close target.
+  Its radius is `max(8, distance)` with vertex snapping enabled. Otherwise the
+  existing 8-pixel click-to-close behavior remains, including while holding Alt.
+  Closing validates the polygon and does not add an extra corner to the draft.
+
+`SnapResult.kind` is `vertex` or `edge`; `featureId` preserves string/numeric
+identity and is `null` only for the current polygon's closing corner. `index` is
+the zero-based vertex index or edge start index (an open ring, without the repeated
+closing coordinate). `coordinate` is longitude/latitude and `distance` is the
+current CSS-pixel separation. `getSnap()` returns a copy. `onSnap` provides an
+independent snapshot to each observer, including `null` when released. It emits
+when the target identity or coordinate changes, not for distance-only changes
+while staying on the same vertex. Pointer previews/events are coalesced per frame;
+clicks and option changes resolve synchronously. Observer errors follow the same
+asynchronous reporting policy as other editor events. Unsubscribing is supported.
+
+Hovering never changes committed data, exports, revision, or history. A saved
+snapped drawing is one normal create action and replays exact coordinates on
+undo/redo. The target geometry is unchanged: snapping to an edge does not insert
+a vertex into the target, link geometries, or trace its boundary. Snap state is
+cleared on pointer leave, window blur, finish, cancel, and destruction. Style
+replacement restores the indicator, and camera/data changes invalidate the cache.
+LineEditor exposes the same snapping options, getters, setter, and event.
+
+This milestone supports the canonical world copy of a flat Mercator map, including
+zoom, bearing, and pitch. Repeated world copies, dateline/polar geometry, globe,
+terrain, touch, topology linking, and boundary tracing are outside this contract.
+
 ## Polygon contract
 
 - At least three distinct, non-collinear corners, with finite world-bounded
@@ -367,6 +438,7 @@ reported; these are diagnostics, not a list of every defect.
 
 Enter or Finish closes a polygon. A plain click within 8 CSS pixels of its first
 corner also finishes it after at least three corners, provided it is valid.
+Enabled vertex snapping extends that radius as described above.
 The cursor preview is never included in a commit. Escape cancels. Shortcuts
 apply only when the canvas has focus. Drag pan and scroll zoom remain enabled;
 the previous cursor and double-click zoom setting are restored on exit.
@@ -416,6 +488,6 @@ The encoding is never written into the core, public events, or exports. See MapL
 [query and feature-state API](https://maplibre.org/maplibre-gl-js/docs/API/classes/Map/).
 
 The repeatable [benchmarks](performance.md) characterize core validation and
-selection, deletion/export, vertex movement, import, and undo/export. Large-dataset rendering,
+selection, deletion/export, vertex movement, import, undo/export, and snapping index/query costs. Large-dataset rendering,
 interaction latency, memory, touch input, and
 other browser engines still require measurement before production-scale claims.

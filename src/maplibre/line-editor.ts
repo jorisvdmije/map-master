@@ -1,5 +1,5 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import type { Coordinate, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeature, LineCollection, LineFeature } from '../core/types.js';
+import type { Coordinate, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeature, LineCollection, LineFeature } from '../core/types.js';
 import { GeometryEditor } from './geometry-editor.js';
 
 const isLine = (feature: GeometryFeature): feature is LineFeature => feature.geometry.type === 'LineString';
@@ -10,6 +10,10 @@ export class LineEditor {
 
   constructor(map: MapLibreMap, options: EditorOptions = {}) { this.editor = new GeometryEditor(map, options); }
 
+  getSnapping(): SnappingOptions { return this.editor.getSnapping(); }
+  setSnapping(options: Partial<SnappingOptions>): void { this.editor.setSnapping(options); }
+  getSnap(): SnapResult | null { return this.editor.getSnap(); }
+  onSnap(listener: (result: SnapResult | null) => void): () => void { return this.editor.onSnap(listener); }
   startLine(): void { this.editor.draw('LineString'); }
   cancel(): void { this.editor.cancel(); }
   destroy(): void { this.editor.destroy(); }
