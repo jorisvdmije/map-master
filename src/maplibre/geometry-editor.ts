@@ -54,6 +54,16 @@ export class GeometryEditor {
       move: (index, coordinate) => { this.draftChanged(this.session.moveVertex(index, coordinate)); },
       insert: (index, coordinate) => { this.draftChanged(this.session.insertVertex(index, coordinate)); },
       remove: (index) => { this.draftChanged(this.session.removeVertex(index)); },
+      resolve: (point, altKey) => {
+        const resolved = this.resolvePointer(point, altKey);
+        this.setSnap(resolved.snap);
+        if (!this.destroyed) this.schedulePreview();
+        return resolved.coordinate;
+      },
+      clearSnap: () => {
+        this.setSnap(null);
+        if (!this.destroyed) this.schedulePreview();
+      },
     });
     editors.add(map);
     map.on('click', this.handleClick);
@@ -76,6 +86,7 @@ export class GeometryEditor {
   setSnapping(options: Partial<SnappingOptions>): void {
     this.assertAlive();
     if (!this.snapping.setOptions(options)) return;
+    this.vertices.refresh();
     if (this.pointer && this.isDrawing()) {
       const resolved = this.resolvePointer(this.pointer);
       this.cursor = resolved.coordinate;
@@ -99,20 +110,21 @@ export class GeometryEditor {
     for (const listener of this.snapListeners) this.notify(() => listener(result ? structuredClone(result) : null));
   }
 
-  private resolvePointer(point: ScreenPoint): { coordinate: Coordinate; snap: SnapResult | null; close: boolean } {
+  private resolvePointer(point: ScreenPoint, altPressed = this.altPressed): { coordinate: Coordinate; snap: SnapResult | null; close: boolean } {
     const options = this.snapping.getOptions();
     const state = this.session.state;
     const first = state.mode === 'draw-polygon' && state.vertexCount >= 3 ? this.session.getDraft()[0] : undefined;
     if (first) {
       const projected = this.map.project(first);
       const distance = Math.hypot(projected.x - point.x, projected.y - point.y);
-      const snapping = options.enabled && options.vertices && !this.altPressed;
+      const snapping = options.enabled && options.vertices && !altPressed;
       if (distance <= (snapping ? Math.max(8, options.distance) : 8)) return {
         coordinate: first, close: true,
         snap: snapping ? { kind: 'vertex', featureId: null, index: 0, coordinate: first, distance } : null,
       };
     }
-    const snap = this.altPressed ? null : this.snapping.resolve(point, state.dataRevision, () => this.session.exportGeoJSON());
+    const excludedId = state.mode.startsWith('edit-') ? state.selectedFeatureId : null;
+    const snap = altPressed ? null : this.snapping.resolve(point, state.dataRevision, () => this.session.exportGeoJSON(), excludedId);
     return { coordinate: snap?.coordinate ?? this.map.unproject([point.x, point.y]).wrap().toArray(), snap, close: false };
   }
 
@@ -421,7 +433,12 @@ export class GeometryEditor {
   };
 
   private readonly handleSnapModifier = (event: KeyboardEvent): void => {
-    if (event.key !== 'Alt' || !this.isDrawing()) return;
+    if (event.key !== 'Alt') return;
+    if (this.session.state.mode.startsWith('edit-')) {
+      this.vertices.refresh(event.type === 'keydown');
+      return;
+    }
+    if (!this.isDrawing()) return;
     this.altPressed = event.type === 'keydown';
     this.schedulePreview();
   };
@@ -485,6 +502,7 @@ export class GeometryEditor {
 
   private readonly handleCameraMove = (): void => {
     this.snapping.invalidateCamera();
+    this.vertices.refresh();
     if (this.session.state.mode !== 'idle') this.schedulePreview();
   };
 

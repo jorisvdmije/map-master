@@ -261,3 +261,29 @@ The measurements exclude confirmation, snapshots returned by the public API,
 MapLibre projection/rendering, observer callbacks, and full collection export/upload.
 They do not establish a frame-rate or supported-dataset guarantee. Very complex
 cuts/rings may need a general indexed geometry engine or worker execution later.
+
+## Snapping during vertex editing
+
+`npm run benchmark:snapping` also queries the same fixed grids while excluding
+feature ID `0`, representing the active edit target. It performs 1,000 queries
+per sample on the already-built index, with 10 warmups and 50 samples. Queries
+near the excluded square must miss; other squares must still yield edge targets.
+The edited feature is skipped during search, so changing the edited ID or moving
+a draft vertex does not reproject/rebuild the committed candidate index.
+
+Local measurement on 2026-10-22, Apple M2 Pro, macOS arm64, Node.js 22.23.1
+(with Chromium tests running concurrently):
+
+| Polygons | Index build median (ms) | Edit query median (µs) | Edit query p95 (µs) |
+| --- | ---: | ---: | ---: |
+| 10 | 0.033 | 0.217 | 0.311 |
+| 1,000 | 6.132 | 0.607 | 1.363 |
+| 10,000 | 105.651 | 0.967 | 1.645 |
+
+These are query timings, not complete pointer-frame timings or performance
+guarantees. They exclude real MapLibre projection, polygon validation, draft
+copying, handle projection, rendering and callbacks. Changed polygon drafts still
+run the existing quadratic validator once per processed movement; see the vertex
+editing measurements above. Release also resolves/validates synchronously. Camera
+and committed-data changes still rebuild the index, which can stall interaction
+on large datasets. Large-dataset indexing/worker work remains a separate task.

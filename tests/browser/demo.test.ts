@@ -82,6 +82,8 @@ it('runs the demo with its real controls and a built package, without a tile ser
   expect(output?.value).toBe(saved);
   await page.getByRole('button', { name: 'Edit vertices', exact: true }).click();
   await expect.element(page.getByRole('button', { name: 'Draw a polygon' })).toBeDisabled();
+  await expect.element(snapping).toBeEnabled();
+  expect(document.querySelector('#snap-status')?.textContent).toContain('Drag a corner');
   await userEvent.dragAndDrop(canvas, canvas, {
     sourcePosition: { x: 150, y: 150 }, targetPosition: { x: 130, y: 130 },
   });
@@ -90,9 +92,13 @@ it('runs the demo with its real controls and a built package, without a tile ser
   expect(output?.value).toBe(saved);
   await page.getByRole('button', { name: 'Edit vertices', exact: true }).click();
   await userEvent.dragAndDrop(canvas, canvas, {
-    sourcePosition: { x: 150, y: 150 }, targetPosition: { x: 130, y: 130 },
+    sourcePosition: { x: 150, y: 150 }, targetPosition: { x: 208, y: 185 },
   });
   await page.getByRole('button', { name: 'Save', exact: true }).click();
+  const snapped = JSON.parse(output?.value ?? '{}') as GeometryFeatureCollection;
+  const editedPolygon = snapped.features.find((feature) => feature.geometry.type === 'Polygon');
+  const targetLine = snapped.features.find((feature) => feature.geometry.type === 'LineString');
+  expect(editedPolygon?.geometry.coordinates[0]).toContainEqual(targetLine?.geometry.coordinates[0]);
   expect(output?.value).not.toBe(saved);
   saved = output?.value;
   await page.getByRole('button', { name: 'Deselect', exact: true }).click();

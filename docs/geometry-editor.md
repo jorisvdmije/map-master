@@ -2,7 +2,7 @@
 
 Status: experimental. Supports 2D LineString and single-outer-ring Polygon
 features on a flat Mercator MapLibre GL JS 6.15 map. Desktop mouse and keyboard
-input, selection, deletion, vertex editing, GeoJSON import, undo/redo, and drawing snapping are tested in Chromium.
+input, selection, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are tested in Chromium.
 Holes and multipart features are not implemented yet.
 
 ## One editor API
@@ -401,7 +401,8 @@ The implementation is independent; it does not depend on Geoman or copy Pro code
   in collection order, then the lower vertex/edge index within that feature.
 - Candidates are all committed lines and polygons owned by this editor, including
   imported geometry and polygon closing edges. Host map layers and ordinary
-  draft vertices/edges are excluded. There is no snapping during vertex editing yet.
+  draft vertices/edges are excluded. During vertex editing, the entire edited
+  feature is also excluded (including its saved geometry).
 - Vertex snapping copies the exact stored coordinate. Edge snapping projects
   onto the displayed straight segment in screen space and inverse-projects the
   result; it is not geodesic or planar longitude/latitude interpolation.
@@ -424,16 +425,45 @@ current CSS-pixel separation. `getSnap()` returns a copy. `onSnap` provides an
 independent snapshot to each observer, including `null` when released. It emits
 when the target identity or coordinate changes, not for distance-only changes
 while staying on the same vertex. Pointer previews/events are coalesced per frame;
-clicks and option changes resolve synchronously. Observer errors follow the same
+drawing clicks and drawing option changes resolve synchronously. Observer errors follow the same
 asynchronous reporting policy as other editor events. Unsubscribing is supported.
 
 Hovering never changes committed data, exports, revision, or history. A saved
 snapped drawing is one normal create action and replays exact coordinates on
 undo/redo. The target geometry is unchanged: snapping to an edge does not insert
 a vertex into the target, link geometries, or trace its boundary. Snap state is
-cleared on pointer leave, window blur, finish, cancel, and destruction. Style
-replacement restores the indicator, and camera/data changes invalidate the cache.
+cleared on drawing pointer leave, window blur, finish, cancel, and destruction.
+Style replacement restores drawing indicators; camera/data changes invalidate the cache.
 LineEditor exposes the same snapping options, getters, setter, and event.
+
+### Snapping during vertex editing
+
+The same `snapping` options apply to mouse drags in `edit-line` and `edit-polygon`.
+Drag a corner, or drag a midpoint to insert and position a new corner. Once moved,
+the draft and purple indicator follow the resolved point on another committed
+feature. An ordinary click still selects a corner or inserts the exact midpoint.
+The complete edited feature is excluded, so neither its old saved coordinates nor
+its current draft can attract the drag. Self-snapping is deferred.
+
+Alt works from the start of a drag and can be pressed/released without moving
+the pointer. Option changes and camera movement also refresh the stationary drag
+on the next animation frame. Release resolves the final mouse position and Alt
+state synchronously, then clears the indicator. Captured drags continue outside
+the canvas until release or cancellation; ordinary editing hover does not snap.
+
+`moveVertex()` and `insertVertex()` use the caller's exact coordinates and never
+apply screen-dependent snapping. They stop any active mouse gesture first.
+No public API additions are needed: use `getSnap()`, `onSnap()`, and `setSnapping()`
+as for drawing. Snapping remains disabled by default in the library.
+
+A snapped drag changes only the draft. Invalid intermediate geometry remains
+visible and cannot be saved. Save emits one `onUpdate` and records one edit action
+for the whole session; undo/redo restores the exact committed coordinates, ID and
+properties. Targets are unchanged, including when acquiring an edge. Pointer
+cancellation, lost capture, blur and style replacement roll back the active gesture
+(including a newly inserted midpoint), clear the indicator, and restore panning.
+Earlier completed gestures remain in the draft. Escape/Cancel discards the entire
+session. Destroy discards the draft and removes the gesture and snap handlers.
 
 This milestone supports the canonical world copy of a flat Mercator map, including
 zoom, bearing, and pitch. Repeated world copies, dateline/polar geometry, globe,

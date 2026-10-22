@@ -1,6 +1,6 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { SnapIndex, snappingOptions, type ScreenPoint } from '../core/snapping.js';
-import type { GeometryFeatureCollection, SnapResult, SnappingOptions } from '../core/types.js';
+import type { FeatureId, GeometryFeatureCollection, SnapResult, SnappingOptions } from '../core/types.js';
 
 /** Cache source geometry by data revision and projected candidates by camera state. */
 export class MapLibreSnapping {
@@ -24,12 +24,12 @@ export class MapLibreSnapping {
   invalidateCamera(): void { this.index = undefined; }
   clear(): void { this.index = undefined; this.revision = -1; this.collection = { type: 'FeatureCollection', features: [] }; }
 
-  resolve(point: ScreenPoint, revision: number, read: () => GeometryFeatureCollection): SnapResult | null {
+  resolve(point: ScreenPoint, revision: number, read: () => GeometryFeatureCollection, excludedFeatureId: FeatureId | null = null): SnapResult | null {
     if (!this.options.enabled || !this.options.vertices && !this.options.edges) return null;
     if (revision !== this.revision) {
       this.collection = read(); this.revision = revision; this.index = undefined;
     }
     this.index ??= new SnapIndex(this.collection, (coordinate) => this.map.project(coordinate));
-    return this.index.query(point, this.options, ({ x, y }) => this.map.unproject([x, y]).wrap().toArray());
+    return this.index.query(point, this.options, ({ x, y }) => this.map.unproject([x, y]).wrap().toArray(), excludedFeatureId);
   }
 }

@@ -50,6 +50,17 @@ it('preserves exact source vertices/endpoints and returns independent coordinate
   expect(index.query(point, { ...options, vertices: false }, unproject)?.coordinate).toEqual([0.123456789, 1.987654321]);
 });
 
+it('excludes every candidate of the edited feature while retaining typed IDs and the next best target', () => {
+  const index = new SnapIndex(collection(line(0, [[0, 0], [100, 0]]), line('0', [[0, 10], [100, 10]])), project);
+  expect(index.query({ x: 1, y: 0 }, options, unproject, 0)).toMatchObject({ featureId: '0', kind: 'vertex', coordinate: [0, 10] });
+  expect(index.query({ x: 50, y: 0 }, options, unproject, 0)).toMatchObject({ featureId: '0', kind: 'edge', coordinate: [50, 10] });
+  expect(index.query({ x: 0, y: 10 }, options, unproject, '0')?.featureId).toBe(0);
+  expect(index.query({ x: 0, y: 0 }, options, unproject)?.featureId).toBe(0);
+  const own = new SnapIndex(collection(polygon), project);
+  expect(own.query({ x: 0, y: 0 }, options, unproject, 'square')).toBeNull();
+  expect(own.query({ x: 0, y: 50 }, options, unproject, 'square')).toBeNull();
+});
+
 it('inverse projects interior points on long and diagonal screen segments', () => {
   const index = new SnapIndex(collection(line('long', [[-10000, -10000], [10000, 10000]])), project);
   expect(index.query({ x: 10, y: 0 }, options, ({ x, y }) => [x / 10, y / 10])).toMatchObject({ kind: 'edge', coordinate: [0.5, 0.5] });

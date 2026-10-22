@@ -63,7 +63,7 @@ export interface SnapResult {
 export interface EditorOptions {
   /** Maximum retained actions, default 100; 0 disables history. Not a byte limit. */
   historyLimit?: number;
-  /** Drawing snapping is opt-in; vertices/edges default true, distance defaults to 18. */
+  /** Drawing and vertex-drag snapping is opt-in; vertices/edges default true, distance defaults to 18. */
   snapping?: Partial<SnappingOptions>;
 }
 

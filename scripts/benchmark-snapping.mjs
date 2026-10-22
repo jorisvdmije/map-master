@@ -21,7 +21,7 @@ for (const count of [10, 1000, 10000]) {
     const id = i * 7919 % count;
     return { x: id % 100 * 100 + 25, y: Math.floor(id / 100) * 100 + 5 };
   });
-  const builds = []; const queries = [];
+  const builds = []; const queries = []; const editQueries = [];
   for (let sample = -10; sample < 50; sample++) {
     const start = performance.now(); const index = new SnapIndex(collection, project);
     const buildMs = performance.now() - start;
@@ -30,11 +30,17 @@ for (const count of [10, 1000, 10000]) {
     for (const point of points) if (index.query(point, options, unproject)?.kind === 'edge') hits++;
     const queryUs = (performance.now() - queryStart) * 1000 / points.length;
     assert.equal(hits, points.length);
-    if (sample >= 0) { builds.push(buildMs); queries.push(queryUs); }
+    const editStart = performance.now();
+    let editHits = 0;
+    for (const point of points) if (index.query(point, options, unproject, 0)?.kind === 'edge') editHits++;
+    const editQueryUs = (performance.now() - editStart) * 1000 / points.length;
+    assert.equal(editHits, points.filter((_, i) => i * 7919 % count !== 0).length);
+    if (sample >= 0) { builds.push(buildMs); queries.push(queryUs); editQueries.push(editQueryUs); }
   }
-  builds.sort((a, b) => a - b); queries.sort((a, b) => a - b);
+  builds.sort((a, b) => a - b); queries.sort((a, b) => a - b); editQueries.sort((a, b) => a - b);
   rows.push({ polygons: count, buildMedianMs: builds[25].toFixed(3), buildP95Ms: builds[47].toFixed(3),
-    queryMedianUs: queries[25].toFixed(3), queryP95Us: queries[47].toFixed(3) });
+    queryMedianUs: queries[25].toFixed(3), queryP95Us: queries[47].toFixed(3),
+    editQueryMedianUs: editQueries[25].toFixed(3), editQueryP95Us: editQueries[47].toFixed(3) });
 }
 log(`${process.version}; ${platform()} ${arch()}; ${cpus()[0]?.model}`);
 table(rows);

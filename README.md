@@ -6,7 +6,7 @@ A TypeScript library in development for drawing and editing geometry on web maps
 
 ## Status
 
-Line and polygon drawing, single-feature selection, deletion, vertex editing, GeoJSON import, undo/redo, and drawing snapping are implemented:
+Line and polygon drawing, single-feature selection, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are implemented:
 preview, validate, finish or cancel, select/deselect, delete, move/insert/remove vertices, and export committed features together
 as GeoJSON through one GeometryEditor API.
 [Atomic transactions](docs/transactions.md) can create, update, and delete multiple
@@ -29,7 +29,9 @@ corners; Enter, Finish, or clicking the first corner closes a valid ring.
 The map can still be dragged and zoomed while drawing.
 **Snap to vertices & edges** is enabled in the demo: drawing within 18 CSS pixels
 of an existing corner or edge shows a purple indicator and places the point there.
-Corners take priority. Hold **Alt** to draw freely or turn off the checkbox.
+Corners take priority. This also works while dragging existing corners or new
+midpoints in **Edit vertices**. The edited shape is excluded as a target. Hold
+**Alt** to place freely or turn off the checkbox.
 Library integrations opt in with `{ snapping: { enabled: true } }`; see the
 [snapping API](docs/geometry-editor.md#snapping-while-drawing).
 When idle, click a line or polygon to select it in blue. Click empty space, press

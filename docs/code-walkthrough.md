@@ -132,8 +132,8 @@ and caches the projected index until data or the camera changes. Pointer moves
 resolve at most once per animation frame; click resolution is synchronous.
 The controller applies the same resolved coordinate to preview and draft input.
 Snap notifications and the purple marker are transient; `DrawingSession` stores
-only the resulting clicked coordinate. Existing shapes and history are unchanged
-until a normal drawing commit. There is no second geometry store to synchronize.
+only the resolved coordinate. Committed shapes and history are unchanged
+until a normal drawing/editing commit. There is no second geometry store to synchronize.
 See the [snapping contract](geometry-editor.md#snapping-while-drawing) and
 [performance baseline](performance.md#drawing-snapping) for scope and costs.
 
@@ -154,3 +154,17 @@ hover does not repeat topology calculations. The renderer shows the proposed
 parts in different colors. Confirmation validates one update/create batch and
 uses the common transaction commit path. Preview allocates no IDs and never enters
 exports/history; cancel discards it. See the [split guide](splitting.md).
+
+## Vertex-drag snapping
+
+`VertexInteraction` retains the latest screen point and Alt state during pointer
+capture. Each animation frame resolves that point through the same MapLibre
+snapping adapter as drawing, then moves the draft vertex and validates it.
+Release resolves again before ending the gesture. Modifier, option and camera
+changes can refresh a stationary drag. Programmatic vertex methods remain exact.
+
+The query excludes the selected feature by its typed ID, skipping its saved
+vertices and edges inside the existing index. Changing edit targets requires no
+index rebuild. Draft movement changes neither the data revision nor the committed
+snapshot. Cancellation rolls back the gesture and clears the marker; Save still
+uses the normal edit/history path. There is no topology relationship to targets.
