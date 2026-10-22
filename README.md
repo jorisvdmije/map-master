@@ -9,6 +9,8 @@ A TypeScript library in development for drawing and editing geometry on web maps
 Line and polygon drawing, single-feature selection, deletion, vertex editing, GeoJSON import, undo/redo, and drawing snapping are implemented:
 preview, validate, finish or cancel, select/deselect, delete, move/insert/remove vertices, and export committed features together
 as GeoJSON through one GeometryEditor API.
+[Atomic transactions](docs/transactions.md) can create, update, and delete multiple
+features as one validated batch and one undo action. Interactive splitting is next.
 The API is experimental. Code and contributor documentation use English.
 
 ## Try the demo
@@ -85,6 +87,7 @@ npm run check
 | `npm run benchmark:import` | Measure atomic imports of fixed line and polygon datasets. |
 | `npm run benchmark:history` | Measure undoing a middle deletion, with and without export. |
 | `npm run benchmark:snapping` | Measure projected index building and nearby-point queries on fixed polygon grids. |
+| `npm run benchmark:transactions` | Measure mixed batch commits and exact undo on fixed datasets. |
 | `npm run check` | Run all type checks, linting, tests, and the production demo build. |
 | `npm pack` | Build and create a local installable archive. |
 

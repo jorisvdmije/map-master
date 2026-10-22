@@ -19,6 +19,10 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const snap: editor.SnapResult | null = tool.getSnap();
   tool.onSnap((result) => { const id: editor.FeatureId | null | undefined = result?.featureId; void id; });
   void [snapping, snap];
+  const transaction: editor.FeatureTransaction = { create: [], update: [], delete: [] };
+  const committed: editor.TransactionEvent | null = tool.applyTransaction(transaction);
+  tool.onTransaction((event: editor.TransactionEvent) => { const changes: editor.FeatureChange[] = event.changes; void changes; });
+  void committed;
   tool.draw('Polygon');
   tool.onCreate((feature) => {
     if (feature.geometry.type === 'Polygon') {

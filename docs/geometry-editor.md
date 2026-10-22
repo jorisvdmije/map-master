@@ -52,6 +52,8 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `deleteSelected()` | Delete the selected committed feature and clear selection. Return its independent snapshot, or `null` with no selection. Available only while idle. |
 | `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed lines and polygons. |
 | `importGeoJSON(input)` | Append a parsed Feature/FeatureCollection atomically; return an independent collection of imported features. Idle only. |
+| `applyTransaction({ create?, update?, delete? })` | Validate and commit a mixed batch atomically. Full features with explicit IDs; idle only. Return a TransactionEvent or null for no change. |
+| `onTransaction(listener)` | One complete change batch per successful applyTransaction. Returns an unsubscribe function. |
 | `onImport(listener)` | One notification per nonempty imported batch. Returns an unsubscribe function. |
 | `onUpdate(listener)` | One notification per changed saved edit. Returns an unsubscribe function. |
 | `undo()` / `redo()` | Reverse/replay one committed action; return true if applied, false if unavailable. Idle only. |
@@ -280,6 +282,14 @@ GeometryEditor; the earlier LineEditor remains a drawing compatibility facade.
 now use exported `FeatureProperties` (a JSON object or null), with `JsonValue`
 for nested values. Update consumer annotations and handle null properties.
 
+## Atomic transactions
+
+Use `applyTransaction` for a batch of creations, replacements, and deletions.
+Every entry is validated before the store changes; the batch is one undo action
+and one `onTransaction` notification. See the [transaction guide](transactions.md)
+for input, ID, event, and failure contracts. Existing individual methods keep
+their current events.
+
 ## Undo and redo
 
 ```ts
@@ -300,7 +310,7 @@ editor.importGeoJSON(initialData);
 editor.clearHistory();
 ```
 
-Each committed drawing, changed saved edit, deletion, or nonempty import is one
+Each committed drawing, changed saved edit, deletion, nonempty import, or effective explicit transaction is one
 action. Any number of vertex gestures before Save form one edit action; an import
 is one action for the whole batch. Undo/redo restores IDs (including number vs
 string), nested properties, geometry, and original feature order. Redo reuses the
@@ -327,7 +337,7 @@ A successful undo/redo increments `dataRevision` once, refreshes selection and t
 committed source once, emits one `onHistory` event, then `onChange`. Existing
 `onCreate`, `onUpdate`, `onDelete`, and `onImport` events are not replayed: subscribe
 to `onHistory` as well when synchronizing a backend. `HistoryEvent.action` names
-the original action (`create`, `edit`, `delete`, or `import`); `direction` is
+the original action (`create`, `edit`, `delete`, `import`, or `transaction`); `direction` is
 `undo` or `redo`. `changes` contains independent `before`/`after` feature snapshots
 in the direction actually applied. For example, undoing a deletion has
 `before: null` and `after: restoredFeature`. All changes have been applied before

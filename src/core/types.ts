@@ -60,7 +60,17 @@ export interface EditorOptions {
   snapping?: Partial<SnappingOptions>;
 }
 
-export type HistoryAction = 'create' | 'edit' | 'delete' | 'import';
+/** Full feature replacements with explicit IDs. An ID may occur only once per transaction. */
+export interface FeatureTransaction {
+  create?: GeometryFeature[];
+  update?: GeometryFeature[];
+  delete?: FeatureId[];
+}
+export interface TransactionEvent {
+  changes: FeatureChange[];
+}
+
+export type HistoryAction = 'create' | 'edit' | 'delete' | 'import' | 'transaction';
 export interface FeatureChange {
   before: GeometryFeature | null;
   after: GeometryFeature | null;

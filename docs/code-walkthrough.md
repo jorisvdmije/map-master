@@ -10,6 +10,7 @@ src/
   core/
     types.ts                 Coordinates, features, modes, validation diagnostics
     drawing-session.ts       Draft, features indexed by ID, selection, create/edit/delete/export
+    transaction.ts           Validate mixed create/update/delete batches before commit
     history.ts               Bounded undo/redo stacks of committed feature changes
     geojson-import.ts        Validate/copy entire import batches and JSON properties
     polygon.ts               Ring validity, closure, exterior winding
@@ -105,6 +106,12 @@ coordinates, topology, IDs, and nested JSON properties, reserves explicit IDs,
 and generates missing ones. A failure leaves existing data and selection intact.
 The controller uploads once and emits one onImport event for a nonempty batch.
 Export/import use core data, so neither requires reading rendered map layers.
+
+All committed mutations use DrawingSession.commit, including drawing, saved edits,
+deletions, imports, and explicit transactions. Transaction preparation validates
+the whole mixed batch before committing anything. A common applyChanges path
+handles forward changes and replay, sorting restoration positions to preserve
+collection order after multiple deletions. See the [transaction guide](transactions.md).
 
 Committed mutations record changed feature versions in EditHistory. Internal
 versions never escape the session, so entries can retain immutable references

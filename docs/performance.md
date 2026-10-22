@@ -201,3 +201,33 @@ index, incremental updates, or worker evaluation before claiming smooth interact
 at that scale. This first baseline excludes source export/copy, MapLibre's actual
 projection/unprojection, camera animation, painting, and observer callbacks. It
 is a repeatable microbenchmark, not a dataset or frame-rate guarantee.
+
+## Atomic transactions
+
+Run `npm run benchmark:transactions`. Start with 10, 1,000, or 10,000 fixed
+2-point lines with nested JSON properties. Each batch replaces the second line,
+deletes the last and first lines (in that order), and appends two new lines.
+Measure validation + preparation + commit + returned snapshots, then undo in a
+separate timer. Undo resets the fixture for the next sample. There are 10 warmups
+and 50 samples; setup, assertions, and full exports are outside the timers.
+
+Local baseline on 2026-10-22: Apple M2 Pro, macOS arm64, Node.js 22.23.1.
+
+| Stored features | Median commit (ms) | p95 commit (ms) | Median undo (ms) | p95 undo (ms) |
+| --- | ---: | ---: | ---: | ---: |
+| 10 | 0.024 | 0.064 | 0.012 | 0.013 |
+| 1,000 | 0.082 | 0.360 | 0.057 | 0.112 |
+| 10,000 | 0.851 | 2.132 | 0.665 | 0.869 |
+
+Validation and copying scale with the changed geometry/properties, not all
+stored features. Batches containing deletions scan collection IDs once to retain
+original positions; this uses O(n) temporary space. Undo restores insertion order
+without cloning unchanged geometry. History stores only changed feature versions.
+All existing mutation methods now use the same commit/application boundary.
+
+These are the first transaction measurements, not frame-rate or dataset limits.
+They exclude controller exports, events, MapLibre source mapping/uploads, worker
+processing, and rendering. The controller still exports/uploads the entire
+collection once per successful batch. Large polygons also retain the existing
+O(v²) validation cost. Browser tests separately verify a single upload/event,
+no partial changes on failure, selection, keyboard replay, and updated snapping.

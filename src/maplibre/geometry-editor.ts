@@ -1,6 +1,6 @@
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { DrawingSession } from '../core/drawing-session.js';
-import type { Coordinate, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, GeometryType } from '../core/types.js';
+import type { Coordinate, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, GeometryType } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
 import { MapLibreSnapping } from './snapping.js';
 import type { ScreenPoint } from '../core/snapping.js';
@@ -21,6 +21,7 @@ export class GeometryEditor {
   private readonly view: Window;
   private readonly createListeners = new Set<(feature: GeometryFeature) => void>();
   private readonly deleteListeners = new Set<(feature: GeometryFeature) => void>();
+  private readonly transactionListeners = new Set<(event: TransactionEvent) => void>();
   private readonly importListeners = new Set<(collection: GeometryFeatureCollection) => void>();
   private readonly updateListeners = new Set<(feature: GeometryFeature) => void>();
   private readonly historyListeners = new Set<(event: HistoryEvent) => void>();
@@ -237,6 +238,23 @@ export class GeometryEditor {
     }
     this.emitChange();
     return imported;
+  }
+
+  /** Apply a mixed batch atomically; callbacks receive the complete committed changes. */
+  applyTransaction(input: FeatureTransaction): TransactionEvent | null {
+    this.assertAlive();
+    const event = this.session.applyTransaction(input);
+    if (!event) return null;
+    this.renderer.renderSelection(this.session.state.selectedFeatureId);
+    this.renderer.renderCommitted(this.exportGeoJSON());
+    for (const listener of this.transactionListeners) this.notify(() => listener(structuredClone(event)));
+    this.emitChange();
+    return event;
+  }
+
+  onTransaction(listener: (event: TransactionEvent) => void): () => void {
+    this.assertAlive(); this.transactionListeners.add(listener);
+    return () => { this.transactionListeners.delete(listener); };
   }
 
   onImport(listener: (collection: GeometryFeatureCollection) => void): () => void {
@@ -493,6 +511,7 @@ export class GeometryEditor {
     this.deleteListeners.clear();
     this.updateListeners.clear();
     this.importListeners.clear();
+    this.transactionListeners.clear();
     this.changeListeners.clear();
     this.historyListeners.clear();
     editors.delete(this.map);

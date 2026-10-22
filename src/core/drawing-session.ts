@@ -1,8 +1,9 @@
-import { EditHistory } from './history.js';
+import { prepareTransaction } from './transaction.js';
+import { EditHistory, type HistoryEntry } from './history.js';
 import { copyProperties, prepareImport } from './geojson-import.js';
 import { closePolygon, openRing, samePosition, validatePolygon } from './polygon.js';
 import type {
-  Coordinate, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, GeometryType, ValidationError,
+  Coordinate, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, GeometryType, ValidationError,
 } from './types.js';
 
 function copyFeature(feature: GeometryFeature): GeometryFeature {
@@ -82,11 +83,7 @@ export class DrawingSession {
       : { ...common, geometry: { type: 'LineString', coordinates: this.draft } };
     // No-op saves exit editing without emitting a data change or replacing the feature.
     if (!original || JSON.stringify(original.geometry) !== JSON.stringify(feature.geometry)) {
-      this.history.record({ action: original ? 'edit' : 'create', changes: [{
-        before: original ?? null, after: feature, index: original ? -1 : this.features.size,
-      }] });
-      this.features.set(feature.id, feature);
-      this.dataRevision++;
+      this.commit(original ? 'edit' : 'create', [{ before: original ?? null, after: feature }]);
     }
     this.draft = [];
     this.kind = null;
@@ -110,14 +107,33 @@ export class DrawingSession {
   importGeoJSON(input: unknown): GeometryFeatureCollection {
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before importing.');
     const features = prepareImport(input, (id) => this.features.has(id), this.createId);
-    if (features.length > 0) {
-      this.history.record({ action: 'import', changes: features.map((feature, index) => ({
-        before: null, after: feature, index: this.features.size + index,
-      })) });
-      for (const feature of features) this.features.set(feature.id, feature);
-      this.dataRevision++;
-    }
+    this.commit('import', features.map((feature) => ({ before: null, after: feature })));
     return { type: 'FeatureCollection', features: features.map(copyFeature) };
+  }
+
+  /** Validate a mixed batch, then commit it once. An empty/unchanged batch is a no-op. */
+  applyTransaction(input: FeatureTransaction): TransactionEvent | null {
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before applying a transaction.');
+    const changes = prepareTransaction(input, this.features);
+    if (!this.commit('transaction', changes)) return null;
+    return { changes: changes.map(({ before, after }) => ({
+      before: before ? copyFeature(before) : null, after: after ? copyFeature(after) : null,
+    })) };
+  }
+
+  /** The only entry point for recording and applying prepared committed mutations. */
+  private commit(action: HistoryAction, changes: FeatureChange[]): boolean {
+    if (changes.length === 0) return false;
+    const deletions = changes.filter((change) => change.after === null);
+    // Only deletion needs original positions. Ordinary creation/editing stays indexed.
+    const positions = deletions.length > 0 ? new Map(Array.from(this.features.keys(), (id, index) => [id, index])) : null;
+    let appendIndex = this.features.size - deletions.length;
+    const entry: HistoryEntry = { action, changes: changes.map((change) => ({ ...change,
+      index: change.before === null ? appendIndex++ : change.after === null ? positions!.get(change.before.id)! : -1,
+    })) };
+    this.history.record(entry);
+    this.applyChanges(entry.changes);
+    return true;
   }
 
   undo(): HistoryEvent | null { return this.replay('undo'); }
@@ -136,13 +152,24 @@ export class DrawingSession {
     this.assertIdleHistory();
     const entry = this.history[direction]();
     if (!entry) return null;
+    this.applyChanges(entry.changes.map((change) => direction === 'undo'
+      ? { before: change.after, after: change.before, index: change.index } : change));
+    return { direction, action: entry.action, changes: entry.changes.map((change) => {
+      const before = direction === 'undo' ? change.after : change.before;
+      const after = direction === 'undo' ? change.before : change.after;
+      return { before: before ? copyFeature(before) : null, after: after ? copyFeature(after) : null };
+    }) };
+  }
+
+  private applyChanges(changes: HistoryEntry['changes']): void {
     const insertions: { feature: GeometryFeature; index: number }[] = [];
-    for (const change of entry.changes) {
-      const target = direction === 'undo' ? change.before : change.after;
+    for (const change of changes) {
+      const target = change.after;
       if (target === null) this.features.delete((change.before ?? change.after)!.id);
       else if (this.features.has(target.id)) this.features.set(target.id, target);
       else insertions.push({ feature: target, index: change.index });
     }
+    insertions.sort((a, b) => a.index - b.index);
     // Appends need no reordering. Restoring a deleted middle feature rebuilds
     // only the Map order, retaining the untouched geometry objects by reference.
     if (insertions.length > 0 && insertions[0]!.index < this.features.size) {
@@ -165,11 +192,6 @@ export class DrawingSession {
     }
     if (this.selectedFeatureId !== null && !this.features.has(this.selectedFeatureId)) this.selectedFeatureId = null;
     this.dataRevision++;
-    return { direction, action: entry.action, changes: entry.changes.map((change) => {
-      const before = direction === 'undo' ? change.after : change.before;
-      const after = direction === 'undo' ? change.before : change.after;
-      return { before: before ? copyFeature(before) : null, after: after ? copyFeature(after) : null };
-    }) };
   }
 
   private allocateId(): string {
@@ -207,12 +229,7 @@ export class DrawingSession {
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before deleting.');
     const feature = this.getSelected();
     if (!feature) return null;
-    this.history.record({ action: 'delete', changes: [{
-      before: this.features.get(feature.id)!, after: null, index: Array.from(this.features.keys()).indexOf(feature.id),
-    }] });
-    this.features.delete(feature.id);
-    this.dataRevision++;
-    this.selectedFeatureId = null;
+    this.commit('delete', [{ before: this.features.get(feature.id)!, after: null }]);
     return feature;
   }
 
