@@ -36,6 +36,13 @@ export interface GeometryFeatureCollection {
 export type ValidationError = 'too-few-vertices' | 'duplicate-vertex'
   | 'zero-area' | 'self-intersection' | 'antimeridian-crossing';
 
+export type SplitError = 'split-too-few-points' | 'split-self-intersection' | 'split-antimeridian'
+  | 'split-boundary-touch' | 'split-endpoints-inside' | 'split-crossing-count' | 'split-invalid-result';
+export interface SplitPreview {
+  retained: PolygonFeature['geometry'];
+  created: PolygonFeature['geometry'];
+}
+
 export interface SnappingOptions {
   enabled: boolean;
   /** Acquisition radius in CSS pixels, default 18, range (0, 100]. */
@@ -84,7 +91,7 @@ export interface HistoryEvent {
 }
 
 export interface EditorState {
-  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon';
+  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon';
   vertexCount: number;
   featureCount: number;
   /** UI selection only; never serialized into GeoJSON. */
@@ -99,4 +106,6 @@ export interface EditorState {
   canRedo: boolean;
   /** Why the clicked draft cannot be committed; null when valid or idle. */
   validationError: ValidationError | null;
+  /** Split diagnostics are separate from ordinary drawing validation. */
+  splitError: SplitError | null;
 }

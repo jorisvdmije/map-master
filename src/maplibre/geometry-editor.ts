@@ -1,6 +1,6 @@
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { DrawingSession } from '../core/drawing-session.js';
-import type { Coordinate, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, GeometryType } from '../core/types.js';
+import type { Coordinate, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, GeometryType } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
 import { MapLibreSnapping } from './snapping.js';
 import type { ScreenPoint } from '../core/snapping.js';
@@ -76,7 +76,7 @@ export class GeometryEditor {
   setSnapping(options: Partial<SnappingOptions>): void {
     this.assertAlive();
     if (!this.snapping.setOptions(options)) return;
-    if (this.pointer && this.session.state.mode.startsWith('draw-')) {
+    if (this.pointer && this.isDrawing()) {
       const resolved = this.resolvePointer(this.pointer);
       this.cursor = resolved.coordinate;
       this.setSnap(resolved.snap);
@@ -130,6 +130,42 @@ export class GeometryEditor {
   }
 
   getDraft(): Coordinate[] { return this.session.getDraft(); }
+
+  /** Start an outside-to-outside cutting line on the selected single-ring polygon. */
+  splitSelected(): boolean {
+    this.assertAlive();
+    if (!this.session.splitSelected()) return false;
+    this.enterInteraction(); this.schedulePreview(); return true;
+  }
+
+  setSplitLine(coordinates: Coordinate[]): void {
+    this.assertAlive(); this.session.setSplitLine(coordinates);
+    this.pointer = undefined; this.cursor = undefined; this.setSnap(null);
+    this.schedulePreview(); this.emitChange();
+  }
+
+  removeSplitPoint(): boolean {
+    this.assertAlive(); const changed = this.session.removeSplitPoint();
+    this.draftChanged(changed); return changed;
+  }
+
+  getSplitPreview(): SplitPreview | null { return this.session.getSplitPreview(); }
+
+  finishSplit(): TransactionEvent | null {
+    this.assertAlive();
+    const event = this.session.finishSplit();
+    if (!event) return null;
+    this.leaveDrawing();
+    this.renderer.renderSelection(this.session.state.selectedFeatureId);
+    this.renderer.renderCommitted(this.exportGeoJSON());
+    for (const listener of this.transactionListeners) this.notify(() => listener(structuredClone(event)));
+    this.emitChange(); return event;
+  }
+
+  private isDrawing(): boolean {
+    const mode = this.session.state.mode;
+    return mode.startsWith('draw-') || mode === 'split-polygon';
+  }
 
   /** Begin a cancellable edit of the selected feature; false with no selection/already editing. */
   editSelected(): boolean {
@@ -197,6 +233,7 @@ export class GeometryEditor {
   /** Commit a valid draft; otherwise return null and keep drawing active. */
   finish(): GeometryFeature | null {
     this.assertAlive();
+    if (this.session.state.mode === 'split-polygon') return this.finishSplit()?.changes[0]?.after ?? null;
     this.vertices.stop();
     const before = this.session.state;
     const feature = this.session.finish();
@@ -359,7 +396,7 @@ export class GeometryEditor {
     this.altPressed = input.altKey;
     const resolved = this.resolvePointer(this.pointer);
     this.setSnap(resolved.snap);
-    if (this.destroyed || !this.session.state.mode.startsWith('draw-')) return;
+    if (this.destroyed || !this.isDrawing()) return;
     this.schedulePreview();
     if (resolved.close) { this.finish(); return; }
     if (!this.session.add(resolved.coordinate)) return;
@@ -369,14 +406,14 @@ export class GeometryEditor {
   };
 
   private readonly handleMove = (event: MapMouseEvent): void => {
-    if (!this.session.state.mode.startsWith('draw-')) return;
+    if (!this.isDrawing()) return;
     this.pointer = { x: event.point.x, y: event.point.y };
     this.altPressed = event.originalEvent.altKey;
     this.schedulePreview();
   };
 
   private readonly handleLeave = (): void => {
-    if (!this.session.state.mode.startsWith('draw-')) return;
+    if (!this.isDrawing()) return;
     this.pointer = undefined;
     this.cursor = undefined;
     this.setSnap(null);
@@ -384,7 +421,7 @@ export class GeometryEditor {
   };
 
   private readonly handleSnapModifier = (event: KeyboardEvent): void => {
-    if (event.key !== 'Alt' || !this.session.state.mode.startsWith('draw-')) return;
+    if (event.key !== 'Alt' || !this.isDrawing()) return;
     this.altPressed = event.type === 'keydown';
     this.schedulePreview();
   };
@@ -394,7 +431,7 @@ export class GeometryEditor {
     this.pointer = undefined;
     this.cursor = undefined;
     this.setSnap(null);
-    if (this.session.state.mode.startsWith('draw-')) this.schedulePreview();
+    if (this.isDrawing()) this.schedulePreview();
   };
 
   private readonly handleKey = (event: KeyboardEvent): void => {
@@ -419,6 +456,9 @@ export class GeometryEditor {
         else this.deleteSelected();
       }
       return;
+    }
+    if (this.session.state.mode === 'split-polygon' && (event.key === 'Delete' || event.key === 'Backspace')) {
+      event.preventDefault(); this.removeSplitPoint(); return;
     }
     if (this.session.state.mode.startsWith('edit-') && (event.key === 'Delete' || event.key === 'Backspace')) {
       const index = this.session.state.selectedVertexIndex;
@@ -452,13 +492,15 @@ export class GeometryEditor {
     if (this.frame !== undefined) return;
     this.frame = this.view.requestAnimationFrame(() => {
       this.frame = undefined;
-      if (this.pointer && this.session.state.mode.startsWith('draw-')) {
+      if (this.pointer && this.isDrawing()) {
         const resolved = this.resolvePointer(this.pointer);
         this.cursor = resolved.coordinate;
         this.setSnap(resolved.snap);
       }
       if (this.destroyed) return;
-      this.renderer.renderPreview(this.session.getDraft(), this.cursor, this.session.state, this.snap);
+      const split = this.session.getSplitPreview();
+      if (this.session.state.mode === 'split-polygon') this.renderer.renderEditing(split ? this.session.state.selectedFeatureId : null);
+      this.renderer.renderPreview(this.session.getDraft(), this.cursor, this.session.state, this.snap, split);
     });
   }
 

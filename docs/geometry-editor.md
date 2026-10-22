@@ -46,14 +46,18 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `draw('LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
 | `finish()` | Commit a valid draft once, returning a `GeometryFeature`. An invalid/incomplete draft returns `null` and remains active. |
 | `cancel()` | Discard only the draft. |
-| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedVertexIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`. |
+| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedVertexIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`. |
+| `splitSelected()` | Begin a cutting line on the selected polygon; false with no polygon/already splitting. |
+| `setSplitLine(coordinates)` / `removeSplitPoint()` | Replace the cut or remove its last point while splitting. |
+| `getSplitPreview()` | Independent retained/created Polygon geometries, or null. |
+| `finishSplit()` | Commit both parts as one transaction, or return null for an invalid/inactive split. |
 | `select(id \| null)` | Select a committed feature by ID, or clear selection with `null`. Available only while idle. |
 | `getSelected()` | Independent snapshot of the selected feature, or `null`. |
 | `deleteSelected()` | Delete the selected committed feature and clear selection. Return its independent snapshot, or `null` with no selection. Available only while idle. |
 | `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed lines and polygons. |
 | `importGeoJSON(input)` | Append a parsed Feature/FeatureCollection atomically; return an independent collection of imported features. Idle only. |
 | `applyTransaction({ create?, update?, delete? })` | Validate and commit a mixed batch atomically. Full features with explicit IDs; idle only. Return a TransactionEvent or null for no change. |
-| `onTransaction(listener)` | One complete change batch per successful applyTransaction. Returns an unsubscribe function. |
+| `onTransaction(listener)` | One complete change batch per successful applyTransaction or confirmed split. Returns an unsubscribe function. |
 | `onImport(listener)` | One notification per nonempty imported batch. Returns an unsubscribe function. |
 | `onUpdate(listener)` | One notification per changed saved edit. Returns an unsubscribe function. |
 | `undo()` / `redo()` | Reverse/replay one committed action; return true if applied, false if unavailable. Idle only. |
@@ -73,7 +77,7 @@ is a GeoJSON FeatureCollection containing both shape types. New drawings receive
 string or numeric IDs and JSON properties (including null). Coordinates are
 `[longitude, latitude]`. Properties can be imported but there is no property-editing API yet.
 
-Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, and `edit-polygon`. `validationError` is `null`
+Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, and `split-polygon`. `validationError` is `null`
 when idle or when the current draft is valid. Check `canFinish` to enable Finish;
 an idle editor cannot finish even though it has no validation error.
 
@@ -281,6 +285,14 @@ GeometryEditor; the earlier LineEditor remains a drawing compatibility facade.
 `selectedFeatureId` now use exported `FeatureId` (`string | number`). Properties
 now use exported `FeatureProperties` (a JSON object or null), with `JsonValue`
 for nested values. Update consumer annotations and handle null properties.
+
+## Splitting
+
+A selected polygon can be split into two independent features with a cutting line,
+colored preview, correction/cancel and one undo action. See the [split guide](splitting.md)
+for the restricted crossing contract, diagnostics, identity, properties and events.
+In split mode, `finish()` commits and returns the retained feature; `finishSplit()`
+returns the complete transaction. Splits use `onTransaction`, not individual events.
 
 ## Atomic transactions
 

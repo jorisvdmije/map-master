@@ -1,8 +1,7 @@
 # Atomic feature transactions
 
 Status: implemented in milestone 10. Transactions provide a commit boundary for
-future split, merge, and other operations affecting several features. They do
-not calculate a split or add a new interactive tool.
+future split, merge, and other operations affecting several features. The [split tool](splitting.md) introduced in milestone 11 builds on this boundary.
 
 ## Public API
 
@@ -85,8 +84,8 @@ listeners. Unsubscribe and editor/map destruction clean up subscriptions.
 
 `onCreate`, `onUpdate`, `onDelete`, and `onImport` are not emitted for explicit
 transactions. Existing individual methods retain their current events.
-`onTransaction` is specific to `applyTransaction`; it is not a universal change
-stream. Undo/redo emits only `onHistory` with `action: 'transaction'`, followed by
+`onTransaction` reports explicit transactions and confirmed splits; it is not a
+universal change stream. Undo/redo emits only `onHistory` with `action: 'transaction'`, followed by
 `onChange`. Update exhaustive switches over HistoryAction for the new member.
 The existing history limit applies per batch, not per changed feature or byte.
 
@@ -103,7 +102,6 @@ Insertion positions are sorted so multiple deletions supplied in any order can
 be restored in exact collection order. Unchanged stored geometry is retained
 by reference internally; only changed features are held in history.
 
-See the [performance baseline](performance.md#atomic-transactions). Interactive
-split is the next milestone: its preview must calculate geometry first, then
-submit the chosen result as one prepared operation. This step deliberately adds
-no split algorithm, multipart geometry, or toolbar control.
+See the [performance baseline](performance.md#atomic-transactions). The [interactive split tool](splitting.md)
+calculates and previews two polygon geometries, then confirms one update/create
+batch through this boundary. Transactions themselves do not calculate geometry.

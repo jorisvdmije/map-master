@@ -1,9 +1,10 @@
+import { splitPolygon } from './split-polygon.js';
 import { prepareTransaction } from './transaction.js';
 import { EditHistory, type HistoryEntry } from './history.js';
 import { copyProperties, prepareImport } from './geojson-import.js';
 import { closePolygon, openRing, samePosition, validatePolygon } from './polygon.js';
 import type {
-  Coordinate, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, GeometryType, ValidationError,
+  Coordinate, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, GeometryType, ValidationError,
 } from './types.js';
 
 function copyFeature(feature: GeometryFeature): GeometryFeature {
@@ -16,6 +17,9 @@ function copyFeature(feature: GeometryFeature): GeometryFeature {
 
 /** Internal editing state. No browser, map, or rendering dependencies. */
 export class DrawingSession {
+  private splitId: FeatureId | null = null;
+  private splitPreview: SplitPreview | null = null;
+  private splitError: SplitError | null = null;
   private kind: GeometryType | null = null;
   private draft: Coordinate[] = [];
   private readonly features = new Map<FeatureId, GeometryFeature>();
@@ -33,7 +37,7 @@ export class DrawingSession {
 
   get state(): EditorState {
     return {
-      mode: this.kind === null ? 'idle' : this.editingId !== null
+      mode: this.splitId !== null ? 'split-polygon' : this.kind === null ? 'idle' : this.editingId !== null
         ? this.kind === 'LineString' ? 'edit-line' : 'edit-polygon'
         : this.kind === 'LineString' ? 'draw-line' : 'draw-polygon',
       vertexCount: this.draft.length,
@@ -41,16 +45,17 @@ export class DrawingSession {
       selectedFeatureId: this.selectedFeatureId,
       selectedVertexIndex: this.selectedVertexIndex,
       dataRevision: this.dataRevision,
-      canFinish: this.kind !== null && this.validationError === null,
+      canFinish: this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
       canUndo: this.kind === null && this.history.canUndo,
       canRedo: this.kind === null && this.history.canRedo,
       validationError: this.validationError,
+      splitError: this.splitError,
     };
   }
 
   start(kind: GeometryType): boolean {
     if (kind !== 'LineString' && kind !== 'Polygon') throw new TypeError('Unsupported geometry type.');
-    if (this.kind === kind && this.editingId === null) return false;
+    if (this.kind === kind && this.editingId === null && this.splitId === null) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before changing tools.');
     this.kind = kind;
     this.selectedFeatureId = null;
@@ -64,6 +69,7 @@ export class DrawingSession {
     const last = this.draft.at(-1);
     if (last && samePosition(last, [lng, lat])) return false;
     this.draft.push([lng, lat]);
+    if (this.splitId !== null) { this.validateSplit(); return true; }
     // Cache validity on clicks. Pointer movement and state reads never run topology checks.
     this.validationError = this.kind === 'Polygon' ? validatePolygon(this.draft)
       : this.draft.length < 2 ? 'too-few-vertices' : null;
@@ -75,7 +81,7 @@ export class DrawingSession {
   }
 
   finish(): GeometryFeature | null {
-    if (!this.state.canFinish) return null;
+    if (this.splitId !== null || !this.state.canFinish) return null;
     const original = this.editingId === null ? undefined : this.features.get(this.editingId);
     const common = { type: 'Feature' as const, id: original?.id ?? this.allocateId(), properties: original ? copyProperties(original.properties) : {} };
     const feature: GeometryFeature = this.kind === 'Polygon'
@@ -95,12 +101,63 @@ export class DrawingSession {
 
   cancel(): boolean {
     if (this.kind === null) return false;
+    this.splitId = null; this.splitPreview = null; this.splitError = null;
     this.kind = null;
     this.draft = [];
     this.validationError = null;
     this.editingId = null;
     this.selectedVertexIndex = null;
     return true;
+  }
+
+  splitSelected(): boolean {
+    if (this.splitId !== null) return false;
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before splitting.');
+    const feature = this.getSelected();
+    if (!feature || feature.geometry.type !== 'Polygon') return false;
+    this.splitId = feature.id; this.kind = 'LineString'; this.draft = [];
+    this.splitError = 'split-too-few-points'; this.splitPreview = null;
+    return true;
+  }
+
+  setSplitLine(coordinates: Coordinate[]): void {
+    if (this.splitId === null) throw new Error('Start splitting a selected polygon first.');
+    if (!Array.isArray(coordinates)) throw new TypeError('Expected an array of cutting-line coordinates.');
+    for (const coordinate of coordinates) {
+      if (!Array.isArray(coordinate) || coordinate.length !== 2) throw new TypeError('Expected a 2D cutting-line coordinate.');
+      this.validatePosition(coordinate);
+    }
+    this.draft = coordinates.map((point) => [...point]); this.validateSplit();
+  }
+
+  removeSplitPoint(): boolean {
+    if (this.splitId === null) throw new Error('Start splitting a selected polygon first.');
+    if (this.draft.length === 0) return false;
+    this.draft.pop(); this.validateSplit(); return true;
+  }
+
+  getSplitPreview(): SplitPreview | null {
+    if (!this.splitPreview) return null;
+    return { retained: { type: 'Polygon', coordinates: this.splitPreview.retained.coordinates.map((ring) => ring.map((p) => [...p])) },
+      created: { type: 'Polygon', coordinates: this.splitPreview.created.coordinates.map((ring) => ring.map((p) => [...p])) } };
+  }
+
+  private validateSplit(): void {
+    const feature = this.features.get(this.splitId!)!;
+    if (feature.geometry.type !== 'Polygon') throw new Error('Expected a polygon split target.');
+    const result = splitPolygon(feature.geometry.coordinates[0]!, this.draft);
+    this.splitPreview = result.preview; this.splitError = result.error;
+  }
+
+  finishSplit(): TransactionEvent | null {
+    if (this.splitId === null || !this.splitPreview) return null;
+    const original = this.features.get(this.splitId)!;
+    const changes = prepareTransaction({ update: [{ ...original, geometry: this.splitPreview.retained }],
+      create: [{ ...original, id: this.allocateId(), geometry: this.splitPreview.created }],
+    }, this.features);
+    this.commit('transaction', changes);
+    this.cancel();
+    return { changes: changes.map(({ before, after }) => ({ before: before ? copyFeature(before) : null, after: after ? copyFeature(after) : null })) };
   }
 
   /** Append a fully validated batch; existing data and selection survive any failure. */

@@ -39,6 +39,17 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   tool.draw('Circle');
   tool.cancel();
   tool.select(null);
+  const splitting: boolean = tool.splitSelected();
+  const splitPreview: editor.SplitPreview | null = tool.getSplitPreview();
+  const splitError: editor.SplitError | null = tool.getState().splitError;
+  if (splitting) {
+    tool.setSplitLine([[0, 0], [1, 1]]);
+    tool.removeSplitPoint();
+    const split: editor.TransactionEvent | null = tool.finishSplit();
+    void split;
+    tool.cancel();
+  }
+  void [splitPreview, splitError];
   const selected: editor.GeometryFeature | null = tool.getSelected();
   void selected;
   tool.editSelected();

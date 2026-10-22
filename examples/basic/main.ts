@@ -1,6 +1,6 @@
 import { Map, LngLatBounds, NavigationControl, setWorkerUrl } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-import { GeometryEditor, type GeometryType, type ValidationError } from '@geo/editor';
+import { GeometryEditor, type GeometryType, type SplitError, type ValidationError } from '@geo/editor';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
 
@@ -30,6 +30,7 @@ const status = element('status');
 const selection = element('selection');
 const deselect = element<HTMLButtonElement>('deselect');
 const deleteSelected = element<HTMLButtonElement>('delete-selected');
+const splitSelected = element<HTMLButtonElement>('split-selected');
 const editSelected = element<HTMLButtonElement>('edit-selected');
 const removeVertex = element<HTMLButtonElement>('remove-vertex');
 let editor: GeometryEditor | undefined;
@@ -39,6 +40,16 @@ const validationMessages: Record<Exclude<ValidationError, 'too-few-vertices'>, s
   'self-intersection': 'Polygon edges cannot cross, touch, or overlap.',
   'duplicate-vertex': 'A corner is used more than once. Cancel to start again.',
   'antimeridian-crossing': 'Polygons across the date line are not supported yet.',
+};
+
+const splitMessages: Record<SplitError, string> = {
+  'split-too-few-points': 'Start outside the polygon, draw across it, and end outside. Add at least two points.',
+  'split-self-intersection': 'The cutting line cannot cross, touch, or double back on itself. Backspace removes the last point.',
+  'split-antimeridian': 'Cutting across the date line is not supported.',
+  'split-boundary-touch': 'Cross the edges between corners. Do not place points on the boundary or follow an edge. Hold Alt to bypass snapping.',
+  'split-endpoints-inside': 'Start and end the cutting line outside the polygon.',
+  'split-crossing-count': 'The cutting line must cross the polygon boundary exactly twice.',
+  'split-invalid-result': 'This cut could not produce two valid polygons. Adjust the line or cancel.',
 };
 
 function selectTool(kind: GeometryType): void {
@@ -79,16 +90,18 @@ map.on('load', () => {
     updateSnapStatus();
     const drawing = state.mode !== 'idle';
     const editing = state.mode.startsWith('edit-');
+    const splitting = state.mode === 'split-polygon';
     const polygon = selected === 'Polygon';
     const error = state.validationError;
     const selectedFeature = activeEditor.getSelected();
     selection.hidden = selectedFeature === null;
-    deselect.disabled = selectedFeature === null || editing;
-    deleteSelected.disabled = selectedFeature === null || editing;
-    editSelected.disabled = selectedFeature === null || editing;
+    deselect.disabled = selectedFeature === null || drawing;
+    deleteSelected.disabled = selectedFeature === null || drawing;
+    editSelected.disabled = selectedFeature === null || drawing;
+    splitSelected.disabled = selectedFeature?.geometry.type !== 'Polygon' || drawing;
     element('editing-tools').hidden = !editing;
-    element('finish-label').textContent = editing ? 'Save' : 'Finish';
-    element('drawing-instructions').hidden = editing;
+    element('finish-label').textContent = splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
+    element('drawing-instructions').hidden = editing || splitting;
     removeVertex.disabled = !editing || state.selectedVertexIndex === null
       || state.vertexCount <= (state.mode === 'edit-polygon' ? 3 : 2);
     element('vertex-status').textContent = state.selectedVertexIndex === null
@@ -118,7 +131,11 @@ map.on('load', () => {
       ? `${state.vertexCount} ${state.vertexCount === 1 ? 'point' : 'points'} placed. ${state.canFinish ? 'Ready to finish.' : `Place at least ${polygon ? 'three corners' : 'two points'}.`}`
       : selectedFeature ? 'Shape selected. Edit its corners, delete it, or deselect it.'
         : state.featureCount > 0 ? 'Click a shape to select it, or draw another.' : 'Ready when you are.';
-    element('map-hint').textContent = editing ? 'Drag corners · Click small points to add · Enter to save'
+    if (splitting) {
+      status.classList.toggle('is-invalid', state.splitError !== null && state.splitError !== 'split-too-few-points');
+      status.textContent = state.splitError ? splitMessages[state.splitError] : 'Two parts ready. Enter saves both shapes; Cancel keeps the original.';
+    }
+    element('map-hint').textContent = splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
       : drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
@@ -166,6 +183,7 @@ cancel.addEventListener('click', () => { editor?.cancel(); });
 undo.addEventListener('click', () => { if (editor?.undo()) map.getCanvas().focus({ preventScroll: true }); });
 redo.addEventListener('click', () => { if (editor?.redo()) map.getCanvas().focus({ preventScroll: true }); });
 deselect.addEventListener('click', () => { editor?.select(null); });
+splitSelected.addEventListener('click', () => { editor?.splitSelected(); });
 editSelected.addEventListener('click', () => { editor?.editSelected(); });
 removeVertex.addEventListener('click', () => {
   const index = editor?.getState().selectedVertexIndex;

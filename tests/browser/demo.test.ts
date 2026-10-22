@@ -53,6 +53,26 @@ it('runs the demo with its real controls and a built package, without a tile ser
   expect(output?.value).toContain('LineString');
   saved = output?.value;
 
+  // Split the polygon through the UI, cancel a preview, then apply and undo it.
+  await expect.poll(async () => {
+    await userEvent.click(canvas, { position: { x: 260, y: 175 } });
+    return document.querySelector<HTMLElement>('#selection')?.hidden;
+  }).toBe(false);
+  const split = page.getByRole('button', { name: 'Split polygon', exact: true });
+  await split.click();
+  await userEvent.click(canvas, { position: { x: 100, y: 200 } });
+  await userEvent.click(canvas, { position: { x: 400, y: 200 } });
+  await expect.element(page.getByRole('button', { name: 'Apply split', exact: true })).toBeEnabled();
+  expect(output?.value).toBe(saved);
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await split.click();
+  await userEvent.click(canvas, { position: { x: 100, y: 200 } });
+  await userEvent.click(canvas, { position: { x: 400, y: 200 } });
+  await page.getByRole('button', { name: 'Apply split', exact: true }).click();
+  expect((JSON.parse(output?.value ?? '{}') as GeometryFeatureCollection).features).toHaveLength(3);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  expect(output?.value).toBe(saved);
+
   // Select a polygon interior away from the existing line, then use the UI to clear it.
   await expect.poll(async () => {
     await userEvent.click(canvas, { position: { x: 260, y: 175 } });
@@ -147,4 +167,4 @@ it('runs the demo with its real controls and a built package, without a tile ser
   await expect.element(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect.element(input).toBeEnabled();
-});
+}, 40_000); // Complete draw/edit/split/import/history flow under concurrent Chromium load.

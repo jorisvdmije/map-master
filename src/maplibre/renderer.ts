@@ -1,6 +1,6 @@
 import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
 import { samePosition } from '../core/polygon.js';
-import type { Coordinate, SnapResult, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
+import type { Coordinate, SplitPreview, SnapResult, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
 import { vertexHandles } from './vertex-handles.js';
 
 const emptyCollection = () => ({ type: 'FeatureCollection' as const, features: [] });
@@ -8,7 +8,7 @@ const emptyCollection = () => ({ type: 'FeatureCollection' as const, features: [
 // This property exists only in render data; the core/export never receives it.
 const renderIdProperty = '__geo_editor_id';
 type PreviewFeature = {
-  type: 'Feature'; properties: { kind?: 'vertex' | 'midpoint' | 'snap'; active?: boolean; snapKind?: 'vertex' | 'edge' };
+  type: 'Feature'; properties: { kind?: 'vertex' | 'midpoint' | 'snap' | 'split-part'; part?: number; active?: boolean; snapKind?: 'vertex' | 'edge' };
   geometry: { type: 'Point'; coordinates: Coordinate }
     | { type: 'LineString'; coordinates: Coordinate[] }
     | { type: 'Polygon'; coordinates: Coordinate[][] };
@@ -37,7 +37,7 @@ export class MapLibreRenderer {
         paint: { 'line-color': color, 'line-width': ['case', selected, 6, 4], 'line-opacity': ['case', editing, 0, 1] } },
       { id: `${namespace}-draft-fill`, type: 'fill', source: this.draftId,
         filter: ['==', '$type', 'Polygon'],
-        paint: { 'fill-color': '#df772e', 'fill-opacity': 0.12 } },
+        paint: { 'fill-color': ['case', ['==', ['get', 'part'], 1], '#7c3aed', '#df772e'], 'fill-opacity': 0.22 } },
       { id: this.draftId, type: 'line', source: this.draftId,
         filter: ['in', '$type', 'LineString', 'Polygon'],
         paint: { 'line-color': '#df772e', 'line-width': 3, 'line-dasharray': [2, 1.5] } },
@@ -113,7 +113,7 @@ export class MapLibreRenderer {
     return typeof id === 'string' || typeof id === 'number' ? id : null;
   }
 
-  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null): void {
+  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null): void {
     const editing = state.mode.startsWith('edit-');
     const polygon = state.mode === 'draw-polygon' || state.mode === 'edit-polygon';
     const handles = editing ? vertexHandles(this.map, coordinates, polygon)
@@ -124,6 +124,11 @@ export class MapLibreRenderer {
     }));
     if (snap) features.push({ type: 'Feature', properties: { kind: 'snap', snapKind: snap.kind },
       geometry: { type: 'Point', coordinates: [...snap.coordinate] } });
+    if (split) {
+      for (const [part, geometry] of [split.retained, split.created].entries()) {
+        features.push({ type: 'Feature', properties: { kind: 'split-part', part }, geometry });
+      }
+    }
     const last = coordinates.at(-1);
     if (!editing && last && cursor && !samePosition(last, cursor)) coordinates.push(cursor);
     const first = coordinates[0];

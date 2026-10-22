@@ -231,3 +231,33 @@ processing, and rendering. The controller still exports/uploads the entire
 collection once per successful batch. Large polygons also retain the existing
 O(v²) validation cost. Browser tests separately verify a single upload/event,
 no partial changes on failure, selection, keyboard replay, and updated snapping.
+
+## Polygon splitting
+
+Run `npm run benchmark:split`. Fixed regular rings have 10, 100, or 1,000
+corners, centered at `[4.895, 52.372]` with radius 0.01 degrees. The two-point
+cut is horizontal at latitude 52.37373, from longitude 4.875 to 4.915, avoiding
+ring vertices. There are 20 warmups and 50 individually timed samples. The timer
+includes crossing detection, construction of both parts, validation, normalization,
+and area comparison. Input construction and assertions are outside the timer.
+
+Local baseline on 2026-10-22: Apple M2 Pro, macOS arm64, Node.js 22.23.1.
+
+| Polygon corners | Median split (ms) | p95 split (ms) |
+| --- | ---: | ---: |
+| 10 | 0.076 | 0.788 |
+| 100 | 0.407 | 7.934 |
+| 1,000 | 8.000 | 8.900 |
+
+These first-run observations include runtime variability and are not CI thresholds.
+With n polygon corners and m cutting points, crossing search is O(nm), cut
+self-intersection checking is O(m²), and the existing output validator is quadratic
+in each output's vertex count. Source rings are already validated on creation/import.
+The session caches calculated results on placed points; cursor movement does not
+repeat split validation. Preview rendering/copying remains proportional to geometry
+size. Confirmation validates the two features again through transaction preparation.
+
+The measurements exclude confirmation, snapshots returned by the public API,
+MapLibre projection/rendering, observer callbacks, and full collection export/upload.
+They do not establish a frame-rate or supported-dataset guarantee. Very complex
+cuts/rings may need a general indexed geometry engine or worker execution later.

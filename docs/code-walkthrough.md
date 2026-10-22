@@ -14,6 +14,7 @@ src/
     history.ts               Bounded undo/redo stacks of committed feature changes
     geojson-import.ts        Validate/copy entire import batches and JSON properties
     polygon.ts               Ring validity, closure, exterior winding
+    split-polygon.ts         Restricted two-crossing splitter and result validation
     snapping.ts              Projected candidate index, nearest vertex/edge policy
   maplibre/
     geometry-editor.ts       Public API, map input, events, gesture/lifecycle cleanup
@@ -145,3 +146,11 @@ The library has no built-in toolbar or framework dependency. `examples/basic`
 is one consumer of the API, making a React/Vue/custom UI possible without
 changing the geometry engine. Styling and rendering options can be introduced
 through a deliberate public contract when a real use case needs them.
+
+
+Splitting retains the selected polygon while the session holds a separate cutting
+line and cached preview. Clicking or replacing the cut invokes splitPolygon;
+hover does not repeat topology calculations. The renderer shows the proposed
+parts in different colors. Confirmation validates one update/create batch and
+uses the common transaction commit path. Preview allocates no IDs and never enters
+exports/history; cancel discards it. See the [split guide](splitting.md).

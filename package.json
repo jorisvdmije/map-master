@@ -40,7 +40,8 @@
     "benchmark:import": "npm run build && node scripts/benchmark-import.mjs",
     "benchmark:history": "npm run build && node scripts/benchmark-history.mjs",
     "benchmark:snapping": "npm run build && node scripts/benchmark-snapping.mjs",
-    "benchmark:transactions": "npm run build && node scripts/benchmark-transactions.mjs"
+    "benchmark:transactions": "npm run build && node scripts/benchmark-transactions.mjs",
+    "benchmark:split": "npm run build && node scripts/benchmark-split.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

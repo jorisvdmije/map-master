@@ -10,7 +10,8 @@ Line and polygon drawing, single-feature selection, deletion, vertex editing, Ge
 preview, validate, finish or cancel, select/deselect, delete, move/insert/remove vertices, and export committed features together
 as GeoJSON through one GeometryEditor API.
 [Atomic transactions](docs/transactions.md) can create, update, and delete multiple
-features as one validated batch and one undo action. Interactive splitting is next.
+features as one validated batch and one undo action.
+[Split Features](docs/splitting.md) divides a selected polygon into two independent features.
 The API is experimental. Code and contributor documentation use English.
 
 ## Try the demo
@@ -36,6 +37,11 @@ Escape with map focus, or choose **Deselect** to clear selection. Selection neve
 changes the exported geometry.
 To remove the selected shape, use **Delete** or press Delete/Backspace with map
 focus. Remaining geometry stays intact. Undo restores a deleted shape while its action remains in history.
+
+Select a polygon and choose **Split polygon**. Place an outside-to-outside cutting
+line across two edges, review the two colored parts, then press Enter or
+**Apply split**. Backspace removes the last cut point; Escape cancels.
+Cuts through existing corners or along edges are not supported in this first version.
 
 Select a shape and choose **Edit vertices**. Drag a corner to move it, click a
 small midpoint to insert one, and use **Remove vertex** or Delete/Backspace to
@@ -88,6 +94,7 @@ npm run check
 | `npm run benchmark:history` | Measure undoing a middle deletion, with and without export. |
 | `npm run benchmark:snapping` | Measure projected index building and nearby-point queries on fixed polygon grids. |
 | `npm run benchmark:transactions` | Measure mixed batch commits and exact undo on fixed datasets. |
+| `npm run benchmark:split` | Measure splitting and result validation on fixed polygon fixtures. |
 | `npm run check` | Run all type checks, linting, tests, and the production demo build. |
 | `npm pack` | Build and create a local installable archive. |
 
