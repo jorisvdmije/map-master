@@ -372,3 +372,29 @@ UUID-generation measurements. Cost scales with selected vertices and property
 size; a large group can exceed a frame budget. Browser tests verify one committed
 source upload for the complete operation. Export/upload still scales with all
 stored features, and MapLibre worker/GPU work and host callbacks are excluded.
+
+## Polygon holes
+
+Run `npm run benchmark:holes`. Fixtures contain one square exterior and 1, 25,
+100 or 400 disjoint square holes. Five warmups and 30 samples measure a complete
+core import, and a move/save of one hole vertex. Selection, entering editing,
+export and Undo assertions are outside the timed sections. The assertions verify
+that each save commits and Undo restores every ring exactly.
+
+Local Node.js v22.23.1, macOS arm64, Apple M2 Pro (2026-10-22):
+
+| Holes | Import median / p95 ms | Move/save median / p95 ms |
+| --- | --- | --- |
+| 1 | 0.021 / 0.042 | 0.018 / 0.038 |
+| 25 | 0.162 / 0.302 | 0.113 / 0.209 |
+| 100 | 0.263 / 0.337 | 0.198 / 0.363 |
+| 400 | 1.177 / 1.449 | 0.949 / 1.299 |
+
+Validation computes ring bounds once and skips exact comparisons between holes
+with disjoint bounds. Equality is included so touching boundaries are still
+checked. Every hole is checked against the exterior. Worst-case topology checks
+remain quadratic in total vertices; these separated square fixtures do not
+represent densely interleaved bounds or very complex rings. Whole-polygon
+validation runs after vertex changes, not pointer-only drawing previews. Rendering,
+MapLibre worker/GPU work and host callbacks are excluded. Previewing an active
+ring still copies/renders all rings of its polygon, preserving the visible holes.

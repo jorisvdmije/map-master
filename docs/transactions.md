@@ -48,7 +48,7 @@ The LineEditor compatibility facade does not expose this mixed-geometry API.
   An ID may appear only once across the entire transaction, even for an unchanged
   update. Delete-and-recreate with the same ID is rejected; use update instead.
   Numeric `7` and string `"7"` remain distinct.
-- Features use the existing import contract: 2D LineString or single-ring Polygon,
+- Features use the existing import contract: 2D LineString or Polygon with validated interior rings,
   supported topology, bounded coordinates, JSON properties or null. Polygon
   winding is normalized. Foreign feature members are ignored as with import.
 - Inputs and returned snapshots cannot mutate the stored collection or history.
@@ -84,7 +84,7 @@ listeners. Unsubscribe and editor/map destruction clean up subscriptions.
 
 `onCreate`, `onUpdate`, `onDelete`, and `onImport` are not emitted for explicit
 transactions. Existing individual methods retain their current events.
-`onTransaction` reports explicit transactions, confirmed splits, deleteSelection(), group translations and duplicateSelection(); it is not a
+`onTransaction` reports explicit transactions, confirmed splits, deleteSelection(), group translations, duplicateSelection() and deleteHole(); it is not a
 universal change stream. Undo/redo emits only `onHistory` with `action: 'transaction'`, followed by
 `onChange`. Update exhaustive switches over HistoryAction for the new member.
 The existing history limit applies per batch, not per changed feature or byte.

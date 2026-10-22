@@ -1,5 +1,5 @@
 import { orient2d } from 'robust-predicates';
-import { closePolygon, openRing, samePosition, validatePolygon } from './polygon.js';
+import { closePolygon, openRing, samePosition, validatePolygon, insideRing, ringsIntersect, validatePolygonRings } from './polygon.js';
 import type { Coordinate, SplitError, SplitPreview } from './types.js';
 
 const orientation = (a: Coordinate, b: Coordinate, c: Coordinate): number => orient2d(...a, ...b, ...c);
@@ -106,4 +106,25 @@ export function splitPolygon(closedRing: Coordinate[], cut: Coordinate[]): Split
     retained: { type: 'Polygon', coordinates: [normalized[retainFirst ? 0 : 1]!] },
     created: { type: 'Polygon', coordinates: [normalized[retainFirst ? 1 : 0]!] },
   } };
+}
+
+/** Preserve holes wholly contained by one result; cutting/touching a hole is unsupported. */
+export function splitPolygonRings(rings: Coordinate[][], cut: Coordinate[]): SplitCalculation {
+  const result = splitPolygon(rings[0]!, cut);
+  if (!result.preview || rings.length === 1) return result;
+  const parts = [result.preview.retained, result.preview.created];
+  for (const hole of rings.slice(1)) {
+    if (parts.some((part) => ringsIntersect(part.coordinates[0]!, hole))) return fail('split-hole-crossing');
+    const target = parts.find((part) => insideRing(hole[0]!, part.coordinates[0]!));
+    if (!target) return fail('split-invalid-result');
+    target.coordinates.push(hole.map((point) => [...point]));
+  }
+  if (parts.some((part) => validatePolygonRings(part.coordinates))) return fail('split-invalid-result');
+  const areas = parts.map((part) => planarArea(part.coordinates[0]!) - part.coordinates.slice(1).reduce((sum, hole) => sum + planarArea(hole), 0));
+  if (areas.some((area) => !Number.isFinite(area) || area <= 0)) return fail('split-invalid-result');
+  if (areas[1]! > areas[0]! || areas[0] === areas[1]
+    && JSON.stringify(parts[1]!.coordinates[0]) < JSON.stringify(parts[0]!.coordinates[0])) {
+    result.preview = { retained: parts[1]!, created: parts[0]! };
+  }
+  return result;
 }

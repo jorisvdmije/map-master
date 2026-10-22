@@ -1,9 +1,9 @@
 # GeometryEditor: lines and polygons
 
-Status: experimental. Supports 2D LineString and single-outer-ring Polygon
+Status: experimental. Supports 2D LineString and Polygon (exterior plus interior rings)
 features on a flat Mercator MapLibre GL JS 6.15 map. Desktop mouse and keyboard
 input, selection, group translation/duplication, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are tested in Chromium.
-Holes and multipart features are not implemented yet.
+Multipart features are not implemented yet.
 
 ## One editor API
 
@@ -46,7 +46,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `draw('LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
 | `finish()` | Commit a valid draft once, returning a `GeometryFeature`. An invalid/incomplete draft returns `null` and remains active. |
 | `cancel()` | Discard the draft or cancel an active selection rectangle or group drag. |
-| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`. |
+| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`. |
 | `splitSelected()` | Begin a cutting line on the selected polygon; false with no polygon/already splitting. |
 | `setSplitLine(coordinates)` / `removeSplitPoint()` | Replace the cut or remove its last point while splitting. |
 | `getSplitPreview()` | Independent retained/created Polygon geometries, or null. |
@@ -56,6 +56,9 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `selectMany(ids)` | Replace the whole selection atomically, deduplicating typed IDs. |
 | `toggleSelection(id)` | Add/remove one existing feature from the selection. |
 | `getSelection()` | Independent snapshots of all selected features in acquisition order. |
+| `editSelected(ringIndex = 0)` | Begin editing the selected feature; polygon index 0 is the exterior, subsequent indices are holes. |
+| `drawHole()` | Start a cancellable hole on the sole selected polygon; Finish saves one edit. |
+| `deleteHole(ringIndex)` | Delete an interior ring (index >= 1) as one transaction; idle only. |
 | `duplicateSelection(delta?)` | Create and select copies with new IDs as one transaction; optional offset in degrees, default `[0, 0]`. Returns `TransactionEvent` or null. Idle only. |
 | `translateSelection([deltaLng, deltaLat])` | Translate selected features in degrees as one transaction; returns `TransactionEvent` or null. Idle only. |
 | `deleteSelection()` | Delete all selected features as one transaction; returns `TransactionEvent` or null. |
@@ -63,7 +66,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed lines and polygons. |
 | `importGeoJSON(input)` | Append a parsed Feature/FeatureCollection atomically; return an independent collection of imported features. Idle only. |
 | `applyTransaction({ create?, update?, delete? })` | Validate and commit a mixed batch atomically. Full features with explicit IDs; idle only. Return a TransactionEvent or null for no change. |
-| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed split, deleteSelection, group translation or duplication. Returns an unsubscribe function. |
+| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed split, deleteSelection, group translation, duplication or hole deletion. Returns an unsubscribe function. |
 | `onImport(listener)` | One notification per nonempty imported batch. Returns an unsubscribe function. |
 | `onUpdate(listener)` | One notification per changed saved edit. Returns an unsubscribe function. |
 | `undo()` / `redo()` | Reverse/replay one committed action; return true if applied, false if unavailable. Idle only. |
@@ -83,7 +86,7 @@ is a GeoJSON FeatureCollection containing both shape types. New drawings receive
 string or numeric IDs and JSON properties (including null). Coordinates are
 `[longitude, latitude]`. Properties can be imported but there is no property-editing API yet.
 
-Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, and `split-polygon`. `validationError` is `null`
+Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, and `split-polygon`. `validationError` is `null`
 when idle or when the current draft is valid. Check `canFinish` to enable Finish;
 an idle editor cannot finish even though it has no validation error.
 
@@ -92,6 +95,56 @@ interrupting a commit or other observers. MapLibre renders committed data
 asynchronously; listen to the map's `error` event for rendering failures.
 After destruction, exports remain readable and selection is cleared;
 drawing, selecting, deleting, and subscribing throw.
+
+## Polygon holes
+
+A Polygon stores the exterior at `coordinates[0]` and holes at subsequent indices.
+In the demo, select a polygon and choose **Draw a hole**. Place corners strictly
+inside the filled area, then press Enter, Finish, or click the first corner.
+Escape cancels. Use **Ring to edit** to choose the outer boundary or a hole before
+**Edit vertices**; **Delete hole** removes the chosen interior ring.
+
+```ts
+editor.select(polygonId);
+editor.drawHole(); // Subsequent map clicks define a new hole; finish()/cancel() apply.
+// After finishing or cancelling:
+editor.editSelected(1); // First hole. Default 0 edits the exterior.
+editor.moveVertex(0, [4.89, 52.37]); // Index within the active ring.
+editor.finish(); // Saves only when the entire polygon remains valid.
+editor.deleteHole(1); // Immediate transaction; Undo restores the exact ring order.
+```
+
+`drawHole()` returns false without a sole polygon selection or if already drawing
+a hole. `editSelected(ringIndex)` rejects out-of-range/noninteger indices before
+entering editing. For a line only index 0 is supported. Ring indices follow the
+current coordinate array; they are not stable identities after ring deletion.
+Only one ring is edited per session. `getDraft()`, `vertexCount`, and
+`selectedVertexIndex` describe that ring; `activeRingIndex` identifies it while
+editing a polygon or drawing a hole and is null otherwise. Hole drawing introduces
+`mode: 'draw-hole'`; consumers with exhaustive mode switches should handle it.
+
+All rings are validated together after clicks or vertex changes. A hole must be
+strictly inside the exterior and may not touch, overlap or contain another hole.
+Moving the outer boundary may invalidate an existing hole; Finish then returns
+null and leaves the draft editable. Cancel restores the saved polygon. Untouched
+rings, feature ID, JSON properties and feature order remain intact.
+
+Finishing a hole or changed ring edit emits one `onUpdate`, then `onChange`, and
+records one `edit` history entry. `deleteHole(index)` emits one `onTransaction`,
+then `onChange`, and records one transaction. It returns null without a sole
+polygon selection; index 0, missing indices and nonintegers throw RangeError.
+All hole commands require idle mode except the matching Finish/Cancel session.
+No-op ring saves and cancellations create no data/history entry. Successful
+commands upload committed data once. Undo/Redo restore all rings exactly.
+
+Import, export, translation, duplication, and history include every ring. Snapping
+indexes hole corners and edges; polygon `SnapResult` values include `ringIndex`
+as well as the ring-local `index`. Lines and first-corner closure targets omit it.
+The entire target polygon is excluded from snapping while editing or adding a
+hole. At equal feature/distance priority, the lower ring index breaks a tie before
+the vertex/edge index. Picking respects empty hole interiors while their outlines
+remain selectable. Split preserves holes wholly on one side; a cut touching or
+crossing a hole is rejected with `split-hole-crossing`.
 
 ## Duplicate selected shapes
 
@@ -366,7 +419,7 @@ Drag a large handle to move a corner, or click/drag a small midpoint to insert
 one. Delete/Backspace removes the selected corner only while the map has focus.
 Enter/Save commits; Escape/Cancel discards. Invalid intermediate shapes stay
 visible but cannot be saved. Coincident consecutive line points and invalid
-polygon topology are rejected. A saved polygon is closed and wound CCW.
+polygon topology are rejected. Saved rings are closed; exteriors are CCW and holes CW.
 
 `onUpdate(listener)` fires once for a changed saved geometry, with the same ID
 and properties. It returns an unsubscribe function. Cancel and unchanged saves
@@ -413,12 +466,12 @@ Import is available only while idle. It does not replace or merge features.
 
 Supported data and identity policy:
 
-- Two-dimensional LineString and Polygon with exactly one closed outer ring.
-  Points, multipart geometries, geometry collections, null geometries, holes,
+- Two-dimensional LineString and Polygon with one closed outer ring and optional closed interior rings.
+  Points, multipart geometries, geometry collections, null geometries,
   and altitude coordinates are rejected explicitly.
 - Finite longitude/latitude in world bounds. Lines need two points and no
   consecutive duplicates. Polygons use the same topology rules as drawing;
-  clockwise rings are accepted and normalized to CCW, keeping the first corner.
+  either winding is accepted and normalized to CCW for the exterior and CW for holes, keeping each first corner.
   An unclosed imported ring is rejected instead of silently repaired.
 - Explicit string and finite numeric IDs are preserved with their original type;
   `7` and `"7"` are distinct, as are `0` and `"0"`. Missing IDs get UUIDs; null IDs
@@ -641,11 +694,11 @@ terrain, touch, topology linking, and boundary tracing are outside this contract
 
 - At least three distinct, non-collinear corners, with finite world-bounded
   coordinates. A valid outline may contain collinear intermediate vertices.
-- One simple outer ring. Crossing edges, nonadjacent touches, repeated interior
+- One simple outer ring with optional strictly contained, disjoint holes. Holes cannot touch any other ring or contain other holes. Crossing edges, nonadjacent touches, repeated interior
   vertices, and overlapping/backtracking edges are rejected, including the
   closing edge. Self-crossing **lines** remain allowed.
 - Export repeats the first position at the end and normalizes the exterior to
-  counterclockwise winding, as specified by [RFC 7946](https://datatracker.ietf.org/doc/html/rfc7946#section-3.1.6).
+  counterclockwise winding (holes clockwise), as specified by [RFC 7946](https://datatracker.ietf.org/doc/html/rfc7946#section-3.1.6).
   Reversing winding keeps the user's first vertex.
 - Checks use planar longitude/latitude segments. An edge with longitude change
   greater than 180 degrees is rejected. Dateline splitting, polar geometry,
@@ -653,7 +706,7 @@ terrain, touch, topology linking, and boundary tracing are outside this contract
 - Invalid drafts remain visible but cannot be committed. Add more points while drawing, move/remove corners while editing, or cancel.
 
 Errors are `too-few-vertices`, `zero-area`, `duplicate-vertex`,
-`self-intersection`, and `antimeridian-crossing`. The first detected error is
+`self-intersection`, `antimeridian-crossing`, `ring-intersection`, `hole-outside`, and `nested-holes`. The first detected error is
 reported; these are diagnostics, not a list of every defect.
 
 Enter or Finish closes a polygon. A plain click within 8 CSS pixels of its first

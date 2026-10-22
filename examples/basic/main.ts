@@ -33,10 +33,16 @@ const deleteSelected = element<HTMLButtonElement>('delete-selected');
 const duplicateSelected = element<HTMLButtonElement>('duplicate-selected');
 const splitSelected = element<HTMLButtonElement>('split-selected');
 const editSelected = element<HTMLButtonElement>('edit-selected');
+const drawHole = element<HTMLButtonElement>('draw-hole');
+const deleteHole = element<HTMLButtonElement>('delete-hole');
+const ringIndex = element<HTMLSelectElement>('ring-index');
 const removeVertex = element<HTMLButtonElement>('remove-vertex');
 let editor: GeometryEditor | undefined;
 let selected: GeometryType = 'LineString';
 const validationMessages: Record<Exclude<ValidationError, 'too-few-vertices'>, string> = {
+  'ring-intersection': 'Ring boundaries cannot touch, cross, or overlap.',
+  'hole-outside': 'Keep the hole completely inside the outer boundary.',
+  'nested-holes': 'Holes cannot contain other holes.',
   'zero-area': 'These points form a straight line. Place a point off the line.',
   'self-intersection': 'Polygon edges cannot cross, touch, or overlap.',
   'duplicate-vertex': 'A corner is used more than once. Cancel to start again.',
@@ -44,6 +50,7 @@ const validationMessages: Record<Exclude<ValidationError, 'too-few-vertices'>, s
 };
 
 const splitMessages: Record<SplitError, string> = {
+  'split-hole-crossing': 'The cutting line must avoid holes and their boundaries.',
   'split-too-few-points': 'Start outside the polygon, draw across it, and end outside. Add at least two points.',
   'split-self-intersection': 'The cutting line cannot cross, touch, or double back on itself. Backspace removes the last point.',
   'split-antimeridian': 'Cutting across the date line is not supported.',
@@ -84,6 +91,7 @@ map.on('load', () => {
   editor = new GeometryEditor(map, { snapping: { enabled: true } });
   const activeEditor = editor;
   let exportedRevision = -1;
+  let ringSelectionId: string | number | null = null;
   const update = (): void => {
     const state = activeEditor.getState();
     snapping.disabled = false;
@@ -92,7 +100,7 @@ map.on('load', () => {
     const drawing = state.mode !== 'idle';
     const editing = state.mode.startsWith('edit-');
     const splitting = state.mode === 'split-polygon';
-    const polygon = selected === 'Polygon';
+    const polygon = state.mode === 'draw-hole' || selected === 'Polygon';
     const error = state.validationError;
     const selectedFeature = activeEditor.getSelected();
     const selectedCount = state.selectedFeatureIds.length;
@@ -103,10 +111,23 @@ map.on('load', () => {
     duplicateSelected.disabled = selectedCount === 0 || drawing;
     duplicateSelected.setAttribute('aria-label', selectedCount > 1 ? 'Duplicate selected shapes' : 'Duplicate selected shape');
     editSelected.disabled = selectedFeature === null || drawing;
+    const ringCount = selectedFeature?.geometry.type === 'Polygon' ? selectedFeature.geometry.coordinates.length : 0;
+    if (ringSelectionId !== state.selectedFeatureId || ringIndex.options.length !== ringCount) {
+      const previous = ringSelectionId === state.selectedFeatureId ? Number(ringIndex.value) : 0;
+      ringIndex.replaceChildren(...Array.from({ length: ringCount }, (_, index) => new Option(index === 0 ? 'Outer boundary' : `Hole ${index}`, String(index))));
+      ringIndex.value = String(Math.min(previous, Math.max(0, ringCount - 1)));
+      ringSelectionId = state.selectedFeatureId;
+    }
+    ringIndex.disabled = drawing;
+    element('ring-control').hidden = ringCount < 2;
+    drawHole.hidden = ringCount === 0;
+    drawHole.disabled = ringCount === 0 || drawing;
+    deleteHole.hidden = ringCount < 2;
+    deleteHole.disabled = drawing || Number(ringIndex.value) < 1;
     splitSelected.disabled = selectedFeature?.geometry.type !== 'Polygon' || drawing;
     element('editing-tools').hidden = !editing;
     element('finish-label').textContent = splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
-    element('drawing-instructions').hidden = editing || splitting;
+    element('drawing-instructions').hidden = editing || splitting || state.mode === 'draw-hole';
     removeVertex.disabled = !editing || state.selectedVertexIndex === null
       || state.vertexCount <= (state.mode === 'edit-polygon' ? 3 : 2);
     element('vertex-status').textContent = state.selectedVertexIndex === null
@@ -116,7 +137,7 @@ map.on('load', () => {
       const count = editing ? state.vertexCount : selectedFeature.geometry.type === 'Polygon'
         ? (selectedFeature.geometry.coordinates[0]?.length ?? 1) - 1
         : selectedFeature.geometry.coordinates.length;
-      element('selection-detail').textContent = `${count} ${selectedFeature.geometry.type === 'Polygon' ? 'corners' : 'points'}`;
+      element('selection-detail').textContent = `${count} ${selectedFeature.geometry.type === 'Polygon' ? 'corners' : 'points'}${editing && state.activeRingIndex !== null ? ` · ${state.activeRingIndex === 0 ? 'outer boundary' : `hole ${state.activeRingIndex}`}` : ringCount > 1 ? ` · ${ringCount - 1} ${ringCount === 2 ? 'hole' : 'holes'}` : ''}`;
     } else if (selectedCount > 1) {
       element('selection-type').textContent = `${selectedCount} shapes selected`;
       element('selection-detail').textContent = 'Shift+click to toggle a shape. Delete removes the whole selection.';
@@ -140,6 +161,7 @@ map.on('load', () => {
       : selectedCount > 1 ? `${selectedCount} shapes selected. Drag a selected shape to move the group. Undo restores the previous position.`
         : selectedFeature ? 'Drag to move this shape, or edit its corners. Escape cancels a drag.'
         : state.featureCount > 0 ? 'Click a shape to select it, or draw another.' : 'Ready when you are.';
+    if (state.mode === 'draw-hole' && !invalid) status.textContent = `${state.vertexCount} corners. Draw inside the polygon; Enter saves the hole, Escape cancels.`;
     if (splitting) {
       status.classList.toggle('is-invalid', state.splitError !== null && state.splitError !== 'split-too-few-points');
       status.textContent = state.splitError ? splitMessages[state.splitError] : 'Two parts ready. Enter saves both shapes; Cancel keeps the original.';
@@ -213,7 +235,10 @@ duplicateSelected.addEventListener('click', () => {
   }
 });
 splitSelected.addEventListener('click', () => { editor?.splitSelected(); });
-editSelected.addEventListener('click', () => { editor?.editSelected(); });
+editSelected.addEventListener('click', () => { editor?.editSelected(Number(ringIndex.value) || 0); });
+drawHole.addEventListener('click', () => { editor?.drawHole(); });
+deleteHole.addEventListener('click', () => { editor?.deleteHole(Number(ringIndex.value)); });
+ringIndex.addEventListener('change', () => { deleteHole.disabled = Number(ringIndex.value) < 1 || editor?.getState().mode !== 'idle'; });
 removeVertex.addEventListener('click', () => {
   const index = editor?.getState().selectedVertexIndex;
   if (index !== undefined && index !== null) editor?.removeVertex(index);

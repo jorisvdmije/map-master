@@ -255,3 +255,22 @@ The controller cancels transient idle gestures first, then reuses
 complete transaction followed by state. No new gesture or event system is needed.
 The demo owns the small visual offset; the core default is an exact copy. Redo
 replays stored changes, so it does not allocate replacement IDs.
+
+## Polygon rings
+
+`polygon.ts` owns both single-ring validation and relations between rings:
+robust boundary intersection, strict containment, and rejection of nested holes.
+`geojson-import.ts` checks input structure and normalizes exterior/hole winding;
+transactions reuse this import boundary.
+
+`DrawingSession` keeps one active open-ring draft and its ring index. Other rings
+come from the immutable committed target. `getDraftRings()` assembles independent
+preview snapshots; Finish validates all rings and commits one complete feature.
+Existing vertex handles and gestures use ring-local indices without another
+interaction system. The renderer draws all rings but exposes handles only on the
+active ring. The demo owns the ring selector and tool labels.
+
+`SnapIndex` includes all rings and reports ring indices for polygon candidates.
+`splitPolygonRings` wraps the existing exterior splitter, assigns untouched holes
+to their result, rejects intersected holes and chooses the retained ID by filled
+planar area. Multipart support remains a separate next step.

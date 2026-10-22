@@ -181,7 +181,7 @@ export class GeometryEditor {
 
   getDraft(): Coordinate[] { return this.session.getDraft(); }
 
-  /** Start an outside-to-outside cutting line on the selected single-ring polygon. */
+  /** Start an outside-to-outside cutting line on the selected polygon (cuts must avoid holes). */
   splitSelected(): boolean {
     this.assertAlive();
     this.cancelIdleGestures();
@@ -211,14 +211,27 @@ export class GeometryEditor {
   }
 
   /** Begin a cancellable edit of the selected feature; false with no selection/already editing. */
-  editSelected(): boolean {
+  editSelected(ringIndex = 0): boolean {
     this.assertAlive();
     this.cancelIdleGestures();
-    if (!this.session.editSelected()) return false;
+    if (!this.session.editSelected(ringIndex)) return false;
     this.renderer.renderEditing(this.session.state.selectedFeatureId);
     this.enterInteraction();
     this.schedulePreview();
     return true;
+  }
+
+  /** Begin drawing an interior ring; Finish saves, Cancel restores the original. */
+  drawHole(): boolean {
+    this.assertAlive(); this.cancelIdleGestures();
+    if (!this.session.drawHole()) return false;
+    this.renderer.renderEditing(this.session.state.selectedFeatureId);
+    this.enterInteraction(); this.schedulePreview(); return true;
+  }
+
+  deleteHole(ringIndex: number): TransactionEvent | null {
+    this.assertAlive(); this.cancelIdleGestures();
+    return this.publishTransaction(this.session.deleteHole(ringIndex));
   }
 
   selectVertex(index: number | null): void {
@@ -296,7 +309,7 @@ export class GeometryEditor {
     this.leaveDrawing();
     if (this.session.state.dataRevision !== before.dataRevision) {
       this.renderer.renderCommitted(this.exportGeoJSON());
-      this.events.emit(before.mode.startsWith('edit-') ? 'update' : 'create', () => structuredClone(feature));
+      this.events.emit(before.mode.startsWith('edit-') || before.mode === 'draw-hole' ? 'update' : 'create', () => structuredClone(feature));
     }
     this.emitChange();
     return feature;
@@ -452,7 +465,7 @@ export class GeometryEditor {
     this.renderer.mount();
     this.renderer.renderCommitted(this.exportGeoJSON());
     this.renderer.renderSelection(this.session.state.selectedFeatureIds, true);
-    this.renderer.renderEditing(this.session.state.mode.startsWith('edit-') ? this.session.state.selectedFeatureId : null);
+    this.renderer.renderEditing(this.session.state.mode.startsWith('edit-') || this.session.state.mode === 'draw-hole' ? this.session.state.selectedFeatureId : null);
     this.schedulePreview();
   };
 
@@ -469,7 +482,7 @@ export class GeometryEditor {
     const previous = this.snap;
     this.snap = result;
     // Pixel distance may change while the same exact vertex remains acquired.
-    if (previous?.kind === result?.kind && previous?.featureId === result?.featureId && previous?.index === result?.index
+    if (previous?.kind === result?.kind && previous?.featureId === result?.featureId && previous?.index === result?.index && previous?.ringIndex === result?.ringIndex
       && previous?.coordinate[0] === result?.coordinate[0] && previous?.coordinate[1] === result?.coordinate[1]) return;
     this.events.emit('snap', () => result ? structuredClone(result) : null);
   }
@@ -477,7 +490,7 @@ export class GeometryEditor {
   private resolvePointer(point: ScreenPoint, altPressed = this.altPressed): { coordinate: Coordinate; snap: SnapResult | null; close: boolean } {
     const options = this.snapping.getOptions();
     const state = this.session.state;
-    const first = state.mode === 'draw-polygon' && state.vertexCount >= 3 ? this.session.getDraft()[0] : undefined;
+    const first = (state.mode === 'draw-polygon' || state.mode === 'draw-hole') && state.vertexCount >= 3 ? this.session.getDraft()[0] : undefined;
     if (first) {
       const projected = this.map.project(first);
       const distance = Math.hypot(projected.x - point.x, projected.y - point.y);
@@ -487,7 +500,7 @@ export class GeometryEditor {
         snap: snapping ? { kind: 'vertex', featureId: null, index: 0, coordinate: first, distance } : null,
       };
     }
-    const excludedId = state.mode.startsWith('edit-') ? state.selectedFeatureId : null;
+    const excludedId = state.mode.startsWith('edit-') || state.mode === 'draw-hole' ? state.selectedFeatureId : null;
     const snap = altPressed ? null : this.snapping.resolve(point, state.dataRevision, () => this.session.exportGeoJSON(), excludedId);
     return { coordinate: snap?.coordinate ?? this.map.unproject([point.x, point.y]).wrap().toArray(), snap, close: false };
   }
@@ -559,7 +572,7 @@ export class GeometryEditor {
       if (this.destroyed || this.translation.active) return;
       const split = this.session.getSplitPreview();
       if (this.session.state.mode === 'split-polygon') this.renderer.renderEditing(split ? this.session.state.selectedFeatureId : null);
-      this.renderer.renderPreview(this.session.getDraft(), this.cursor, this.session.state, this.snap, split);
+      this.renderer.renderPreview(this.session.getDraft(), this.cursor, this.session.state, this.snap, split, this.session.getDraftRings());
     });
   }
 

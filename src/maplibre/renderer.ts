@@ -149,9 +149,9 @@ export class MapLibreRenderer {
     return [...ids];
   }
 
-  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null): void {
+  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null, rings: Coordinate[][] | null = null): void {
     const editing = state.mode.startsWith('edit-');
-    const polygon = state.mode === 'draw-polygon' || state.mode === 'edit-polygon';
+    const polygon = state.mode === 'draw-polygon' || state.mode === 'edit-polygon' || state.mode === 'draw-hole';
     const handles = editing ? vertexHandles(this.map, coordinates, polygon)
       : coordinates.map((coordinate, index) => ({ kind: 'vertex' as const, index, coordinate }));
     const features: PreviewFeature[] = handles.map((handle) => ({
@@ -167,11 +167,19 @@ export class MapLibreRenderer {
     }
     const last = coordinates.at(-1);
     if (!editing && last && cursor && !samePosition(last, cursor)) coordinates.push(cursor);
+    if (state.mode === 'draw-hole' && coordinates.length < 3 && rings) {
+      features.push({ type: 'Feature', properties: {}, geometry: { type: 'Polygon',
+        coordinates: rings.slice(0, -1).map((ring) => [...ring, [...ring[0]!] as Coordinate]),
+      } });
+    }
     const first = coordinates[0];
     if (polygon && first && coordinates.length >= 3) {
       if (!samePosition(first, coordinates.at(-1)!)) coordinates.push([...first]);
       features.push({ type: 'Feature', properties: {},
-        geometry: { type: 'Polygon', coordinates: [coordinates] } });
+        geometry: { type: 'Polygon', coordinates: rings ? rings.map((ring, index) => {
+          if (index === (state.activeRingIndex ?? 0)) return coordinates;
+          return [...ring, [...ring[0]!] as Coordinate];
+        }) : [coordinates] } });
     } else if (coordinates.length >= 2) {
       features.push({ type: 'Feature', properties: {},
         geometry: { type: 'LineString', coordinates } });

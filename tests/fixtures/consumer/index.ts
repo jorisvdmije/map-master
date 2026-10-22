@@ -71,6 +71,11 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   });
   const deleted: editor.GeometryFeature | null = tool.deleteSelected();
   tool.selectMany([]);
+  tool.drawHole(); tool.cancel();
+  tool.editSelected(1); tool.cancel();
+  const holeDeleted: editor.TransactionEvent | null = tool.deleteHole(1);
+  const ring: number | null = tool.getState().activeRingIndex;
+  void holeDeleted; void ring;
   const selection: editor.GeometryFeature[] = tool.getSelection();
   const selectedIds: editor.FeatureId[] = tool.getState().selectedFeatureIds;
   if (selection[0]) tool.toggleSelection(selection[0].id);

@@ -33,6 +33,7 @@
     "test:browser": "npm run build && vitest run --config vitest.browser.config.ts",
     "dev": "npm run build && vite",
     "build:demo": "npm run build && vite build",
+    "benchmark:holes": "npm run build && node scripts/benchmark-holes.mjs",
     "benchmark:polygon": "npm run build && node scripts/benchmark-polygon.mjs",
     "benchmark:duplication": "npm run build && node scripts/benchmark-duplication.mjs",
     "benchmark:translation": "npm run build && node scripts/benchmark-translation.mjs",

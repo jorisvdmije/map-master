@@ -1,8 +1,8 @@
 # Split one polygon into two features
 
 Milestone 11 adds an interactive Split Features tool for one selected polygon
-without holes. This creates two independent features, not parts of one multipart
-feature. Line splitting, holes and multipart splitting remain future work.
+with optional holes, provided the cut avoids them. This creates two independent features, not parts of one multipart
+feature. Line splitting, cuts through holes and multipart splitting remain future work.
 
 ## Interaction
 
@@ -61,7 +61,7 @@ The new mode and field are additive changes to the experimental EditorState API.
 
 ## Supported geometry and numerical policy
 
-The source is an already validated, simple, single-ring Polygon. The cutting line
+The source is an already validated Polygon with a simple exterior and optional disjoint holes. The cutting line
 must be simple and start/end strictly outside the polygon. It must have exactly
 two **proper crossings through edge interiors**. Crossing at an existing polygon
 vertex, placing a cutting-line vertex on the boundary, tangential contact, following
@@ -72,8 +72,9 @@ This deliberately restricted algorithm reuses the existing robust-predicates
 orientation checks. It walks the two boundary arcs and joins each to the interior
 cut path. It is not a general overlay/polygonization engine; a broader engine can
 later replace this internal boundary without changing interactive confirmation.
-No new runtime dependency was introduced. Both outputs pass the existing topology
-validator and are normalized to closed CCW rings with a canonical starting vertex.
+No new runtime dependency was introduced. Both outputs pass the whole-polygon
+topology validator. Exterior rings are closed, CCW, and use a canonical starting
+vertex; preserved holes keep their closed clockwise rings and starting vertices.
 
 Calculations use planar longitude/latitude segments, consistent with current
 polygon validation. Intersection construction uses floating-point arithmetic;
@@ -98,11 +99,12 @@ Diagnostics:
 | `split-boundary-touch` | The cut touches a vertex/boundary or overlaps an edge. |
 | `split-endpoints-inside` | An endpoint is inside the target polygon. |
 | `split-crossing-count` | There are not exactly two proper boundary crossings. |
+| `split-hole-crossing` | The cut crosses or touches a hole boundary. |
 | `split-invalid-result` | Intersection construction, result topology or area conservation failed. |
 
 ## Identity, properties and atomic history
 
-The part with larger **planar coordinate area** retains the original ID and
+The part with larger **filled planar coordinate area** (exterior minus holes) retains the original ID and
 collection position. Exactly equal areas use lexicographic comparison of the
 canonical coordinate sequences. This is deterministic for identical calculated
 coordinates; it is not a geodesic largest-area policy. The other part receives
@@ -126,3 +128,5 @@ Cancel, invalid confirmation and preview do not change history or exports.
 Style replacement reconstructs the preview. Finish/cancel restore the previous
 cursor/double-click zoom setting; destruction/map removal discard the preview
 and clean up handlers. See [performance](performance.md#polygon-splitting).
+
+Holes are assigned to the result that strictly contains them, retaining their relative ring order and clockwise winding. Hole coordinates remain unchanged. A rejected cut preserves the original polygon and history.

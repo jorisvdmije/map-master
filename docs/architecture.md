@@ -2,7 +2,7 @@
 
 The library has three boundaries: the geometry/editing core, the MapLibre adapter,
 and the host application. Drawing, vertex editing, selection, import, transactions,
-undo/redo, splitting, snapping, group translation and duplication use these same boundaries.
+undo/redo, splitting, snapping, group translation, duplication and polygon holes use these same boundaries.
 The [roadmap](roadmap.md) separates implemented capabilities from planned work.
 See the [GeometryEditor guide](geometry-editor.md) for the current public API and
 the [code walkthrough](code-walkthrough.md) for the implemented structure.
@@ -100,7 +100,7 @@ guarantee topological validity.
 
 Start with desktop mouse input plus explicit finish/cancel controls and keyboard
 shortcuts. Document that initial input scope. Touch support, accessible controls,
-polygon holes, multipart geometry, antimeridian handling, and other projections
+multipart geometry, antimeridian handling, and other projections
 need explicit design and tests before being advertised.
 
 ## Performance approach

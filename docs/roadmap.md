@@ -1,6 +1,6 @@
 # Incremental roadmap
 
-Steps 0–13c have been implemented locally; subsequent steps are planned. The
+Steps 0–14a have been implemented locally; subsequent steps are planned. The
 workflow still needs a GitHub remote to run in hosted CI. Each row describes
 a reviewable change or a milestone that can be split further when needed. Create
 each branch from updated `main` after its dependencies have merged.
@@ -10,7 +10,7 @@ each branch from updated `main` after its dependencies have merged.
 | 0 | `docs/project-foundation` | Agree on initial scope, architecture, and contribution workflow. |
 | 1 | `chore/tooling` | Strict TypeScript, package build, linting, test runner, lockfile, and CI configuration. A minimal consumer can import the built package and its declarations. |
 | 2 | `feat/draw-line` | Implemented: MapLibre demo, draft preview, finish/cancel, GeoJSON export, core/package tests, and real Chromium interaction tests. See the [API guide](line-editor.md). |
-| 3 | `feat/draw-polygon` | Implemented: unified GeometryEditor API, single outer ring, automatic closure/CCW winding, explicit validity policy, mixed export, demo, and core/browser/package tests. See the [API guide](geometry-editor.md). Holes are deferred. |
+| 3 | `feat/draw-polygon` | Implemented: unified GeometryEditor API, single outer ring, automatic closure/CCW winding, explicit validity policy, mixed export, demo, and core/browser/package tests. See the [API guide](geometry-editor.md). Interior rings were added in step 14a. |
 | 4 | `feat/select-feature` | Implemented: click/API selection, blue highlight, empty-space/Escape/API deselection, zoom-independent click margin, explicit overlap policy, style restoration, unchanged exports, and core/browser/package tests. |
 | 5 | `feat/delete-feature` | Implemented: deleteSelected/onDelete API, Delete control and focused Delete/Backspace, atomic selection cleanup, unchanged survivors, stale-hit protection, updated export, and core/browser/package tests. Undo added in step 8. |
 | 6 | `feat/edit-vertices` | Implemented: cancellable vertex editing, move/insert/remove via API and mouse, stable IDs, validity checks, onUpdate, gesture cleanup, and core/browser/package/demo tests. |
@@ -23,14 +23,15 @@ each branch from updated `main` after its dependencies have merged.
 | 13a | `feat/multi-select` | Implemented: Shift+click toggle and additive rectangle selection, typed IDs, changed-only highlights, selectMany/getSelection/toggleSelection, atomic deleteSelection and undo, gesture cleanup, demo/core/browser/package tests and benchmark. |
 | 13b | `feat/move-features` | Implemented: drag selected lines/polygons as a group, selected-only preview, release/cancel, degree-offset API, atomic validation/history, lifecycle cleanup, tests and benchmark. |
 | 13c | `feat/duplicate-features` | Implemented: duplicate single/mixed selections with reserved fresh IDs, isolated properties, optional degree offset, selection of copies, atomic validation/history, demo/core/browser/package tests and benchmark. |
-| 14 | `feat/polygon-holes`, then `feat/multipart` | Planned: extend geometry validation, import/export, vertex addressing, snapping and history before adding holes/parts tools. |
+| 14a | `feat/polygon-holes` | Implemented: strict ring topology, winding normalization, hole drawing/deletion, active-ring editing, import/export, ring-aware snapping, split preservation, history, demo and tests. |
+| 14b | `feat/multipart` | Planned: extend geometry types, validation, import/export, part/ring addressing, snapping and history before adding parts tools. |
 | 15 | Separate merge/difference/intersection branches | Planned: preview and atomic overlay operations after holes and multipart support. |
 | 16 | Separate reshape/tracing/topology branches | Planned: reshape boundaries, trace existing edges, then edit shared boundaries together. |
 | 17 | Separate precision/geometry-operation branches | Planned: rotate, scale, constraints, buffer/offset, simplify and trim/extend with explicit measurement units. |
 
 Steps 2–7 produce the first small CRUD editor. Step 8 adds recovery from user
 mistakes. Step 9 adds precise placement against existing shapes. Later candidates include touch interactions,
-holes, multipart geometry, rotation, broader cutting/splitting support, and framework wrappers.
+multipart geometry, rotation, broader cutting/splitting support, and framework wrappers.
 Prioritize those using actual application requirements.
 
 ## First working milestone: draw one line

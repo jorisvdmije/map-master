@@ -1,4 +1,4 @@
-import { closePolygon, samePosition, validatePolygon } from './polygon.js';
+import { closePolygon, samePosition, validatePolygon, validatePolygonRings } from './polygon.js';
 import type { Coordinate, FeatureId, FeatureProperties, GeometryFeature, JsonValue, ValidationError } from './types.js';
 
 export type ImportErrorCode = 'invalid-geojson' | 'unsupported-geometry' | 'invalid-coordinate'
@@ -72,16 +72,21 @@ function geometry(value: unknown, path: string): GeometryFeature['geometry'] {
     }
     return { type: 'LineString', coordinates };
   }
-  if (value.type !== 'Polygon') return fail('unsupported-geometry', path, 'Only LineString and single-ring Polygon are supported.');
-  const rings = array(value.coordinates, coordinatesPath);
-  if (rings.length !== 1) fail('unsupported-geometry', coordinatesPath, 'Expected one outer ring; holes are not supported.');
-  const ringPath = `${coordinatesPath}[0]`;
-  const ring = Array.from(array(rings[0], ringPath), (point, i) => position(point, `${ringPath}[${i}]`));
-  if (ring.length < 4) fail('too-few-vertices', ringPath, 'A polygon ring needs three corners plus its closing position.');
-  if (!samePosition(ring[0]!, ring.at(-1)!)) fail('unclosed-ring', ringPath, 'The first and last position must match.');
-  const error = validatePolygon(ring);
-  if (error) fail(error, ringPath, `Invalid polygon: ${error}.`);
-  return { type: 'Polygon', coordinates: [closePolygon(ring)] };
+  if (value.type !== 'Polygon') return fail('unsupported-geometry', path, 'Only LineString and Polygon are supported.');
+  const inputRings = array(value.coordinates, coordinatesPath);
+  if (inputRings.length === 0) fail('too-few-vertices', coordinatesPath, 'Expected an outer ring.');
+  const rings = Array.from(inputRings, (value, index) => {
+    const ringPath = `${coordinatesPath}[${index}]`;
+    const ring = Array.from(array(value, ringPath), (point, i) => position(point, `${ringPath}[${i}]`));
+    if (ring.length < 4) fail('too-few-vertices', ringPath, 'A polygon ring needs three corners plus its closing position.');
+    if (!samePosition(ring[0]!, ring.at(-1)!)) fail('unclosed-ring', ringPath, 'The first and last position must match.');
+    const error = validatePolygon(ring);
+    if (error) fail(error, ringPath, `Invalid polygon ring: ${error}.`);
+    return closePolygon(ring, index > 0);
+  });
+  const error = rings.length > 1 ? validatePolygonRings(rings) : null;
+  if (error) fail(error, coordinatesPath, `Invalid polygon: ${error}.`);
+  return { type: 'Polygon', coordinates: rings };
 }
 
 /** Validate and copy the whole batch before the caller commits any feature. */

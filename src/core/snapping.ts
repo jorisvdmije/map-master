@@ -6,6 +6,7 @@ interface Candidate extends Bounds {
   kind: 'vertex' | 'edge';
   featureId: FeatureId;
   index: number;
+  ringIndex?: number;
   order: number;
   a: ScreenPoint;
   b: ScreenPoint;
@@ -55,19 +56,21 @@ export class SnapIndex {
     const items: Candidate[] = [];
     for (const [order, feature] of collection.features.entries()) {
       const polygon = feature.geometry.type === 'Polygon';
-      const coordinates = feature.geometry.type === 'Polygon' ? feature.geometry.coordinates[0]!.slice(0, -1) : feature.geometry.coordinates;
-      const points = coordinates.map(project);
-      for (let index = 0; index < coordinates.length; index++) {
-        const a = points[index]!; const start = coordinates[index]!;
-        if (!Number.isFinite(a.x) || !Number.isFinite(a.y)) continue;
-        items.push({ kind: 'vertex', featureId: feature.id, index, order, a, b: a, start: [...start], end: [...start],
-          minX: a.x, minY: a.y, maxX: a.x, maxY: a.y });
-        if (!polygon && index === coordinates.length - 1) continue;
-        const next = (index + 1) % coordinates.length;
-        const b = points[next]!;
-        if (!Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
-        items.push({ kind: 'edge', featureId: feature.id, index, order, a, b, start: [...start], end: [...coordinates[next]!],
-          minX: Math.min(a.x, b.x), minY: Math.min(a.y, b.y), maxX: Math.max(a.x, b.x), maxY: Math.max(a.y, b.y) });
+      const rings = feature.geometry.type === 'Polygon' ? feature.geometry.coordinates.map((ring) => ring.slice(0, -1)) : [feature.geometry.coordinates];
+      for (const [ringIndex, coordinates] of rings.entries()) {
+        const points = coordinates.map(project);
+        for (let index = 0; index < coordinates.length; index++) {
+          const a = points[index]!; const start = coordinates[index]!;
+          if (!Number.isFinite(a.x) || !Number.isFinite(a.y)) continue;
+          items.push({ kind: 'vertex', featureId: feature.id, ...(polygon ? { ringIndex } : {}), index, order, a, b: a, start: [...start], end: [...start],
+            minX: a.x, minY: a.y, maxX: a.x, maxY: a.y });
+          if (!polygon && index === coordinates.length - 1) continue;
+          const next = (index + 1) % coordinates.length;
+          const b = points[next]!;
+          if (!Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
+          items.push({ kind: 'edge', featureId: feature.id, ...(polygon ? { ringIndex } : {}), index, order, a, b, start: [...start], end: [...coordinates[next]!],
+            minX: Math.min(a.x, b.x), minY: Math.min(a.y, b.y), maxX: Math.max(a.x, b.x), maxY: Math.max(a.y, b.y) });
+        }
       }
     }
     this.root = tree(items);
@@ -97,7 +100,8 @@ export class SnapIndex {
         const previous = best?.candidate.kind === 'vertex' ? 0 : 1;
         if (!best || priority < previous || priority === previous && (pixels < best.distance
           || pixels === best.distance && (candidate.order > best.candidate.order
-          || candidate.order === best.candidate.order && candidate.index < best.candidate.index))) {
+          || candidate.order === best.candidate.order && ((candidate.ringIndex ?? 0) < (best.candidate.ringIndex ?? 0)
+            || candidate.ringIndex === best.candidate.ringIndex && candidate.index < best.candidate.index)))) {
           best = { candidate, point: nearest, t, distance: pixels };
         }
       }
@@ -108,6 +112,6 @@ export class SnapIndex {
     // Preserve source coordinates exactly at vertices/endpoints; inverse projection
     // is only used for interior edge points along the displayed straight segment.
     const coordinate = t === 0 ? [...candidate.start] as Coordinate : t === 1 ? [...candidate.end] as Coordinate : unproject(best.point);
-    return { kind: candidate.kind, featureId: candidate.featureId, index: candidate.index, coordinate, distance: best.distance };
+    return { kind: candidate.kind, featureId: candidate.featureId, index: candidate.index, ...(candidate.ringIndex !== undefined ? { ringIndex: candidate.ringIndex } : {}), coordinate, distance: best.distance };
   }
 }

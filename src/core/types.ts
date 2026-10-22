@@ -34,10 +34,11 @@ export interface GeometryFeatureCollection {
 }
 
 export type ValidationError = 'too-few-vertices' | 'duplicate-vertex'
-  | 'zero-area' | 'self-intersection' | 'antimeridian-crossing';
+  | 'zero-area' | 'self-intersection' | 'antimeridian-crossing'
+  | 'ring-intersection' | 'hole-outside' | 'nested-holes';
 
 export type SplitError = 'split-too-few-points' | 'split-self-intersection' | 'split-antimeridian'
-  | 'split-boundary-touch' | 'split-endpoints-inside' | 'split-crossing-count' | 'split-invalid-result';
+  | 'split-hole-crossing' | 'split-boundary-touch' | 'split-endpoints-inside' | 'split-crossing-count' | 'split-invalid-result';
 export interface SplitPreview {
   retained: PolygonFeature['geometry'];
   created: PolygonFeature['geometry'];
@@ -56,6 +57,8 @@ export interface SnapResult {
   featureId: FeatureId | null;
   /** Vertex index or segment start index in the open ring/line. */
   index: number;
+  /** Polygon ring index (0 = exterior); absent for lines and closure targets. */
+  ringIndex?: number;
   coordinate: Coordinate;
   distance: number;
 }
@@ -91,7 +94,7 @@ export interface HistoryEvent {
 }
 
 export interface EditorState {
-  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon';
+  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole';
   vertexCount: number;
   featureCount: number;
   /** The sole selected ID, or null for zero/multiple selections. */
@@ -100,6 +103,8 @@ export interface EditorState {
   selectedFeatureIds: FeatureId[];
   /** Zero-based index in the open editing draft, without a polygon's closing copy. */
   selectedVertexIndex: number | null;
+  /** Active polygon ring while editing/drawing a hole; otherwise null. */
+  activeRingIndex: number | null;
   /** Increases on committed creation, deletion, changed edits, nonempty imports, and successful undo/redo. */
   dataRevision: number;
   canFinish: boolean;
