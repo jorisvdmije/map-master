@@ -1,3 +1,4 @@
+import { builtinModules } from 'node:module';
 import js from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import tseslint from 'typescript-eslint';
@@ -16,6 +17,41 @@ export default defineConfig(
         project: ['./tsconfig.json', './tsconfig.tools.json', './tsconfig.example.json'],
         tsconfigRootDir: import.meta.dirname,
       },
+    },
+  },
+  {
+    files: ['src/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: builtinModules,
+        patterns: [{
+          group: ['node:*', '**/examples/**', '**/tests/**'],
+          message: 'Library code must not depend on Node.js, demo code, or test fixtures.',
+        }],
+      }],
+    },
+  },
+  {
+    files: ['src/core/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: builtinModules,
+        patterns: [{
+          group: ['maplibre-gl', 'maplibre-gl/**', '**/maplibre/**', '**/index.js', 'node:*', '**/examples/**', '**/tests/**'],
+          message: 'The core may depend on its own modules and geometry dependencies, never the map adapter, public entry point, browser, or application.',
+        }],
+      }],
+    },
+  },
+  {
+    files: ['examples/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['**/src/**', '../**/dist/**', './dist/**', '@geo/editor/*'],
+          message: 'Examples consume the public @geo/editor entry point, just like an installed application.',
+        }],
+      }],
     },
   },
 );

@@ -133,6 +133,15 @@ The browser build and consumer fixtures use `skipLibCheck` to skip checking
 dependency declarations; our source and API usage remain strictly checked. The
 core has its own check without DOM types or `skipLibCheck`.
 
+## Finding your way around
+
+- **Use the library:** [GeometryEditor API](docs/geometry-editor.md) and the
+  [integration example](examples/basic/main.ts).
+- **Understand or extend it:** [code map](docs/code-walkthrough.md#where-to-make-a-change),
+  [architecture](docs/architecture.md) and [contribution guide](CONTRIBUTING.md).
+- **Find a contract or measurement:** [documentation index](docs/README.md).
+- **Choose the next feature:** [incremental roadmap](docs/roadmap.md).
+
 ## Direction
 
 - Build one small, tested capability at a time.
@@ -141,7 +150,7 @@ core has its own check without DOM types or `skipLibCheck`.
 - Use GeoJSON for data exchange; applications own persistence and authorization.
 - Measure performance and document supported behavior before claiming production readiness.
 
-See the [architecture proposal](docs/architecture.md), [incremental roadmap](docs/roadmap.md),
+See the [architecture guide](docs/architecture.md), [incremental roadmap](docs/roadmap.md),
 and [contribution workflow](CONTRIBUTING.md).
 
 ## License

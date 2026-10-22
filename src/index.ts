@@ -1,8 +1,15 @@
 export { GeometryEditor } from './maplibre/geometry-editor.js';
 export { LineEditor } from './maplibre/line-editor.js';
 export type {
-  Coordinate, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, EditorOptions, FeatureChange, HistoryAction, HistoryEvent, FeatureId, FeatureProperties, JsonValue, EditorState, GeometryFeatureCollection, GeometryFeature, GeometryType,
-  LineCollection, LineFeature, PolygonFeature, ValidationError,
+  // Geometry and identity.
+  Coordinate, FeatureId, FeatureProperties, JsonValue,
+  GeometryFeature, GeometryFeatureCollection, GeometryType,
+  LineCollection, LineFeature, PolygonFeature,
+  // Editor state and configuration.
+  EditorOptions, EditorState, ValidationError,
+  SnappingOptions, SnapResult, SplitPreview, SplitError,
+  // Committed changes and history.
+  FeatureChange, FeatureTransaction, TransactionEvent, HistoryAction, HistoryEvent,
 } from './core/types.js';
 export { GeoJSONImportError } from './core/geojson-import.js';
 export type { ImportErrorCode } from './core/geojson-import.js';

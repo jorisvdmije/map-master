@@ -1,3 +1,4 @@
+import { canvasPoint } from './pointer.js';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { ScreenPoint } from '../core/snapping.js';
 
@@ -65,11 +66,10 @@ export class SelectionInteraction {
   }
 
   private point(event: PointerEvent): ScreenPoint {
-    const bounds = this.canvas.getBoundingClientRect();
-    return {
-      x: Math.max(0, Math.min(this.canvas.clientWidth, (event.clientX - bounds.left) * this.canvas.clientWidth / bounds.width)),
-      y: Math.max(0, Math.min(this.canvas.clientHeight, (event.clientY - bounds.top) * this.canvas.clientHeight / bounds.height)),
-    };
+    const point = canvasPoint(this.canvas, event);
+    // Rectangle selection is clipped to the map; captured drags are not.
+    return { x: Math.max(0, Math.min(this.canvas.clientWidth, point.x)),
+      y: Math.max(0, Math.min(this.canvas.clientHeight, point.y)) };
   }
 
   private readonly down = (event: PointerEvent): void => {

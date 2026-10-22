@@ -21,6 +21,31 @@ This follows [GitHub flow](https://docs.github.com/en/get-started/using-github/g
 The repository currently has no remote or automated branch protection configured.
 When hosted, configure required checks and review rules appropriate to the team.
 
+## Finding the right place to change
+
+Start with the [code map](docs/code-walkthrough.md#where-to-make-a-change) and
+[current architecture](docs/architecture.md). Use the [documentation index](docs/README.md)
+to find integration contracts and performance baselines.
+
+For a new operation:
+
+1. Define its input, output, failure conditions and Undo behavior in the relevant
+   API guide. Check the supported geometry subset before adding a new shape type.
+2. Put geometry calculations in a pure core module. Add session coordination only
+   where selection, drafts or committed data are involved. Reuse the transaction
+   boundary for group changes; previews must not mutate stored features.
+3. Wire the public method through `GeometryEditor`. Add pointer/keyboard handling
+   in the appropriate input module. Each gesture owns cancellation and cleanup.
+4. Choose the documented event contract and notify through `EditorEvents` after
+   committing. Update public types/exports and the consumer fixture when needed.
+5. Demonstrate the capability through the same public API in `examples/basic`,
+   and add core/browser tests plus a benchmark for performance-sensitive work.
+
+Keep a single package and the current two source directories until a concrete
+integration needs a new boundary. Extract modules by responsibility, such as
+keyboard input or transaction validation; do not create a folder per button or
+one branch per file. Finish one reviewable behavior before starting the next.
+
 ## Definition of done for code changes
 
 - Public behavior and limitations are documented, with a usable example when applicable.

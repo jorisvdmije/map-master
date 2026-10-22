@@ -1,8 +1,9 @@
-# Architecture proposal
+# Current architecture
 
-Status: the core/map separation, line/polygon drawing, single and multiple feature selection,
-individual/transactional group deletion, and atomic group translation are implemented.
-Additional geometry and editing capabilities below remain design direction.
+The library has three boundaries: the geometry/editing core, the MapLibre adapter,
+and the host application. Drawing, vertex editing, selection, import, transactions,
+undo/redo, splitting, snapping and group translation use these same boundaries.
+The [roadmap](roadmap.md) separates implemented capabilities from planned work.
 See the [GeometryEditor guide](geometry-editor.md) for the current public API and
 the [code walkthrough](code-walkthrough.md) for the implemented structure.
 
@@ -29,22 +30,55 @@ rendering. This is a practical starting choice, not evidence that the editor is
 fast at any particular scale. A second renderer should be added only when a real
 integration needs it.
 
-Suggested structure, created incrementally:
+Implemented structure:
 
 ```text
 src/
   core/             Feature storage, validation, edit state, committed changes
-  modes/            Draw, select, and edit interactions as each is introduced
-  maplibre/         Map input, rendering, hit testing, lifecycle cleanup
+  maplibre/         Controller, focused input handlers, events, rendering and cleanup
   index.ts          Deliberate public exports
 examples/
   basic/            Small executable consumer of the library
-tests/              Behavior and integration tests
+tests/              Core behavior, architecture and packed-package tests
+  browser/          Real Chromium interaction and demo tests
+docs/               Integration contracts and maintainer guides
+scripts/            Reproducible performance benchmarks
 ```
+
+`DrawingSession` owns the draft, selection, committed feature store and commit/replay
+boundary. Geometry algorithms and import/transaction preparation are separate pure
+modules. Keeping the state transitions together ensures that a failed operation
+cannot leave selection, history and stored features out of sync.
+
+`GeometryEditor` is the public facade and coordinates the core with MapLibre.
+Its public methods are grouped before private coordination code. `EditorEvents`
+owns subscriptions and observer-error isolation. `KeyboardInteraction` owns focused
+command shortcuts; the vertex, selection and translation handlers own their
+respective pointer gestures. All pointer handlers share CSS-coordinate conversion.
+`MapLibreRenderer` owns only visual sources/layers; it is never a second data store.
+
+The example imports only `@geo/editor`, just like an external application. Map
+creation, basemap configuration, toolbar elements, file dialogs and downloads
+belong there. Internal helpers are not exported from the package entry point.
 
 The core must not import MapLibre, the DOM, or a UI framework. Initially keep the
 renderer boundary narrow; a general plugin system, monorepo, and framework
 wrappers can wait for demonstrated needs.
+
+## Automated boundaries
+
+`npm run check` enforces these rules:
+
+- The core compiles with `tsconfig.core.json` without DOM types. ESLint rejects
+  MapLibre, adapter and package-entry imports into core modules.
+- Library modules cannot import Node.js built-ins, demo code or test fixtures.
+- Examples cannot reach into library source or build internals; they use the public
+  package entry point. Host-owned MapLibre worker and CSS imports remain allowed.
+- Architecture tests exercise both forbidden and allowed import paths. Packed
+  consumer tests verify public exports and declarations outside this checkout.
+
+These checks support the module boundaries; they do not replace code review of
+state ownership, cancellation or commit atomicity.
 
 ## Data and interaction rules
 
@@ -55,7 +89,7 @@ Document the supported GeoJSON subset. Valid GeoJSON structure alone does not
 guarantee topological validity.
 
 - Reject non-finite coordinates and unsupported geometry explicitly.
-- Establish duplicate-ID, import atomicity, and geometry validity policies before import ships.
+- Apply the documented duplicate-ID, import atomicity, and geometry validity policies.
 - Preserve feature identity through edits and property changes.
 - Keep a drawing preview separate from committed features; Escape discards only the preview.
 - Commit a completed interaction once and emit one corresponding data-change event.

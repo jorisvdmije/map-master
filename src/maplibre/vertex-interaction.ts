@@ -1,3 +1,4 @@
+import { canvasPoint } from './pointer.js';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { Coordinate, EditorState } from '../core/types.js';
 import type { ScreenPoint } from '../core/snapping.js';
@@ -86,18 +87,12 @@ export class VertexInteraction {
     this.view.removeEventListener('blur', this.blur);
   }
 
-  private point(event: PointerEvent): { x: number; y: number } {
-    const bounds = this.canvas.getBoundingClientRect();
-    return { x: (event.clientX - bounds.left) * this.canvas.clientWidth / bounds.width,
-      y: (event.clientY - bounds.top) * this.canvas.clientHeight / bounds.height };
-  }
-
   private readonly down = (event: PointerEvent): void => {
     const state = this.actions.state();
     if (!state.mode.startsWith('edit-') || this.drag || event.pointerType !== 'mouse'
       || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey
       || event.defaultPrevented) return;
-    const point = this.point(event);
+    const point = canvasPoint(this.canvas, event);
     // Vertices come first so small segments never make their endpoints unselectable.
     const hit = vertexHandles(this.map, this.actions.draft(), state.mode === 'edit-polygon').find((handle) => {
       const projected = this.map.project(handle.coordinate);
@@ -117,7 +112,7 @@ export class VertexInteraction {
 
   private readonly move = (event: PointerEvent): void => {
     if (this.drag?.pointerId !== event.pointerId) return;
-    const point = this.point(event);
+    const point = canvasPoint(this.canvas, event);
     this.pointer = { point, altKey: event.altKey };
     this.refresh();
   };
@@ -133,7 +128,7 @@ export class VertexInteraction {
 
   private readonly up = (event: PointerEvent): void => {
     if (this.drag?.pointerId !== event.pointerId) return;
-    const point = this.point(event);
+    const point = canvasPoint(this.canvas, event);
     // A plain click selects/inserts the exact handle; a drag resolves its release
     // position afresh, even when the final pointermove has not rendered yet.
     if (this.pointer || point.x !== this.drag.start.x || point.y !== this.drag.start.y) {

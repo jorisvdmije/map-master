@@ -18,17 +18,39 @@ src/
     split-polygon.ts         Restricted two-crossing splitter and result validation
     snapping.ts              Projected candidate index, nearest vertex/edge policy
   maplibre/
-    geometry-editor.ts       Public API, map input, events, gesture/lifecycle cleanup
+    geometry-editor.ts       Public API and coordination between core, input and rendering
+    editor-events.ts         Typed subscriptions, snapshot delivery and error isolation
+    keyboard-interaction.ts  Canvas-focused finish/cancel/delete/history commands
+    pointer.ts               Shared viewport-to-map CSS coordinate conversion
     renderer.ts              Sources/layers, picking, selection styling, draft vertices
     snapping.ts              Map projection and camera/data-revision cache
+    selection-interaction.ts Shift+click/rectangle selection and cancellation
     translation-interaction.ts Group drag preview, release and cancellation
     vertex-interaction.ts    Pointer capture, vertex gestures, cancellation
     vertex-handles.ts        Shared screen-space corner/midpoint definitions
     line-editor.ts           Compatibility facade for the earlier line-only API
 examples/basic/              Consumer UI; calls the same API as another app would
-tests/                       Core behavior and isolated packed-package integration
+tests/                       Core behavior, boundary checks and packed-package integration
   browser/                   Actual MapLibre/Chromium interaction and demo tests
 ```
+
+## Where to make a change
+
+| Task | Start here | Verification |
+| --- | --- | --- |
+| Integrate into an application | [API guide](geometry-editor.md), `examples/basic/main.ts` | `tests/fixtures/consumer/`, demo browser tests |
+| Add a geometry operation | `core/` algorithm, then `DrawingSession` | Core behavior tests, operation benchmark |
+| Change committed data or Undo | `core/transaction.ts`, `drawing-session.ts`, `history.ts` | Transaction/history tests, mixed selections and failure cases |
+| Add a mouse gesture | Corresponding `maplibre/*-interaction.ts`, wired in `GeometryEditor` | Browser tests for release, Escape, blur, style changes and destruction |
+| Change keyboard shortcuts | `maplibre/keyboard-interaction.ts` | Browser tests for focus, modifiers and current mode |
+| Change event delivery | `maplibre/editor-events.ts`; emission stays in the controller | Observer mutation/error/unsubscribe tests in browser suites |
+| Change map appearance or picking | `maplibre/renderer.ts` | Browser rendering/selection tests |
+| Change toolbar or instructions | `examples/basic/` | Demo tests and visual review |
+| Expose a public capability | `src/index.ts`, `core/types.ts`, editor facade | Packed-consumer fixture and API documentation |
+
+The core imports only other core modules and geometry dependencies. The adapter
+imports the core. The demo imports the public package. Avoid using `src/index.ts`
+as an internal shortcut: it would pull the adapter back into lower-level modules.
 
 ## Following one polygon through the code
 
@@ -200,3 +222,22 @@ translates selected features and passes the complete batch through transaction
 validation and the existing commit boundary. One revision, one event, and one
 history entry cover the whole group. Cancelling clears preview/feature state and
 restores capture, pan and cursor; API mutations cancel before touching the store.
+
+## Event and input ownership
+
+The controller emits through `EditorEvents` after updating authoritative data and
+rendering. A snapshot factory runs once per listener, so one observer cannot
+mutate another observer's payload. State events read the current state for each
+observer, preserving synchronous callback behavior. Exceptions are queued to the
+owning window and do not stop later observers. Destroy clears every subscription.
+
+`KeyboardInteraction` listens only to the canvas. Gesture handlers intercept
+Escape in the capture phase first, preserving the difference between cancelling
+an active gesture and deselecting an idle group. Alt snapping also needs keyup and
+window blur, so it stays with the snapping coordination in `GeometryEditor`.
+Each input module removes its own listeners; the controller owns overall teardown.
+
+`canvasPoint` converts pointer positions through the canvas's rendered bounds.
+Only rectangle selection clamps the result to the canvas. Vertex and group drags
+retain captured coordinates outside it. Keeping that policy at the caller avoids
+silently changing drag behavior when the shared conversion is updated.

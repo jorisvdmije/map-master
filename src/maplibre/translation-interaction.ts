@@ -1,3 +1,4 @@
+import { canvasPoint } from './pointer.js';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { translateFeatures } from '../core/translation.js';
 import type { Coordinate, GeometryFeature } from '../core/types.js';
@@ -71,18 +72,12 @@ export class TranslationInteraction {
     this.view.removeEventListener('blur', this.blur);
   }
 
-  private point(event: PointerEvent): ScreenPoint {
-    const bounds = this.canvas.getBoundingClientRect();
-    return { x: (event.clientX - bounds.left) * this.canvas.clientWidth / bounds.width,
-      y: (event.clientY - bounds.top) * this.canvas.clientHeight / bounds.height };
-  }
-
   private readonly down = (event: PointerEvent): void => {
     if (this.gesture) return;
     this.suppressClick = false;
     if (event.button !== 0 || event.pointerType !== 'mouse' || event.shiftKey || event.ctrlKey
       || event.metaKey || event.altKey || event.defaultPrevented) return;
-    const point = this.point(event);
+    const point = canvasPoint(this.canvas, event);
     const originals = this.actions.targets(point);
     if (originals.length === 0) return;
     event.preventDefault();
@@ -98,7 +93,7 @@ export class TranslationInteraction {
   private update(event: PointerEvent): void {
     const gesture = this.gesture;
     if (!gesture) return;
-    gesture.end = this.point(event);
+    gesture.end = canvasPoint(this.canvas, event);
     gesture.moved ||= Math.hypot(gesture.end.x - gesture.start.x, gesture.end.y - gesture.start.y) >= 4;
     if (gesture.moved) this.suppressClick = true;
   }
