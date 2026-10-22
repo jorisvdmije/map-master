@@ -6,10 +6,10 @@ A TypeScript library in development for drawing and editing geometry on web maps
 
 ## Status
 
-Line and polygon drawing, single-feature selection, deletion, vertex editing, and GeoJSON import are implemented:
+Line and polygon drawing, single-feature selection, deletion, vertex editing, GeoJSON import, and undo/redo are implemented:
 preview, validate, finish or cancel, select/deselect, delete, move/insert/remove vertices, and export committed features together
 as GeoJSON through one GeometryEditor API.
-The API is experimental. Undo/redo is planned. Code and contributor documentation use English.
+The API is experimental. Code and contributor documentation use English.
 
 ## Try the demo
 
@@ -28,7 +28,7 @@ When idle, click a line or polygon to select it in blue. Click empty space, pres
 Escape with map focus, or choose **Deselect** to clear selection. Selection never
 changes the exported geometry.
 To remove the selected shape, use **Delete** or press Delete/Backspace with map
-focus. Remaining geometry stays intact. Deletion has no undo in this milestone.
+focus. Remaining geometry stays intact. Undo restores a deleted shape while its action remains in history.
 
 Select a shape and choose **Edit vertices**. Drag a corner to move it, click a
 small midpoint to insert one, and use **Remove vertex** or Delete/Backspace to
@@ -38,6 +38,11 @@ or Escape restores the original. Export keeps the saved version during editing.
 Use **Import GeoJSON** to add a `.geojson`/`.json` file with supported lines and
 polygons (up to 5 MB in the demo). IDs and properties are preserved. Invalid
 files and duplicate IDs leave current data untouched. The map fits imported shapes.
+
+Use **Undo**/**Redo** to reverse or replay saved actions, including an entire
+import. With map focus: Ctrl/Cmd+Z undoes; Ctrl/Cmd+Shift+Z or Ctrl+Y redoes.
+Finish or cancel an active drawing/edit first. The default history retains
+100 actions; applications can configure `historyLimit` or clear it explicitly.
 
 The demo uses OpenStreetMap tiles with attribution. Tiles are optional and load
 after drawing is ready; use <http://localhost:5173/?basemap=off> for a demo with no
@@ -73,6 +78,7 @@ npm run check
 | `npm run benchmark:deletion` | Measure one core deletion plus export of all surviving features. |
 | `npm run benchmark:editing` | Measure moving one corner of fixed polygon drafts. |
 | `npm run benchmark:import` | Measure atomic imports of fixed line and polygon datasets. |
+| `npm run benchmark:history` | Measure undoing a middle deletion, with and without export. |
 | `npm run check` | Run all type checks, linting, tests, and the production demo build. |
 | `npm pack` | Build and create a local installable archive. |
 

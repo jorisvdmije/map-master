@@ -1,6 +1,6 @@
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { DrawingSession } from '../core/drawing-session.js';
-import type { Coordinate, FeatureId, EditorState, GeometryFeatureCollection, GeometryFeature, GeometryType } from '../core/types.js';
+import type { Coordinate, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, GeometryType } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
 import { VertexInteraction } from './vertex-interaction.js';
 
@@ -16,6 +16,7 @@ export class GeometryEditor {
   private readonly deleteListeners = new Set<(feature: GeometryFeature) => void>();
   private readonly importListeners = new Set<(collection: GeometryFeatureCollection) => void>();
   private readonly updateListeners = new Set<(feature: GeometryFeature) => void>();
+  private readonly historyListeners = new Set<(event: HistoryEvent) => void>();
   private readonly changeListeners = new Set<(state: EditorState) => void>();
   private cursor: Coordinate | undefined;
   private frame: number | undefined;
@@ -23,7 +24,7 @@ export class GeometryEditor {
   private restoreDoubleClickZoom = false;
   private destroyed = false;
 
-  constructor(private readonly map: MapLibreMap) {
+  constructor(private readonly map: MapLibreMap, options: EditorOptions = {}) {
     if (editors.has(map)) throw new Error('Only one geometry editor can be attached to a map.');
     // getStyle() is available once the style is initialized, even if background
     // tiles are still loading. isStyleLoaded() also waits for source updates.
@@ -35,7 +36,7 @@ export class GeometryEditor {
       throw new Error('GeometryEditor requires HTTPS or localhost for feature IDs.');
     }
     this.view = view;
-    this.session = new DrawingSession(() => view.crypto.randomUUID());
+    this.session = new DrawingSession(() => view.crypto.randomUUID(), options.historyLimit);
     this.renderer = new MapLibreRenderer(map, `geo-editor-${view.crypto.randomUUID()}`);
     this.renderer.mount();
     this.vertices = new VertexInteraction(map, {
@@ -189,6 +190,31 @@ export class GeometryEditor {
     return () => { this.importListeners.delete(listener); };
   }
 
+  undo(): boolean { return this.replayHistory('undo'); }
+  redo(): boolean { return this.replayHistory('redo'); }
+
+  clearHistory(): void {
+    this.assertAlive();
+    if (this.session.clearHistory()) this.emitChange();
+  }
+
+  onHistory(listener: (event: HistoryEvent) => void): () => void {
+    this.assertAlive();
+    this.historyListeners.add(listener);
+    return () => { this.historyListeners.delete(listener); };
+  }
+
+  private replayHistory(direction: HistoryEvent['direction']): boolean {
+    this.assertAlive();
+    const event = this.session[direction]();
+    if (!event) return false;
+    this.renderer.renderSelection(this.session.state.selectedFeatureId);
+    this.renderer.renderCommitted(this.exportGeoJSON());
+    for (const listener of this.historyListeners) this.notify(() => listener(structuredClone(event)));
+    this.emitChange();
+    return true;
+  }
+
   onCreate(listener: (feature: GeometryFeature) => void): () => void {
     this.assertAlive();
     this.createListeners.add(listener);
@@ -284,9 +310,19 @@ export class GeometryEditor {
   };
 
   private readonly handleKey = (event: KeyboardEvent): void => {
-    if (event.target !== this.canvas || event.defaultPrevented || event.isComposing
-      || event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey
-    ) return;
+    if (event.target !== this.canvas || event.defaultPrevented || event.isComposing || event.repeat || event.altKey) return;
+    if (event.ctrlKey || event.metaKey) {
+      if (event.ctrlKey && event.metaKey || this.session.state.mode !== 'idle') return;
+      const key = event.key.toLowerCase();
+      const direction = key === 'z' ? event.shiftKey ? 'redo' : 'undo'
+        : key === 'y' && event.ctrlKey && !event.shiftKey ? 'redo' : null;
+      if (direction && this.session.state[direction === 'undo' ? 'canUndo' : 'canRedo']) {
+        event.preventDefault();
+        this.replayHistory(direction);
+      }
+      return;
+    }
+    if (event.shiftKey) return;
     if (this.session.state.mode === 'idle') {
       if (this.session.state.selectedFeatureId !== null
         && (event.key === 'Escape' || event.key === 'Delete' || event.key === 'Backspace')) {
@@ -348,6 +384,7 @@ export class GeometryEditor {
     this.destroyed = true;
     this.vertices.destroy(removeResources);
     const wasDrawing = this.session.cancel();
+    this.session.clearHistory();
     this.session.select(null);
     if (this.frame !== undefined) this.view.cancelAnimationFrame(this.frame);
     this.frame = undefined;
@@ -370,6 +407,7 @@ export class GeometryEditor {
     this.updateListeners.clear();
     this.importListeners.clear();
     this.changeListeners.clear();
+    this.historyListeners.clear();
     editors.delete(this.map);
     if (removeResources) this.renderer.destroy();
   }

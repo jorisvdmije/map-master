@@ -11,6 +11,8 @@ it('runs the demo with its real controls and a built package, without a tile ser
   await import('../../examples/basic/main.js');
   const start = page.getByRole('button', { name: 'Draw a line' });
   await expect.element(start).toBeEnabled();
+  await expect.element(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
+  await expect.element(page.getByRole('button', { name: 'Redo', exact: true })).toBeDisabled();
   await start.click();
   const canvas = document.querySelector('canvas');
   if (!canvas) throw new Error('Demo did not create a map canvas.');
@@ -116,6 +118,11 @@ it('runs the demo with its real controls and a built package, without a tile ser
   expect(output?.value).toBe(JSON.stringify(imported, null, 2));
   expect(document.querySelector('#feature-count')?.textContent).toBe('2 features');
   const importedOutput = output?.value;
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  expect(document.querySelector('#feature-count')?.textContent).toBe('0 features');
+  expect(document.activeElement).toBe(canvas);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  expect(output?.value).toBe(importedOutput);
   await input.upload(new File([JSON.stringify(imported)], 'shapes.geojson', { type: 'application/geo+json' }));
   await expect.poll(() => document.querySelector('#import-status')?.textContent).toContain('already exists');
   expect(output?.value).toBe(importedOutput);
@@ -124,6 +131,7 @@ it('runs the demo with its real controls and a built package, without a tile ser
   expect(output?.value).toBe(importedOutput);
   await page.getByRole('button', { name: 'Draw a polygon' }).click();
   await expect.element(input).toBeDisabled();
+  await expect.element(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect.element(input).toBeEnabled();
 });

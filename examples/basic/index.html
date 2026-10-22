@@ -9,7 +9,7 @@
   <body>
     <header class="header">
       <a class="brand" href="/" aria-label="geo home"><span class="brand-mark">g.</span>geo<span class="brand-divider"></span><span class="brand-caption">Drawing playground</span></a>
-      <span class="milestone"><span class="dot"></span> Milestone 07 <span class="milestone-label">/ Import GeoJSON</span></span>
+      <span class="milestone"><span class="dot"></span> Milestone 08 <span class="milestone-label">/ Undo &amp; redo</span></span>
     </header>
     <main class="workspace">
       <aside class="sidebar" aria-label="Drawing tools">
@@ -30,6 +30,10 @@
         </div>
         <button id="start" class="button primary" disabled><span aria-hidden="true">＋</span><span id="start-label">Draw a line</span></button>
         <div class="button-row"><button id="finish" class="button secondary" aria-keyshortcuts="Enter" disabled><span id="finish-label">Finish</span> <kbd aria-hidden="true">↵</kbd></button><button id="cancel" class="button secondary" aria-keyshortcuts="Escape" disabled>Cancel <kbd aria-hidden="true">esc</kbd></button></div>
+        <div class="button-row" role="group" aria-label="History">
+          <button id="undo" class="button secondary" aria-keyshortcuts="Control+z Meta+z" disabled>Undo <span aria-hidden="true">↶</span></button>
+          <button id="redo" class="button secondary" aria-keyshortcuts="Control+Shift+z Meta+Shift+z Control+y" disabled>Redo <span aria-hidden="true">↷</span></button>
+        </div>
         <div id="status" class="status" role="status">Loading the map…</div>
         <section id="selection" class="selection-card" aria-label="Selected geometry" hidden>
           <div><strong id="selection-type"></strong><span id="selection-detail"></span></div>

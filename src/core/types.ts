@@ -36,6 +36,24 @@ export interface GeometryFeatureCollection {
 export type ValidationError = 'too-few-vertices' | 'duplicate-vertex'
   | 'zero-area' | 'self-intersection' | 'antimeridian-crossing';
 
+export interface EditorOptions {
+  /** Maximum retained actions, default 100; 0 disables history. Not a byte limit. */
+  historyLimit?: number;
+}
+
+export type HistoryAction = 'create' | 'edit' | 'delete' | 'import';
+export interface FeatureChange {
+  before: GeometryFeature | null;
+  after: GeometryFeature | null;
+}
+export interface HistoryEvent {
+  direction: 'undo' | 'redo';
+  /** The original action being reversed or replayed. */
+  action: HistoryAction;
+  /** Snapshots in the direction applied, not necessarily the original direction. */
+  changes: FeatureChange[];
+}
+
 export interface EditorState {
   mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon';
   vertexCount: number;
@@ -44,9 +62,12 @@ export interface EditorState {
   selectedFeatureId: FeatureId | null;
   /** Zero-based index in the open editing draft, without a polygon's closing copy. */
   selectedVertexIndex: number | null;
-  /** Increases on committed creation, deletion, changed edits, and nonempty imports only. */
+  /** Increases on committed creation, deletion, changed edits, nonempty imports, and successful undo/redo. */
   dataRevision: number;
   canFinish: boolean;
+  /** False during drawing/editing, even if retained history exists. */
+  canUndo: boolean;
+  canRedo: boolean;
   /** Why the clicked draft cannot be committed; null when valid or idle. */
   validationError: ValidationError | null;
 }

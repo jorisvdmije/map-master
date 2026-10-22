@@ -97,7 +97,7 @@ to the map's `error` event for worker or rendering errors.
   selection. See the shared [selection contract](geometry-editor.md#selection).
 - Delete/Backspace remove the selected line only with canvas focus. See the
   shared [deletion contract](geometry-editor.md#deletion), including no-selection
-  behavior and the absence of undo in this milestone.
+  behavior and the undo/redo contract.
 
 ## Scope and performance
 
@@ -116,3 +116,11 @@ The production demo includes the MapLibre renderer and worker, so its size is
 larger than the editor package. Vite's large-chunk notice refers to that demo
 bundle. Dataset benchmarks, latency budgets, and memory measurements remain
 release work; there is no enterprise-scale performance claim yet.
+
+## History
+
+LineEditor accepts `{ historyLimit: 100 }` as its optional second constructor
+argument and exposes `undo()`, `redo()`, `clearHistory()`, and `onHistory()`.
+`getState()` includes `canUndo` and `canRedo`. See the
+[history contract](geometry-editor.md#undo-and-redo), including the separate
+history event needed when synchronizing changes to a backend.

@@ -6,7 +6,8 @@ const publicApi: typeof import('@geo/editor') = editor;
 void publicApi;
 
 export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
-  const tool = new editor.GeometryEditor(map);
+  const options: editor.EditorOptions = { historyLimit: 50 };
+  const tool = new editor.GeometryEditor(map, options);
   const batch: editor.GeometryFeatureCollection = tool.importGeoJSON({ type: 'FeatureCollection', features: [] });
   tool.onImport((collection) => { const count: number = collection.features.length; void count; });
   const properties: editor.FeatureProperties = { nested: { list: [1, true, null] } };
@@ -51,6 +52,16 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const deleted: editor.GeometryFeature | null = tool.deleteSelected();
   void deleted;
   unsubscribe();
+  const undone: boolean = tool.undo();
+  const redone: boolean = tool.redo();
+  const canUndo: boolean = tool.getState().canUndo;
+  tool.onHistory((event: editor.HistoryEvent) => {
+    const action: editor.HistoryAction = event.action;
+    const changes: editor.FeatureChange[] = event.changes;
+    void [action, changes];
+  });
+  tool.clearHistory();
+  void [undone, redone, canUndo];
   const result = tool.exportGeoJSON();
   tool.destroy();
   return result;
@@ -74,6 +85,16 @@ export function integrate(map: Map): editor.LineCollection {
   });
   const deleted: editor.LineFeature | null = tool.deleteSelected();
   void deleted;
+  const undone: boolean = tool.undo();
+  const redone: boolean = tool.redo();
+  const canUndo: boolean = tool.getState().canUndo;
+  tool.onHistory((event: editor.HistoryEvent) => {
+    const action: editor.HistoryAction = event.action;
+    const changes: editor.FeatureChange[] = event.changes;
+    void [action, changes];
+  });
+  tool.clearHistory();
+  void [undone, redone, canUndo];
   const result = tool.exportGeoJSON();
   tool.destroy();
   return result;

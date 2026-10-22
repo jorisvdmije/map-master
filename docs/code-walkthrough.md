@@ -10,6 +10,7 @@ src/
   core/
     types.ts                 Coordinates, features, modes, validation diagnostics
     drawing-session.ts       Draft, features indexed by ID, selection, create/edit/delete/export
+    history.ts               Bounded undo/redo stacks of committed feature changes
     geojson-import.ts        Validate/copy entire import batches and JSON properties
     polygon.ts               Ring validity, closure, exterior winding
   maplibre/
@@ -101,7 +102,16 @@ and generates missing ones. A failure leaves existing data and selection intact.
 The controller uploads once and emits one onImport event for a nonempty batch.
 Export/import use core data, so neither requires reading rendered map layers.
 
-Future history should extend the editor API and core commit behavior. Application code should not have to learn which
+Committed mutations record changed feature versions in EditHistory. Internal
+versions never escape the session, so entries can retain immutable references
+instead of copying every feature. An edit stores its before/after versions;
+an import stores one batch. Replay changes the core store, preserves collection
+order, checks whether the current selection still exists, and increments the
+revision once. The controller refreshes the map and emits one onHistory event.
+An action-count limit and clearHistory release old references; destruction also
+clears both stacks. UI selection and unfinished drafts never enter history.
+
+Application code should not have to learn which
 MapLibre source holds a selected feature. Avoid creating one wrapper method for
 every MapLibre camera or basemap operation: those operations already belong to
 the host's map API.

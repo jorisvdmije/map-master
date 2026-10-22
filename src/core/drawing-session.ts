@@ -1,7 +1,8 @@
+import { EditHistory } from './history.js';
 import { copyProperties, prepareImport } from './geojson-import.js';
 import { closePolygon, openRing, samePosition, validatePolygon } from './polygon.js';
 import type {
-  Coordinate, FeatureId, EditorState, GeometryFeatureCollection, GeometryFeature, GeometryType, ValidationError,
+  Coordinate, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, GeometryType, ValidationError,
 } from './types.js';
 
 function copyFeature(feature: GeometryFeature): GeometryFeature {
@@ -23,7 +24,11 @@ export class DrawingSession {
   private selectedVertexIndex: number | null = null;
   private dataRevision = 0;
 
-  constructor(private readonly createId: () => string) {}
+  private readonly history: EditHistory;
+
+  constructor(private readonly createId: () => string, historyLimit = 100) {
+    this.history = new EditHistory(historyLimit);
+  }
 
   get state(): EditorState {
     return {
@@ -36,6 +41,8 @@ export class DrawingSession {
       selectedVertexIndex: this.selectedVertexIndex,
       dataRevision: this.dataRevision,
       canFinish: this.kind !== null && this.validationError === null,
+      canUndo: this.kind === null && this.history.canUndo,
+      canRedo: this.kind === null && this.history.canRedo,
       validationError: this.validationError,
     };
   }
@@ -75,6 +82,9 @@ export class DrawingSession {
       : { ...common, geometry: { type: 'LineString', coordinates: this.draft } };
     // No-op saves exit editing without emitting a data change or replacing the feature.
     if (!original || JSON.stringify(original.geometry) !== JSON.stringify(feature.geometry)) {
+      this.history.record({ action: original ? 'edit' : 'create', changes: [{
+        before: original ?? null, after: feature, index: original ? -1 : this.features.size,
+      }] });
       this.features.set(feature.id, feature);
       this.dataRevision++;
     }
@@ -100,9 +110,66 @@ export class DrawingSession {
   importGeoJSON(input: unknown): GeometryFeatureCollection {
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before importing.');
     const features = prepareImport(input, (id) => this.features.has(id), this.createId);
-    for (const feature of features) this.features.set(feature.id, feature);
-    if (features.length > 0) this.dataRevision++;
+    if (features.length > 0) {
+      this.history.record({ action: 'import', changes: features.map((feature, index) => ({
+        before: null, after: feature, index: this.features.size + index,
+      })) });
+      for (const feature of features) this.features.set(feature.id, feature);
+      this.dataRevision++;
+    }
     return { type: 'FeatureCollection', features: features.map(copyFeature) };
+  }
+
+  undo(): HistoryEvent | null { return this.replay('undo'); }
+  redo(): HistoryEvent | null { return this.replay('redo'); }
+
+  clearHistory(): boolean {
+    this.assertIdleHistory();
+    return this.history.clear();
+  }
+
+  private assertIdleHistory(): void {
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before changing history.');
+  }
+
+  private replay(direction: HistoryEvent['direction']): HistoryEvent | null {
+    this.assertIdleHistory();
+    const entry = this.history[direction]();
+    if (!entry) return null;
+    const insertions: { feature: GeometryFeature; index: number }[] = [];
+    for (const change of entry.changes) {
+      const target = direction === 'undo' ? change.before : change.after;
+      if (target === null) this.features.delete((change.before ?? change.after)!.id);
+      else if (this.features.has(target.id)) this.features.set(target.id, target);
+      else insertions.push({ feature: target, index: change.index });
+    }
+    // Appends need no reordering. Restoring a deleted middle feature rebuilds
+    // only the Map order, retaining the untouched geometry objects by reference.
+    if (insertions.length > 0 && insertions[0]!.index < this.features.size) {
+      const survivors = Array.from(this.features.values());
+      this.features.clear();
+      let next = 0;
+      for (const feature of survivors) {
+        while (next < insertions.length && insertions[next]!.index <= this.features.size) {
+          const restored = insertions[next++]!.feature;
+          this.features.set(restored.id, restored);
+        }
+        this.features.set(feature.id, feature);
+      }
+      for (; next < insertions.length; next++) {
+        const restored = insertions[next]!.feature;
+        this.features.set(restored.id, restored);
+      }
+    } else {
+      for (const { feature } of insertions) this.features.set(feature.id, feature);
+    }
+    if (this.selectedFeatureId !== null && !this.features.has(this.selectedFeatureId)) this.selectedFeatureId = null;
+    this.dataRevision++;
+    return { direction, action: entry.action, changes: entry.changes.map((change) => {
+      const before = direction === 'undo' ? change.after : change.before;
+      const after = direction === 'undo' ? change.before : change.after;
+      return { before: before ? copyFeature(before) : null, after: after ? copyFeature(after) : null };
+    }) };
   }
 
   private allocateId(): string {
@@ -140,6 +207,9 @@ export class DrawingSession {
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before deleting.');
     const feature = this.getSelected();
     if (!feature) return null;
+    this.history.record({ action: 'delete', changes: [{
+      before: this.features.get(feature.id)!, after: null, index: Array.from(this.features.keys()).indexOf(feature.id),
+    }] });
     this.features.delete(feature.id);
     this.dataRevision++;
     this.selectedFeatureId = null;

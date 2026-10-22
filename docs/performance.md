@@ -78,7 +78,8 @@ Local baseline on 2026-10-22: Apple M2 Pro, macOS arm64, Node.js 22.23.1.
 | 1,000 | 0.064 | 0.383 |
 | 10,000 | 1.904 | 2.853 |
 
-Removing the ID uses the core Map index; copying the removed snapshot scales
+Removing the ID uses the core Map index. Since history was added, deletion
+also scans feature IDs to retain the original insertion position; copying the removed snapshot scales
 with its vertices. Export then copies all surviving geometries. The current
 renderer replaces the committed source once per successful deletion, just as
 it does after creation. Large datasets may benefit from incremental source
@@ -134,3 +135,29 @@ latency guarantee. Import is synchronous. Memory includes a prepared batch and
 independent returned copies; polygon validation remains O(n²) per ring. The
 controller also exports/uploads all existing and new features once per batch.
 Large imports may need worker validation and incremental source updates later.
+
+## Undo and export
+
+Run `npm run benchmark:history`. Fixtures contain 10, 1,000, or 10,000 fixed
+two-point lines around `[4.895, 52.372]`, matching the previous selection/deletion
+fixture family. Import/setup and assertions are outside the timer. After clearing
+setup history and deleting the middle line, measure undo alone and undo plus a
+full export in separate samples; redo resets between samples. Each size receives
+10 warmups and 50 timed samples. The original feature order is checked.
+
+Local baseline on 2026-10-22: Apple M2 Pro, macOS arm64, Node.js 22.23.1.
+
+| Stored features before deletion | Median undo (ms) | p95 undo (ms) | Median undo + export (ms) | p95 undo + export (ms) |
+| --- | ---: | ---: | ---: | ---: |
+| 10 | 0.002 | 0.003 | 0.008 | 0.014 |
+| 1,000 | 0.084 | 0.106 | 0.249 | 0.641 |
+| 10,000 | 0.615 | 0.699 | 3.723 | 7.754 |
+
+Restoring a deleted middle feature rebuilds Map order in O(n) without cloning
+unrelated geometry. Export additionally copies every feature. Editing history
+changes only the affected feature versions; imports retain one whole imported
+batch. The default 100-action limit bounds the number of entries, not memory in
+bytes. No memory or maximum-dataset guarantee is implied by this first baseline.
+Events, renderer uploads, MapLibre worker processing, and painting are excluded.
+The existing full-source renderer still makes visible undo/redo scale with the
+entire collection. These are observations, not CI timing thresholds.

@@ -1,5 +1,5 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import type { Coordinate, FeatureId, EditorState, GeometryFeature, LineCollection, LineFeature } from '../core/types.js';
+import type { Coordinate, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeature, LineCollection, LineFeature } from '../core/types.js';
 import { GeometryEditor } from './geometry-editor.js';
 
 const isLine = (feature: GeometryFeature): feature is LineFeature => feature.geometry.type === 'LineString';
@@ -8,11 +8,15 @@ const isLine = (feature: GeometryFeature): feature is LineFeature => feature.geo
 export class LineEditor {
   private readonly editor: GeometryEditor;
 
-  constructor(map: MapLibreMap) { this.editor = new GeometryEditor(map); }
+  constructor(map: MapLibreMap, options: EditorOptions = {}) { this.editor = new GeometryEditor(map, options); }
 
   startLine(): void { this.editor.draw('LineString'); }
   cancel(): void { this.editor.cancel(); }
   destroy(): void { this.editor.destroy(); }
+  undo(): boolean { return this.editor.undo(); }
+  redo(): boolean { return this.editor.redo(); }
+  clearHistory(): void { this.editor.clearHistory(); }
+  onHistory(listener: (event: HistoryEvent) => void): () => void { return this.editor.onHistory(listener); }
   getState(): EditorState { return this.editor.getState(); }
   select(id: FeatureId | null): void { this.editor.select(id); }
   editSelected(): boolean { return this.editor.editSelected(); }

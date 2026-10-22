@@ -2,8 +2,8 @@
 
 Status: experimental. Supports 2D LineString and single-outer-ring Polygon
 features on a flat Mercator MapLibre GL JS 6.15 map. Desktop mouse and keyboard
-input, selection, deletion, vertex editing, and GeoJSON import are tested in Chromium.
-Holes, multipart features, and undo/redo are not implemented yet.
+input, selection, deletion, vertex editing, GeoJSON import, and undo/redo are tested in Chromium.
+Holes and multipart features are not implemented yet.
 
 ## One editor API
 
@@ -42,11 +42,11 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 
 | Member | Contract |
 | --- | --- |
-| `new GeometryEditor(map)` | Attach after `style.load` or `load`. One editor per map, including the LineEditor facade. |
+| `new GeometryEditor(map, options?)` | Attach after `style.load` or `load`. One editor per map, including the LineEditor facade. `historyLimit` defaults to 100. |
 | `draw('LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
 | `finish()` | Commit a valid draft once, returning a `GeometryFeature`. An invalid/incomplete draft returns `null` and remains active. |
 | `cancel()` | Discard only the draft. |
-| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedVertexIndex`, `dataRevision`, `canFinish`, `validationError`. |
+| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedVertexIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`. |
 | `select(id \| null)` | Select a committed feature by ID, or clear selection with `null`. Available only while idle. |
 | `getSelected()` | Independent snapshot of the selected feature, or `null`. |
 | `deleteSelected()` | Delete the selected committed feature and clear selection. Return its independent snapshot, or `null` with no selection. Available only while idle. |
@@ -54,6 +54,9 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `importGeoJSON(input)` | Append a parsed Feature/FeatureCollection atomically; return an independent collection of imported features. Idle only. |
 | `onImport(listener)` | One notification per nonempty imported batch. Returns an unsubscribe function. |
 | `onUpdate(listener)` | One notification per changed saved edit. Returns an unsubscribe function. |
+| `undo()` / `redo()` | Reverse/replay one committed action; return true if applied, false if unavailable. Idle only. |
+| `clearHistory()` | Release undo/redo history without changing data or revision. Idle only. |
+| `onHistory(listener)` | One atomic change event per successful undo/redo. Returns an unsubscribe function. |
 | `onCreate(listener)` | One event per committed feature, with an independent snapshot per listener. Returns an unsubscribe function. |
 | `onDelete(listener)` | One event per committed deletion, with an independent snapshot of the removed feature per listener. Returns an unsubscribe function. |
 | `onChange(listener)` | Editing-state notification after state changes. Read the initial state with `getState()`. Returns an unsubscribe function. |
@@ -101,7 +104,7 @@ editor.select(null);
 
 Selection emits `onChange` only when the selected ID changes. Selecting the same
 ID again is a no-op. It does not emit `onCreate`, rewrite geometry, change IDs or
-properties, or add selection metadata to exports. Use `onCreate`, `onUpdate`, `onDelete`, and `onImport` for committed changes; `onChange` also represents transient UI state.
+properties, or add selection metadata to exports. Use `onCreate`, `onUpdate`, `onDelete`, `onImport`, and `onHistory` for committed changes; `onChange` also represents transient UI state.
 
 An unknown ID throws `RangeError` and preserves the previous selection. Selecting
 anything, including `null`, during drawing throws without changing the draft.
@@ -152,10 +155,11 @@ MapLibre updates asynchronously, so a deleted outline may remain visible briefly
 The controller ignores stale rendered IDs absent from the core; a click cannot
 reselect a deleted feature. A style replacement restores only surviving data.
 
-Deletion is immediate and in-memory. It does not contact a backend, ask for
-confirmation, or offer undo yet. Applications can place their own confirmation
+Deletion is immediate and in-memory. It does not contact a backend or ask for
+confirmation. Applications can place their own confirmation
 before calling `deleteSelected()` if their workflow needs it. A retained removed snapshot can be restored with `importGeoJSON(snapshot)`
-while idle, if its ID has not been reused. Undo/history remains a later step.
+while idle, if its ID has not been reused. `undo()` restores the deletion directly
+while that action remains in history.
 
 ## Vertex editing
 
@@ -273,6 +277,75 @@ GeometryEditor; the earlier LineEditor remains a drawing compatibility facade.
 now use exported `FeatureProperties` (a JSON object or null), with `JsonValue`
 for nested values. Update consumer annotations and handle null properties.
 
+## Undo and redo
+
+```ts
+const editor = new GeometryEditor(map, { historyLimit: 100 });
+
+editor.undo(); // boolean: whether an action was reversed
+editor.redo(); // boolean: whether an action was replayed
+const { canUndo, canRedo } = editor.getState();
+
+editor.onHistory(({ direction, action, changes }) => {
+  // Persist the batch in the order supplied. Each change is in the applied direction:
+  // before=null creates a feature; after=null deletes it; both present update it.
+  console.log(direction, action, changes);
+});
+
+// Optional: establish loaded data as the baseline rather than an undoable import.
+editor.importGeoJSON(initialData);
+editor.clearHistory();
+```
+
+Each committed drawing, changed saved edit, deletion, or nonempty import is one
+action. Any number of vertex gestures before Save form one edit action; an import
+is one action for the whole batch. Undo/redo restores IDs (including number vs
+string), nested properties, geometry, and original feature order. Redo reuses the
+original IDs without calling the ID generator or revalidating stored geometry.
+
+Selection is not a history action. The currently selected feature stays selected
+if it exists after replay; otherwise selection is cleared. Undo does not restore
+past selections. The camera is unchanged. Cancel, unchanged Save, empty imports,
+failed validation, and no-op deletions neither record actions nor clear redo.
+A new committed mutation after undo discards the redo branch.
+
+`undo()`, `redo()`, and `clearHistory()` throw while drawing/editing or after
+destroy. `canUndo` and `canRedo` are false during an active interaction, while the
+underlying history is retained. Finish or cancel first. An unavailable undo/redo
+while idle returns false without changing state, revision, rendering, or events.
+
+With canvas focus, Ctrl/Cmd+Z undoes; Ctrl/Cmd+Shift+Z or Ctrl+Y redoes. Shortcuts
+in form fields or other elements are untouched. Repeats, composing events,
+already-prevented events, Alt combinations, Ctrl+Meta combinations, unavailable
+actions, and active drafts are ignored without preventing browser defaults.
+The demo buttons call the same API and return focus to the map after success.
+
+A successful undo/redo increments `dataRevision` once, refreshes selection and the
+committed source once, emits one `onHistory` event, then `onChange`. Existing
+`onCreate`, `onUpdate`, `onDelete`, and `onImport` events are not replayed: subscribe
+to `onHistory` as well when synchronizing a backend. `HistoryEvent.action` names
+the original action (`create`, `edit`, `delete`, or `import`); `direction` is
+`undo` or `redo`. `changes` contains independent `before`/`after` feature snapshots
+in the direction actually applied. For example, undoing a deletion has
+`before: null` and `after: restoredFeature`. All changes have been applied before
+callbacks run. Listener snapshots are isolated and observer errors follow the
+existing asynchronous reporting policy.
+
+`historyLimit` must be a nonnegative safe integer. The default is 100 retained
+actions across undo and redo; 0 disables recording. Older actions are evicted
+without changing current data. The bound is an **action count, not a byte limit**:
+one large import or geometry can still retain substantial memory. Entries store
+only changed feature versions, sharing internal immutable versions where possible;
+there is no full-dataset snapshot per action. Restoring a middle deletion rebuilds
+Map order without copying unrelated geometries. The renderer still uploads the
+full collection after replay.
+
+`clearHistory()` releases both stacks, emits `onChange` only if history existed,
+and preserves data, revision, and selection. Style changes preserve history.
+Destroy/map removal clears history without emitting history events. History is
+local to one editor instance and is not included in GeoJSON or persisted across
+reloads. LineEditor supports the same history methods, options, and events.
+
 ## Polygon contract
 
 - At least three distinct, non-collinear corners, with finite world-bounded
@@ -343,6 +416,6 @@ The encoding is never written into the core, public events, or exports. See MapL
 [query and feature-state API](https://maplibre.org/maplibre-gl-js/docs/API/classes/Map/).
 
 The repeatable [benchmarks](performance.md) characterize core validation and
-selection, deletion/export, vertex movement, and import. Large-dataset rendering,
+selection, deletion/export, vertex movement, import, and undo/export. Large-dataset rendering,
 interaction latency, memory, touch input, and
 other browser engines still require measurement before production-scale claims.

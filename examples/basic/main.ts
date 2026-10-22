@@ -18,6 +18,8 @@ const lineTool = element<HTMLButtonElement>('tool-line');
 const polygonTool = element<HTMLButtonElement>('tool-polygon');
 const finish = element<HTMLButtonElement>('finish');
 const cancel = element<HTMLButtonElement>('cancel');
+const undo = element<HTMLButtonElement>('undo');
+const redo = element<HTMLButtonElement>('redo');
 const download = element<HTMLButtonElement>('export');
 const importFile = element<HTMLInputElement>('import-file');
 const importStatus = element('import-status');
@@ -100,6 +102,8 @@ map.on('load', () => {
     polygonTool.disabled = drawing;
     finish.disabled = !state.canFinish;
     cancel.disabled = !drawing;
+    undo.disabled = !state.canUndo;
+    redo.disabled = !state.canRedo;
     download.disabled = state.featureCount === 0;
     element('feature-count').textContent = `${state.featureCount} ${state.featureCount === 1 ? 'feature' : 'features'}`;
     const invalid = error !== null && error !== 'too-few-vertices';
@@ -145,6 +149,8 @@ polygonTool.addEventListener('click', () => { selectTool('Polygon'); });
 start.addEventListener('click', () => { editor?.draw(selected); });
 finish.addEventListener('click', () => { editor?.finish(); });
 cancel.addEventListener('click', () => { editor?.cancel(); });
+undo.addEventListener('click', () => { if (editor?.undo()) map.getCanvas().focus({ preventScroll: true }); });
+redo.addEventListener('click', () => { if (editor?.redo()) map.getCanvas().focus({ preventScroll: true }); });
 deselect.addEventListener('click', () => { editor?.select(null); });
 editSelected.addEventListener('click', () => { editor?.editSelected(); });
 removeVertex.addEventListener('click', () => {

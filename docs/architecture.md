@@ -59,7 +59,7 @@ guarantee topological validity.
 - Preserve feature identity through edits and property changes.
 - Keep a drawing preview separate from committed features; Escape discards only the preview.
 - Commit a completed interaction once and emit one corresponding data-change event.
-- Route mutations through a common commit boundary so later undo/redo can use the same path.
+- Record committed feature changes for bounded undo/redo; replay batches without recording another action.
 - Prevent external mutation of internal state through returned data references.
 - Restore temporarily changed map controls on finish, cancellation, and destruction.
 - Remove owned handlers, layers, and sources on destruction; support independent editor instances.
