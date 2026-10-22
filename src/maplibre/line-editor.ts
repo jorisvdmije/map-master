@@ -28,6 +28,7 @@ export class LineEditor {
   getSelection(): LineFeature[] { return this.editor.getSelection().filter(isLine); }
   deleteSelection(): TransactionEvent | null { return this.editor.deleteSelection(); }
   translateSelection(delta: Coordinate): TransactionEvent | null { return this.editor.translateSelection(delta); }
+  duplicateSelection(delta: Coordinate = [0, 0]): TransactionEvent | null { return this.editor.duplicateSelection(delta); }
   onTransaction(listener: (event: TransactionEvent) => void): () => void { return this.editor.onTransaction(listener); }
   editSelected(): boolean { return this.editor.editSelected(); }
   getDraft(): Coordinate[] { return this.editor.getDraft(); }

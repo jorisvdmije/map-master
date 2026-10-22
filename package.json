@@ -34,6 +34,7 @@
     "dev": "npm run build && vite",
     "build:demo": "npm run build && vite build",
     "benchmark:polygon": "npm run build && node scripts/benchmark-polygon.mjs",
+    "benchmark:duplication": "npm run build && node scripts/benchmark-duplication.mjs",
     "benchmark:translation": "npm run build && node scripts/benchmark-translation.mjs",
     "benchmark:selection": "npm run build && node scripts/benchmark-selection.mjs",
     "benchmark:deletion": "npm run build && node scripts/benchmark-deletion.mjs",

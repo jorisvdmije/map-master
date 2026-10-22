@@ -136,3 +136,8 @@ deleted data without restoring selection.
 Group dragging and `translateSelection([deltaLng, deltaLat])` use the shared
 [translation contract](geometry-editor.md#move-selected-shapes), including one
 transaction/Undo, unchanged IDs/properties, and degree offsets without snapping.
+
+`duplicateSelection(delta?)` creates and selects independent line copies with new
+IDs. The optional offset is in degrees and defaults to `[0, 0]`. It emits one
+`onTransaction` and supports one Undo for the batch; see the shared
+[duplication contract](geometry-editor.md#duplicate-selected-shapes).

@@ -257,10 +257,10 @@ export class DrawingSession {
     this.dataRevision++;
   }
 
-  private allocateId(): string {
+  private allocateId(reserved?: ReadonlySet<FeatureId>): string {
     for (let attempt = 0; attempt < 100; attempt++) {
       const id = this.createId();
-      if (!this.features.has(id)) return id;
+      if (!this.features.has(id) && !reserved?.has(id)) return id;
     }
     throw new Error('Could not allocate a unique feature ID.');
   }
@@ -325,6 +325,22 @@ export class DrawingSession {
   translateSelection(delta: Coordinate): TransactionEvent | null {
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before translating.');
     return this.applyTransaction({ update: translateFeatures(this.getSelection(), delta) });
+  }
+
+  /** Copy the selection in acquisition order, optionally offset in degrees.
+   * Reserve every new ID before committing; a failed batch changes nothing.
+   */
+  duplicateSelection(delta: Coordinate = [0, 0]): TransactionEvent | null {
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before duplicating.');
+    const copies = translateFeatures(this.getSelection(), delta);
+    const reserved = new Set<FeatureId>();
+    for (const feature of copies) {
+      feature.id = this.allocateId(reserved);
+      reserved.add(feature.id);
+    }
+    const event = this.applyTransaction({ create: copies });
+    if (event) this.selectedFeatureIds = reserved;
+    return event;
   }
 
   editSelected(): boolean {

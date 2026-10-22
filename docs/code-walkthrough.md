@@ -241,3 +241,17 @@ Each input module removes its own listeners; the controller owns overall teardow
 Only rectangle selection clamps the result to the canvas. Vertex and group drags
 retain captured coordinates outside it. Keeping that policy at the caller avoids
 silently changing drag behavior when the shared conversion is updated.
+
+## Duplication
+
+`duplicateSelection()` captures the committed selection, applies the optional
+degree offset through the existing translation helper, and reserves fresh IDs for
+the entire batch. `allocateId` checks both the store and these pending reservations.
+The operation passes its full create batch to transaction validation and commits
+once. Only after success does it replace selection with the new IDs.
+
+The controller cancels transient idle gestures first, then reuses
+`publishTransaction` to update highlights, upload committed data, and emit the
+complete transaction followed by state. No new gesture or event system is needed.
+The demo owns the small visual offset; the core default is an exact copy. Redo
+replays stored changes, so it does not allocate replacement IDs.

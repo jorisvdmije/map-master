@@ -347,3 +347,28 @@ source upload. That upload/export still scales with the full stored collection;
 MapLibre worker/GPU time, callback overhead, picking and feature-state updates are
 not included above. Large groups can exceed a frame budget during the final
 validated commit and still need representative application profiling.
+
+## Group duplication
+
+Run `npm run benchmark:duplication`. Fixed mixed two-point lines/four-corner
+polygons, 10 warmups and 50 samples. Each sample duplicates a selected group with
+an offset, undoes it, redoes it with the same IDs, and undoes again for cleanup.
+The benchmark includes generated string IDs, snapshots, transaction validation,
+selection replacement, commit/history and returned event snapshots. Import,
+selection setup, export and rendering are outside the measurements. Assertions
+check exact replay, no ID allocation during Redo, and unchanged originals.
+
+Local Node.js v22.23.1, macOS arm64, Apple M2 Pro (2026-10-22):
+
+| Stored / selected | Duplicate median / p95 ms | Undo median / p95 ms | Redo median / p95 ms |
+| --- | --- | --- | --- |
+| 10 / 5 | 0.044 / 0.056 | 0.006 / 0.007 | 0.006 / 0.009 |
+| 10,000 / 5 | 0.019 / 0.024 | 0.003 / 0.003 | 0.003 / 0.003 |
+| 10,000 / 500 | 1.161 / 1.283 | 0.178 / 0.217 | 0.189 / 0.228 |
+| 10,000 / 5,000 | 14.126 / 23.076 | 2.845 / 3.349 | 2.744 / 3.319 |
+
+These are core timings with a deterministic ID factory, not browser latency or
+UUID-generation measurements. Cost scales with selected vertices and property
+size; a large group can exceed a frame budget. Browser tests verify one committed
+source upload for the complete operation. Export/upload still scales with all
+stored features, and MapLibre worker/GPU work and host callbacks are excluded.

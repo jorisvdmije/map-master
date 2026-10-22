@@ -2,7 +2,7 @@
 
 Status: experimental. Supports 2D LineString and single-outer-ring Polygon
 features on a flat Mercator MapLibre GL JS 6.15 map. Desktop mouse and keyboard
-input, selection, group translation, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are tested in Chromium.
+input, selection, group translation/duplication, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are tested in Chromium.
 Holes and multipart features are not implemented yet.
 
 ## One editor API
@@ -56,13 +56,14 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `selectMany(ids)` | Replace the whole selection atomically, deduplicating typed IDs. |
 | `toggleSelection(id)` | Add/remove one existing feature from the selection. |
 | `getSelection()` | Independent snapshots of all selected features in acquisition order. |
+| `duplicateSelection(delta?)` | Create and select copies with new IDs as one transaction; optional offset in degrees, default `[0, 0]`. Returns `TransactionEvent` or null. Idle only. |
 | `translateSelection([deltaLng, deltaLat])` | Translate selected features in degrees as one transaction; returns `TransactionEvent` or null. Idle only. |
 | `deleteSelection()` | Delete all selected features as one transaction; returns `TransactionEvent` or null. |
 | `deleteSelected()` | Delete the selected committed feature and clear selection. Return its independent snapshot, or `null` with no selection. Throws for multiple selections; idle only. |
 | `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed lines and polygons. |
 | `importGeoJSON(input)` | Append a parsed Feature/FeatureCollection atomically; return an independent collection of imported features. Idle only. |
 | `applyTransaction({ create?, update?, delete? })` | Validate and commit a mixed batch atomically. Full features with explicit IDs; idle only. Return a TransactionEvent or null for no change. |
-| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed split, deleteSelection or group translation. Returns an unsubscribe function. |
+| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed split, deleteSelection, group translation or duplication. Returns an unsubscribe function. |
 | `onImport(listener)` | One notification per nonempty imported batch. Returns an unsubscribe function. |
 | `onUpdate(listener)` | One notification per changed saved edit. Returns an unsubscribe function. |
 | `undo()` / `redo()` | Reverse/replay one committed action; return true if applied, false if unavailable. Idle only. |
@@ -91,6 +92,55 @@ interrupting a commit or other observers. MapLibre renders committed data
 asynchronously; listen to the map's `error` event for rendering failures.
 After destruction, exports remain readable and selection is cleared;
 drawing, selecting, deleting, and subscribing throw.
+
+## Duplicate selected shapes
+
+```ts
+editor.selectMany([7, '7']);
+const duplicated = editor.duplicateSelection(); // Exact geometry copies, new IDs.
+// Or supply a shared longitude/latitude offset in degrees:
+// const duplicated = editor.duplicateSelection([0.001, -0.002]);
+const copies = editor.getSelection(); // Only the new copies are selected.
+editor.undo(); // Remove the entire copied group.
+editor.redo(); // Restore those same copies and IDs.
+```
+
+`duplicateSelection(delta = [0, 0])` copies one or more selected committed features
+in selection acquisition order. Copies append after existing features and receive
+fresh string UUIDs, even when the originals have numeric IDs. Geometry type and
+JSON properties (including null and nested values) are retained. Copies are
+independent: editing or moving them cannot alter an original. No metadata is added
+to exported properties. An empty selection returns null without a notification,
+new IDs, data revision or history entry.
+
+The whole batch is prepared and validated before any data changes. Generated IDs
+are checked against both existing features and the other pending copies. ID
+allocation failure, invalid offsets, bounds violations or invalid resulting
+geometry reject the entire operation, preserving data, selection and Undo/Redo.
+Offset validation follows the [translation contract](#move-selected-shapes).
+Drawing, vertex editing and splitting must be finished or cancelled first.
+Calling the API during a transient selection rectangle or group drag cancels that
+gesture and duplicates the committed selection; its later pointer release is ignored.
+
+A successful operation selects only the new copies before callbacks run, increments
+`dataRevision` once and emits one `onTransaction`, then one `onChange`. Every change
+has `before: null` and the complete copy in `after`. There are no per-feature
+`onCreate` events. The committed map source is uploaded once. Both `GeometryEditor`
+and the `LineEditor` facade expose the same method.
+
+Undo removes the copied batch; Redo restores its exact geometry, properties, IDs
+and order without generating new IDs. Selection remains transient UI state:
+Undo prunes removed copies from selection and does not reselect originals. Redo
+does not restore a previous selection. A subsequent move of the copies is its
+own Undo action. With `historyLimit: 0`, duplication still works without history.
+
+In the demo, select shapes and click **Duplicate**. The demo derives a small degree
+offset from a point 24 CSS pixels right and down from the map center, making the
+copies visible at different zoom levels. This is one shared geographic offset;
+it does not guarantee a 24-pixel displacement at every vertex on a pitched map.
+The new copies are selected and can be dragged immediately. Duplication saves
+immediately; Undo removes the copies. The library default uses no offset and has
+no clipboard or keyboard shortcut side effects.
 
 ## Move selected shapes
 

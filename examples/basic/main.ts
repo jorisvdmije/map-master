@@ -30,6 +30,7 @@ const status = element('status');
 const selection = element('selection');
 const deselect = element<HTMLButtonElement>('deselect');
 const deleteSelected = element<HTMLButtonElement>('delete-selected');
+const duplicateSelected = element<HTMLButtonElement>('duplicate-selected');
 const splitSelected = element<HTMLButtonElement>('split-selected');
 const editSelected = element<HTMLButtonElement>('edit-selected');
 const removeVertex = element<HTMLButtonElement>('remove-vertex');
@@ -99,6 +100,8 @@ map.on('load', () => {
     deselect.disabled = selectedCount === 0 || drawing;
     deleteSelected.disabled = selectedCount === 0 || drawing;
     deleteSelected.setAttribute('aria-label', selectedCount > 1 ? 'Delete selected shapes' : 'Delete selected shape');
+    duplicateSelected.disabled = selectedCount === 0 || drawing;
+    duplicateSelected.setAttribute('aria-label', selectedCount > 1 ? 'Duplicate selected shapes' : 'Duplicate selected shape');
     editSelected.disabled = selectedFeature === null || drawing;
     splitSelected.disabled = selectedFeature?.geometry.type !== 'Polygon' || drawing;
     element('editing-tools').hidden = !editing;
@@ -192,6 +195,23 @@ cancel.addEventListener('click', () => { editor?.cancel(); });
 undo.addEventListener('click', () => { if (editor?.undo()) map.getCanvas().focus({ preventScroll: true }); });
 redo.addEventListener('click', () => { if (editor?.redo()) map.getCanvas().focus({ preventScroll: true }); });
 deselect.addEventListener('click', () => { editor?.select(null); });
+duplicateSelected.addEventListener('click', () => {
+  if (!editor) return;
+  // Offset relative to the map center so copies are visible at every zoom.
+  // The library accepts geographic offsets; this placement choice belongs to the UI.
+  const center = map.project(map.getCenter());
+  const origin = map.unproject(center);
+  const target = map.unproject([center.x + 24, center.y + 24]);
+  try {
+    const event = editor.duplicateSelection([target.lng - origin.lng, target.lat - origin.lat]);
+    if (!event) return;
+    status.textContent = `Created ${event.changes.length} ${event.changes.length === 1 ? 'copy' : 'copies'}. Drag the selection to position it; Undo removes the copies.`;
+    map.getCanvas().focus({ preventScroll: true });
+  } catch (error) {
+    status.classList.add('is-invalid');
+    status.textContent = error instanceof Error ? error.message : 'Could not duplicate this selection.';
+  }
+});
 splitSelected.addEventListener('click', () => { editor?.splitSelected(); });
 editSelected.addEventListener('click', () => { editor?.editSelected(); });
 removeVertex.addEventListener('click', () => {

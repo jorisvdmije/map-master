@@ -269,6 +269,13 @@ export class GeometryEditor {
     return this.publishTransaction(this.session.translateSelection(delta));
   }
 
+  /** Create and select independent copies, optionally translated in degrees. */
+  duplicateSelection(delta: Coordinate = [0, 0]): TransactionEvent | null {
+    this.assertAlive();
+    this.cancelIdleGestures();
+    return this.publishTransaction(this.session.duplicateSelection(delta));
+  }
+
   /** Start drawing. Finish/cancel the current draft before changing geometry type. */
   draw(kind: GeometryType): void {
     this.assertAlive();

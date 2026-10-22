@@ -1,6 +1,6 @@
 # Incremental roadmap
 
-Steps 0–13b have been implemented locally; subsequent steps are planned. The
+Steps 0–13c have been implemented locally; subsequent steps are planned. The
 workflow still needs a GitHub remote to run in hosted CI. Each row describes
 a reviewable change or a milestone that can be split further when needed. Create
 each branch from updated `main` after its dependencies have merged.
@@ -22,7 +22,7 @@ each branch from updated `main` after its dependencies have merged.
 | 12 | `feat/edit-snapping` | Implemented: snap dragged corners and inserted midpoints to other committed features, exclude the edited feature, reuse the index, Alt/live toggles, exact release, validation/cancel/history, browser/demo tests and benchmark. |
 | 13a | `feat/multi-select` | Implemented: Shift+click toggle and additive rectangle selection, typed IDs, changed-only highlights, selectMany/getSelection/toggleSelection, atomic deleteSelection and undo, gesture cleanup, demo/core/browser/package tests and benchmark. |
 | 13b | `feat/move-features` | Implemented: drag selected lines/polygons as a group, selected-only preview, release/cancel, degree-offset API, atomic validation/history, lifecycle cleanup, tests and benchmark. |
-| 13c | `feat/duplicate-features` | Planned: duplicate selected shapes with new IDs and one undo action. |
+| 13c | `feat/duplicate-features` | Implemented: duplicate single/mixed selections with reserved fresh IDs, isolated properties, optional degree offset, selection of copies, atomic validation/history, demo/core/browser/package tests and benchmark. |
 | 14 | `feat/polygon-holes`, then `feat/multipart` | Planned: extend geometry validation, import/export, vertex addressing, snapping and history before adding holes/parts tools. |
 | 15 | Separate merge/difference/intersection branches | Planned: preview and atomic overlay operations after holes and multipart support. |
 | 16 | Separate reshape/tracing/topology branches | Planned: reshape boundaries, trace existing edges, then edit shared boundaries together. |
