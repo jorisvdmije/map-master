@@ -56,9 +56,9 @@ See the [MapLibre documentation](https://maplibre.org/maplibre-gl-js/docs/).
 | `startLine()` | Activate drawing and focus the map canvas. Calling it again preserves the active draft. |
 | `finish()` | Commit clicked positions and return a `LineFeature`; return `null` if there are fewer than two distinct positions. |
 | `cancel()` | Discard only the current draft. Existing features remain intact. |
-| `getState()` | Return a snapshot with `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `canFinish`, and `validationError`. |
+| `getState()` | Return a snapshot with `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `canFinish`, and `validationError`. |
 | `select(id \| null)` | Select one committed line while idle, or clear selection. |
-| `getSelected()` | Independent `LineFeature` snapshot, or `null`. |
+| `getSelected()` | Independent `LineFeature` snapshot for exactly one selected line; otherwise `null`. |
 | `deleteSelected()` | Delete the selected line while idle; return a `LineFeature` snapshot, or `null` with no selection. |
 | `exportGeoJSON()` | Return an independent `LineCollection` snapshot of committed features. |
 | `onCreate(listener)` | Subscribe to committed feature creation; return an unsubscribe function. |
@@ -124,3 +124,11 @@ argument and exposes `undo()`, `redo()`, `clearHistory()`, and `onHistory()`.
 `getState()` includes `canUndo` and `canRedo`. See the
 [history contract](geometry-editor.md#undo-and-redo), including the separate
 history event needed when synchronizing changes to a backend.
+
+Multiple selection uses the [GeometryEditor selection contract](geometry-editor.md#selection):
+Shift+click toggles, Shift+drag adds intersecting shapes, `selectMany(ids)` replaces
+the selection, `toggleSelection(id)` toggles one ID, and `getSelection()` returns
+independent `LineFeature[]` snapshots. `deleteSelection()` deletes a group in one
+transaction and emits `onTransaction`, followed by `onChange`. `deleteSelected()`
+throws for multiple selections; `editSelected()` returns false. Undo restores
+deleted data without restoring selection.

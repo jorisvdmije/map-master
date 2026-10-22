@@ -8,6 +8,7 @@ import { DrawingSession } from '../dist/core/drawing-session.js';
 // Fixed two-vertex lines; fixture creation/export is outside the measurement.
 // Select alternating IDs at opposite ends of insertion order, then read a snapshot.
 const rows = [];
+const multipleRows = [];
 for (const features of [10, 1000, 10000]) {
   let id = 0;
   const session = new DrawingSession(() => String(++id));
@@ -35,6 +36,22 @@ for (const features of [10, 1000, 10000]) {
   assert.equal(session.getSelected().id, String(features));
   samples.sort((a, b) => a - b);
   rows.push({ features, medianMicroseconds: samples[25].toFixed(3), p95Microseconds: samples[47].toFixed(3) });
+  // Alternate two disjoint groups. Read IDs (not geometries), matching toolbar
+  // state subscriptions. The timed work scales with selection size, not vertices.
+  const size = Math.floor(features / 2);
+  const groups = [Array.from({ length: size }, (_, i) => String(i + 1)),
+    Array.from({ length: size }, (_, i) => String(i + size + 1))];
+  const multipleSamples = [];
+  for (let sample = -20; sample < 50; sample++) {
+    const start = performance.now();
+    for (let i = 0; i < 20; i++) { session.selectMany(groups[i % 2]); session.state; }
+    const milliseconds = (performance.now() - start) / 20;
+    if (sample >= 0) multipleSamples.push(milliseconds);
+  }
+  assert.deepEqual(session.state.selectedFeatureIds, groups[1]);
+  multipleSamples.sort((a, b) => a - b);
+  multipleRows.push({ features, selected: size, medianMs: multipleSamples[25].toFixed(3), p95Ms: multipleSamples[47].toFixed(3) });
 }
 log(`${process.version}; ${platform()} ${arch()}; ${cpus()[0]?.model}`);
 table(rows);
+table(multipleRows);

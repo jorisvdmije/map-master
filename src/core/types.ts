@@ -94,8 +94,10 @@ export interface EditorState {
   mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon';
   vertexCount: number;
   featureCount: number;
-  /** UI selection only; never serialized into GeoJSON. */
+  /** The sole selected ID, or null for zero/multiple selections. */
   selectedFeatureId: FeatureId | null;
+  /** UI selection in acquisition order; never serialized into GeoJSON or history. */
+  selectedFeatureIds: FeatureId[];
   /** Zero-based index in the open editing draft, without a polygon's closing copy. */
   selectedVertexIndex: number | null;
   /** Increases on committed creation, deletion, changed edits, nonempty imports, and successful undo/redo. */

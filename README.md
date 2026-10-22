@@ -6,7 +6,7 @@ A TypeScript library in development for drawing and editing geometry on web maps
 
 ## Status
 
-Line and polygon drawing, single-feature selection, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are implemented:
+Line and polygon drawing, single and multiple feature selection, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are implemented:
 preview, validate, finish or cancel, select/deselect, delete, move/insert/remove vertices, and export committed features together
 as GeoJSON through one GeometryEditor API.
 [Atomic transactions](docs/transactions.md) can create, update, and delete multiple
@@ -36,7 +36,10 @@ Library integrations opt in with `{ snapping: { enabled: true } }`; see the
 [snapping API](docs/geometry-editor.md#snapping-while-drawing).
 When idle, click a line or polygon to select it in blue. Click empty space, press
 Escape with map focus, or choose **Deselect** to clear selection. Selection never
-changes the exported geometry.
+changes the exported geometry. **Shift+click** toggles a shape; **Shift+drag**
+adds shapes intersecting the blue rectangle. The Delete button removes a group
+as one undoable action. Edit vertices and Split polygon require one selected shape.
+See the [selection API](docs/geometry-editor.md#selection).
 To remove the selected shape, use **Delete** or press Delete/Backspace with map
 focus. Remaining geometry stays intact. Undo restores a deleted shape while its action remains in history.
 

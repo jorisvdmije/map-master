@@ -19,7 +19,7 @@ export class MapLibreRenderer {
   private readonly featuresId: string;
   private readonly draftId: string;
   private readonly layers: LayerSpecification[];
-  private selectedFeatureId: FeatureId | null = null;
+  private selectedFeatureIds = new Set<FeatureId>();
   private editingFeatureId: FeatureId | null = null;
 
   constructor(private readonly map: MapLibreMap, namespace: string) {
@@ -57,6 +57,7 @@ export class MapLibreRenderer {
   }
 
   mount(): void {
+    if (!this.map.getSource(this.featuresId)) this.selectedFeatureIds.clear();
     for (const id of [this.featuresId, this.draftId]) {
       if (!this.map.getSource(id)) this.map.addSource(id, {
         type: 'geojson', data: emptyCollection(),
@@ -79,14 +80,17 @@ export class MapLibreRenderer {
   }
 
   /** Update only presentation state, without copying or re-uploading geometry. */
-  renderSelection(id: FeatureId | null): void {
+  renderSelection(ids: readonly FeatureId[], force = false): void {
+    const next = new Set(ids);
     if (this.map.getSource(this.featuresId)) {
-      if (this.selectedFeatureId !== null) {
-        this.map.removeFeatureState({ source: this.featuresId, id: JSON.stringify(this.selectedFeatureId) }, 'selected');
+      for (const id of this.selectedFeatureIds) {
+        if (!next.has(id)) this.map.removeFeatureState({ source: this.featuresId, id: JSON.stringify(id) }, 'selected');
       }
-      if (id !== null) this.map.setFeatureState({ source: this.featuresId, id: JSON.stringify(id) }, { selected: true });
+      for (const id of next) {
+        if (force || !this.selectedFeatureIds.has(id)) this.map.setFeatureState({ source: this.featuresId, id: JSON.stringify(id) }, { selected: true });
+      }
     }
-    this.selectedFeatureId = id;
+    this.selectedFeatureIds = next;
   }
 
   /** Hide only the committed version of the feature being previewed as an edit. */
@@ -111,6 +115,22 @@ export class MapLibreRenderer {
     // of treating the stale shape as empty space and clearing another selection.
     const id: unknown = JSON.parse(hit.id);
     return typeof id === 'string' || typeof id === 'number' ? id : null;
+  }
+
+  /** All rendered editor features intersecting the screen rectangle, deduplicated. */
+  pickBox(a: { x: number; y: number }, b: { x: number; y: number }): FeatureId[] {
+    const fillId = this.layers[0]!.id;
+    if (!this.map.getLayer(this.featuresId) || !this.map.getLayer(fillId)) return [];
+    const hits = this.map.queryRenderedFeatures([
+      [Math.min(a.x, b.x), Math.min(a.y, b.y)], [Math.max(a.x, b.x), Math.max(a.y, b.y)],
+    ], { layers: [this.featuresId, fillId] });
+    const ids = new Set<FeatureId>();
+    for (const hit of hits) {
+      if (typeof hit.id !== 'string') continue;
+      const id: unknown = JSON.parse(hit.id);
+      if (typeof id === 'string' || typeof id === 'number') ids.add(id);
+    }
+    return [...ids];
   }
 
   renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null): void {

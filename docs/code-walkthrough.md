@@ -71,9 +71,9 @@ flowchart LR
 
 Selection uses the same boundary. An idle click asks the renderer to query only
 the editor's committed layers. It returns a feature ID, which the session stores
-as `selectedFeatureId`; no geometry is rewritten. The controller updates MapLibre
+in its selection Set; no geometry is rewritten. The controller updates MapLibre
 feature state for the previous/new selection and emits `onChange`. A toolbar can
-use `getSelected()` for an isolated snapshot, or `select(null)` to clear selection.
+use `getSelection()` for isolated snapshots, or `select(null)` to clear selection.
 
 Feature IDs are indexed in an insertion-ordered Map, so selecting by ID does not
 scan all geometries. Type-encoded IDs are promoted from a private rendering property to keep
@@ -168,3 +168,19 @@ vertices and edges inside the existing index. Changing edit targets requires no
 index rebuild. Draft movement changes neither the data revision nor the committed
 snapshot. Cancellation rolls back the gesture and clears the marker; Save still
 uses the normal edit/history path. There is no topology relationship to targets.
+
+## Multiple selection
+
+`DrawingSession` holds an ordered Set of typed IDs separately from feature data.
+The legacy singular getter derives a value only when the set has one member; the
+new array and feature getters return copies. `selectMany` validates the whole
+request before replacing the set. The shared commit/replay path prunes deleted
+IDs, so all data operations follow the same selection policy. Selection itself
+does not enter history. Group deletion reuses the transaction boundary.
+
+`SelectionInteraction` owns Shift+mouse pointer capture and a temporary DOM
+rectangle over the canvas. It restores pan/boxZoom settings on every exit. A
+completed rectangle asks the renderer for intersecting rendered editor features;
+the controller filters stale IDs and updates the selection once. Camera/style
+changes and API mutations abort the gesture. Rendering diffs the old/new sets
+and changes only their MapLibre feature states without uploading geometry.

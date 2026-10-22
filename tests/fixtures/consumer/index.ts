@@ -70,6 +70,12 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
     void id;
   });
   const deleted: editor.GeometryFeature | null = tool.deleteSelected();
+  tool.selectMany([]);
+  const selection: editor.GeometryFeature[] = tool.getSelection();
+  const selectedIds: editor.FeatureId[] = tool.getState().selectedFeatureIds;
+  if (selection[0]) tool.toggleSelection(selection[0].id);
+  const deletedSelection: editor.TransactionEvent | null = tool.deleteSelection();
+  void [selectedIds, deletedSelection];
   void deleted;
   unsubscribe();
   const undone: boolean = tool.undo();

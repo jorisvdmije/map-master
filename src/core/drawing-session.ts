@@ -23,7 +23,7 @@ export class DrawingSession {
   private kind: GeometryType | null = null;
   private draft: Coordinate[] = [];
   private readonly features = new Map<FeatureId, GeometryFeature>();
-  private selectedFeatureId: FeatureId | null = null;
+  private selectedFeatureIds = new Set<FeatureId>();
   private validationError: ValidationError | null = null;
   private editingId: FeatureId | null = null;
   private selectedVertexIndex: number | null = null;
@@ -35,6 +35,10 @@ export class DrawingSession {
     this.history = new EditHistory(historyLimit);
   }
 
+  private get selectedFeatureId(): FeatureId | null {
+    return this.selectedFeatureIds.size === 1 ? this.selectedFeatureIds.values().next().value! : null;
+  }
+
   get state(): EditorState {
     return {
       mode: this.splitId !== null ? 'split-polygon' : this.kind === null ? 'idle' : this.editingId !== null
@@ -43,6 +47,7 @@ export class DrawingSession {
       vertexCount: this.draft.length,
       featureCount: this.features.size,
       selectedFeatureId: this.selectedFeatureId,
+      selectedFeatureIds: [...this.selectedFeatureIds],
       selectedVertexIndex: this.selectedVertexIndex,
       dataRevision: this.dataRevision,
       canFinish: this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
@@ -58,7 +63,7 @@ export class DrawingSession {
     if (this.kind === kind && this.editingId === null && this.splitId === null) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before changing tools.');
     this.kind = kind;
-    this.selectedFeatureId = null;
+    this.selectedFeatureIds.clear();
     this.validationError = 'too-few-vertices';
     return true;
   }
@@ -247,7 +252,7 @@ export class DrawingSession {
     } else {
       for (const { feature } of insertions) this.features.set(feature.id, feature);
     }
-    if (this.selectedFeatureId !== null && !this.features.has(this.selectedFeatureId)) this.selectedFeatureId = null;
+    for (const id of this.selectedFeatureIds) if (!this.features.has(id)) this.selectedFeatureIds.delete(id);
     this.dataRevision++;
   }
 
@@ -265,11 +270,30 @@ export class DrawingSession {
 
   /** Selection is separate from feature data and available only outside drawing. */
   select(id: FeatureId | null): boolean {
+    return this.selectMany(id === null ? [] : [id]);
+  }
+
+  /** Replace the whole selection atomically; deduplicate typed IDs in input order. */
+  selectMany(ids: readonly FeatureId[]): boolean {
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before selecting.');
-    if (id !== null && !this.features.has(id)) throw new RangeError(`Unknown feature ID: ${id}`);
-    if (id === this.selectedFeatureId) return false;
-    this.selectedFeatureId = id;
+    if (!Array.isArray(ids)) throw new TypeError('Expected an array of feature IDs.');
+    const next = new Set<FeatureId>(ids as readonly FeatureId[]);
+    for (const id of next) if (!this.features.has(id)) throw new RangeError(`Unknown feature ID: ${id}`);
+    const previous = this.selectedFeatureIds.values();
+    if (next.size === this.selectedFeatureIds.size && [...next].every((id) => id === previous.next().value)) return false;
+    this.selectedFeatureIds = next;
     return true;
+  }
+
+  toggleSelection(id: FeatureId): boolean {
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before selecting.');
+    if (!this.features.has(id)) throw new RangeError(`Unknown feature ID: ${id}`);
+    if (!this.selectedFeatureIds.delete(id)) this.selectedFeatureIds.add(id);
+    return true;
+  }
+
+  getSelection(): GeometryFeature[] {
+    return Array.from(this.selectedFeatureIds, (id) => copyFeature(this.features.get(id)!));
   }
 
   getSelected(): GeometryFeature | null {
@@ -284,10 +308,16 @@ export class DrawingSession {
   /** Commit deletion of the selection; an idle editor without selection is a no-op. */
   deleteSelected(): GeometryFeature | null {
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before deleting.');
+    if (this.selectedFeatureIds.size > 1) throw new RangeError('Use deleteSelection() to delete multiple selected features.');
     const feature = this.getSelected();
     if (!feature) return null;
     this.commit('delete', [{ before: this.features.get(feature.id)!, after: null }]);
     return feature;
+  }
+
+  /** Delete the complete selection through one transaction/history action. */
+  deleteSelection(): TransactionEvent | null {
+    return this.applyTransaction({ delete: [...this.selectedFeatureIds] });
   }
 
   editSelected(): boolean {

@@ -1,6 +1,6 @@
 # Incremental roadmap
 
-Steps 0–12 have been implemented locally; subsequent steps are planned. The
+Steps 0–13a have been implemented locally; subsequent steps are planned. The
 workflow still needs a GitHub remote to run in hosted CI. Each row describes
 a reviewable change or a milestone that can be split further when needed. Create
 each branch from updated `main` after its dependencies have merged.
@@ -20,7 +20,7 @@ each branch from updated `main` after its dependencies have merged.
 | 10 | `refactor/geometry-transactions` | Implemented: shared commit/replay boundary, atomic create/update/delete batches, explicit ID rules, onTransaction, exact undo/redo ordering, failure isolation, core/browser/package tests and benchmark. See the [transaction guide](transactions.md). |
 | 11 | `feat/split-features` | Implemented: split one selected single-ring polygon with a simple outside-to-outside cutting line and two proper edge crossings, colored preview, validation, correction/cancel, ID/property policy, atomic history, tests and benchmark. See the [split guide](splitting.md). |
 | 12 | `feat/edit-snapping` | Implemented: snap dragged corners and inserted midpoints to other committed features, exclude the edited feature, reuse the index, Alt/live toggles, exact release, validation/cancel/history, browser/demo tests and benchmark. |
-| 13a | `feat/multi-select` | Planned: Shift+click and rectangle selection, typed IDs, visible selection, atomic group actions. |
+| 13a | `feat/multi-select` | Implemented: Shift+click toggle and additive rectangle selection, typed IDs, changed-only highlights, selectMany/getSelection/toggleSelection, atomic deleteSelection and undo, gesture cleanup, demo/core/browser/package tests and benchmark. |
 | 13b | `feat/move-features`, then `feat/duplicate-features` | Planned: preview group movement, confirm/cancel, one transaction; duplicates receive new IDs. |
 | 14 | `feat/polygon-holes`, then `feat/multipart` | Planned: extend geometry validation, import/export, vertex addressing, snapping and history before adding holes/parts tools. |
 | 15 | Separate merge/difference/intersection branches | Planned: preview and atomic overlay operations after holes and multipart support. |

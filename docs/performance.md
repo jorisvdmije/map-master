@@ -287,3 +287,35 @@ run the existing quadratic validator once per processed movement; see the vertex
 editing measurements above. Release also resolves/validates synchronously. Camera
 and committed-data changes still rebuild the index, which can stall interaction
 on large datasets. Large-dataset indexing/worker work remains a separate task.
+
+## Multiple selection
+
+`npm run benchmark:selection` retains the single-feature benchmark and adds
+replacement of two disjoint groups of typed IDs plus an `EditorState` snapshot.
+Each group contains half the fixture's two-vertex lines. Each sample alternates
+groups 20 times; there are 20 warmup samples and 50 timed samples. Fixture setup,
+geometry snapshots, observers and rendering remain outside the timer.
+
+Local measurement on 2026-10-22, Apple M2 Pro, macOS arm64, Node.js 22.23.1
+(with Chromium tests running concurrently):
+
+| Stored features | Selected IDs | Median replace + state (ms) | p95 (ms) |
+| --- | ---: | ---: | ---: |
+| 10 | 5 | <0.001 | <0.001 |
+| 1,000 | 500 | 0.019 | 0.039 |
+| 10,000 | 5,000 | 0.271 | 0.365 |
+
+The original single-feature benchmark measured median 0.203, 0.225 and 0.171 µs
+respectively in this run. Selection replacement validates and copies O(k) IDs;
+state reads also copy k selected IDs. `getSelection()` additionally copies selected
+geometries/properties. Toggling the core Set is indexed, but UI notification and
+renderer diffing still process the selection. The renderer changes only added or
+removed feature states and never uploads geometry for selection.
+
+Rectangle dragging updates one DOM overlay; MapLibre hit testing runs once on
+release. Query cost depends on visible geometry and is excluded from these core
+measurements. Likewise, these numbers exclude per-feature highlight operations,
+source worker processing and frame rate. Group deletion reuses the transaction
+path with one full collection upload and one history action. Large selections,
+complex geometry and full browser performance still need application-specific
+budgets; these measurements are not supported-dataset guarantees.

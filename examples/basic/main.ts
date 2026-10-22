@@ -94,9 +94,11 @@ map.on('load', () => {
     const polygon = selected === 'Polygon';
     const error = state.validationError;
     const selectedFeature = activeEditor.getSelected();
-    selection.hidden = selectedFeature === null;
-    deselect.disabled = selectedFeature === null || drawing;
-    deleteSelected.disabled = selectedFeature === null || drawing;
+    const selectedCount = state.selectedFeatureIds.length;
+    selection.hidden = selectedCount === 0;
+    deselect.disabled = selectedCount === 0 || drawing;
+    deleteSelected.disabled = selectedCount === 0 || drawing;
+    deleteSelected.setAttribute('aria-label', selectedCount > 1 ? 'Delete selected shapes' : 'Delete selected shape');
     editSelected.disabled = selectedFeature === null || drawing;
     splitSelected.disabled = selectedFeature?.geometry.type !== 'Polygon' || drawing;
     element('editing-tools').hidden = !editing;
@@ -112,6 +114,9 @@ map.on('load', () => {
         ? (selectedFeature.geometry.coordinates[0]?.length ?? 1) - 1
         : selectedFeature.geometry.coordinates.length;
       element('selection-detail').textContent = `${count} ${selectedFeature.geometry.type === 'Polygon' ? 'corners' : 'points'}`;
+    } else if (selectedCount > 1) {
+      element('selection-type').textContent = `${selectedCount} shapes selected`;
+      element('selection-detail').textContent = 'Shift+click to toggle a shape. Delete removes the whole selection.';
     }
     importFile.disabled = drawing || importing;
     start.disabled = drawing;
@@ -129,7 +134,8 @@ map.on('load', () => {
       ? 'Two corners coincide. Move or remove a corner.' : validationMessages[error]
       : editing ? `${state.vertexCount} corners. Save to apply changes, or Cancel to restore the original.` : drawing
       ? `${state.vertexCount} ${state.vertexCount === 1 ? 'point' : 'points'} placed. ${state.canFinish ? 'Ready to finish.' : `Place at least ${polygon ? 'three corners' : 'two points'}.`}`
-      : selectedFeature ? 'Shape selected. Edit its corners, delete it, or deselect it.'
+      : selectedCount > 1 ? `${selectedCount} shapes selected. Delete removes them together; Undo restores them.`
+        : selectedFeature ? 'Shape selected. Edit its corners, delete it, or deselect it.'
         : state.featureCount > 0 ? 'Click a shape to select it, or draw another.' : 'Ready when you are.';
     if (splitting) {
       status.classList.toggle('is-invalid', state.splitError !== null && state.splitError !== 'split-too-few-points');
@@ -139,10 +145,10 @@ map.on('load', () => {
       : drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
-      : selectedFeature ? 'Shape selected · Edit vertices to reshape · Esc to deselect'
-        : state.featureCount > 0 ? 'Click a line or polygon to select it' : 'Your next idea, on the map.';
+      : selectedCount > 0 ? 'Shift+click to toggle · Shift+drag to add shapes · Esc to deselect'
+        : state.featureCount > 0 ? 'Click to select · Shift+drag to select several shapes' : 'Your next idea, on the map.';
     element('mode-dot').classList.toggle('drawing', drawing);
-    element('mode-dot').classList.toggle('selected', selectedFeature !== null);
+    element('mode-dot').classList.toggle('selected', selectedCount > 0);
     if (exportedRevision !== state.dataRevision) {
       output.value = JSON.stringify(activeEditor.exportGeoJSON(), null, 2);
       exportedRevision = state.dataRevision;
@@ -193,7 +199,9 @@ removeVertex.addEventListener('click', () => {
   if (index !== undefined && index !== null) editor?.removeVertex(index);
 });
 deleteSelected.addEventListener('click', () => {
-  if (!editor?.deleteSelected()) return;
+  if (!editor) return;
+  const deleted = editor.getState().selectedFeatureIds.length > 1 ? editor.deleteSelection() : editor.deleteSelected();
+  if (!deleted) return;
   // The selected card is now hidden; keep keyboard focus on a useful control.
   start.focus({ preventScroll: true });
 });

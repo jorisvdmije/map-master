@@ -45,29 +45,33 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `new GeometryEditor(map, options?)` | Attach after `style.load` or `load`. One editor per map, including the LineEditor facade. `historyLimit` defaults to 100; `snapping.enabled` defaults to false. |
 | `draw('LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
 | `finish()` | Commit a valid draft once, returning a `GeometryFeature`. An invalid/incomplete draft returns `null` and remains active. |
-| `cancel()` | Discard only the draft. |
-| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedVertexIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`. |
+| `cancel()` | Discard the draft or cancel an active selection rectangle. |
+| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`. |
 | `splitSelected()` | Begin a cutting line on the selected polygon; false with no polygon/already splitting. |
 | `setSplitLine(coordinates)` / `removeSplitPoint()` | Replace the cut or remove its last point while splitting. |
 | `getSplitPreview()` | Independent retained/created Polygon geometries, or null. |
 | `finishSplit()` | Commit both parts as one transaction, or return null for an invalid/inactive split. |
 | `select(id \| null)` | Select a committed feature by ID, or clear selection with `null`. Available only while idle. |
-| `getSelected()` | Independent snapshot of the selected feature, or `null`. |
-| `deleteSelected()` | Delete the selected committed feature and clear selection. Return its independent snapshot, or `null` with no selection. Available only while idle. |
+| `getSelected()` | Independent snapshot only for exactly one selected feature; otherwise `null`. |
+| `selectMany(ids)` | Replace the whole selection atomically, deduplicating typed IDs. |
+| `toggleSelection(id)` | Add/remove one existing feature from the selection. |
+| `getSelection()` | Independent snapshots of all selected features in acquisition order. |
+| `deleteSelection()` | Delete all selected features as one transaction; returns `TransactionEvent` or null. |
+| `deleteSelected()` | Delete the selected committed feature and clear selection. Return its independent snapshot, or `null` with no selection. Throws for multiple selections; idle only. |
 | `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed lines and polygons. |
 | `importGeoJSON(input)` | Append a parsed Feature/FeatureCollection atomically; return an independent collection of imported features. Idle only. |
 | `applyTransaction({ create?, update?, delete? })` | Validate and commit a mixed batch atomically. Full features with explicit IDs; idle only. Return a TransactionEvent or null for no change. |
-| `onTransaction(listener)` | One complete change batch per successful applyTransaction or confirmed split. Returns an unsubscribe function. |
+| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed split or deleteSelection. Returns an unsubscribe function. |
 | `onImport(listener)` | One notification per nonempty imported batch. Returns an unsubscribe function. |
 | `onUpdate(listener)` | One notification per changed saved edit. Returns an unsubscribe function. |
 | `undo()` / `redo()` | Reverse/replay one committed action; return true if applied, false if unavailable. Idle only. |
 | `clearHistory()` | Release undo/redo history without changing data or revision. Idle only. |
 | `onHistory(listener)` | One atomic change event per successful undo/redo. Returns an unsubscribe function. |
 | `onCreate(listener)` | One event per committed feature, with an independent snapshot per listener. Returns an unsubscribe function. |
-| `onDelete(listener)` | One event per committed deletion, with an independent snapshot of the removed feature per listener. Returns an unsubscribe function. |
+| `onDelete(listener)` | One event per successful deleteSelected, with an independent snapshot of the removed feature per listener. Returns an unsubscribe function. |
 | `onChange(listener)` | Editing-state notification after state changes. Read the initial state with `getState()`. Returns an unsubscribe function. |
 | `getSnapping()` / `setSnapping(options)` | Read an isolated options snapshot or atomically merge partial snapping options. A changed configuration emits `onChange`, without changing data/history. |
-| `getSnap()` | Independent `SnapResult` snapshot or `null` when no drawing snap is active. |
+| `getSnap()` | Independent `SnapResult` snapshot or `null` when no drawing/drag snap is active. |
 | `onSnap(listener)` | Notify when the snap target/coordinate changes or is released (`null`). Returns an unsubscribe function. |
 | `destroy()` | Remove owned resources/listeners and restore drawing gesture settings. Idempotent. |
 
@@ -89,41 +93,103 @@ drawing, selecting, deleting, and subscribing throw.
 
 ## Selection
 
-While idle, a plain left click selects one visible committed feature. Clicking
-empty space clears selection. Lines and polygon outlines have a query box
-extending 6 CSS pixels on each side of the pointer, independent of zoom. Outline
-hits take priority over polygon interiors; among hits in the same layer, the
-topmost rendered feature wins. There is no overlap cycling or multiselection yet.
-Host layers and draft geometry are excluded from picking.
+While idle, a plain left click replaces the selection with one visible committed
+feature; clicking empty space clears it. Shift+click toggles one feature;
+Shift+click on empty space preserves the selection. Shift+drag adds all rendered
+editor shapes intersecting the selection rectangle. Every selected outline turns
+blue and thicker; selected polygon fills also turn blue. Escape clears the whole
+selection when the canvas is focused. No separate selection mode is needed.
 
-The selected outline turns blue and thicker; polygon fill also turns blue.
-Escape clears selection when the canvas is focused. Modified clicks/shortcuts
-and drag gestures do not change selection. No separate selection mode is needed.
+For click picking, outlines have a query box extending 6 CSS pixels on each side
+of the pointer, independent of zoom. Outline hits take priority over polygon
+interiors; among hits in the same layer, the topmost rendered feature wins.
+Overlapping objects are not cycled by repeated clicks. Host layers and drafts are
+excluded. Ctrl/Meta/Alt-modified clicks are ignored; ordinary dragging still pans.
+
+### Rectangle selection
+
+Hold Shift and drag with the primary mouse button. A blue screen rectangle appears
+after 4 CSS pixels of movement. Release the mouse to add the hits; selection does
+not change while dragging. Releasing Shift before the mouse still completes the
+rectangle. A shorter gesture is a Shift+click. Empty rectangles preserve selection.
+The rectangle works in either direction and is clipped to the canvas when the
+captured pointer leaves it. Only desktop mouse input is supported.
+
+The test is **intersection with rendered geometry**, including visible strokes;
+full containment is not required. Lines crossing the box are included even if
+neither endpoint is inside. A polygon containing the rectangle is also included.
+Duplicate hits from tiles, fill and outline layers become one selected ID. Existing
+selection order is retained; newly hit IDs append in MapLibre query order. That
+order is not a spatial sorting guarantee. Hit testing happens only on release.
+
+During this idle gesture the editor temporarily takes over Shift+drag from
+MapLibre box zoom and disables drag pan. Both settings are restored exactly.
+Escape during a gesture cancels only the rectangle and preserves the prior
+selection; release does not select anything afterwards. Blur, pointer cancellation,
+lost capture, camera movement, style replacement, API selection/data changes,
+starting another tool, `cancel()`, or destruction also abort the rectangle.
+While drawing/editing/splitting, the editor does not start selection gestures.
+
+### Public selection API
 
 ```ts
-// `editor` is an existing GeometryEditor instance, currently idle.
-editor.onChange((state) => {
-  console.log('Selection:', state.selectedFeatureId);
-});
-const first = editor.exportGeoJSON().features[0];
-if (first) editor.select(first.id);
-const selected = editor.getSelected(); // GeometryFeature | null
-editor.select(null);
+editor.selectMany([7, '7']); // Replace selection; typed IDs remain distinct.
+editor.toggleSelection(7);  // Add/remove exactly this ID.
+const features = editor.getSelection(); // Independent GeometryFeature[] snapshots.
+const ids = editor.getState().selectedFeatureIds; // Independent FeatureId[].
+editor.onChange((state) => console.log(state.selectedFeatureIds));
+editor.select(aKnownId); // Replace the selection with exactly one feature.
+editor.select(null);     // Clear everything; selectMany([]) does the same.
 ```
 
-Selection emits `onChange` only when the selected ID changes. Selecting the same
-ID again is a no-op. It does not emit `onCreate`, rewrite geometry, change IDs or
-properties, or add selection metadata to exports. Use `onCreate`, `onUpdate`, `onDelete`, `onImport`, and `onHistory` for committed changes; `onChange` also represents transient UI state.
+`selectMany()` accepts an array of existing IDs, deduplicated in first-occurrence
+order. One unknown/invalid ID rejects the whole update with `RangeError`; a
+non-array argument throws `TypeError`. `toggleSelection()` rejects unknown IDs.
+The entire selection is validated before changing it. Selecting in any active
+drawing, editing or split session throws, including requests to clear selection.
 
-An unknown ID throws `RangeError` and preserves the previous selection. Selecting
-anything, including `null`, during drawing throws without changing the draft.
-Starting a drawing clears selection; finish/cancel return to idle with nothing
-selected. Programmatic selection does not move the camera or take keyboard focus,
-and can select a stored offscreen feature. Click selection requires the feature
-to have been rendered; MapLibre source updates are asynchronous.
+Selection emits one `onChange` only when IDs or their order change. Repeating the
+same selection is a no-op. It never changes exports, data revision, properties or
+history, and does not upload committed geometry. Highlighting updates only changed
+feature states. Programmatic selection may include offscreen stored features and
+does not move the camera or take keyboard focus. Mouse picking requires rendered
+data: MapLibre source updates are asynchronous. Stale deleted IDs are ignored.
 
-Selection survives style replacement. Destroying the editor clears selection
-without emitting callbacks; a new editor starts with empty data and no selection.
+`selectedFeatureId` and `getSelected()` retain their single-feature types and
+return **null for zero or multiple selected features**. `editSelected()` and
+`splitSelected()` return false unless exactly one suitable feature is selected.
+Use `selectedFeatureIds.length` to enable group controls, not `getSelected()`.
+
+Selection survives style replacement and updates/imports. Transactions, deletion,
+and history replay prune only IDs that no longer exist. Undo restores deleted
+features, but does not restore selection: selection is transient UI state.
+Starting a drawing clears it. Destroy clears it without callbacks. Getters remain
+readable after destroy; commands and subscriptions throw. `LineEditor` exposes
+these same selection methods and returns `LineFeature[]` from `getSelection()`.
+
+### Delete the complete selection
+
+```ts
+editor.selectMany([firstId, secondId]);
+const event = editor.deleteSelection(); // TransactionEvent | null
+editor.onTransaction(({ changes }) => console.log(changes));
+editor.undo(); // Restore all deleted features with their IDs/properties/order.
+```
+
+`deleteSelection()` deletes all selected features as one validated transaction,
+including when only one is selected. It emits one `onTransaction`, then one
+`onChange`, performs one source upload, and records one `transaction` history
+action. It does not emit individual `onDelete` callbacks. Empty selection returns
+null with no data change, notification or upload. Active tools reject deletion.
+Listen to `onTransaction` for group deletion and `onHistory` for its undo/redo.
+
+For compatibility, `deleteSelected()` remains the single-feature method with its
+existing `GeometryFeature | null` result and `onDelete` event. With multiple
+selected features it throws `RangeError` directing callers to `deleteSelection()`;
+it never silently deletes an arbitrary member. The demo's Delete button and
+focused Delete/Backspace use the single method for one selection, and the batch
+method for multiple selections. LineEditor forwards `deleteSelection()` and
+`onTransaction()` too. Group movement and duplication are later milestones.
 
 ## Deletion
 

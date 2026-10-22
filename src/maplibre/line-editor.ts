@@ -1,5 +1,5 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import type { Coordinate, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeature, LineCollection, LineFeature } from '../core/types.js';
+import type { Coordinate, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeature, LineCollection, LineFeature } from '../core/types.js';
 import { GeometryEditor } from './geometry-editor.js';
 
 const isLine = (feature: GeometryFeature): feature is LineFeature => feature.geometry.type === 'LineString';
@@ -23,6 +23,11 @@ export class LineEditor {
   onHistory(listener: (event: HistoryEvent) => void): () => void { return this.editor.onHistory(listener); }
   getState(): EditorState { return this.editor.getState(); }
   select(id: FeatureId | null): void { this.editor.select(id); }
+  selectMany(ids: readonly FeatureId[]): void { this.editor.selectMany(ids); }
+  toggleSelection(id: FeatureId): void { this.editor.toggleSelection(id); }
+  getSelection(): LineFeature[] { return this.editor.getSelection().filter(isLine); }
+  deleteSelection(): TransactionEvent | null { return this.editor.deleteSelection(); }
+  onTransaction(listener: (event: TransactionEvent) => void): () => void { return this.editor.onTransaction(listener); }
   editSelected(): boolean { return this.editor.editSelected(); }
   getDraft(): Coordinate[] { return this.editor.getDraft(); }
   selectVertex(index: number | null): void { this.editor.selectVertex(index); }
