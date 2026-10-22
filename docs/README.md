@@ -7,6 +7,7 @@ separately so consumers can integrate without depending on internal modules.
 | --- | --- |
 | Set up a MapLibre host and use the editor | [GeometryEditor API](geometry-editor.md), [integration setup](line-editor.md#integrate) |
 | Apply atomic create/update/delete batches | [Transactions and event semantics](transactions.md) |
+| Import and edit multipart lines/polygons | [Multipart geometry](multipart.md) |
 | Split a supported polygon | [Polygon splitting](splitting.md) |
 | Maintain an older line-only integration | [LineEditor compatibility facade](line-editor.md) |
 | Locate code for a change | [Code map and walkthrough](code-walkthrough.md) |

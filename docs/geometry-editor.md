@@ -1,9 +1,9 @@
 # GeometryEditor: lines and polygons
 
-Status: experimental. Supports 2D LineString and Polygon (exterior plus interior rings)
+Status: experimental. Supports 2D LineString, Polygon (including holes), MultiLineString and MultiPolygon
 features on a flat Mercator MapLibre GL JS 6.15 map. Desktop mouse and keyboard
 input, selection, group translation/duplication, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are tested in Chromium.
-Multipart features are not implemented yet.
+See the [multipart guide](multipart.md) for component editing and topology constraints.
 
 ## One editor API
 
@@ -46,8 +46,8 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `draw('LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
 | `finish()` | Commit a valid draft once, returning a `GeometryFeature`. An invalid/incomplete draft returns `null` and remains active. |
 | `cancel()` | Discard the draft or cancel an active selection rectangle or group drag. |
-| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`. |
-| `splitSelected()` | Begin a cutting line on the selected polygon; false with no polygon/already splitting. |
+| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`. |
+| `splitSelected()` | Begin a cutting line on a selected simple Polygon; false with no Polygon, a multipart feature, or already splitting. |
 | `setSplitLine(coordinates)` / `removeSplitPoint()` | Replace the cut or remove its last point while splitting. |
 | `getSplitPreview()` | Independent retained/created Polygon geometries, or null. |
 | `finishSplit()` | Commit both parts as one transaction, or return null for an invalid/inactive split. |
@@ -56,9 +56,9 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `selectMany(ids)` | Replace the whole selection atomically, deduplicating typed IDs. |
 | `toggleSelection(id)` | Add/remove one existing feature from the selection. |
 | `getSelection()` | Independent snapshots of all selected features in acquisition order. |
-| `editSelected(ringIndex = 0)` | Begin editing the selected feature; polygon index 0 is the exterior, subsequent indices are holes. |
-| `drawHole()` | Start a cancellable hole on the sole selected polygon; Finish saves one edit. |
-| `deleteHole(ringIndex)` | Delete an interior ring (index >= 1) as one transaction; idle only. |
+| `editSelected(ringIndex = 0, partIndex = 0)` | Begin editing one component/ring of the selected feature; ring 0 is the exterior for polygons. |
+| `drawHole(partIndex = 0)` | Start a cancellable hole in the chosen polygon component; Finish saves one edit. |
+| `deleteHole(ringIndex, partIndex = 0)` | Delete an interior ring (index >= 1) as one transaction; idle only. |
 | `duplicateSelection(delta?)` | Create and select copies with new IDs as one transaction; optional offset in degrees, default `[0, 0]`. Returns `TransactionEvent` or null. Idle only. |
 | `translateSelection([deltaLng, deltaLat])` | Translate selected features in degrees as one transaction; returns `TransactionEvent` or null. Idle only. |
 | `deleteSelection()` | Delete all selected features as one transaction; returns `TransactionEvent` or null. |
@@ -80,9 +80,10 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `onSnap(listener)` | Notify when the snap target/coordinate changes or is released (`null`). Returns an unsubscribe function. |
 | `destroy()` | Remove owned resources/listeners and restore drawing gesture settings. Idempotent. |
 
-`GeometryFeature` is the union of `LineFeature` and `PolygonFeature`. Inspect
+`GeometryFeature` is the union of `LineFeature`, `PolygonFeature`, `MultiLineFeature`
+and `MultiPolygonFeature`. Inspect
 `feature.geometry.type` to narrow coordinates in TypeScript. `GeometryFeatureCollection`
-is a GeoJSON FeatureCollection containing both shape types. New drawings receive a UUID and empty properties. Imported features preserve
+is a GeoJSON FeatureCollection containing all four geometry types. New drawings receive a UUID and empty properties. Imported features preserve
 string or numeric IDs and JSON properties (including null). Coordinates are
 `[longitude, latitude]`. Properties can be imported but there is no property-editing API yet.
 
@@ -115,7 +116,8 @@ editor.deleteHole(1); // Immediate transaction; Undo restores the exact ring ord
 ```
 
 `drawHole()` returns false without a sole polygon selection or if already drawing
-a hole. `editSelected(ringIndex)` rejects out-of-range/noninteger indices before
+a hole. These examples address component 0; see [multipart](multipart.md) for other components.
+`editSelected(ringIndex)` rejects out-of-range/noninteger indices before
 entering editing. For a line only index 0 is supported. Ring indices follow the
 current coordinate array; they are not stable identities after ring deletion.
 Only one ring is edited per session. `getDraft()`, `vertexCount`, and
@@ -141,8 +143,8 @@ Import, export, translation, duplication, and history include every ring. Snappi
 indexes hole corners and edges; polygon `SnapResult` values include `ringIndex`
 as well as the ring-local `index`. Lines and first-corner closure targets omit it.
 The entire target polygon is excluded from snapping while editing or adding a
-hole. At equal feature/distance priority, the lower ring index breaks a tie before
-the vertex/edge index. Picking respects empty hole interiors while their outlines
+hole. At equal feature/distance priority, the lower component index, then ring index,
+breaks a tie before the vertex/edge index. Picking respects empty hole interiors while their outlines
 remain selectable. Split preserves holes wholly on one side; a cut touching or
 crossing a hole is rejected with `split-hole-crossing`.
 
@@ -466,8 +468,9 @@ Import is available only while idle. It does not replace or merge features.
 
 Supported data and identity policy:
 
-- Two-dimensional LineString and Polygon with one closed outer ring and optional closed interior rings.
-  Points, multipart geometries, geometry collections, null geometries,
+- Two-dimensional LineString, Polygon, MultiLineString and MultiPolygon. Every polygon
+  component has one closed exterior and optional closed interior rings. See [multipart validation](multipart.md#validation-and-history).
+  Points, geometry collections, null geometries,
   and altitude coordinates are rejected explicitly.
 - Finite longitude/latitude in world bounds. Lines need two points and no
   consecutive duplicates. Polygons use the same topology rules as drawing;
@@ -706,7 +709,8 @@ terrain, touch, topology linking, and boundary tracing are outside this contract
 - Invalid drafts remain visible but cannot be committed. Add more points while drawing, move/remove corners while editing, or cancel.
 
 Errors are `too-few-vertices`, `zero-area`, `duplicate-vertex`,
-`self-intersection`, `antimeridian-crossing`, `ring-intersection`, `hole-outside`, and `nested-holes`. The first detected error is
+`self-intersection`, `antimeridian-crossing`, `ring-intersection`, `hole-outside`,
+`nested-holes`, `part-intersection`, and `part-overlap`. The first detected error is
 reported; these are diagnostics, not a list of every defect.
 
 Enter or Finish closes a polygon. A plain click within 8 CSS pixels of its first

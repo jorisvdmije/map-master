@@ -48,7 +48,7 @@ The LineEditor compatibility facade does not expose this mixed-geometry API.
   An ID may appear only once across the entire transaction, even for an unchanged
   update. Delete-and-recreate with the same ID is rejected; use update instead.
   Numeric `7` and string `"7"` remain distinct.
-- Features use the existing import contract: 2D LineString or Polygon with validated interior rings,
+- Features use the existing import contract: 2D LineString, Polygon, MultiLineString or MultiPolygon with validated components and interior rings,
   supported topology, bounded coordinates, JSON properties or null. Polygon
   winding is normalized. Foreign feature members are ignored as with import.
 - Inputs and returned snapshots cannot mutate the stored collection or history.

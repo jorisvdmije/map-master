@@ -76,6 +76,21 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const holeDeleted: editor.TransactionEvent | null = tool.deleteHole(1);
   const ring: number | null = tool.getState().activeRingIndex;
   void holeDeleted; void ring;
+  const multipart: editor.MultiPolygonFeature = { type: 'Feature', id: 'islands', properties: null,
+    geometry: { type: 'MultiPolygon', coordinates: [[[[0, 0], [2, 0], [0, 2], [0, 0]]]] } };
+  const paths: editor.MultiLineFeature = { type: 'Feature', id: 'paths', properties: {},
+    geometry: { type: 'MultiLineString', coordinates: [[[0, 0], [1, 1]], [[2, 2], [3, 3]]] } };
+  const kind: editor.GeometryType = multipart.geometry.type;
+  const drawKind: editor.DrawGeometryType = 'Polygon';
+  tool.applyTransaction({ create: [multipart, paths] });
+  tool.editSelected(1, 1); tool.cancel();
+  tool.drawHole(1); tool.cancel(); tool.deleteHole(1, 1);
+  const part: number | null = tool.getState().activePartIndex;
+  const snapPart: number | undefined = tool.getSnap()?.partIndex;
+  void [kind, drawKind, part, snapPart];
+  // @ts-expect-error multipart construction is via import/transactions, not the drawing tool
+  tool.draw('MultiPolygon');
+  tool.cancel();
   const selection: editor.GeometryFeature[] = tool.getSelection();
   const selectedIds: editor.FeatureId[] = tool.getState().selectedFeatureIds;
   if (selection[0]) tool.toggleSelection(selection[0].id);

@@ -1,6 +1,6 @@
 import { Map, LngLatBounds, NavigationControl, setWorkerUrl } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-import { GeometryEditor, type GeometryType, type SplitError, type ValidationError } from '@geo/editor';
+import { GeometryEditor, type DrawGeometryType, type GeometryFeature, type Coordinate, type SplitError, type ValidationError } from '@geo/editor';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
 
@@ -35,11 +35,14 @@ const splitSelected = element<HTMLButtonElement>('split-selected');
 const editSelected = element<HTMLButtonElement>('edit-selected');
 const drawHole = element<HTMLButtonElement>('draw-hole');
 const deleteHole = element<HTMLButtonElement>('delete-hole');
+const partIndex = element<HTMLSelectElement>('part-index');
 const ringIndex = element<HTMLSelectElement>('ring-index');
 const removeVertex = element<HTMLButtonElement>('remove-vertex');
 let editor: GeometryEditor | undefined;
-let selected: GeometryType = 'LineString';
+let selected: DrawGeometryType = 'LineString';
 const validationMessages: Record<Exclude<ValidationError, 'too-few-vertices'>, string> = {
+  'part-intersection': 'Polygon parts cannot touch, cross, or share boundaries.',
+  'part-overlap': 'Polygon parts cannot overlap. Keep their filled areas separate.',
   'ring-intersection': 'Ring boundaries cannot touch, cross, or overlap.',
   'hole-outside': 'Keep the hole completely inside the outer boundary.',
   'nested-holes': 'Holes cannot contain other holes.',
@@ -60,13 +63,22 @@ const splitMessages: Record<SplitError, string> = {
   'split-invalid-result': 'This cut could not produce two valid polygons. Adjust the line or cancel.',
 };
 
-function selectTool(kind: GeometryType): void {
+function selectTool(kind: DrawGeometryType): void {
   selected = kind;
   lineTool.setAttribute('aria-pressed', String(kind === 'LineString'));
   polygonTool.setAttribute('aria-pressed', String(kind === 'Polygon'));
   element('start-label').textContent = kind === 'Polygon' ? 'Draw a polygon' : 'Draw a line';
   element('finish-instruction').textContent = kind === 'Polygon'
     ? 'Press Enter or click your first corner to close the polygon.' : 'Press Enter to save your line.';
+}
+
+// Presentation helper; the demo consumes only the public package API.
+function partsOf(geometry: GeometryFeature['geometry']): Array<{ type: 'LineString'; coordinates: Coordinate[] } | { type: 'Polygon'; coordinates: Coordinate[][] }> {
+  switch (geometry.type) {
+    case 'LineString': case 'Polygon': return [geometry];
+    case 'MultiLineString': return geometry.coordinates.map((coordinates) => ({ type: 'LineString', coordinates }));
+    case 'MultiPolygon': return geometry.coordinates.map((coordinates) => ({ type: 'Polygon', coordinates }));
+  }
 }
 
 const map = new Map({
@@ -91,6 +103,8 @@ map.on('load', () => {
   editor = new GeometryEditor(map, { snapping: { enabled: true } });
   const activeEditor = editor;
   let exportedRevision = -1;
+  partIndex.addEventListener('change', () => { update(); });
+  let ringSelectionPart = 0;
   let ringSelectionId: string | number | null = null;
   const update = (): void => {
     const state = activeEditor.getState();
@@ -111,12 +125,23 @@ map.on('load', () => {
     duplicateSelected.disabled = selectedCount === 0 || drawing;
     duplicateSelected.setAttribute('aria-label', selectedCount > 1 ? 'Duplicate selected shapes' : 'Duplicate selected shape');
     editSelected.disabled = selectedFeature === null || drawing;
-    const ringCount = selectedFeature?.geometry.type === 'Polygon' ? selectedFeature.geometry.coordinates.length : 0;
-    if (ringSelectionId !== state.selectedFeatureId || ringIndex.options.length !== ringCount) {
-      const previous = ringSelectionId === state.selectedFeatureId ? Number(ringIndex.value) : 0;
+    const parts = selectedFeature ? partsOf(selectedFeature.geometry) : [];
+    if (ringSelectionId !== state.selectedFeatureId || partIndex.options.length !== parts.length) {
+      const previous = ringSelectionId === state.selectedFeatureId ? Number(partIndex.value) : 0;
+      partIndex.replaceChildren(...parts.map((_, index) => new Option(`Part ${index + 1}`, String(index))));
+      partIndex.value = String(Math.min(previous, Math.max(0, parts.length - 1)));
+    }
+    partIndex.disabled = drawing;
+    element('part-control').hidden = parts.length < 2;
+    const chosenPart = Number(partIndex.value);
+    const part = parts[chosenPart];
+    const ringCount = part?.type === 'Polygon' ? part.coordinates.length : 0;
+    if (ringSelectionId !== state.selectedFeatureId || ringSelectionPart !== chosenPart || ringIndex.options.length !== ringCount) {
+      const previous = ringSelectionId === state.selectedFeatureId && ringSelectionPart === chosenPart ? Number(ringIndex.value) : 0;
       ringIndex.replaceChildren(...Array.from({ length: ringCount }, (_, index) => new Option(index === 0 ? 'Outer boundary' : `Hole ${index}`, String(index))));
       ringIndex.value = String(Math.min(previous, Math.max(0, ringCount - 1)));
       ringSelectionId = state.selectedFeatureId;
+      ringSelectionPart = chosenPart;
     }
     ringIndex.disabled = drawing;
     element('ring-control').hidden = ringCount < 2;
@@ -133,11 +158,14 @@ map.on('load', () => {
     element('vertex-status').textContent = state.selectedVertexIndex === null
       ? 'Click a corner to select it.' : `Corner ${state.selectedVertexIndex + 1} of ${state.vertexCount} selected.`;
     if (selectedFeature) {
-      element('selection-type').textContent = selectedFeature.geometry.type === 'Polygon' ? 'Polygon' : 'Line';
-      const count = editing ? state.vertexCount : selectedFeature.geometry.type === 'Polygon'
-        ? (selectedFeature.geometry.coordinates[0]?.length ?? 1) - 1
-        : selectedFeature.geometry.coordinates.length;
-      element('selection-detail').textContent = `${count} ${selectedFeature.geometry.type === 'Polygon' ? 'corners' : 'points'}${editing && state.activeRingIndex !== null ? ` · ${state.activeRingIndex === 0 ? 'outer boundary' : `hole ${state.activeRingIndex}`}` : ringCount > 1 ? ` · ${ringCount - 1} ${ringCount === 2 ? 'hole' : 'holes'}` : ''}`;
+      element('selection-type').textContent = selectedFeature.geometry.type;
+      const count = editing ? state.vertexCount : part?.type === 'Polygon'
+        ? (part.coordinates[Number(ringIndex.value)]?.length ?? 1) - 1 : part?.coordinates.length ?? 0;
+      const details = [`${count} ${ringCount > 0 ? 'corners' : 'points'}`];
+      if (parts.length > 1) details.push(`part ${chosenPart + 1} of ${parts.length}`);
+      if (ringCount > 1) details.push(`${ringCount - 1} ${ringCount === 2 ? 'hole' : 'holes'}`);
+      if (editing && state.activeRingIndex !== null) details.push(state.activeRingIndex === 0 ? 'outer boundary' : `hole ${state.activeRingIndex}`);
+      element('selection-detail').textContent = details.join(' · ');
     } else if (selectedCount > 1) {
       element('selection-type').textContent = `${selectedCount} shapes selected`;
       element('selection-detail').textContent = 'Shift+click to toggle a shape. Delete removes the whole selection.';
@@ -235,9 +263,15 @@ duplicateSelected.addEventListener('click', () => {
   }
 });
 splitSelected.addEventListener('click', () => { editor?.splitSelected(); });
-editSelected.addEventListener('click', () => { editor?.editSelected(Number(ringIndex.value) || 0); });
-drawHole.addEventListener('click', () => { editor?.drawHole(); });
-deleteHole.addEventListener('click', () => { editor?.deleteHole(Number(ringIndex.value)); });
+editSelected.addEventListener('click', () => { editor?.editSelected(Number(ringIndex.value) || 0, Number(partIndex.value) || 0); });
+drawHole.addEventListener('click', () => { editor?.drawHole(Number(partIndex.value) || 0); });
+deleteHole.addEventListener('click', () => {
+  try { editor?.deleteHole(Number(ringIndex.value), Number(partIndex.value) || 0); }
+  catch (error) {
+    status.classList.add('is-invalid');
+    status.textContent = error instanceof Error ? error.message : 'Could not delete this hole.';
+  }
+});
 ringIndex.addEventListener('change', () => { deleteHole.disabled = Number(ringIndex.value) < 1 || editor?.getState().mode !== 'idle'; });
 removeVertex.addEventListener('click', () => {
   const index = editor?.getState().selectedVertexIndex;
@@ -266,8 +300,10 @@ importFile.addEventListener('change', () => {
       importStatus.textContent = `Imported ${imported.features.length} ${imported.features.length === 1 ? 'feature' : 'features'}.`;
       const bounds = new LngLatBounds();
       for (const feature of imported.features) {
-        const points = feature.geometry.type === 'Polygon' ? feature.geometry.coordinates[0]! : feature.geometry.coordinates;
-        for (const point of points) bounds.extend(point);
+        for (const part of partsOf(feature.geometry)) {
+          const points = part.type === 'Polygon' ? part.coordinates[0]! : part.coordinates;
+          for (const point of points) bounds.extend(point);
+        }
       }
       if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 60, maxZoom: 16, duration: 0 });
     } catch (error) {

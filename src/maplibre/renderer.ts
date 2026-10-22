@@ -1,3 +1,4 @@
+import type { GeometryPart } from '../core/geometry.js';
 import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
 import { samePosition } from '../core/polygon.js';
 import type { Coordinate, SplitPreview, SnapResult, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
@@ -149,7 +150,7 @@ export class MapLibreRenderer {
     return [...ids];
   }
 
-  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null, rings: Coordinate[][] | null = null): void {
+  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null, rings: Coordinate[][] | null = null, inactiveParts: GeometryPart[] = []): void {
     const editing = state.mode.startsWith('edit-');
     const polygon = state.mode === 'draw-polygon' || state.mode === 'edit-polygon' || state.mode === 'draw-hole';
     const handles = editing ? vertexHandles(this.map, coordinates, polygon)
@@ -158,6 +159,7 @@ export class MapLibreRenderer {
       type: 'Feature', properties: { kind: handle.kind, active: editing && handle.kind === 'vertex' && handle.index === state.selectedVertexIndex },
       geometry: { type: 'Point', coordinates: handle.coordinate },
     }));
+    for (const geometry of inactiveParts) features.push({ type: 'Feature', properties: {}, geometry });
     if (snap) features.push({ type: 'Feature', properties: { kind: 'snap', snapKind: snap.kind },
       geometry: { type: 'Point', coordinates: [...snap.coordinate] } });
     if (split) {

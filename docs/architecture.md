@@ -2,7 +2,7 @@
 
 The library has three boundaries: the geometry/editing core, the MapLibre adapter,
 and the host application. Drawing, vertex editing, selection, import, transactions,
-undo/redo, splitting, snapping, group translation, duplication and polygon holes use these same boundaries.
+undo/redo, splitting, snapping, group translation, duplication, polygon holes and multipart geometry use these same boundaries.
 The [roadmap](roadmap.md) separates implemented capabilities from planned work.
 See the [GeometryEditor guide](geometry-editor.md) for the current public API and
 the [code walkthrough](code-walkthrough.md) for the implemented structure.
@@ -11,7 +11,8 @@ the [code walkthrough](code-walkthrough.md) for the implemented structure.
 
 Build a browser geometry editor inspired by the drawing and editing capabilities
 of products such as Geoman. Implement our own behavior and API. The initial
-scope is 2D LineString and Polygon features on one MapLibre map.
+scope is 2D lines and polygons on one MapLibre map, including MultiLineString
+and MultiPolygon through the documented multipart contract.
 
 CRUD means creating, reading, updating, and deleting features in the editor.
 The host application owns databases, network requests, authorization, and saving.
@@ -100,7 +101,7 @@ guarantee topological validity.
 
 Start with desktop mouse input plus explicit finish/cancel controls and keyboard
 shortcuts. Document that initial input scope. Touch support, accessible controls,
-multipart geometry, antimeridian handling, and other projections
+interactive multipart construction, antimeridian handling, and other projections
 need explicit design and tests before being advertised.
 
 ## Performance approach

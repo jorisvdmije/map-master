@@ -65,6 +65,7 @@ it.each([6, 17])('previews only the selected group at zoom %s, commits the exact
   const after = editor.exportGeoJSON(); expect(after.features[2]).toEqual(before.features[2]);
   for (const index of [0, 1]) {
     const a = before.features[index]!.geometry; const b = after.features[index]!.geometry;
+    if (a.type !== 'LineString' && a.type !== 'Polygon' || b.type !== 'LineString' && b.type !== 'Polygon') throw new Error('Expected simple fixtures');
     const original = a.type === 'Polygon' ? a.coordinates[0]! : a.coordinates;
     const translated = b.type === 'Polygon' ? b.coordinates[0]! : b.coordinates;
     for (let i = 0; i < original.length; i++) {

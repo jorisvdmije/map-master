@@ -2,7 +2,7 @@ import { Map, setWorkerUrl, type GeoJSONSource, type StyleSpecification } from '
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import { GeometryEditor, type EditorState, type FeatureId, type GeometryType } from '../../src/index.js';
+import { GeometryEditor, type EditorState, type FeatureId, type DrawGeometryType } from '../../src/index.js';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 setWorkerUrl(workerUrl);
@@ -20,7 +20,7 @@ const width = (x: number, y: number): unknown => {
   return layer?.type === 'line' ? layer.paint?.['line-width'] : undefined;
 };
 
-async function draw(kind: GeometryType, points: [number, number][]): Promise<FeatureId> {
+async function draw(kind: DrawGeometryType, points: [number, number][]): Promise<FeatureId> {
   editor.draw(kind);
   for (const [x, y] of points) await click(x, y);
   const feature = editor.finish();

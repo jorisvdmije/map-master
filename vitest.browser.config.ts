@@ -4,6 +4,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['tests/browser/**/*.test.ts'],
+    // Bound concurrent WebGL maps so software rendering does not starve input/readiness checks.
+    maxWorkers: 4,
     testTimeout: 20_000,
     hookTimeout: 20_000,
     browser: {

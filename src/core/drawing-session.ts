@@ -1,29 +1,28 @@
+import { geometryParts, mapGeometry, replacePart, withGeometry, type Geometry, type GeometryPart } from './geometry.js';
 import { splitPolygonRings } from './split-polygon.js';
 import { translateFeatures } from './translation.js';
 import { prepareTransaction } from './transaction.js';
 import { EditHistory, type HistoryEntry } from './history.js';
 import { copyProperties, prepareImport } from './geojson-import.js';
-import { closePolygon, openRing, samePosition, validatePolygonRings } from './polygon.js';
+import { closePolygon, openRing, samePosition, validatePolygonRings, validateMultiPolygon } from './polygon.js';
 import type {
-  Coordinate, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, GeometryType, ValidationError,
+  Coordinate, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
 } from './types.js';
 
 function copyFeature(feature: GeometryFeature): GeometryFeature {
-  const copy = ([lng, lat]: Coordinate): Coordinate => [lng, lat];
-  const common = { type: 'Feature' as const, id: feature.id, properties: copyProperties(feature.properties) };
-  return feature.geometry.type === 'LineString'
-    ? { ...common, geometry: { type: 'LineString', coordinates: feature.geometry.coordinates.map(copy) } }
-    : { ...common, geometry: { type: 'Polygon', coordinates: feature.geometry.coordinates.map((ring) => ring.map(copy)) } };
+  return withGeometry({ id: feature.id, properties: copyProperties(feature.properties) },
+    mapGeometry(feature.geometry, ([lng, lat]) => [lng, lat]));
 }
 
 /** Internal editing state. No browser, map, or rendering dependencies. */
 export class DrawingSession {
   private holeId: FeatureId | null = null;
+  private activePartIndex: number | null = null;
   private activeRingIndex: number | null = null;
   private splitId: FeatureId | null = null;
   private splitPreview: SplitPreview | null = null;
   private splitError: SplitError | null = null;
-  private kind: GeometryType | null = null;
+  private kind: DrawGeometryType | null = null;
   private draft: Coordinate[] = [];
   private readonly features = new Map<FeatureId, GeometryFeature>();
   private selectedFeatureIds = new Set<FeatureId>();
@@ -53,6 +52,7 @@ export class DrawingSession {
       selectedFeatureIds: [...this.selectedFeatureIds],
       selectedVertexIndex: this.selectedVertexIndex,
       activeRingIndex: this.activeRingIndex,
+      activePartIndex: this.activePartIndex,
       dataRevision: this.dataRevision,
       canFinish: this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
       canUndo: this.kind === null && this.history.canUndo,
@@ -62,7 +62,7 @@ export class DrawingSession {
     };
   }
 
-  start(kind: GeometryType): boolean {
+  start(kind: DrawGeometryType): boolean {
     if (kind !== 'LineString' && kind !== 'Polygon') throw new TypeError('Unsupported geometry type.');
     if (this.kind === kind && this.editingId === null && this.splitId === null && this.holeId === null) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before changing tools.');
@@ -80,7 +80,7 @@ export class DrawingSession {
     this.draft.push([lng, lat]);
     if (this.splitId !== null) { this.validateSplit(); return true; }
     // Cache validity on clicks. Pointer movement and state reads never run topology checks.
-    this.validationError = this.kind === 'Polygon' ? validatePolygonRings(this.getDraftRings() ?? [this.draft])
+    this.validationError = this.kind === 'Polygon' ? this.validateDraftPolygon()
       : this.draft.length < 2 ? 'too-few-vertices' : null;
     return true;
   }
@@ -94,9 +94,7 @@ export class DrawingSession {
     const targetId = this.editingId ?? this.holeId;
     const original = targetId === null ? undefined : this.features.get(targetId);
     const common = { type: 'Feature' as const, id: original?.id ?? this.allocateId(), properties: original ? copyProperties(original.properties) : {} };
-    const feature: GeometryFeature = this.kind === 'Polygon'
-      ? { ...common, geometry: { type: 'Polygon', coordinates: (this.getDraftRings() ?? [this.draft]).map((ring, index) => closePolygon(ring, index > 0)) } }
-      : { ...common, geometry: { type: 'LineString', coordinates: this.draft } };
+    const feature = withGeometry(common, this.draftGeometry(true));
     // No-op saves exit editing without emitting a data change or replacing the feature.
     if (!original || JSON.stringify(original.geometry) !== JSON.stringify(feature.geometry)) {
       this.commit(original ? 'edit' : 'create', [{ before: original ?? null, after: feature }]);
@@ -107,6 +105,7 @@ export class DrawingSession {
     this.editingId = null;
     this.holeId = null;
     this.activeRingIndex = null;
+    this.activePartIndex = null;
     this.selectedVertexIndex = null;
     return copyFeature(feature);
   }
@@ -120,6 +119,7 @@ export class DrawingSession {
     this.editingId = null;
     this.holeId = null;
     this.activeRingIndex = null;
+    this.activePartIndex = null;
     this.selectedVertexIndex = null;
     return true;
   }
@@ -351,55 +351,97 @@ export class DrawingSession {
     return event;
   }
 
-  editSelected(ringIndex = 0): boolean {
+  editSelected(ringIndex = 0, partIndex = 0): boolean {
     if (this.editingId !== null) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before editing.');
     const feature = this.getSelected();
     if (!feature) return false;
-    const ringCount = feature.geometry.type === 'Polygon' ? feature.geometry.coordinates.length : 1;
-    if (!Number.isInteger(ringIndex) || ringIndex < 0 || ringIndex >= ringCount) throw new RangeError('Ring index is outside the polygon.');
-    this.activeRingIndex = feature.geometry.type === 'Polygon' ? ringIndex : null;
+    const part = this.partAt(feature.geometry, partIndex);
+    const ringCount = part.type === 'Polygon' ? part.coordinates.length : 1;
+    if (!Number.isInteger(ringIndex) || ringIndex < 0 || ringIndex >= ringCount) throw new RangeError('Ring index is outside the component.');
+    this.activeRingIndex = part.type === 'Polygon' ? ringIndex : null;
+    this.activePartIndex = partIndex;
     this.editingId = feature.id;
-    this.kind = feature.geometry.type;
-    this.draft = feature.geometry.type === 'Polygon'
-      ? openRing(feature.geometry.coordinates[ringIndex]!) : feature.geometry.coordinates;
+    this.kind = part.type;
+    this.draft = part.type === 'Polygon' ? openRing(part.coordinates[ringIndex]!) : part.coordinates;
     this.selectedVertexIndex = null;
     this.validateEdit();
     return true;
   }
 
-  /** Draft ring plus preserved rings; independent open-ring snapshots for preview. */
+  private partAt(geometry: Geometry, index: number): GeometryPart {
+    const parts = geometryParts(geometry);
+    if (!Number.isInteger(index) || index < 0 || index >= parts.length) throw new RangeError('Part index is outside the geometry.');
+    return parts[index]!;
+  }
+
+  /** Draft ring plus preserved rings of the active component; independent open snapshots. */
   getDraftRings(): Coordinate[][] | null {
     if (this.kind !== 'Polygon') return null;
     const id = this.editingId ?? this.holeId;
     const original = id === null ? undefined : this.features.get(id);
-    if (!original || original.geometry.type !== 'Polygon') return [this.getDraft()];
-    const rings = original.geometry.coordinates.map(openRing);
+    if (!original) return [this.getDraft()];
+    const part = this.partAt(original.geometry, this.activePartIndex!);
+    if (part.type !== 'Polygon') throw new Error('Expected a polygon component.');
+    const rings = part.coordinates.map(openRing);
     rings[this.activeRingIndex!] = this.getDraft();
     return rings;
   }
 
-  /** Draw one new interior ring on the sole selected polygon. */
-  drawHole(): boolean {
+  /** Untouched components remain visible while the committed feature is hidden. */
+  getInactiveParts(): GeometryPart[] {
+    const id = this.editingId ?? this.holeId;
+    if (id === null) return [];
+    return geometryParts(this.features.get(id)!.geometry)
+      .filter((_, index) => index !== this.activePartIndex)
+      .map((part): GeometryPart => part.type === 'LineString'
+        ? { type: part.type, coordinates: part.coordinates.map((point) => [...point]) }
+        : { type: part.type, coordinates: part.coordinates.map((ring) => ring.map((point) => [...point])) });
+  }
+
+  private draftGeometry(normalize = false): Geometry {
+    const rings = this.getDraftRings();
+    const part: GeometryPart = rings
+      ? { type: 'Polygon', coordinates: normalize ? rings.map((ring, index) => closePolygon(ring, index > 0)) : rings }
+      : { type: 'LineString', coordinates: this.getDraft() };
+    const id = this.editingId ?? this.holeId;
+    return id === null ? part : replacePart(this.features.get(id)!.geometry, this.activePartIndex!, part);
+  }
+
+  private validateDraftPolygon(): ValidationError | null {
+    const geometry = this.draftGeometry();
+    if (geometry.type === 'MultiPolygon') return validateMultiPolygon(geometry.coordinates);
+    if (geometry.type === 'Polygon') return validatePolygonRings(geometry.coordinates);
+    throw new Error('Expected a polygon draft.');
+  }
+
+  /** Draw one new interior ring in the selected polygon component. */
+  drawHole(partIndex = 0): boolean {
     if (this.holeId !== null) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before drawing a hole.');
     const feature = this.getSelected();
-    if (!feature || feature.geometry.type !== 'Polygon') return false;
+    if (!feature || feature.geometry.type !== 'Polygon' && feature.geometry.type !== 'MultiPolygon') return false;
+    const part = this.partAt(feature.geometry, partIndex);
+    if (part.type !== 'Polygon') return false;
     this.holeId = feature.id;
-    this.activeRingIndex = feature.geometry.coordinates.length;
+    this.activePartIndex = partIndex;
+    this.activeRingIndex = part.coordinates.length;
     this.kind = 'Polygon'; this.draft = []; this.validationError = 'too-few-vertices';
     return true;
   }
 
   /** Remove an interior ring as one atomic update. The exterior cannot be removed. */
-  deleteHole(ringIndex: number): TransactionEvent | null {
+  deleteHole(ringIndex: number, partIndex = 0): TransactionEvent | null {
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before deleting a hole.');
     const feature = this.getSelected();
-    if (!feature || feature.geometry.type !== 'Polygon') return null;
-    if (!Number.isInteger(ringIndex) || ringIndex < 1 || ringIndex >= feature.geometry.coordinates.length) {
+    if (!feature || feature.geometry.type !== 'Polygon' && feature.geometry.type !== 'MultiPolygon') return null;
+    const part = this.partAt(feature.geometry, partIndex);
+    if (part.type !== 'Polygon') return null;
+    if (!Number.isInteger(ringIndex) || ringIndex < 1 || ringIndex >= part.coordinates.length) {
       throw new RangeError('Expected an existing interior ring index.');
     }
-    feature.geometry.coordinates.splice(ringIndex, 1);
+    part.coordinates.splice(ringIndex, 1);
+    // Validation can reject filling a hole containing another polygon component.
     return this.applyTransaction({ update: [feature] });
   }
 
@@ -460,7 +502,7 @@ export class DrawingSession {
     if (this.kind === 'Polygon') {
       // Edit drafts never contain a closing copy: coinciding first/last corners are invalid.
       this.validationError = new Set(this.draft.map(([x, y]) => `${x},${y}`)).size !== this.draft.length
-        ? 'duplicate-vertex' : validatePolygonRings(this.getDraftRings()!);
+        ? 'duplicate-vertex' : this.validateDraftPolygon();
     } else {
       this.validationError = this.draft.some((point, index) => index > 0 && samePosition(point, this.draft[index - 1]!))
         ? 'duplicate-vertex' : null;

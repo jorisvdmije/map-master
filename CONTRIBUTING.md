@@ -69,6 +69,9 @@ inside their isolated installation instead of against repository source files.
 The package integration test uses npm's CLI path, so invoke it through `npm test`.
 Put real MapLibre interaction tests in `tests/browser/`, run with
 `npm run test:browser`. Use local styles so tests do not depend on tile services.
+The browser suite caps parallel workers at four to limit competition between
+software-rendered WebGL maps. Wait for rendered geometry before picking it;
+increasing test timeouts alone does not establish that the map is ready.
 The complete demo test consumes the built package and checks its buttons and
 download payload. During development, `npm run dev` resolves the editor to source
 for live updates; the production demo resolves it through package exports.

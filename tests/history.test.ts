@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { DrawingSession } from '../src/core/drawing-session.js';
-import type { FeatureId, GeometryFeatureCollection, GeometryType, LineFeature } from '../src/core/types.js';
+import type { FeatureId, GeometryFeatureCollection, DrawGeometryType, LineFeature } from '../src/core/types.js';
 
 const line = (id: FeatureId): LineFeature => ({ type: 'Feature', id,
   properties: { nested: { label: 'original' } }, geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
 });
 const batch = (...ids: FeatureId[]) => ({ type: 'FeatureCollection', features: ids.map(line) });
 function session(limit?: number): DrawingSession { let id = 0; return new DrawingSession(() => `drawn-${++id}`, limit); }
-function draw(tool: DrawingSession, kind: GeometryType = 'LineString'): void {
+function draw(tool: DrawingSession, kind: DrawGeometryType = 'LineString'): void {
   tool.start(kind); tool.add([0, 0]); tool.add([4, 0]);
   if (kind === 'Polygon') { tool.add([4, 4]); tool.add([0, 4]); }
   expect(tool.finish()).not.toBeNull();
 }
 
 describe('committed geometry history', () => {
-  it.each<GeometryType>(['LineString', 'Polygon'])('undoes and redoes a created %s without changing its ID', (kind) => {
+  it.each<DrawGeometryType>(['LineString', 'Polygon'])('undoes and redoes a created %s without changing its ID', (kind) => {
     const tool = session(); draw(tool, kind); const saved = tool.exportGeoJSON();
     tool.select(saved.features[0]!.id);
     expect(tool.state).toMatchObject({ canUndo: true, canRedo: false, dataRevision: 1 });
@@ -39,7 +39,7 @@ describe('committed geometry history', () => {
     tool.select('last'); tool.deleteSelected(); tool.undo(); expect(tool.exportGeoJSON()).toEqual(saved);
   });
 
-  it.each<GeometryType>(['LineString', 'Polygon'])('treats all saved %s vertex operations as one action', (kind) => {
+  it.each<DrawGeometryType>(['LineString', 'Polygon'])('treats all saved %s vertex operations as one action', (kind) => {
     const tool = session(); draw(tool, kind); const original = tool.exportGeoJSON();
     tool.select(original.features[0]!.id); tool.clearHistory(); tool.editSelected();
     tool.moveVertex(0, [-1, 0]); tool.insertVertex(1, [2, -1]); tool.moveVertex(1, [2, -2]); tool.removeVertex(1);

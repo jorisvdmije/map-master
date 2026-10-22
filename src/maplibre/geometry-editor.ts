@@ -1,6 +1,6 @@
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { DrawingSession } from '../core/drawing-session.js';
-import type { Coordinate, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, GeometryType } from '../core/types.js';
+import type { Coordinate, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
 import { MapLibreSnapping } from './snapping.js';
 import type { ScreenPoint } from '../core/snapping.js';
@@ -211,10 +211,10 @@ export class GeometryEditor {
   }
 
   /** Begin a cancellable edit of the selected feature; false with no selection/already editing. */
-  editSelected(ringIndex = 0): boolean {
+  editSelected(ringIndex = 0, partIndex = 0): boolean {
     this.assertAlive();
     this.cancelIdleGestures();
-    if (!this.session.editSelected(ringIndex)) return false;
+    if (!this.session.editSelected(ringIndex, partIndex)) return false;
     this.renderer.renderEditing(this.session.state.selectedFeatureId);
     this.enterInteraction();
     this.schedulePreview();
@@ -222,16 +222,16 @@ export class GeometryEditor {
   }
 
   /** Begin drawing an interior ring; Finish saves, Cancel restores the original. */
-  drawHole(): boolean {
+  drawHole(partIndex = 0): boolean {
     this.assertAlive(); this.cancelIdleGestures();
-    if (!this.session.drawHole()) return false;
+    if (!this.session.drawHole(partIndex)) return false;
     this.renderer.renderEditing(this.session.state.selectedFeatureId);
     this.enterInteraction(); this.schedulePreview(); return true;
   }
 
-  deleteHole(ringIndex: number): TransactionEvent | null {
+  deleteHole(ringIndex: number, partIndex = 0): TransactionEvent | null {
     this.assertAlive(); this.cancelIdleGestures();
-    return this.publishTransaction(this.session.deleteHole(ringIndex));
+    return this.publishTransaction(this.session.deleteHole(ringIndex, partIndex));
   }
 
   selectVertex(index: number | null): void {
@@ -290,7 +290,7 @@ export class GeometryEditor {
   }
 
   /** Start drawing. Finish/cancel the current draft before changing geometry type. */
-  draw(kind: GeometryType): void {
+  draw(kind: DrawGeometryType): void {
     this.assertAlive();
     this.cancelIdleGestures();
     if (!this.session.start(kind)) return;
@@ -482,7 +482,7 @@ export class GeometryEditor {
     const previous = this.snap;
     this.snap = result;
     // Pixel distance may change while the same exact vertex remains acquired.
-    if (previous?.kind === result?.kind && previous?.featureId === result?.featureId && previous?.index === result?.index && previous?.ringIndex === result?.ringIndex
+    if (previous?.kind === result?.kind && previous?.featureId === result?.featureId && previous?.index === result?.index && previous?.ringIndex === result?.ringIndex && previous?.partIndex === result?.partIndex
       && previous?.coordinate[0] === result?.coordinate[0] && previous?.coordinate[1] === result?.coordinate[1]) return;
     this.events.emit('snap', () => result ? structuredClone(result) : null);
   }
@@ -572,7 +572,7 @@ export class GeometryEditor {
       if (this.destroyed || this.translation.active) return;
       const split = this.session.getSplitPreview();
       if (this.session.state.mode === 'split-polygon') this.renderer.renderEditing(split ? this.session.state.selectedFeatureId : null);
-      this.renderer.renderPreview(this.session.getDraft(), this.cursor, this.session.state, this.snap, split, this.session.getDraftRings());
+      this.renderer.renderPreview(this.session.getDraft(), this.cursor, this.session.state, this.snap, split, this.session.getDraftRings(), this.session.getInactiveParts());
     });
   }
 

@@ -2,7 +2,7 @@ import { Map, setWorkerUrl, type GeoJSONSource, type StyleSpecification } from '
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import { GeometryEditor, type GeometryFeature, type GeometryType } from '../../src/index.js';
+import { GeometryEditor, type GeometryFeature, type DrawGeometryType } from '../../src/index.js';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 setWorkerUrl(workerUrl);
@@ -16,7 +16,7 @@ const click = (x: number, y: number) => userEvent.click(map.getCanvas(), { posit
 const sourceId = () => Object.keys(map.getStyle().sources).find((id) => id.endsWith('-features'))!;
 const renderedIds = () => map.queryRenderedFeatures({ layers: [sourceId()] }).map((feature) => JSON.parse(String(feature.id)) as string | number);
 
-async function draw(kind: GeometryType): Promise<GeometryFeature> {
+async function draw(kind: DrawGeometryType): Promise<GeometryFeature> {
   editor.draw(kind);
   if (kind === 'LineString') { await click(150, 100); await click(450, 100); }
   else { await click(100, 200); await click(400, 200); await click(250, 350); }
@@ -36,7 +36,7 @@ beforeEach(async () => {
 });
 afterEach(() => { vi.restoreAllMocks(); editor.destroy(); map.remove(); container.remove(); });
 
-it.each<GeometryType>(['LineString', 'Polygon'])('deletes selected %s once from data and rendering with one committed event', async (kind) => {
+it.each<DrawGeometryType>(['LineString', 'Polygon'])('deletes selected %s once from data and rendering with one committed event', async (kind) => {
   const removed = await draw(kind);
   const survivor = await draw(kind === 'LineString' ? 'Polygon' : 'LineString');
   editor.select(removed.id);

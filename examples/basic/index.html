@@ -9,7 +9,7 @@
   <body>
     <header class="header">
       <a class="brand" href="/" aria-label="geo home"><span class="brand-mark">g.</span>geo<span class="brand-divider"></span><span class="brand-caption">Drawing playground</span></a>
-      <span class="milestone"><span class="dot"></span> Milestone 14a <span class="milestone-label">/ Polygon holes</span></span>
+      <span class="milestone"><span class="dot"></span> Milestone 14b <span class="milestone-label">/ Multipart geometry</span></span>
     </header>
     <main class="workspace">
       <aside class="sidebar" aria-label="Drawing tools">
@@ -43,6 +43,9 @@
         <section id="selection" class="selection-card" aria-label="Selected geometry" hidden>
           <div><strong id="selection-type"></strong><span id="selection-detail"></span></div>
           <button id="split-selected" class="button secondary" disabled>Split polygon</button>
+          <label id="part-control" hidden>Part to edit
+            <select id="part-index" aria-label="Part to edit"><option value="0">Part 1</option></select>
+          </label>
           <label id="ring-control" hidden>Ring to edit
             <select id="ring-index" aria-label="Ring to edit"><option value="0">Outer boundary</option></select>
           </label>
@@ -71,7 +74,8 @@
           <div class="section-heading"><h2>YOUR GEOMETRY</h2><span id="feature-count" class="count">0 features</span></div>
           <label class="import-label" for="import-file">Import GeoJSON</label>
           <input id="import-file" class="import-file" type="file" accept=".geojson,.json,application/geo+json,application/json" aria-describedby="import-help" disabled />
-          <p id="import-help" class="import-help">Add lines and polygons from a file (up to 5 MB). Existing shapes stay on the map.</p>
+          <p id="import-help" class="import-help">Add lines and polygons, including multipart features, from a file (up to 5 MB). Existing shapes stay on the map.</p>
+          <p class="import-help"><a href="./multipart.geojson" download>Download a multipart example</a> to try with Import GeoJSON.</p>
           <p id="import-status" class="import-status" role="status" hidden></p>
           <button id="export" class="button export" disabled>Export GeoJSON <span aria-hidden="true">↗</span></button>
           <details><summary>Inspect GeoJSON <span>{ }</span></summary><textarea id="output" aria-label="GeoJSON output" readonly spellcheck="false">{"type":"FeatureCollection","features":[]}</textarea></details>

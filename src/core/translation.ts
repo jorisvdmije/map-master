@@ -1,3 +1,4 @@
+import { mapGeometry, withGeometry } from './geometry.js';
 import type { Coordinate, GeometryFeature } from './types.js';
 
 /** Translate from an immutable gesture baseline, never from the last preview.
@@ -16,7 +17,5 @@ export function translateFeatures(features: readonly GeometryFeature[], delta: C
     }
     return next;
   };
-  return features.map((feature): GeometryFeature => feature.geometry.type === 'Polygon'
-    ? { ...feature, geometry: { type: 'Polygon', coordinates: feature.geometry.coordinates.map((ring) => ring.map(move)) } }
-    : { ...feature, geometry: { type: 'LineString', coordinates: feature.geometry.coordinates.map(move) } });
+  return features.map((feature) => withGeometry(feature, mapGeometry(feature.geometry, move)));
 }

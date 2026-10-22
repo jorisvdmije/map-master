@@ -25,8 +25,23 @@ export interface PolygonFeature {
   properties: FeatureProperties;
 }
 
-export type GeometryType = 'LineString' | 'Polygon';
-export type GeometryFeature = LineFeature | PolygonFeature;
+export interface MultiLineFeature {
+  type: 'Feature';
+  id: FeatureId;
+  geometry: { type: 'MultiLineString'; coordinates: Coordinate[][] };
+  properties: FeatureProperties;
+}
+
+export interface MultiPolygonFeature {
+  type: 'Feature';
+  id: FeatureId;
+  geometry: { type: 'MultiPolygon'; coordinates: Coordinate[][][] };
+  properties: FeatureProperties;
+}
+
+export type DrawGeometryType = 'LineString' | 'Polygon';
+export type GeometryType = DrawGeometryType | 'MultiLineString' | 'MultiPolygon';
+export type GeometryFeature = LineFeature | PolygonFeature | MultiLineFeature | MultiPolygonFeature;
 
 export interface GeometryFeatureCollection {
   type: 'FeatureCollection';
@@ -35,7 +50,7 @@ export interface GeometryFeatureCollection {
 
 export type ValidationError = 'too-few-vertices' | 'duplicate-vertex'
   | 'zero-area' | 'self-intersection' | 'antimeridian-crossing'
-  | 'ring-intersection' | 'hole-outside' | 'nested-holes';
+  | 'ring-intersection' | 'hole-outside' | 'nested-holes' | 'part-intersection' | 'part-overlap';
 
 export type SplitError = 'split-too-few-points' | 'split-self-intersection' | 'split-antimeridian'
   | 'split-hole-crossing' | 'split-boundary-touch' | 'split-endpoints-inside' | 'split-crossing-count' | 'split-invalid-result';
@@ -59,6 +74,8 @@ export interface SnapResult {
   index: number;
   /** Polygon ring index (0 = exterior); absent for lines and closure targets. */
   ringIndex?: number;
+  /** Multipart component index; absent for simple geometries and closure targets. */
+  partIndex?: number;
   coordinate: Coordinate;
   distance: number;
 }
@@ -105,6 +122,8 @@ export interface EditorState {
   selectedVertexIndex: number | null;
   /** Active polygon ring while editing/drawing a hole; otherwise null. */
   activeRingIndex: number | null;
+  /** Component being edited (0 for simple geometries); null outside editing/hole drawing. */
+  activePartIndex: number | null;
   /** Increases on committed creation, deletion, changed edits, nonempty imports, and successful undo/redo. */
   dataRevision: number;
   canFinish: boolean;

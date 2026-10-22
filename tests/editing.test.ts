@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DrawingSession } from '../src/core/drawing-session.js';
-import type { Coordinate, GeometryType } from '../src/core/types.js';
+import type { Coordinate, DrawGeometryType } from '../src/core/types.js';
 
-function fixture(kind: GeometryType): DrawingSession {
+function fixture(kind: DrawGeometryType): DrawingSession {
   let id = 0;
   const session = new DrawingSession(() => `feature-${++id}`);
   session.start(kind);
@@ -13,7 +13,7 @@ function fixture(kind: GeometryType): DrawingSession {
 }
 
 describe('vertex edit transactions', () => {
-  it.each<GeometryType>(['LineString', 'Polygon'])('keeps a %s edit separate until saving with its original ID', (kind) => {
+  it.each<DrawGeometryType>(['LineString', 'Polygon'])('keeps a %s edit separate until saving with its original ID', (kind) => {
     const session = fixture(kind);
     const original = session.exportGeoJSON();
     expect(session.editSelected()).toBe(true);
@@ -86,7 +86,7 @@ describe('vertex edit transactions', () => {
     expect(polygon.finish()).toBeNull();
   });
 
-  it.each<GeometryType>(['LineString', 'Polygon'])('inserts into %s, permits removing a corner, and preserves minimum cardinality', (kind) => {
+  it.each<DrawGeometryType>(['LineString', 'Polygon'])('inserts into %s, permits removing a corner, and preserves minimum cardinality', (kind) => {
     const session = fixture(kind); session.editSelected();
     const minimum = kind === 'Polygon' ? 3 : 2;
     const before = session.state.vertexCount;

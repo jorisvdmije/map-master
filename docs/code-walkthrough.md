@@ -16,6 +16,7 @@ src/
     geojson-import.ts        Validate/copy entire import batches and JSON properties
     polygon.ts               Ring validity, closure, exterior winding
     split-polygon.ts         Restricted two-crossing splitter and result validation
+    geometry.ts              Component views/replacement and coordinate mapping
     snapping.ts              Projected candidate index, nearest vertex/edge policy
   maplibre/
     geometry-editor.ts       Public API and coordination between core, input and rendering
@@ -273,4 +274,29 @@ active ring. The demo owns the ring selector and tool labels.
 `SnapIndex` includes all rings and reports ring indices for polygon candidates.
 `splitPolygonRings` wraps the existing exterior splitter, assigns untouched holes
 to their result, rejects intersected holes and chooses the retained ID by filled
-planar area. Multipart support remains a separate next step.
+planar area. Splitting multipart features remains unsupported.
+
+
+## Multipart components
+
+`geometry.ts` centralizes geometry traversal: component views, replacing one
+component, mapping every position, and building correctly typed features. These
+helpers keep copy/translation/duplication and snapping from assuming a fixed
+coordinate depth. Helpers returning component views share coordinates; only
+isolated snapshots may be mutated by callers.
+
+Import validates every component and normalizes its rings. `validateMultiPolygon`
+checks component boundaries and filled-area containment, allowing islands inside
+holes. Bounding boxes skip disjoint component comparisons; the exact predicates
+still check touching extents.
+
+The session keeps a simple line/ring draft plus `activePartIndex` and
+`activeRingIndex`. It replaces that component in a candidate geometry to validate
+and commit the whole feature. `getInactiveParts()` supplies independent preview
+snapshots for the other components while the committed version is hidden. Handles
+belong only to the active draft. No second feature store or per-part history is
+introduced. The renderer's normal GeoJSON sources handle multipart committed data.
+
+Snapping walks every component/ring and returns their indices. Selection and
+translation still use whole feature IDs. The demo owns the component selector and
+uses only public APIs; changing its selector does not mutate editor data.

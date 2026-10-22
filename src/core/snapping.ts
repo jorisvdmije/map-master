@@ -1,3 +1,4 @@
+import { geometryParts } from './geometry.js';
 import type { Coordinate, FeatureId, GeometryFeatureCollection, SnapResult, SnappingOptions } from './types.js';
 
 export interface ScreenPoint { x: number; y: number }
@@ -7,6 +8,7 @@ interface Candidate extends Bounds {
   featureId: FeatureId;
   index: number;
   ringIndex?: number;
+  partIndex?: number;
   order: number;
   a: ScreenPoint;
   b: ScreenPoint;
@@ -48,6 +50,13 @@ function intersects(a: Bounds, b: Bounds): boolean {
   return a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY;
 }
 
+/** Feature order is handled first; component, ring and vertex indices break remaining ties. */
+function earlierAddress(a: Candidate, b: Candidate): boolean {
+  return (a.partIndex ?? 0) - (b.partIndex ?? 0) < 0
+    || a.partIndex === b.partIndex && ((a.ringIndex ?? 0) - (b.ringIndex ?? 0) < 0
+      || a.ringIndex === b.ringIndex && a.index < b.index);
+}
+
 /** Projected bounds hierarchy: exact pixel distances, no browser/map dependencies. */
 export class SnapIndex {
   private readonly root: Node;
@@ -55,21 +64,25 @@ export class SnapIndex {
   constructor(collection: GeometryFeatureCollection, project: (coordinate: Coordinate) => ScreenPoint) {
     const items: Candidate[] = [];
     for (const [order, feature] of collection.features.entries()) {
-      const polygon = feature.geometry.type === 'Polygon';
-      const rings = feature.geometry.type === 'Polygon' ? feature.geometry.coordinates.map((ring) => ring.slice(0, -1)) : [feature.geometry.coordinates];
-      for (const [ringIndex, coordinates] of rings.entries()) {
-        const points = coordinates.map(project);
-        for (let index = 0; index < coordinates.length; index++) {
-          const a = points[index]!; const start = coordinates[index]!;
-          if (!Number.isFinite(a.x) || !Number.isFinite(a.y)) continue;
-          items.push({ kind: 'vertex', featureId: feature.id, ...(polygon ? { ringIndex } : {}), index, order, a, b: a, start: [...start], end: [...start],
-            minX: a.x, minY: a.y, maxX: a.x, maxY: a.y });
-          if (!polygon && index === coordinates.length - 1) continue;
-          const next = (index + 1) % coordinates.length;
-          const b = points[next]!;
-          if (!Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
-          items.push({ kind: 'edge', featureId: feature.id, ...(polygon ? { ringIndex } : {}), index, order, a, b, start: [...start], end: [...coordinates[next]!],
-            minX: Math.min(a.x, b.x), minY: Math.min(a.y, b.y), maxX: Math.max(a.x, b.x), maxY: Math.max(a.y, b.y) });
+      const multipart = feature.geometry.type === 'MultiPolygon' || feature.geometry.type === 'MultiLineString';
+      for (const [partIndex, part] of geometryParts(feature.geometry).entries()) {
+        const polygon = part.type === 'Polygon';
+        const rings = part.type === 'Polygon' ? part.coordinates.map((ring) => ring.slice(0, -1)) : [part.coordinates];
+        for (const [ringIndex, coordinates] of rings.entries()) {
+          const address = { ...(multipart ? { partIndex } : {}), ...(polygon ? { ringIndex } : {}) };
+          const points = coordinates.map(project);
+          for (let index = 0; index < coordinates.length; index++) {
+            const a = points[index]!; const start = coordinates[index]!;
+            if (!Number.isFinite(a.x) || !Number.isFinite(a.y)) continue;
+            items.push({ kind: 'vertex', featureId: feature.id, ...address, index, order, a, b: a, start: [...start], end: [...start],
+              minX: a.x, minY: a.y, maxX: a.x, maxY: a.y });
+            if (!polygon && index === coordinates.length - 1) continue;
+            const next = (index + 1) % coordinates.length;
+            const b = points[next]!;
+            if (!Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
+            items.push({ kind: 'edge', featureId: feature.id, ...address, index, order, a, b, start: [...start], end: [...coordinates[next]!],
+              minX: Math.min(a.x, b.x), minY: Math.min(a.y, b.y), maxX: Math.max(a.x, b.x), maxY: Math.max(a.y, b.y) });
+          }
         }
       }
     }
@@ -100,8 +113,7 @@ export class SnapIndex {
         const previous = best?.candidate.kind === 'vertex' ? 0 : 1;
         if (!best || priority < previous || priority === previous && (pixels < best.distance
           || pixels === best.distance && (candidate.order > best.candidate.order
-          || candidate.order === best.candidate.order && ((candidate.ringIndex ?? 0) < (best.candidate.ringIndex ?? 0)
-            || candidate.ringIndex === best.candidate.ringIndex && candidate.index < best.candidate.index)))) {
+          || candidate.order === best.candidate.order && earlierAddress(candidate, best.candidate)))) {
           best = { candidate, point: nearest, t, distance: pixels };
         }
       }
@@ -112,6 +124,6 @@ export class SnapIndex {
     // Preserve source coordinates exactly at vertices/endpoints; inverse projection
     // is only used for interior edge points along the displayed straight segment.
     const coordinate = t === 0 ? [...candidate.start] as Coordinate : t === 1 ? [...candidate.end] as Coordinate : unproject(best.point);
-    return { kind: candidate.kind, featureId: candidate.featureId, index: candidate.index, ...(candidate.ringIndex !== undefined ? { ringIndex: candidate.ringIndex } : {}), coordinate, distance: best.distance };
+    return { kind: candidate.kind, featureId: candidate.featureId, index: candidate.index, ...(candidate.ringIndex !== undefined ? { ringIndex: candidate.ringIndex } : {}), ...(candidate.partIndex !== undefined ? { partIndex: candidate.partIndex } : {}), coordinate, distance: best.distance };
   }
 }

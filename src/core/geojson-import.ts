@@ -1,4 +1,5 @@
-import { closePolygon, samePosition, validatePolygon, validatePolygonRings } from './polygon.js';
+import { withGeometry } from './geometry.js';
+import { closePolygon, samePosition, validatePolygon, validatePolygonRings, validateMultiPolygon } from './polygon.js';
 import type { Coordinate, FeatureId, FeatureProperties, GeometryFeature, JsonValue, ValidationError } from './types.js';
 
 export type ImportErrorCode = 'invalid-geojson' | 'unsupported-geometry' | 'invalid-coordinate'
@@ -60,23 +61,20 @@ function position(value: unknown, path: string): Coordinate {
   return [lng, lat];
 }
 
-function geometry(value: unknown, path: string): GeometryFeature['geometry'] {
-  if (!record(value)) return fail('unsupported-geometry', path, 'Expected a LineString or Polygon geometry.');
-  if ('crs' in value) fail('unsupported-crs', path, 'Use WGS84 longitude/latitude; legacy CRS declarations are not supported.');
-  const coordinatesPath = `${path}.coordinates`;
-  if (value.type === 'LineString') {
-    const coordinates = Array.from(array(value.coordinates, coordinatesPath), (point, i) => position(point, `${coordinatesPath}[${i}]`));
-    if (coordinates.length < 2) fail('too-few-vertices', coordinatesPath, 'A line needs at least two points.');
-    if (coordinates.some((point, i) => i > 0 && samePosition(point, coordinates[i - 1]!))) {
-      fail('duplicate-vertex', coordinatesPath, 'Consecutive line points must differ.');
-    }
-    return { type: 'LineString', coordinates };
+function lineCoordinates(value: unknown, path: string): Coordinate[] {
+  const coordinates = Array.from(array(value, path), (point, i) => position(point, `${path}[${i}]`));
+  if (coordinates.length < 2) fail('too-few-vertices', path, 'A line needs at least two points.');
+  if (coordinates.some((point, i) => i > 0 && samePosition(point, coordinates[i - 1]!))) {
+    fail('duplicate-vertex', path, 'Consecutive line points must differ.');
   }
-  if (value.type !== 'Polygon') return fail('unsupported-geometry', path, 'Only LineString and Polygon are supported.');
-  const inputRings = array(value.coordinates, coordinatesPath);
-  if (inputRings.length === 0) fail('too-few-vertices', coordinatesPath, 'Expected an outer ring.');
+  return coordinates;
+}
+
+function polygonCoordinates(value: unknown, path: string): Coordinate[][] {
+  const inputRings = array(value, path);
+  if (inputRings.length === 0) fail('too-few-vertices', path, 'Expected an outer ring.');
   const rings = Array.from(inputRings, (value, index) => {
-    const ringPath = `${coordinatesPath}[${index}]`;
+    const ringPath = `${path}[${index}]`;
     const ring = Array.from(array(value, ringPath), (point, i) => position(point, `${ringPath}[${i}]`));
     if (ring.length < 4) fail('too-few-vertices', ringPath, 'A polygon ring needs three corners plus its closing position.');
     if (!samePosition(ring[0]!, ring.at(-1)!)) fail('unclosed-ring', ringPath, 'The first and last position must match.');
@@ -85,8 +83,28 @@ function geometry(value: unknown, path: string): GeometryFeature['geometry'] {
     return closePolygon(ring, index > 0);
   });
   const error = rings.length > 1 ? validatePolygonRings(rings) : null;
-  if (error) fail(error, coordinatesPath, `Invalid polygon: ${error}.`);
-  return { type: 'Polygon', coordinates: rings };
+  if (error) fail(error, path, `Invalid polygon: ${error}.`);
+  return rings;
+}
+
+function geometry(value: unknown, path: string): GeometryFeature['geometry'] {
+  if (!record(value)) return fail('unsupported-geometry', path, 'Expected a line or polygon geometry.');
+  if ('crs' in value) fail('unsupported-crs', path, 'Use WGS84 longitude/latitude; legacy CRS declarations are not supported.');
+  const coordinatesPath = `${path}.coordinates`;
+  if (value.type === 'LineString') return { type: value.type, coordinates: lineCoordinates(value.coordinates, coordinatesPath) };
+  if (value.type === 'Polygon') return { type: value.type, coordinates: polygonCoordinates(value.coordinates, coordinatesPath) };
+  if (value.type !== 'MultiLineString' && value.type !== 'MultiPolygon') {
+    return fail('unsupported-geometry', path, 'Only LineString, Polygon, MultiLineString and MultiPolygon are supported.');
+  }
+  const parts = array(value.coordinates, coordinatesPath);
+  if (parts.length === 0) fail('too-few-vertices', coordinatesPath, 'Expected at least one component.');
+  if (value.type === 'MultiLineString') {
+    return { type: value.type, coordinates: Array.from(parts, (part, i) => lineCoordinates(part, `${coordinatesPath}[${i}]`)) };
+  }
+  const coordinates = Array.from(parts, (part, i) => polygonCoordinates(part, `${coordinatesPath}[${i}]`));
+  const error = validateMultiPolygon(coordinates);
+  if (error) fail(error, coordinatesPath, `Invalid multipolygon: ${error}.`);
+  return { type: value.type, coordinates };
 }
 
 /** Validate and copy the whole batch before the caller commits any feature. */
@@ -120,8 +138,6 @@ export function prepareImport(input: unknown, hasId: (id: FeatureId) => boolean,
       if (!ids.has(candidate) && !hasId(candidate)) { id = candidate; ids.add(id); }
     }
     if (id === undefined) return fail('duplicate-id', '$', 'Could not allocate a unique feature ID.');
-    const common = { type: 'Feature' as const, id, properties: feature.properties };
-    return feature.geometry.type === 'LineString'
-      ? { ...common, geometry: feature.geometry } : { ...common, geometry: feature.geometry };
+    return withGeometry({ id, properties: feature.properties }, feature.geometry);
   });
 }

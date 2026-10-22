@@ -142,3 +142,26 @@ export function validatePolygonRings(rings: readonly Coordinate[][]): Validation
   }
   return null;
 }
+
+/** Strict multipart subset: disjoint filled areas and no touching boundaries.
+ * Islands strictly inside another component's hole are allowed.
+ */
+export function validateMultiPolygon(parts: readonly Coordinate[][][]): ValidationError | null {
+  if (parts.length === 0) return 'too-few-vertices';
+  for (const part of parts) {
+    const error = validatePolygonRings(part);
+    if (error) return error;
+  }
+  const bounds = parts.map((part) => ringBounds(part[0]!));
+  const inside = (point: Coordinate, rings: Coordinate[][]): boolean =>
+    insideRing(point, rings[0]!) && !rings.slice(1).some((hole) => insideRing(point, hole));
+  for (let i = 0; i < parts.length; i++) {
+    for (let j = 0; j < i; j++) {
+      if (!overlap(bounds[i]!, bounds[j]!)) continue;
+      const a = parts[i]!; const b = parts[j]!;
+      if (a.some((ring) => b.some((other) => ringsIntersect(ring, other)))) return 'part-intersection';
+      if (inside(a[0]![0]!, b) || inside(b[0]![0]!, a)) return 'part-overlap';
+    }
+  }
+  return null;
+}

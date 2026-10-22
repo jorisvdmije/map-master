@@ -398,3 +398,31 @@ represent densely interleaved bounds or very complex rings. Whole-polygon
 validation runs after vertex changes, not pointer-only drawing previews. Rendering,
 MapLibre worker/GPU work and host callbacks are excluded. Previewing an active
 ring still copies/renders all rings of its polygon, preserving the visible holes.
+
+## Multipart geometries
+
+Run `npm run benchmark:multipart`. One MultiPolygon contains 1, 25, 100 or 400
+separated square components, each with one square hole. Five warmups precede 30
+samples. Timed operations are complete import, moving/saving one vertex in the
+last component's hole, and constructing the snapping index (fixed projection,
+100 pixels per degree). Setup, selection, entering editing, export, Undo and snap
+query assertions are outside timing. Assertions check a complete saved edit,
+exact Undo restoration and the last component/ring snap address.
+
+Local Node.js v22.23.1, macOS arm64, Apple M2 Pro (2026-10-22):
+
+| Parts | Import median / p95 ms | Move/save median / p95 ms | Snap index median / p95 ms |
+| --- | --- | --- | --- |
+| 1 | 0.037 / 0.156 | 0.023 / 0.141 | 0.022 / 0.030 |
+| 25 | 0.372 / 0.621 | 0.136 / 0.316 | 0.548 / 0.770 |
+| 100 | 0.836 / 1.284 | 0.454 / 0.542 | 2.461 / 3.080 |
+| 400 | 4.539 / 7.135 | 2.149 / 2.555 | 5.879 / 7.096 |
+
+Component bounds skip exact pairwise comparisons for separated extents. The
+component-pair loop remains quadratic, and overlapping bounds or complex rings
+can require quadratic work in total vertices. This fixture measures separated
+squares, not arbitrary high-complexity topology. Full feature validation runs on
+vertex changes; preview frames copy/render all components of the active feature
+but do not rerun topology checks. Only the active ring/line receives handles.
+MapLibre workers/GPU, browser rendering, pointer-to-frame latency and host callbacks
+are excluded. These core measurements are not a browser interaction budget.

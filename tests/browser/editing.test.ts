@@ -2,7 +2,7 @@ import { Map, setWorkerUrl, type GeoJSONSource, type StyleSpecification } from '
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import { GeometryEditor, type GeometryFeature, type GeometryType } from '../../src/index.js';
+import { GeometryEditor, type GeometryFeature, type DrawGeometryType } from '../../src/index.js';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 setWorkerUrl(workerUrl);
@@ -17,7 +17,7 @@ const sourceId = () => Object.keys(map.getStyle().sources).find((id) => id.endsW
 const drag = (x: number, y: number, toX: number, toY: number) => userEvent.dragAndDrop(map.getCanvas(), map.getCanvas(), {
   sourcePosition: { x, y }, targetPosition: { x: toX, y: toY },
 });
-async function draw(kind: GeometryType): Promise<GeometryFeature> {
+async function draw(kind: DrawGeometryType): Promise<GeometryFeature> {
   editor.draw(kind);
   const points = kind === 'LineString' ? [[100, 100], [300, 100], [500, 100]]
     : [[100, 150], [450, 150], [450, 350], [100, 350]];

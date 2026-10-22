@@ -14,6 +14,7 @@ features as one validated batch and one undo action.
 [Split Features](docs/splitting.md) divides a selected polygon into two independent features.
 [Group movement](docs/geometry-editor.md#move-selected-shapes) previews a selected group and records the move as one undoable action.
 [Duplication](docs/geometry-editor.md#duplicate-selected-shapes) creates independent copies with new IDs and one Undo for the whole group.
+[Multipart geometry](docs/multipart.md) supports imported or transaction-created MultiLineString/MultiPolygon features, with component/ring editing and whole-feature history.
 The API is experimental. Code and contributor documentation use English.
 
 ## Try the demo
@@ -27,6 +28,7 @@ Open <http://localhost:5173>. Choose **Draw a line**, click at least two differe
 positions, and press **Enter** or **Finish**. Press **Escape** or **Cancel** to
 discard the current draft. Choose **Polygon** for an outline with at least three
 corners; Enter, Finish, or clicking the first corner closes a valid ring.
+For multipart examples, download the sample in the data panel and import it. Select a feature and use **Part to edit** to choose a component.
 Select a polygon and choose **Draw a hole** to create an interior ring; choose a ring to edit or delete it.
 Choose **Duplicate** to copy the selection with a small offset; the copies become selected.
 Drag any selected shape to move the selection together; release saves, Escape cancels, and Undo restores the whole group.
@@ -96,6 +98,7 @@ npm run check
 | `npm test` | Run core behavior tests and test the packed library in an isolated consumer. |
 | `npm run test:browser` | Build the package and run real Chromium interaction and demo tests. |
 | `npm run build:demo` | Build the library and a deployable demo in `examples/basic/dist/`. |
+| `npm run benchmark:multipart` | Measure import, component editing and snapping index construction for multipart polygons. |
 | `npm run benchmark:holes` | Measure import and ring edits on polygons with fixed hole counts. |
 | `npm run benchmark:polygon` | Measure validation on fixed polygon fixtures; see [baseline and limits](docs/performance.md). |
 | `npm run benchmark:duplication` | Measure group duplication and exact undo/redo on fixed datasets. |
