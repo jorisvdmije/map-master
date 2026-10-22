@@ -91,6 +91,10 @@ The runtime dependency `robust-predicates` (3.0.3, Unlicense) supplies robust
 orientation predicates for polygon validation and winding. Its purpose and the
 validation policy are described in the [GeometryEditor guide](docs/geometry-editor.md).
 
+The runtime dependency `polygon-clipping` (0.15.7, MIT) supplies polygon overlay
+behind `core/union.ts`. It adds `splaytree` (MIT) and reuses `robust-predicates`.
+Results must pass our stricter topology validator; see the [union contract](docs/union.md).
+
 ## Public API and releases
 
 Start with prereleases and explicitly document that the API is experimental.

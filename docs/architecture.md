@@ -2,7 +2,7 @@
 
 The library has three boundaries: the geometry/editing core, the MapLibre adapter,
 and the host application. Drawing, vertex editing, selection, import, transactions,
-undo/redo, splitting, snapping, group translation, duplication, polygon holes and multipart geometry use these same boundaries.
+undo/redo, splitting, snapping, group translation, duplication, polygon holes, multipart geometry and polygon union use these same boundaries.
 The [roadmap](roadmap.md) separates implemented capabilities from planned work.
 See the [GeometryEditor guide](geometry-editor.md) for the current public API and
 the [code walkthrough](code-walkthrough.md) for the implemented structure.

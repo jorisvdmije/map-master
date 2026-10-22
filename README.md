@@ -11,6 +11,7 @@ preview, validate, finish or cancel, select/deselect, delete, move/insert/remove
 as GeoJSON through one GeometryEditor API.
 [Atomic transactions](docs/transactions.md) can create, update, and delete multiple
 features as one validated batch and one undo action.
+[Polygon union](docs/union.md) previews and merges selected polygons into one feature with atomic Undo.
 [Split Features](docs/splitting.md) divides a selected polygon into two independent features.
 [Group movement](docs/geometry-editor.md#move-selected-shapes) previews a selected group and records the move as one undoable action.
 [Duplication](docs/geometry-editor.md#duplicate-selected-shapes) creates independent copies with new IDs and one Undo for the whole group.
@@ -49,6 +50,10 @@ as one undoable action. Edit vertices and Split polygon require one selected sha
 See the [selection API](docs/geometry-editor.md#selection).
 To remove the selected shape, use **Delete** or press Delete/Backspace with map
 focus. Remaining geometry stays intact. Undo restores a deleted shape while its action remains in history.
+
+Select two or more polygons with **Shift+click**, choose **Merge polygons**, review
+the preview, then **Apply merge**. Escape cancels; Undo restores every original.
+The first selected feature supplies the retained ID and properties.
 
 Select a polygon and choose **Split polygon**. Place an outside-to-outside cutting
 line across two edges, review the two colored parts, then press Enter or
@@ -98,6 +103,7 @@ npm run check
 | `npm test` | Run core behavior tests and test the packed library in an isolated consumer. |
 | `npm run test:browser` | Build the package and run real Chromium interaction and demo tests. |
 | `npm run build:demo` | Build the library and a deployable demo in `examples/basic/dist/`. |
+| `npm run benchmark:union` | Measure polygon union preview, atomic commit and Undo on overlapping/disjoint selections. |
 | `npm run benchmark:multipart` | Measure import, component editing and snapping index construction for multipart polygons. |
 | `npm run benchmark:holes` | Measure import and ring edits on polygons with fixed hole counts. |
 | `npm run benchmark:polygon` | Measure validation on fixed polygon fixtures; see [baseline and limits](docs/performance.md). |

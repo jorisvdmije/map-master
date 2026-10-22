@@ -50,6 +50,15 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
     tool.cancel();
   }
   void [splitPreview, splitError];
+  const merging: boolean = tool.unionSelection();
+  const unionPreview: editor.UnionPreview | null = tool.getUnionPreview();
+  const unionError: editor.UnionError | null = tool.getState().unionError;
+  if (merging) {
+    const merged: editor.TransactionEvent | null = tool.finishUnion();
+    void merged;
+    tool.cancel();
+  }
+  void [unionPreview, unionError];
   const selected: editor.GeometryFeature | null = tool.getSelected();
   void selected;
   tool.editSelected();

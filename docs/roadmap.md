@@ -1,6 +1,6 @@
 # Incremental roadmap
 
-Steps 0–14b have been implemented locally; subsequent steps are planned. The
+Steps 0–15a have been implemented locally; subsequent steps are planned. The
 workflow still needs a GitHub remote to run in hosted CI. Each row describes
 a reviewable change or a milestone that can be split further when needed. Create
 each branch from updated `main` after its dependencies have merged.
@@ -25,7 +25,8 @@ each branch from updated `main` after its dependencies have merged.
 | 13c | `feat/duplicate-features` | Implemented: duplicate single/mixed selections with reserved fresh IDs, isolated properties, optional degree offset, selection of copies, atomic validation/history, demo/core/browser/package tests and benchmark. |
 | 14a | `feat/polygon-holes` | Implemented: strict ring topology, winding normalization, hole drawing/deletion, active-ring editing, import/export, ring-aware snapping, split preservation, history, demo and tests. |
 | 14b | `feat/multipart` | Implemented: MultiLineString/MultiPolygon import and transactions, strict component topology, component/ring editing, hole commands, whole-feature selection/translation/duplication/history, snapping, demo, tests and benchmark. See [multipart](multipart.md). Part construction tools and multipart splitting remain planned. |
-| 15 | Separate merge/difference/intersection branches | Planned: preview and atomic overlay operations after holes and multipart support. |
+| 15a | `feat/union` | Implemented: polygon union with selection-order identity, holes/multipart results, cancellable preview, one transaction and exact Undo/Redo, demo, core/browser/package tests and benchmark. See [union](union.md). |
+| 15b–c | Separate difference/intersection branches | Planned: preview and atomic difference/intersection operations using the overlay boundary. |
 | 16 | Separate reshape/tracing/topology branches | Planned: reshape boundaries, trace existing edges, then edit shared boundaries together. |
 | 17 | Separate precision/geometry-operation branches | Planned: rotate, scale, constraints, buffer/offset, simplify and trim/extend with explicit measurement units. |
 

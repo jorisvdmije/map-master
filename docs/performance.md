@@ -426,3 +426,37 @@ vertex changes; preview frames copy/render all components of the active feature
 but do not rerun topology checks. Only the active ring/line receives handles.
 MapLibre workers/GPU, browser rendering, pointer-to-frame latency and host callbacks
 are excluded. These core measurements are not a browser interaction budget.
+
+## Polygon union
+
+`npm run benchmark:union` measures the complete session preview (including result
+validation), transaction confirmation, and Undo. Fixed datasets contain 2, 25, 100
+or 400 axis-aligned squares, each with four unique vertices. Grid spacing is 0.1°
+for overlapping 0.15° squares and 0.2° for disjoint squares. There are at most 20
+columns. Import/selection and export assertions are outside timing. Each dataset
+uses five warmups and 30 measured iterations with history limit 1; every iteration
+asserts exact export restoration after Undo and Redo.
+
+Local baseline: Node v22.23.1, macOS arm64, Apple M2 Pro. Values are median / p95
+milliseconds. These are core measurements, excluding MapLibre uploads, rendering
+and input latency.
+
+| Layout | Features | Preview | Commit | Undo |
+| --- | ---: | ---: | ---: | ---: |
+| Overlapping | 2 | 0.096 / 0.288 | 0.017 / 0.051 | 0.004 / 0.008 |
+| Overlapping | 25 | 0.592 / 1.051 | 0.049 / 0.077 | 0.017 / 0.030 |
+| Overlapping | 100 | 1.861 / 2.278 | 0.112 / 0.448 | 0.047 / 0.072 |
+| Overlapping | 400 | 8.999 / 10.692 | 0.301 / 0.512 | 0.149 / 0.346 |
+| Disjoint | 2 | 0.017 / 0.024 | 0.018 / 0.026 | 0.002 / 0.006 |
+| Disjoint | 25 | 0.182 / 0.377 | 0.121 / 0.171 | 0.016 / 0.030 |
+| Disjoint | 100 | 0.537 / 0.857 | 0.429 / 0.634 | 0.045 / 0.056 |
+| Disjoint | 400 | 3.040 / 3.593 | 2.234 / 2.495 | 0.199 / 0.700 |
+
+The union calculation runs synchronously once at tool entry. It is not repeated on
+pointer movement, camera movement or state reads. Result snapshots and rendering
+still cost O(result vertices). Confirmation revalidates the output and records one
+history action. Existing polygon self-intersection checks are quadratic, and
+multipart validation compares component pairs (with bounds rejection). This simple
+square benchmark is not a bound for complex boundaries, many intersections or
+poorly conditioned coordinates; large overlays may block the UI. Workers, precision
+grids and explicit workload budgets remain future work.

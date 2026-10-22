@@ -15,6 +15,7 @@ src/
     history.ts               Bounded undo/redo stacks of committed feature changes
     geojson-import.ts        Validate/copy entire import batches and JSON properties
     polygon.ts               Ring validity, closure, exterior winding
+    union.ts                 Polygon overlay adapter and strict result validation
     split-polygon.ts         Restricted two-crossing splitter and result validation
     geometry.ts              Component views/replacement and coordinate mapping
     snapping.ts              Projected candidate index, nearest vertex/edge policy
@@ -300,3 +301,18 @@ introduced. The renderer's normal GeoJSON sources handle multipart committed dat
 Snapping walks every component/ring and returns their indices. Selection and
 translation still use whole feature IDs. The demo owns the component selector and
 uses only public APIs; changing its selector does not mutate editor data.
+
+## Polygon union
+
+`unionSelection()` passes the complete polygon selection to `core/union.ts`, which
+wraps polygon-clipping and validates its result using the existing strict multipart
+policy. The session caches that geometry (or a diagnostic) in `union-polygons` mode.
+The renderer hides all selected inputs only when the preview is valid and uploads
+the proposed Polygon/MultiPolygon to the draft source. Camera changes do not repeat
+the overlay calculation; style replacement reconstructs the preview.
+
+`finishUnion()` prepares an update for the first selected ID and deletes the other
+inputs, then commits once through the transaction boundary. Cancel discards only
+the preview. `finish()` routes to this operation for Enter and the demo button;
+`onTransaction` and `onHistory` preserve the normal batch contract. See [union](union.md)
+for property ownership, unsupported topology and numerical limits.

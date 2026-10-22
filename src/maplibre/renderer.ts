@@ -1,7 +1,7 @@
 import type { GeometryPart } from '../core/geometry.js';
 import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
 import { samePosition } from '../core/polygon.js';
-import type { Coordinate, SplitPreview, SnapResult, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
+import type { Coordinate, UnionPreview, SplitPreview, SnapResult, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
 import { vertexHandles } from './vertex-handles.js';
 
 const emptyCollection = () => ({ type: 'FeatureCollection' as const, features: [] });
@@ -116,6 +116,12 @@ export class MapLibreRenderer {
   renderTranslation(features: GeometryFeatureCollection['features']): void {
     void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection',
       features: features.map((feature) => ({ type: 'Feature', properties: {}, geometry: feature.geometry })),
+    });
+  }
+
+  renderUnion(geometry: UnionPreview | null): void {
+    void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection',
+      features: geometry ? [{ type: 'Feature', properties: {}, geometry }] : [],
     });
   }
 

@@ -59,6 +59,10 @@ export interface SplitPreview {
   created: PolygonFeature['geometry'];
 }
 
+/** Result geometry before confirmation; no new ID is allocated. */
+export type UnionPreview = PolygonFeature['geometry'] | MultiPolygonFeature['geometry'];
+export type UnionError = 'union-failed' | 'union-invalid-result';
+
 export interface SnappingOptions {
   enabled: boolean;
   /** Acquisition radius in CSS pixels, default 18, range (0, 100]. */
@@ -111,7 +115,7 @@ export interface HistoryEvent {
 }
 
 export interface EditorState {
-  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole';
+  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons';
   vertexCount: number;
   featureCount: number;
   /** The sole selected ID, or null for zero/multiple selections. */
@@ -134,4 +138,6 @@ export interface EditorState {
   validationError: ValidationError | null;
   /** Split diagnostics are separate from ordinary drawing validation. */
   splitError: SplitError | null;
+  /** Overlay calculation or strict result-topology failure; null outside union. */
+  unionError: UnionError | null;
 }

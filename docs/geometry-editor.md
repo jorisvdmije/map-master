@@ -46,7 +46,10 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `draw('LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
 | `finish()` | Commit a valid draft once, returning a `GeometryFeature`. An invalid/incomplete draft returns `null` and remains active. |
 | `cancel()` | Discard the draft or cancel an active selection rectangle or group drag. |
-| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`. |
+| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`. |
+| `unionSelection()` | Preview union of at least two selected polygon features; false for insufficient/mixed selection or an already active union. |
+| `getUnionPreview()` | Independent Polygon/MultiPolygon result geometry, or null. |
+| `finishUnion()` | Commit the retained feature and deletions as one transaction; null for invalid/inactive union. |
 | `splitSelected()` | Begin a cutting line on a selected simple Polygon; false with no Polygon, a multipart feature, or already splitting. |
 | `setSplitLine(coordinates)` / `removeSplitPoint()` | Replace the cut or remove its last point while splitting. |
 | `getSplitPreview()` | Independent retained/created Polygon geometries, or null. |
@@ -66,7 +69,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed lines and polygons. |
 | `importGeoJSON(input)` | Append a parsed Feature/FeatureCollection atomically; return an independent collection of imported features. Idle only. |
 | `applyTransaction({ create?, update?, delete? })` | Validate and commit a mixed batch atomically. Full features with explicit IDs; idle only. Return a TransactionEvent or null for no change. |
-| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed split, deleteSelection, group translation, duplication or hole deletion. Returns an unsubscribe function. |
+| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed split/union, deleteSelection, group translation, duplication or hole deletion. Returns an unsubscribe function. |
 | `onImport(listener)` | One notification per nonempty imported batch. Returns an unsubscribe function. |
 | `onUpdate(listener)` | One notification per changed saved edit. Returns an unsubscribe function. |
 | `undo()` / `redo()` | Reverse/replay one committed action; return true if applied, false if unavailable. Idle only. |
@@ -87,7 +90,7 @@ is a GeoJSON FeatureCollection containing all four geometry types. New drawings 
 string or numeric IDs and JSON properties (including null). Coordinates are
 `[longitude, latitude]`. Properties can be imported but there is no property-editing API yet.
 
-Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, and `split-polygon`. `validationError` is `null`
+Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, and `union-polygons`. `validationError` is `null`
 when idle or when the current draft is valid. Check `canFinish` to enable Finish;
 an idle editor cannot finish even though it has no validation error.
 
@@ -509,6 +512,18 @@ GeometryEditor; the earlier LineEditor remains a drawing compatibility facade.
 `selectedFeatureId` now use exported `FeatureId` (`string | number`). Properties
 now use exported `FeatureProperties` (a JSON object or null), with `JsonValue`
 for nested values. Update consumer annotations and handle null properties.
+
+## Polygon union
+
+Select at least two Polygon/MultiPolygon features and call `unionSelection()` to
+review their combined filled area. `finishUnion()` returns the complete transaction;
+`finish()` returns the retained feature. Cancel/Escape leaves every original intact.
+The first selected ID/properties survive; the other inputs are deleted. One Undo
+restores all original geometry and order. Unsupported output topology is reported
+through `unionError`. See the [union guide](union.md) for the complete contract.
+
+While reviewing a union, commands changing selection, tools, data or history throw.
+Consumers with exhaustive state switches must handle `union-polygons`.
 
 ## Splitting
 

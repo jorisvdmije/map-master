@@ -1,6 +1,6 @@
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { DrawingSession } from '../core/drawing-session.js';
-import type { Coordinate, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
+import type { Coordinate, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
 import { MapLibreSnapping } from './snapping.js';
 import type { ScreenPoint } from '../core/snapping.js';
@@ -181,6 +181,23 @@ export class GeometryEditor {
 
   getDraft(): Coordinate[] { return this.session.getDraft(); }
 
+  /** Preview the union of at least two selected Polygon/MultiPolygon features. */
+  unionSelection(): boolean {
+    this.assertAlive(); this.cancelIdleGestures();
+    if (!this.session.unionSelection()) return false;
+    this.enterInteraction('default'); this.schedulePreview(); return true;
+  }
+
+  getUnionPreview(): UnionPreview | null { return this.session.getUnionPreview(); }
+
+  finishUnion(): TransactionEvent | null {
+    this.assertAlive();
+    const event = this.session.finishUnion();
+    if (!event) return null;
+    this.leaveDrawing();
+    return this.publishTransaction(event);
+  }
+
   /** Start an outside-to-outside cutting line on the selected polygon (cuts must avoid holes). */
   splitSelected(): boolean {
     this.assertAlive();
@@ -301,6 +318,12 @@ export class GeometryEditor {
   /** Commit a valid draft; otherwise return null and keep drawing active. */
   finish(): GeometryFeature | null {
     this.assertAlive();
+    if (this.session.state.mode === 'union-polygons') {
+      // A contained/identical union can have only deletions in its change list.
+      const retained = this.session.getSelection()[0]!;
+      const event = this.finishUnion();
+      return event ? event.changes.find((change) => change.after?.id === retained.id)?.after ?? retained : null;
+    }
     if (this.session.state.mode === 'split-polygon') return this.finishSplit()?.changes[0]?.after ?? null;
     this.vertices.stop();
     const before = this.session.state;
@@ -404,7 +427,7 @@ export class GeometryEditor {
     const state = this.session.state;
     if (input.button !== 0
       || input.ctrlKey || input.metaKey || input.shiftKey || input.detail > 1) return;
-    if (state.mode.startsWith('edit-')) return;
+    if (state.mode.startsWith('edit-') || state.mode === 'union-polygons') return;
     if (state.mode === 'idle') {
       if (input.altKey) return;
       const id = this.renderer.pick(event.point);
@@ -510,9 +533,9 @@ export class GeometryEditor {
     return mode.startsWith('draw-') || mode === 'split-polygon';
   }
 
-  private enterInteraction(): void {
+  private enterInteraction(cursor = 'crosshair'): void {
     this.previousCursor = this.canvas.style.cursor;
-    this.canvas.style.cursor = 'crosshair';
+    this.canvas.style.cursor = cursor;
     this.restoreDoubleClickZoom = this.map.doubleClickZoom.isEnabled();
     this.map.doubleClickZoom.disable();
     this.canvas.focus({ preventScroll: true });
@@ -570,6 +593,12 @@ export class GeometryEditor {
         this.setSnap(resolved.snap);
       }
       if (this.destroyed || this.translation.active) return;
+      if (this.session.state.mode === 'union-polygons') {
+        const union = this.session.getUnionPreview();
+        this.renderer.renderEditingMany(union ? this.session.state.selectedFeatureIds : [], true);
+        this.renderer.renderUnion(union);
+        return;
+      }
       const split = this.session.getSplitPreview();
       if (this.session.state.mode === 'split-polygon') this.renderer.renderEditing(split ? this.session.state.selectedFeatureId : null);
       this.renderer.renderPreview(this.session.getDraft(), this.cursor, this.session.state, this.snap, split, this.session.getDraftRings(), this.session.getInactiveParts());

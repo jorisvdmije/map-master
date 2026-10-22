@@ -32,6 +32,7 @@ const deselect = element<HTMLButtonElement>('deselect');
 const deleteSelected = element<HTMLButtonElement>('delete-selected');
 const duplicateSelected = element<HTMLButtonElement>('duplicate-selected');
 const splitSelected = element<HTMLButtonElement>('split-selected');
+const unionSelected = element<HTMLButtonElement>('union-selected');
 const editSelected = element<HTMLButtonElement>('edit-selected');
 const drawHole = element<HTMLButtonElement>('draw-hole');
 const deleteHole = element<HTMLButtonElement>('delete-hole');
@@ -114,6 +115,7 @@ map.on('load', () => {
     const drawing = state.mode !== 'idle';
     const editing = state.mode.startsWith('edit-');
     const splitting = state.mode === 'split-polygon';
+    const merging = state.mode === 'union-polygons';
     const polygon = state.mode === 'draw-hole' || selected === 'Polygon';
     const error = state.validationError;
     const selectedFeature = activeEditor.getSelected();
@@ -150,9 +152,11 @@ map.on('load', () => {
     deleteHole.hidden = ringCount < 2;
     deleteHole.disabled = drawing || Number(ringIndex.value) < 1;
     splitSelected.disabled = selectedFeature?.geometry.type !== 'Polygon' || drawing;
+    unionSelected.disabled = drawing || selectedCount < 2 || activeEditor.getSelection().some((feature) =>
+      feature.geometry.type !== 'Polygon' && feature.geometry.type !== 'MultiPolygon');
     element('editing-tools').hidden = !editing;
-    element('finish-label').textContent = splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
-    element('drawing-instructions').hidden = editing || splitting || state.mode === 'draw-hole';
+    element('finish-label').textContent = merging ? 'Apply merge' : splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
+    element('drawing-instructions').hidden = editing || splitting || merging || state.mode === 'draw-hole';
     removeVertex.disabled = !editing || state.selectedVertexIndex === null
       || state.vertexCount <= (state.mode === 'edit-polygon' ? 3 : 2);
     element('vertex-status').textContent = state.selectedVertexIndex === null
@@ -168,7 +172,8 @@ map.on('load', () => {
       element('selection-detail').textContent = details.join(' · ');
     } else if (selectedCount > 1) {
       element('selection-type').textContent = `${selectedCount} shapes selected`;
-      element('selection-detail').textContent = 'Shift+click to toggle a shape. Delete removes the whole selection.';
+      element('selection-detail').textContent = merging ? 'Merge keeps the first selected shape’s ID and properties.'
+        : 'Shift+click to toggle. Merge polygons combines the selected areas.';
     }
     importFile.disabled = drawing || importing;
     start.disabled = drawing;
@@ -194,7 +199,14 @@ map.on('load', () => {
       status.classList.toggle('is-invalid', state.splitError !== null && state.splitError !== 'split-too-few-points');
       status.textContent = state.splitError ? splitMessages[state.splitError] : 'Two parts ready. Enter saves both shapes; Cancel keeps the original.';
     }
-    element('map-hint').textContent = splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
+    if (merging) {
+      status.classList.toggle('is-invalid', state.unionError !== null);
+      status.textContent = state.unionError === 'union-invalid-result'
+        ? 'The merged boundary is unsupported (for example, parts touching at a single point). Cancel and adjust the polygons.'
+        : state.unionError ? 'The merge could not be calculated. Cancel and adjust the polygons.'
+        : 'Merged area ready. Apply merge or Enter saves; Cancel keeps the originals. Undo restores all shapes.';
+    }
+    element('map-hint').textContent = merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
       : drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
@@ -263,6 +275,7 @@ duplicateSelected.addEventListener('click', () => {
   }
 });
 splitSelected.addEventListener('click', () => { editor?.splitSelected(); });
+unionSelected.addEventListener('click', () => { editor?.unionSelection(); });
 editSelected.addEventListener('click', () => { editor?.editSelected(Number(ringIndex.value) || 0, Number(partIndex.value) || 0); });
 drawHole.addEventListener('click', () => { editor?.drawHole(Number(partIndex.value) || 0); });
 deleteHole.addEventListener('click', () => {
