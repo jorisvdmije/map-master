@@ -2,7 +2,7 @@ import { Map, setWorkerUrl, type GeoJSONSource, type StyleSpecification } from '
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import { GeometryEditor, type EditorState, type GeometryType } from '../../src/index.js';
+import { GeometryEditor, type EditorState, type FeatureId, type GeometryType } from '../../src/index.js';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 setWorkerUrl(workerUrl);
@@ -14,18 +14,18 @@ let map: Map;
 let editor: GeometryEditor;
 const click = (x: number, y: number) => userEvent.click(map.getCanvas(), { position: { x, y } });
 const sourceId = () => Object.keys(map.getStyle().sources).find((id) => id.endsWith('-features'))!;
-const state = (id: string): unknown => map.getFeatureState({ source: sourceId(), id });
+const state = (id: FeatureId): unknown => map.getFeatureState({ source: sourceId(), id: JSON.stringify(id) });
 const width = (x: number, y: number): unknown => {
   const layer = map.queryRenderedFeatures([x, y], { layers: [sourceId()] })[0]?.layer;
   return layer?.type === 'line' ? layer.paint?.['line-width'] : undefined;
 };
 
-async function draw(kind: GeometryType, points: [number, number][]): Promise<string> {
+async function draw(kind: GeometryType, points: [number, number][]): Promise<FeatureId> {
   editor.draw(kind);
   for (const [x, y] of points) await click(x, y);
   const feature = editor.finish();
   if (!feature) throw new Error('Invalid test geometry');
-  await expect.poll(() => map.queryRenderedFeatures({ layers: [sourceId()] }).map((hit) => hit.id)).toContain(feature.id);
+  await expect.poll(() => map.queryRenderedFeatures({ layers: [sourceId()] }).map((hit) => hit.id)).toContain(JSON.stringify(feature.id));
   return feature.id;
 }
 const polygon = () => draw('Polygon', [[100, 100], [500, 100], [500, 350], [100, 350]]);

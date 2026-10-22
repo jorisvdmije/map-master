@@ -73,7 +73,8 @@ does not change the editor, and each creation listener receives its own snapshot
 
 After destruction, data snapshots remain readable; drawing, deleting, selecting, and subscribing throw
 an error. A new editor starts with an empty collection. Export before destroying
-if the host needs to retain data; import is not implemented yet.
+if the host needs to retain data. Use GeometryEditor for GeoJSON import; the
+line-only compatibility facade does not expose import.
 
 Callbacks are synchronous. Observer exceptions are reported asynchronously so
 they cannot interrupt the commit or prevent the other listeners from running.

@@ -106,4 +106,24 @@ it('runs the demo with its real controls and a built package, without a tile ser
   await expect.element(page.getByRole('button', { name: 'Export GeoJSON' })).toBeDisabled();
   expect(document.querySelector('#feature-count')?.textContent).toBe('0 features');
   expect(output?.value).toBe(JSON.stringify({ type: 'FeatureCollection', features: [] }, null, 2));
+
+  const input = page.getByLabelText('Import GeoJSON', { exact: true });
+  const imported = { type: 'FeatureCollection', features: mixed.features.map((feature, index) => ({
+    ...feature, id: index === 0 ? 0 : '0', properties: index === 0 ? { name: 'Imported line', nested: { tag: true } } : null,
+  })) };
+  await input.upload(new File([JSON.stringify(imported)], 'shapes.geojson', { type: 'application/geo+json' }));
+  await expect.element(page.getByText('Imported 2 features.', { exact: true })).toBeVisible();
+  expect(output?.value).toBe(JSON.stringify(imported, null, 2));
+  expect(document.querySelector('#feature-count')?.textContent).toBe('2 features');
+  const importedOutput = output?.value;
+  await input.upload(new File([JSON.stringify(imported)], 'shapes.geojson', { type: 'application/geo+json' }));
+  await expect.poll(() => document.querySelector('#import-status')?.textContent).toContain('already exists');
+  expect(output?.value).toBe(importedOutput);
+  await input.upload(new File(['{broken'], 'broken.json', { type: 'application/json' }));
+  await expect.element(page.getByText('The file is not valid JSON.', { exact: true })).toBeVisible();
+  expect(output?.value).toBe(importedOutput);
+  await page.getByRole('button', { name: 'Draw a polygon' }).click();
+  await expect.element(input).toBeDisabled();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect.element(input).toBeEnabled();
 });

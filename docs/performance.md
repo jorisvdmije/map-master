@@ -23,7 +23,7 @@ run the same fixtures on the same hardware/runtime. Values are observations,
 not CI thresholds or supported dataset guarantees.
 
 The validator is O(n²) per added corner. Drawing all n corners incrementally
-does O(n³) total validation work; a future import must validate each complete
+does O(n³) total validation work; import validates each complete
 ring once instead of replaying every click. Drawing pointer motion uses cached validity and does not invoke the validator.
 Moving a corner in an edit does validate the changed draft. For much larger rings, incremental checks or
 an intersection index need evaluation against this baseline.
@@ -107,3 +107,30 @@ Pointer moves are coalesced per animation frame, but validation is still O(n²).
 These figures exclude handles, previews, UI callbacks, and MapLibre rendering;
 they are not frame-rate guarantees. Export and the committed source are unchanged
 during dragging; saving a changed edit uploads the full collection once.
+
+## Core GeoJSON import
+
+Run `npm run benchmark:import`. Each sample imports into a fresh empty session.
+Line fixtures contain 10, 1,000, or 10,000 two-point lines with explicit string
+IDs and nested properties. Polygon fixtures reuse the regular ring family above
+with 100 or 1,000 corners. Each case has 10 warmups and 50 timed samples.
+
+The timer includes validation, property/coordinate copying, ID checks, committing
+the batch, and copying the returned collection. It excludes parsing JSON text,
+fixture construction, export of pre-existing data, events, and MapLibre rendering.
+
+Local baseline on 2026-10-22: Apple M2 Pro, macOS arm64, Node.js 22.23.1.
+
+| Fixture | Median import (ms) | p95 (ms) |
+| --- | ---: | ---: |
+| 10 lines | 0.047 | 0.080 |
+| 1,000 lines | 1.941 | 2.797 |
+| 10,000 lines | 24.616 | 31.411 |
+| Polygon, 100 corners | 0.115 | 0.276 |
+| Polygon, 1,000 corners | 7.510 | 7.722 |
+
+This is the first import baseline, not a supported dataset limit or a browser
+latency guarantee. Import is synchronous. Memory includes a prepared batch and
+independent returned copies; polygon validation remains O(n²) per ring. The
+controller also exports/uploads all existing and new features once per batch.
+Large imports may need worker validation and incremental source updates later.

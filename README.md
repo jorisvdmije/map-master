@@ -6,10 +6,10 @@ A TypeScript library in development for drawing and editing geometry on web maps
 
 ## Status
 
-Line and polygon drawing, single-feature selection, deletion, and vertex editing are implemented:
+Line and polygon drawing, single-feature selection, deletion, vertex editing, and GeoJSON import are implemented:
 preview, validate, finish or cancel, select/deselect, delete, move/insert/remove vertices, and export committed features together
 as GeoJSON through one GeometryEditor API.
-The API is experimental. Import and undo/redo are planned. Code and contributor documentation use English.
+The API is experimental. Undo/redo is planned. Code and contributor documentation use English.
 
 ## Try the demo
 
@@ -34,6 +34,10 @@ Select a shape and choose **Edit vertices**. Drag a corner to move it, click a
 small midpoint to insert one, and use **Remove vertex** or Delete/Backspace to
 remove the selected corner. **Save** or Enter commits valid changes; **Cancel**
 or Escape restores the original. Export keeps the saved version during editing.
+
+Use **Import GeoJSON** to add a `.geojson`/`.json` file with supported lines and
+polygons (up to 5 MB in the demo). IDs and properties are preserved. Invalid
+files and duplicate IDs leave current data untouched. The map fits imported shapes.
 
 The demo uses OpenStreetMap tiles with attribution. Tiles are optional and load
 after drawing is ready; use <http://localhost:5173/?basemap=off> for a demo with no
@@ -68,6 +72,7 @@ npm run check
 | `npm run benchmark:selection` | Measure core ID lookup and selected snapshots on fixed datasets. |
 | `npm run benchmark:deletion` | Measure one core deletion plus export of all surviving features. |
 | `npm run benchmark:editing` | Measure moving one corner of fixed polygon drafts. |
+| `npm run benchmark:import` | Measure atomic imports of fixed line and polygon datasets. |
 | `npm run check` | Run all type checks, linting, tests, and the production demo build. |
 | `npm pack` | Build and create a local installable archive. |
 

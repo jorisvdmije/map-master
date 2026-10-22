@@ -1,6 +1,6 @@
 import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
 import { samePosition } from '../core/polygon.js';
-import type { Coordinate, EditorState, GeometryFeatureCollection } from '../core/types.js';
+import type { Coordinate, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
 import { vertexHandles } from './vertex-handles.js';
 
 const emptyCollection = () => ({ type: 'FeatureCollection' as const, features: [] });
@@ -19,8 +19,8 @@ export class MapLibreRenderer {
   private readonly featuresId: string;
   private readonly draftId: string;
   private readonly layers: LayerSpecification[];
-  private selectedFeatureId: string | null = null;
-  private editingFeatureId: string | null = null;
+  private selectedFeatureId: FeatureId | null = null;
+  private editingFeatureId: FeatureId | null = null;
 
   constructor(private readonly map: MapLibreMap, namespace: string) {
     this.featuresId = `${namespace}-features`;
@@ -65,43 +65,48 @@ export class MapLibreRenderer {
   }
 
   renderCommitted(collection: GeometryFeatureCollection): void {
+    // Encode the ID type: MapLibre feature-state otherwise conflates 7 and "7".
     // MapLibre reports worker failures through the map's error event.
     void this.map.getSource<GeoJSONSource>(this.featuresId)?.setData({
       type: 'FeatureCollection', features: collection.features.map((feature) => ({
-        ...feature, properties: { ...feature.properties, [renderIdProperty]: feature.id },
+        ...feature, properties: { ...feature.properties, [renderIdProperty]: JSON.stringify(feature.id) },
       })),
     });
   }
 
   /** Update only presentation state, without copying or re-uploading geometry. */
-  renderSelection(id: string | null): void {
+  renderSelection(id: FeatureId | null): void {
     if (this.map.getSource(this.featuresId)) {
       if (this.selectedFeatureId !== null) {
-        this.map.removeFeatureState({ source: this.featuresId, id: this.selectedFeatureId }, 'selected');
+        this.map.removeFeatureState({ source: this.featuresId, id: JSON.stringify(this.selectedFeatureId) }, 'selected');
       }
-      if (id !== null) this.map.setFeatureState({ source: this.featuresId, id }, { selected: true });
+      if (id !== null) this.map.setFeatureState({ source: this.featuresId, id: JSON.stringify(id) }, { selected: true });
     }
     this.selectedFeatureId = id;
   }
 
   /** Hide only the committed version of the feature being previewed as an edit. */
-  renderEditing(id: string | null): void {
+  renderEditing(id: FeatureId | null): void {
     if (this.map.getSource(this.featuresId)) {
-      if (this.editingFeatureId !== null) this.map.removeFeatureState({ source: this.featuresId, id: this.editingFeatureId }, 'editing');
-      if (id !== null) this.map.setFeatureState({ source: this.featuresId, id }, { editing: true });
+      if (this.editingFeatureId !== null) this.map.removeFeatureState({ source: this.featuresId, id: JSON.stringify(this.editingFeatureId) }, 'editing');
+      if (id !== null) this.map.setFeatureState({ source: this.featuresId, id: JSON.stringify(id) }, { editing: true });
     }
     this.editingFeatureId = id;
   }
 
   /** Prefer outlines near the pointer, then polygon interiors, in rendered order. */
-  pick({ x, y }: { x: number; y: number }): string | null {
+  pick({ x, y }: { x: number; y: number }): FeatureId | null {
     const fillId = this.layers[0]!.id;
     if (!this.map.getLayer(this.featuresId) || !this.map.getLayer(fillId)) return null;
     const outlines = this.map.queryRenderedFeatures([[x - 6, y - 6], [x + 6, y + 6]], {
       layers: [this.featuresId],
     });
     const hit = outlines[0] ?? this.map.queryRenderedFeatures([x, y], { layers: [fillId] })[0];
-    return typeof hit?.id === 'string' ? hit.id : null;
+    if (typeof hit?.id !== 'string') return null;
+    // Decode even a stale hit: the controller can then ignore deleted IDs instead
+    // of treating the stale shape as empty space and clearing another selection.
+    const id: unknown = JSON.parse(hit.id);
+    return typeof id === 'string' || typeof id === 'number' ? id : null;
   }
 
   renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState): void {

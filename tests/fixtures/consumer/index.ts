@@ -7,6 +7,12 @@ void publicApi;
 
 export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const tool = new editor.GeometryEditor(map);
+  const batch: editor.GeometryFeatureCollection = tool.importGeoJSON({ type: 'FeatureCollection', features: [] });
+  tool.onImport((collection) => { const count: number = collection.features.length; void count; });
+  const properties: editor.FeatureProperties = { nested: { list: [1, true, null] } };
+  const importError = new editor.GeoJSONImportError('duplicate-id', '$.id', 'Duplicate');
+  const code: editor.ImportErrorCode = importError.code;
+  void [batch, properties, code];
   tool.draw('Polygon');
   tool.onCreate((feature) => {
     if (feature.geometry.type === 'Polygon') {
@@ -16,7 +22,7 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   });
   tool.onChange((state) => {
     const error: editor.ValidationError | null = state.validationError;
-    const selectedId: string | null = state.selectedFeatureId;
+    const selectedId: editor.FeatureId | null = state.selectedFeatureId;
     void [error, selectedId];
   });
   // @ts-expect-error unsupported geometry must be rejected by the public types
@@ -31,11 +37,11 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   tool.moveVertex(0, [4.9, 52.3]);
   tool.insertVertex(1, [4.91, 52.31]);
   const removedVertex: boolean = tool.removeVertex(1);
-  tool.onUpdate((feature) => { const id: string = feature.id; void id; });
+  tool.onUpdate((feature) => { const id: editor.FeatureId = feature.id; void id; });
   tool.cancel();
   void [draft, removedVertex];
   const unsubscribe = tool.onDelete((feature) => {
-    const id: string = feature.id;
+    const id: editor.FeatureId = feature.id;
     if (feature.geometry.type === 'Polygon') {
       const rings: editor.Coordinate[][] = feature.geometry.coordinates;
       void rings;
@@ -57,7 +63,7 @@ export function integrate(map: Map): editor.LineCollection {
   const selected: editor.LineFeature | null = tool.getSelected();
   void selected;
   tool.onCreate((feature) => {
-    const id: string = feature.id;
+    const id: editor.FeatureId = feature.id;
     const type: 'LineString' = feature.geometry.type;
     void [id, type];
   });

@@ -10,6 +10,7 @@ src/
   core/
     types.ts                 Coordinates, features, modes, validation diagnostics
     drawing-session.ts       Draft, features indexed by ID, selection, create/edit/delete/export
+    geojson-import.ts        Validate/copy entire import batches and JSON properties
     polygon.ts               Ring validity, closure, exterior winding
   maplibre/
     geometry-editor.ts       Public API, map input, events, gesture/lifecycle cleanup
@@ -68,7 +69,7 @@ feature state for the previous/new selection and emits `onChange`. A toolbar can
 use `getSelected()` for an isolated snapshot, or `select(null)` to clear selection.
 
 Feature IDs are indexed in an insertion-ordered Map, so selecting by ID does not
-scan all geometries. UUIDs are promoted from a private rendering property to keep
+scan all geometries. Type-encoded IDs are promoted from a private rendering property to keep
 them intact through MapLibre's vector-tile conversion. That detail stays entirely
 inside the renderer and never appears in exported GeoJSON.
 
@@ -93,6 +94,12 @@ Editing copies the selected feature into the draft. Vertex operations change
 only that draft; finish replaces the stored geometry while keeping its ID and
 properties. The controller emits onUpdate only when dataRevision changed. Cancel
 discards the draft, so there is no stored geometry to reconstruct.
+
+Import validates a whole batch before appending it to the store. It checks
+coordinates, topology, IDs, and nested JSON properties, reserves explicit IDs,
+and generates missing ones. A failure leaves existing data and selection intact.
+The controller uploads once and emits one onImport event for a nonempty batch.
+Export/import use core data, so neither requires reading rendered map layers.
 
 Future history should extend the editor API and core commit behavior. Application code should not have to learn which
 MapLibre source holds a selected feature. Avoid creating one wrapper method for

@@ -2,8 +2,8 @@
 
 Status: experimental. Supports 2D LineString and single-outer-ring Polygon
 features on a flat Mercator MapLibre GL JS 6.15 map. Desktop mouse and keyboard
-input, selection, deletion, and vertex editing are tested in Chromium. Holes,
-multipart features, import, and undo/redo are not implemented yet.
+input, selection, deletion, vertex editing, and GeoJSON import are tested in Chromium.
+Holes, multipart features, and undo/redo are not implemented yet.
 
 ## One editor API
 
@@ -51,6 +51,9 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `getSelected()` | Independent snapshot of the selected feature, or `null`. |
 | `deleteSelected()` | Delete the selected committed feature and clear selection. Return its independent snapshot, or `null` with no selection. Available only while idle. |
 | `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed lines and polygons. |
+| `importGeoJSON(input)` | Append a parsed Feature/FeatureCollection atomically; return an independent collection of imported features. Idle only. |
+| `onImport(listener)` | One notification per nonempty imported batch. Returns an unsubscribe function. |
+| `onUpdate(listener)` | One notification per changed saved edit. Returns an unsubscribe function. |
 | `onCreate(listener)` | One event per committed feature, with an independent snapshot per listener. Returns an unsubscribe function. |
 | `onDelete(listener)` | One event per committed deletion, with an independent snapshot of the removed feature per listener. Returns an unsubscribe function. |
 | `onChange(listener)` | Editing-state notification after state changes. Read the initial state with `getState()`. Returns an unsubscribe function. |
@@ -58,9 +61,9 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 
 `GeometryFeature` is the union of `LineFeature` and `PolygonFeature`. Inspect
 `feature.geometry.type` to narrow coordinates in TypeScript. `GeometryFeatureCollection`
-is a GeoJSON FeatureCollection containing both shape types. Each feature has a UUID,
-empty properties, and `[longitude, latitude]` coordinates. Imports and editable
-properties will be introduced with explicit policies in later milestones.
+is a GeoJSON FeatureCollection containing both shape types. New drawings receive a UUID and empty properties. Imported features preserve
+string or numeric IDs and JSON properties (including null). Coordinates are
+`[longitude, latitude]`. Properties can be imported but there is no property-editing API yet.
 
 Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, and `edit-polygon`. `validationError` is `null`
 when idle or when the current draft is valid. Check `canFinish` to enable Finish;
@@ -98,8 +101,7 @@ editor.select(null);
 
 Selection emits `onChange` only when the selected ID changes. Selecting the same
 ID again is a no-op. It does not emit `onCreate`, rewrite geometry, change IDs or
-properties, or add selection metadata to exports. Use `onCreate`, `onUpdate`, and `onDelete`
-for persistence; `onChange` also represents transient UI state.
+properties, or add selection metadata to exports. Use `onCreate`, `onUpdate`, `onDelete`, and `onImport` for committed changes; `onChange` also represents transient UI state.
 
 An unknown ID throws `RangeError` and preserves the previous selection. Selecting
 anything, including `null`, during drawing throws without changing the draft.
@@ -152,8 +154,8 @@ reselect a deleted feature. A style replacement restores only surviving data.
 
 Deletion is immediate and in-memory. It does not contact a backend, ask for
 confirmation, or offer undo yet. Applications can place their own confirmation
-before calling `deleteSelected()` if their workflow needs it. Retaining a removed
-snapshot does not currently provide restoration; import/history are later steps.
+before calling `deleteSelected()` if their workflow needs it. A retained removed snapshot can be restored with `importGeoJSON(snapshot)`
+while idle, if its ID has not been reused. Undo/history remains a later step.
 
 ## Vertex editing
 
@@ -196,6 +198,80 @@ cancellation or window blur rolls back that gesture; Cancel discards the full
 session. Style replacement preserves the edit and recreates overlays; destroy
 cancels it and removes listeners/handles without emitting an update. Desktop
 mouse input is supported; touch editing is deferred.
+
+## GeoJSON import
+
+```ts
+import { GeoJSONImportError } from '@geo/editor';
+
+try {
+  const input: unknown = JSON.parse(fileText);
+  const imported = editor.importGeoJSON(input);
+  console.log('Added:', imported.features.length);
+} catch (error) {
+  if (error instanceof GeoJSONImportError) console.error(error.path, error.code);
+  else throw error; // For example malformed JSON text or an active edit session.
+}
+
+const unsubscribe = editor.onImport((collection) => {
+  // One committed batch; no onCreate/onUpdate/onDelete events for loading data.
+  console.log(collection);
+});
+```
+
+The method accepts a **parsed Feature or FeatureCollection** and appends it to
+the current collection. JSON parsing, files, fetch, and backend storage belong
+to the host application. It rejects raw geometry objects and JSON strings.
+The demo offers a file picker (5 MB limit), readable errors, and fits the camera
+to imported shapes. The library has no file-size limit and never moves the camera.
+
+The entire batch is validated and copied before any stored feature changes.
+An invalid last feature cannot leave earlier features partially imported.
+Existing features, selection, draft, and revision stay intact on failure.
+Import is available only while idle. It does not replace or merge features.
+
+Supported data and identity policy:
+
+- Two-dimensional LineString and Polygon with exactly one closed outer ring.
+  Points, multipart geometries, geometry collections, null geometries, holes,
+  and altitude coordinates are rejected explicitly.
+- Finite longitude/latitude in world bounds. Lines need two points and no
+  consecutive duplicates. Polygons use the same topology rules as drawing;
+  clockwise rings are accepted and normalized to CCW, keeping the first corner.
+  An unclosed imported ring is rejected instead of silently repaired.
+- Explicit string and finite numeric IDs are preserved with their original type;
+  `7` and `"7"` are distinct, as are `0` and `"0"`. Missing IDs get UUIDs; null IDs
+  are invalid. Duplicates within a batch or against stored features reject the
+  whole batch. Generated IDs cannot overwrite explicit or stored IDs.
+- `properties` is required and may be a JSON object or null. Nested objects and
+  arrays are deeply copied on import, export, selection, saves, and notifications.
+  Non-JSON values, cycles, and properties nested more than 100 containers deep
+  are rejected. Numeric values use JavaScript number precision.
+- Coordinates follow [RFC 7946](https://www.rfc-editor.org/rfc/rfc7946.html#section-4).
+  Legacy `crs` declarations are rejected; there is no reprojection. `bbox` and
+  foreign members outside properties are ignored, not retained or regenerated.
+
+A successful nonempty batch increments `dataRevision` once, uploads the committed
+source once, emits `onImport` once, then `onChange`. Callbacks see the entire
+committed batch. Each listener and the return value receive independent snapshots.
+Observer failures follow the existing asynchronous reporting policy. Empty
+collections are a no-op with no rendering, revision, or notifications.
+
+`GeoJSONImportError` extends TypeError and exposes `code` and `path` (for example
+`$.features[2].geometry.coordinates[0]`). Codes include `invalid-geojson`,
+`unsupported-geometry`, `invalid-coordinate`, `invalid-properties`, `invalid-id`,
+`duplicate-id`, `unclosed-ring`, `unsupported-crs`, and the topology validation
+codes below. The first detected error aborts the batch. Lifecycle/mode errors
+remain ordinary Error objects. Unsupported data is never silently skipped.
+
+Export/import round trips preserve supported IDs, properties, coordinates, and
+feature order after polygon winding normalization. Import only exists on
+GeometryEditor; the earlier LineEditor remains a drawing compatibility facade.
+
+**Experimental type change:** IDs previously had type `string`. Feature IDs and
+`selectedFeatureId` now use exported `FeatureId` (`string | number`). Properties
+now use exported `FeatureProperties` (a JSON object or null), with `JsonValue`
+for nested values. Update consumer annotations and handle null properties.
 
 ## Polygon contract
 
@@ -259,11 +335,14 @@ and upload still scale with all remaining features and vertices.
 Committed features are stored in insertion order in an ID-indexed Map. Selection
 lookup does not scan the collection, and a selected snapshot copies only that
 feature. Selection rendering uses MapLibre feature state rather than `setData`.
-The renderer adds a private `__geo_editor_id` property to its own data and uses
-`promoteId` so string UUIDs survive the vector-tile pipeline. The core, public
-events, and exports never contain that rendering property. See MapLibre's
+The renderer encodes each ID with `JSON.stringify` into a private `__geo_editor_id`
+rendering property and uses `promoteId`. This preserves string IDs and keeps
+numeric and string identities distinct in MapLibre feature state. A user property
+with that name stays intact in the core/export; only the render copy is overwritten.
+The encoding is never written into the core, public events, or exports. See MapLibre's
 [query and feature-state API](https://maplibre.org/maplibre-gl-js/docs/API/classes/Map/).
 
 The repeatable [benchmarks](performance.md) characterize core validation and
-selection and deletion/export. Large-dataset rendering, interaction latency, memory, touch input, and
+selection, deletion/export, vertex movement, and import. Large-dataset rendering,
+interaction latency, memory, touch input, and
 other browser engines still require measurement before production-scale claims.

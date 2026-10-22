@@ -24,7 +24,7 @@ async function draw(kind: GeometryType): Promise<GeometryFeature> {
   for (const [x, y] of points) await click(x!, y!);
   const feature = editor.finish();
   if (!feature) throw new Error('Invalid test fixture');
-  await expect.poll(() => map.queryRenderedFeatures({ layers: [sourceId()] }).map((hit) => hit.id)).toContain(feature.id);
+  await expect.poll(() => map.queryRenderedFeatures({ layers: [sourceId()] }).map((hit) => hit.id)).toContain(JSON.stringify(feature.id));
   editor.select(feature.id);
   return feature;
 }
@@ -106,7 +106,7 @@ it('rejects invalid polygon saves and Escape restores exact original geometry an
   expect(editor.exportGeoJSON().features).toEqual([original]);
   expect(map.getCanvas().style.cursor).toBe('help');
   expect(map.doubleClickZoom.isEnabled()).toBe(false); expect(map.dragPan.isEnabled()).toBe(false);
-  expect(map.getFeatureState({ source: sourceId(), id: original.id })).not.toMatchObject({ editing: true });
+  expect(map.getFeatureState({ source: sourceId(), id: JSON.stringify(original.id) })).not.toMatchObject({ editing: true });
 });
 
 it('rolls back a cancelled midpoint gesture and releases pointer capture and pan', async () => {
@@ -179,7 +179,7 @@ it('preserves an edit across style replacement and cancels on destroy without an
   const loaded = new Promise<void>((resolve) => { map.once('style.load', () => { resolve(); }); });
   map.setStyle(style(), { diff: false }); await loaded;
   expect(editor.getDraft()).toEqual(edited);
-  expect(map.getFeatureState({ source: sourceId(), id: original.id })).toMatchObject({ editing: true });
+  expect(map.getFeatureState({ source: sourceId(), id: JSON.stringify(original.id) })).toMatchObject({ editing: true });
   const draftId = Object.keys(map.getStyle().sources).find((id) => id.endsWith('-draft'))!;
   await expect.poll(async () => {
     const data = await map.getSource<GeoJSONSource>(draftId)!.getData();

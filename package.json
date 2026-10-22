@@ -36,7 +36,8 @@
     "benchmark:polygon": "npm run build && node scripts/benchmark-polygon.mjs",
     "benchmark:selection": "npm run build && node scripts/benchmark-selection.mjs",
     "benchmark:deletion": "npm run build && node scripts/benchmark-deletion.mjs",
-    "benchmark:editing": "npm run build && node scripts/benchmark-editing.mjs"
+    "benchmark:editing": "npm run build && node scripts/benchmark-editing.mjs",
+    "benchmark:import": "npm run build && node scripts/benchmark-import.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

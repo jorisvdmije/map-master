@@ -1,11 +1,12 @@
+import { copyProperties, prepareImport } from './geojson-import.js';
 import { closePolygon, openRing, samePosition, validatePolygon } from './polygon.js';
 import type {
-  Coordinate, EditorState, GeometryFeatureCollection, GeometryFeature, GeometryType, ValidationError,
+  Coordinate, FeatureId, EditorState, GeometryFeatureCollection, GeometryFeature, GeometryType, ValidationError,
 } from './types.js';
 
 function copyFeature(feature: GeometryFeature): GeometryFeature {
   const copy = ([lng, lat]: Coordinate): Coordinate => [lng, lat];
-  const common = { type: 'Feature' as const, id: feature.id, properties: { ...feature.properties } };
+  const common = { type: 'Feature' as const, id: feature.id, properties: copyProperties(feature.properties) };
   return feature.geometry.type === 'LineString'
     ? { ...common, geometry: { type: 'LineString', coordinates: feature.geometry.coordinates.map(copy) } }
     : { ...common, geometry: { type: 'Polygon', coordinates: feature.geometry.coordinates.map((ring) => ring.map(copy)) } };
@@ -15,10 +16,10 @@ function copyFeature(feature: GeometryFeature): GeometryFeature {
 export class DrawingSession {
   private kind: GeometryType | null = null;
   private draft: Coordinate[] = [];
-  private readonly features = new Map<string, GeometryFeature>();
-  private selectedFeatureId: string | null = null;
+  private readonly features = new Map<FeatureId, GeometryFeature>();
+  private selectedFeatureId: FeatureId | null = null;
   private validationError: ValidationError | null = null;
-  private editingId: string | null = null;
+  private editingId: FeatureId | null = null;
   private selectedVertexIndex: number | null = null;
   private dataRevision = 0;
 
@@ -68,7 +69,7 @@ export class DrawingSession {
   finish(): GeometryFeature | null {
     if (!this.state.canFinish) return null;
     const original = this.editingId === null ? undefined : this.features.get(this.editingId);
-    const common = { type: 'Feature' as const, id: original?.id ?? this.createId(), properties: { ...original?.properties } };
+    const common = { type: 'Feature' as const, id: original?.id ?? this.allocateId(), properties: original ? copyProperties(original.properties) : {} };
     const feature: GeometryFeature = this.kind === 'Polygon'
       ? { ...common, geometry: { type: 'Polygon', coordinates: [closePolygon(this.draft)] } }
       : { ...common, geometry: { type: 'LineString', coordinates: this.draft } };
@@ -95,12 +96,29 @@ export class DrawingSession {
     return true;
   }
 
+  /** Append a fully validated batch; existing data and selection survive any failure. */
+  importGeoJSON(input: unknown): GeometryFeatureCollection {
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before importing.');
+    const features = prepareImport(input, (id) => this.features.has(id), this.createId);
+    for (const feature of features) this.features.set(feature.id, feature);
+    if (features.length > 0) this.dataRevision++;
+    return { type: 'FeatureCollection', features: features.map(copyFeature) };
+  }
+
+  private allocateId(): string {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const id = this.createId();
+      if (!this.features.has(id)) return id;
+    }
+    throw new Error('Could not allocate a unique feature ID.');
+  }
+
   exportGeoJSON(): GeometryFeatureCollection {
     return { type: 'FeatureCollection', features: Array.from(this.features.values(), copyFeature) };
   }
 
   /** Selection is separate from feature data and available only outside drawing. */
-  select(id: string | null): boolean {
+  select(id: FeatureId | null): boolean {
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before selecting.');
     if (id !== null && !this.features.has(id)) throw new RangeError(`Unknown feature ID: ${id}`);
     if (id === this.selectedFeatureId) return false;
@@ -113,7 +131,7 @@ export class DrawingSession {
     return feature ? copyFeature(feature) : null;
   }
 
-  hasFeature(id: string): boolean {
+  hasFeature(id: FeatureId): boolean {
     return this.features.has(id);
   }
 

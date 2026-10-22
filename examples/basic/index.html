@@ -9,7 +9,7 @@
   <body>
     <header class="header">
       <a class="brand" href="/" aria-label="geo home"><span class="brand-mark">g.</span>geo<span class="brand-divider"></span><span class="brand-caption">Drawing playground</span></a>
-      <span class="milestone"><span class="dot"></span> Milestone 06 <span class="milestone-label">/ Edit vertices</span></span>
+      <span class="milestone"><span class="dot"></span> Milestone 07 <span class="milestone-label">/ Import GeoJSON</span></span>
     </header>
     <main class="workspace">
       <aside class="sidebar" aria-label="Drawing tools">
@@ -53,6 +53,10 @@
         </section>
         <section class="data-section" aria-label="Drawing data">
           <div class="section-heading"><h2>YOUR GEOMETRY</h2><span id="feature-count" class="count">0 features</span></div>
+          <label class="import-label" for="import-file">Import GeoJSON</label>
+          <input id="import-file" class="import-file" type="file" accept=".geojson,.json,application/geo+json,application/json" aria-describedby="import-help" disabled />
+          <p id="import-help" class="import-help">Add lines and polygons from a file (up to 5 MB). Existing shapes stay on the map.</p>
+          <p id="import-status" class="import-status" role="status" hidden></p>
           <button id="export" class="button export" disabled>Export GeoJSON <span aria-hidden="true">↗</span></button>
           <details><summary>Inspect GeoJSON <span>{ }</span></summary><textarea id="output" aria-label="GeoJSON output" readonly spellcheck="false">{"type":"FeatureCollection","features":[]}</textarea></details>
         </section>

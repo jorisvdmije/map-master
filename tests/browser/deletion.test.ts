@@ -14,7 +14,7 @@ let map: Map;
 let editor: GeometryEditor;
 const click = (x: number, y: number) => userEvent.click(map.getCanvas(), { position: { x, y } });
 const sourceId = () => Object.keys(map.getStyle().sources).find((id) => id.endsWith('-features'))!;
-const renderedIds = () => map.queryRenderedFeatures({ layers: [sourceId()] }).map((feature) => feature.id);
+const renderedIds = () => map.queryRenderedFeatures({ layers: [sourceId()] }).map((feature) => JSON.parse(String(feature.id)) as string | number);
 
 async function draw(kind: GeometryType): Promise<GeometryFeature> {
   editor.draw(kind);
@@ -54,7 +54,7 @@ it.each<GeometryType>(['LineString', 'Polygon'])('deletes selected %s once from 
   expect(upload).toHaveBeenCalledOnce();
   expect(editor.exportGeoJSON().features).toEqual([survivor]);
   expect(editor.getSelected()).toBeNull();
-  expect(map.getFeatureState({ source: sourceId(), id: removed.id })).not.toMatchObject({ selected: true });
+  expect(map.getFeatureState({ source: sourceId(), id: JSON.stringify(removed.id) })).not.toMatchObject({ selected: true });
   await expect.poll(renderedIds).not.toContain(removed.id);
   expect(renderedIds()).toContain(survivor.id);
   await expect.poll(() => source.getData()).toMatchObject(editor.exportGeoJSON());
@@ -142,6 +142,11 @@ it('ignores stale rendered hits while MapLibre catches up after a deletion', asy
   expect(editor.exportGeoJSON().features).toEqual([]);
   expect(() => editor.select(feature.id)).toThrow(RangeError);
   query.mockRestore();
+  const survivor = await draw('Polygon'); editor.select(survivor.id);
+  const staleQuery = vi.spyOn(map, 'queryRenderedFeatures').mockReturnValue(staleHits);
+  await click(300, 100);
+  expect(editor.getSelected()?.id).toBe(survivor.id);
+  staleQuery.mockRestore();
 });
 
 it('keeps deleted geometry absent after style replacement and removes deletion listeners on teardown', async () => {

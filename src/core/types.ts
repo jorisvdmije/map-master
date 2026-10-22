@@ -1,11 +1,16 @@
 /** GeoJSON position in longitude, latitude order (decimal degrees). */
 export type Coordinate = [longitude: number, latitude: number];
 
+/** GeoJSON identity; numeric 7 and string "7" are distinct. */
+export type FeatureId = string | number;
+export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+export type FeatureProperties = { [key: string]: JsonValue } | null;
+
 export interface LineFeature {
   type: 'Feature';
-  id: string;
+  id: FeatureId;
   geometry: { type: 'LineString'; coordinates: Coordinate[] };
-  properties: Record<string, never>;
+  properties: FeatureProperties;
 }
 
 export interface LineCollection {
@@ -15,9 +20,9 @@ export interface LineCollection {
 
 export interface PolygonFeature {
   type: 'Feature';
-  id: string;
+  id: FeatureId;
   geometry: { type: 'Polygon'; coordinates: Coordinate[][] };
-  properties: Record<string, never>;
+  properties: FeatureProperties;
 }
 
 export type GeometryType = 'LineString' | 'Polygon';
@@ -36,10 +41,10 @@ export interface EditorState {
   vertexCount: number;
   featureCount: number;
   /** UI selection only; never serialized into GeoJSON. */
-  selectedFeatureId: string | null;
+  selectedFeatureId: FeatureId | null;
   /** Zero-based index in the open editing draft, without a polygon's closing copy. */
   selectedVertexIndex: number | null;
-  /** Increases on committed creation, deletion, and changed edits only. */
+  /** Increases on committed creation, deletion, changed edits, and nonempty imports only. */
   dataRevision: number;
   canFinish: boolean;
   /** Why the clicked draft cannot be committed; null when valid or idle. */

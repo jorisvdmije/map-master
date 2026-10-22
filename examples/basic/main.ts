@@ -1,4 +1,4 @@
-import { Map, NavigationControl, setWorkerUrl } from 'maplibre-gl';
+import { Map, LngLatBounds, NavigationControl, setWorkerUrl } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { GeometryEditor, type GeometryType, type ValidationError } from '@geo/editor';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -19,6 +19,9 @@ const polygonTool = element<HTMLButtonElement>('tool-polygon');
 const finish = element<HTMLButtonElement>('finish');
 const cancel = element<HTMLButtonElement>('cancel');
 const download = element<HTMLButtonElement>('export');
+const importFile = element<HTMLInputElement>('import-file');
+const importStatus = element('import-status');
+let importing = false;
 const output = element<HTMLTextAreaElement>('output');
 const status = element('status');
 const selection = element('selection');
@@ -91,6 +94,7 @@ map.on('load', () => {
         : selectedFeature.geometry.coordinates.length;
       element('selection-detail').textContent = `${count} ${selectedFeature.geometry.type === 'Polygon' ? 'corners' : 'points'}`;
     }
+    importFile.disabled = drawing || importing;
     start.disabled = drawing;
     lineTool.disabled = drawing;
     polygonTool.disabled = drawing;
@@ -151,6 +155,37 @@ deleteSelected.addEventListener('click', () => {
   if (!editor?.deleteSelected()) return;
   // The selected card is now hidden; keep keyboard focus on a useful control.
   start.focus({ preventScroll: true });
+});
+importFile.addEventListener('change', () => {
+  const file = importFile.files?.[0];
+  if (!file || !editor || importing) return;
+  importing = true;
+  importFile.disabled = true;
+  importStatus.hidden = false;
+  importStatus.classList.remove('is-invalid');
+  importStatus.textContent = 'Reading GeoJSON…';
+  void (async () => {
+    try {
+      if (file.size > 5 * 1024 * 1024) throw new Error('Choose a file smaller than 5 MB.');
+      const input: unknown = JSON.parse(await file.text());
+      const imported = editor.importGeoJSON(input);
+      importStatus.textContent = `Imported ${imported.features.length} ${imported.features.length === 1 ? 'feature' : 'features'}.`;
+      const bounds = new LngLatBounds();
+      for (const feature of imported.features) {
+        const points = feature.geometry.type === 'Polygon' ? feature.geometry.coordinates[0]! : feature.geometry.coordinates;
+        for (const point of points) bounds.extend(point);
+      }
+      if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 60, maxZoom: 16, duration: 0 });
+    } catch (error) {
+      importStatus.classList.add('is-invalid');
+      importStatus.textContent = error instanceof SyntaxError ? 'The file is not valid JSON.'
+        : error instanceof Error ? error.message : 'Could not import this file.';
+    } finally {
+      importing = false;
+      importFile.value = '';
+      importFile.disabled = editor.getState().mode !== 'idle';
+    }
+  })();
 });
 download.addEventListener('click', () => {
   if (!editor) return;

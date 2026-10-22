@@ -1,6 +1,6 @@
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { DrawingSession } from '../core/drawing-session.js';
-import type { Coordinate, EditorState, GeometryFeatureCollection, GeometryFeature, GeometryType } from '../core/types.js';
+import type { Coordinate, FeatureId, EditorState, GeometryFeatureCollection, GeometryFeature, GeometryType } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
 import { VertexInteraction } from './vertex-interaction.js';
 
@@ -14,6 +14,7 @@ export class GeometryEditor {
   private readonly view: Window;
   private readonly createListeners = new Set<(feature: GeometryFeature) => void>();
   private readonly deleteListeners = new Set<(feature: GeometryFeature) => void>();
+  private readonly importListeners = new Set<(collection: GeometryFeatureCollection) => void>();
   private readonly updateListeners = new Set<(feature: GeometryFeature) => void>();
   private readonly changeListeners = new Set<(state: EditorState) => void>();
   private cursor: Coordinate | undefined;
@@ -59,7 +60,7 @@ export class GeometryEditor {
   }
 
   /** Select one committed feature, or pass null to clear selection. */
-  select(id: string | null): void {
+  select(id: FeatureId | null): void {
     this.assertAlive();
     if (!this.session.select(id)) return;
     this.renderer.renderSelection(id);
@@ -167,6 +168,25 @@ export class GeometryEditor {
   /** An independent snapshot of committed features, also readable after destroy(). */
   exportGeoJSON(): GeometryFeatureCollection {
     return this.session.exportGeoJSON();
+  }
+
+  /** Atomically append a parsed Feature or FeatureCollection. Existing IDs cannot be overwritten. */
+  importGeoJSON(input: unknown): GeometryFeatureCollection {
+    this.assertAlive();
+    const imported = this.session.importGeoJSON(input);
+    if (imported.features.length === 0) return imported;
+    this.renderer.renderCommitted(this.exportGeoJSON());
+    for (const listener of this.importListeners) {
+      this.notify(() => listener(structuredClone(imported)));
+    }
+    this.emitChange();
+    return imported;
+  }
+
+  onImport(listener: (collection: GeometryFeatureCollection) => void): () => void {
+    this.assertAlive();
+    this.importListeners.add(listener);
+    return () => { this.importListeners.delete(listener); };
   }
 
   onCreate(listener: (feature: GeometryFeature) => void): () => void {
@@ -348,6 +368,7 @@ export class GeometryEditor {
     this.createListeners.clear();
     this.deleteListeners.clear();
     this.updateListeners.clear();
+    this.importListeners.clear();
     this.changeListeners.clear();
     editors.delete(this.map);
     if (removeResources) this.renderer.destroy();
