@@ -84,7 +84,7 @@ listeners. Unsubscribe and editor/map destruction clean up subscriptions.
 
 `onCreate`, `onUpdate`, `onDelete`, and `onImport` are not emitted for explicit
 transactions. Existing individual methods retain their current events.
-`onTransaction` reports explicit transactions, confirmed splits and deleteSelection(); it is not a
+`onTransaction` reports explicit transactions, confirmed splits, deleteSelection() and group translations; it is not a
 universal change stream. Undo/redo emits only `onHistory` with `action: 'transaction'`, followed by
 `onChange`. Update exhaustive switches over HistoryAction for the new member.
 The existing history limit applies per batch, not per changed feature or byte.

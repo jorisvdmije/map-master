@@ -134,8 +134,8 @@ map.on('load', () => {
       ? 'Two corners coincide. Move or remove a corner.' : validationMessages[error]
       : editing ? `${state.vertexCount} corners. Save to apply changes, or Cancel to restore the original.` : drawing
       ? `${state.vertexCount} ${state.vertexCount === 1 ? 'point' : 'points'} placed. ${state.canFinish ? 'Ready to finish.' : `Place at least ${polygon ? 'three corners' : 'two points'}.`}`
-      : selectedCount > 1 ? `${selectedCount} shapes selected. Delete removes them together; Undo restores them.`
-        : selectedFeature ? 'Shape selected. Edit its corners, delete it, or deselect it.'
+      : selectedCount > 1 ? `${selectedCount} shapes selected. Drag a selected shape to move the group. Undo restores the previous position.`
+        : selectedFeature ? 'Drag to move this shape, or edit its corners. Escape cancels a drag.'
         : state.featureCount > 0 ? 'Click a shape to select it, or draw another.' : 'Ready when you are.';
     if (splitting) {
       status.classList.toggle('is-invalid', state.splitError !== null && state.splitError !== 'split-too-few-points');
@@ -145,7 +145,7 @@ map.on('load', () => {
       : drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
-      : selectedCount > 0 ? 'Shift+click to toggle · Shift+drag to add shapes · Esc to deselect'
+      : selectedCount > 0 ? 'Drag selection to move · Release to save · Esc to cancel · Shift+click to toggle'
         : state.featureCount > 0 ? 'Click to select · Shift+drag to select several shapes' : 'Your next idea, on the map.';
     element('mode-dot').classList.toggle('drawing', drawing);
     element('mode-dot').classList.toggle('selected', selectedCount > 0);

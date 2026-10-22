@@ -6,12 +6,13 @@ A TypeScript library in development for drawing and editing geometry on web maps
 
 ## Status
 
-Line and polygon drawing, single and multiple feature selection, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are implemented:
+Line and polygon drawing, single and multiple feature selection, group movement, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are implemented:
 preview, validate, finish or cancel, select/deselect, delete, move/insert/remove vertices, and export committed features together
 as GeoJSON through one GeometryEditor API.
 [Atomic transactions](docs/transactions.md) can create, update, and delete multiple
 features as one validated batch and one undo action.
 [Split Features](docs/splitting.md) divides a selected polygon into two independent features.
+[Group movement](docs/geometry-editor.md#move-selected-shapes) previews a selected group and records the move as one undoable action.
 The API is experimental. Code and contributor documentation use English.
 
 ## Try the demo
@@ -25,6 +26,7 @@ Open <http://localhost:5173>. Choose **Draw a line**, click at least two differe
 positions, and press **Enter** or **Finish**. Press **Escape** or **Cancel** to
 discard the current draft. Choose **Polygon** for an outline with at least three
 corners; Enter, Finish, or clicking the first corner closes a valid ring.
+Drag any selected shape to move the selection together; release saves, Escape cancels, and Undo restores the whole group.
 **Export GeoJSON** downloads committed lines and polygons only.
 The map can still be dragged and zoomed while drawing.
 **Snap to vertices & edges** is enabled in the demo: drawing within 18 CSS pixels
@@ -92,6 +94,7 @@ npm run check
 | `npm run test:browser` | Build the package and run real Chromium interaction and demo tests. |
 | `npm run build:demo` | Build the library and a deployable demo in `examples/basic/dist/`. |
 | `npm run benchmark:polygon` | Measure validation on fixed polygon fixtures; see [baseline and limits](docs/performance.md). |
+| `npm run benchmark:translation` | Measure group preview, validated commit, and undo on fixed datasets. |
 | `npm run benchmark:selection` | Measure core ID lookup and selected snapshots on fixed datasets. |
 | `npm run benchmark:deletion` | Measure one core deletion plus export of all surviving features. |
 | `npm run benchmark:editing` | Measure moving one corner of fixed polygon drafts. |

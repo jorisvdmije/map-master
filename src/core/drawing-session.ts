@@ -1,4 +1,5 @@
 import { splitPolygon } from './split-polygon.js';
+import { translateFeatures } from './translation.js';
 import { prepareTransaction } from './transaction.js';
 import { EditHistory, type HistoryEntry } from './history.js';
 import { copyProperties, prepareImport } from './geojson-import.js';
@@ -318,6 +319,12 @@ export class DrawingSession {
   /** Delete the complete selection through one transaction/history action. */
   deleteSelection(): TransactionEvent | null {
     return this.applyTransaction({ delete: [...this.selectedFeatureIds] });
+  }
+
+  /** Apply the same degree offset to every selected vertex as one validated transaction. */
+  translateSelection(delta: Coordinate): TransactionEvent | null {
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before translating.');
+    return this.applyTransaction({ update: translateFeatures(this.getSelection(), delta) });
   }
 
   editSelected(): boolean {

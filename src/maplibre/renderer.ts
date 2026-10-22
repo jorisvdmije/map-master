@@ -20,7 +20,7 @@ export class MapLibreRenderer {
   private readonly draftId: string;
   private readonly layers: LayerSpecification[];
   private selectedFeatureIds = new Set<FeatureId>();
-  private editingFeatureId: FeatureId | null = null;
+  private editingFeatureIds = new Set<FeatureId>();
 
   constructor(private readonly map: MapLibreMap, namespace: string) {
     this.featuresId = `${namespace}-features`;
@@ -95,11 +95,27 @@ export class MapLibreRenderer {
 
   /** Hide only the committed version of the feature being previewed as an edit. */
   renderEditing(id: FeatureId | null): void {
+    this.renderEditingMany(id === null ? [] : [id], true);
+  }
+
+  renderEditingMany(ids: readonly FeatureId[], force = false): void {
+    const next = new Set(ids);
     if (this.map.getSource(this.featuresId)) {
-      if (this.editingFeatureId !== null) this.map.removeFeatureState({ source: this.featuresId, id: JSON.stringify(this.editingFeatureId) }, 'editing');
-      if (id !== null) this.map.setFeatureState({ source: this.featuresId, id: JSON.stringify(id) }, { editing: true });
+      for (const id of this.editingFeatureIds) {
+        if (!next.has(id)) this.map.removeFeatureState({ source: this.featuresId, id: JSON.stringify(id) }, 'editing');
+      }
+      for (const id of next) {
+        if (force || !this.editingFeatureIds.has(id)) this.map.setFeatureState({ source: this.featuresId, id: JSON.stringify(id) }, { editing: true });
+      }
     }
-    this.editingFeatureId = id;
+    this.editingFeatureIds = next;
+  }
+
+  /** Only the moving group is uploaded per frame; committed data stays untouched. */
+  renderTranslation(features: GeometryFeatureCollection['features']): void {
+    void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection',
+      features: features.map((feature) => ({ type: 'Feature', properties: {}, geometry: feature.geometry })),
+    });
   }
 
   /** Prefer outlines near the pointer, then polygon interiors, in rendered order. */

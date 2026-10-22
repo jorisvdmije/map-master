@@ -1,6 +1,6 @@
 # Incremental roadmap
 
-Steps 0–13a have been implemented locally; subsequent steps are planned. The
+Steps 0–13b have been implemented locally; subsequent steps are planned. The
 workflow still needs a GitHub remote to run in hosted CI. Each row describes
 a reviewable change or a milestone that can be split further when needed. Create
 each branch from updated `main` after its dependencies have merged.
@@ -21,14 +21,15 @@ each branch from updated `main` after its dependencies have merged.
 | 11 | `feat/split-features` | Implemented: split one selected single-ring polygon with a simple outside-to-outside cutting line and two proper edge crossings, colored preview, validation, correction/cancel, ID/property policy, atomic history, tests and benchmark. See the [split guide](splitting.md). |
 | 12 | `feat/edit-snapping` | Implemented: snap dragged corners and inserted midpoints to other committed features, exclude the edited feature, reuse the index, Alt/live toggles, exact release, validation/cancel/history, browser/demo tests and benchmark. |
 | 13a | `feat/multi-select` | Implemented: Shift+click toggle and additive rectangle selection, typed IDs, changed-only highlights, selectMany/getSelection/toggleSelection, atomic deleteSelection and undo, gesture cleanup, demo/core/browser/package tests and benchmark. |
-| 13b | `feat/move-features`, then `feat/duplicate-features` | Planned: preview group movement, confirm/cancel, one transaction; duplicates receive new IDs. |
+| 13b | `feat/move-features` | Implemented: drag selected lines/polygons as a group, selected-only preview, release/cancel, degree-offset API, atomic validation/history, lifecycle cleanup, tests and benchmark. |
+| 13c | `feat/duplicate-features` | Planned: duplicate selected shapes with new IDs and one undo action. |
 | 14 | `feat/polygon-holes`, then `feat/multipart` | Planned: extend geometry validation, import/export, vertex addressing, snapping and history before adding holes/parts tools. |
 | 15 | Separate merge/difference/intersection branches | Planned: preview and atomic overlay operations after holes and multipart support. |
 | 16 | Separate reshape/tracing/topology branches | Planned: reshape boundaries, trace existing edges, then edit shared boundaries together. |
 | 17 | Separate precision/geometry-operation branches | Planned: rotate, scale, constraints, buffer/offset, simplify and trim/extend with explicit measurement units. |
 
 Steps 2–7 produce the first small CRUD editor. Step 8 adds recovery from user
-mistakes. Step 9 adds precise placement against existing shapes. Later candidates include touch interactions, feature dragging,
+mistakes. Step 9 adds precise placement against existing shapes. Later candidates include touch interactions,
 holes, multipart geometry, rotation, broader cutting/splitting support, and framework wrappers.
 Prioritize those using actual application requirements.
 

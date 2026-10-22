@@ -10,6 +10,7 @@ src/
   core/
     types.ts                 Coordinates, features, modes, validation diagnostics
     drawing-session.ts       Draft, features indexed by ID, selection, create/edit/delete/export
+    translation.ts           Translate coordinates from an immutable baseline in degrees
     transaction.ts           Validate mixed create/update/delete batches before commit
     history.ts               Bounded undo/redo stacks of committed feature changes
     geojson-import.ts        Validate/copy entire import batches and JSON properties
@@ -20,6 +21,7 @@ src/
     geometry-editor.ts       Public API, map input, events, gesture/lifecycle cleanup
     renderer.ts              Sources/layers, picking, selection styling, draft vertices
     snapping.ts              Map projection and camera/data-revision cache
+    translation-interaction.ts Group drag preview, release and cancellation
     vertex-interaction.ts    Pointer capture, vertex gestures, cancellation
     vertex-handles.ts        Shared screen-space corner/midpoint definitions
     line-editor.ts           Compatibility facade for the earlier line-only API
@@ -184,3 +186,17 @@ completed rectangle asks the renderer for intersecting rendered editor features;
 the controller filters stale IDs and updates the selection once. Camera/style
 changes and API mutations abort the gesture. Rendering diffs the old/new sets
 and changes only their MapLibre feature states without uploading geometry.
+
+## Group translation
+
+`TranslationInteraction` starts only on a selected committed hit while idle. It
+captures one selection snapshot, suspends pan, and computes a shared geographic
+offset from the original pointer position. Animation frames translate only that
+snapshot. The renderer hides originals through feature state and uploads the
+group to the draft source. The authoritative store is unchanged.
+
+Release resolves the final pointer and calls `translateSelection()`. The core
+translates selected features and passes the complete batch through transaction
+validation and the existing commit boundary. One revision, one event, and one
+history entry cover the whole group. Cancelling clears preview/feature state and
+restores capture, pan and cursor; API mutations cancel before touching the store.

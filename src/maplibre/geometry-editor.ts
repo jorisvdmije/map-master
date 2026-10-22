@@ -6,6 +6,8 @@ import { MapLibreSnapping } from './snapping.js';
 import type { ScreenPoint } from '../core/snapping.js';
 import { VertexInteraction } from './vertex-interaction.js';
 import { SelectionInteraction } from './selection-interaction.js';
+import { TranslationInteraction } from './translation-interaction.js';
+import { GeoJSONImportError } from '../core/geojson-import.js';
 
 const editors = new WeakSet<MapLibreMap>();
 /** Public drawing API. MapLibre input and rendering stay behind this boundary. */
@@ -19,6 +21,7 @@ export class GeometryEditor {
   private readonly renderer: MapLibreRenderer;
   private readonly vertices: VertexInteraction;
   private readonly selection: SelectionInteraction;
+  private readonly translation: TranslationInteraction;
   private readonly canvas: HTMLCanvasElement;
   private readonly view: Window;
   private readonly createListeners = new Set<(feature: GeometryFeature) => void>();
@@ -76,6 +79,27 @@ export class GeometryEditor {
       addBox: (start, end) => {
         const ids = this.renderer.pickBox(start, end).filter((id) => this.session.hasFeature(id));
         this.selectMany([...this.session.state.selectedFeatureIds, ...ids]);
+      },
+    });
+    this.translation = new TranslationInteraction(map, {
+      targets: (point) => {
+        const state = this.session.state;
+        if (this.destroyed || state.mode !== 'idle' || state.selectedFeatureIds.length === 0) return [];
+        const id = this.renderer.pick(point);
+        return id !== null && state.selectedFeatureIds.includes(id) ? this.session.getSelection() : [];
+      },
+      preview: (features) => {
+        this.renderer.renderEditingMany(features.map((feature) => feature.id));
+        this.renderer.renderTranslation(features);
+      },
+      clear: () => { this.renderer.renderEditing(null); this.renderer.clearPreview(); },
+      commit: (delta) => {
+        try { this.translateSelection(delta); }
+        catch (error) {
+          // Final topology validation can reject a numerically degenerate result.
+          // The gesture has already been cleaned up; preserve data and history.
+          if (!(error instanceof GeoJSONImportError || error instanceof RangeError)) throw error;
+        }
       },
     });
     editors.add(map);
@@ -144,7 +168,7 @@ export class GeometryEditor {
   /** Select one committed feature, or pass null to clear selection. */
   select(id: FeatureId | null): void {
     this.assertAlive();
-    this.selection.cancel();
+    this.selection.cancel(); this.translation.cancel();
     if (!this.session.select(id)) return;
     this.renderer.renderSelection(this.session.state.selectedFeatureIds);
     this.emitChange();
@@ -152,14 +176,14 @@ export class GeometryEditor {
 
   /** Replace the selection; unknown IDs reject the entire update. */
   selectMany(ids: readonly FeatureId[]): void {
-    this.assertAlive(); this.selection.cancel();
+    this.assertAlive(); this.selection.cancel(); this.translation.cancel();
     if (!this.session.selectMany(ids)) return;
     this.renderer.renderSelection(this.session.state.selectedFeatureIds);
     this.emitChange();
   }
 
   toggleSelection(id: FeatureId): void {
-    this.assertAlive(); this.selection.cancel();
+    this.assertAlive(); this.selection.cancel(); this.translation.cancel();
     this.session.toggleSelection(id);
     this.renderer.renderSelection(this.session.state.selectedFeatureIds);
     this.emitChange();
@@ -178,7 +202,7 @@ export class GeometryEditor {
   /** Start an outside-to-outside cutting line on the selected single-ring polygon. */
   splitSelected(): boolean {
     this.assertAlive();
-    this.selection.cancel();
+    this.selection.cancel(); this.translation.cancel();
     if (!this.session.splitSelected()) return false;
     this.enterInteraction(); this.schedulePreview(); return true;
   }
@@ -215,7 +239,7 @@ export class GeometryEditor {
   /** Begin a cancellable edit of the selected feature; false with no selection/already editing. */
   editSelected(): boolean {
     this.assertAlive();
-    this.selection.cancel();
+    this.selection.cancel(); this.translation.cancel();
     if (!this.session.editSelected()) return false;
     this.renderer.renderEditing(this.session.state.selectedFeatureId);
     this.enterInteraction();
@@ -248,7 +272,7 @@ export class GeometryEditor {
   /** Delete the selected feature and return its snapshot, or null if nothing is selected. */
   deleteSelected(): GeometryFeature | null {
     this.assertAlive();
-    this.selection.cancel();
+    this.selection.cancel(); this.translation.cancel();
     const feature = this.session.deleteSelected();
     if (!feature) return null;
     this.renderer.renderSelection([]);
@@ -266,10 +290,17 @@ export class GeometryEditor {
     return this.applyTransaction({ delete: this.session.state.selectedFeatureIds });
   }
 
+  /** Translate the current selection in longitude/latitude degrees, atomically. */
+  translateSelection(delta: Coordinate): TransactionEvent | null {
+    this.assertAlive();
+    this.selection.cancel(); this.translation.cancel();
+    return this.publishTransaction(this.session.translateSelection(delta));
+  }
+
   /** Start drawing. Finish/cancel the current draft before changing geometry type. */
   draw(kind: GeometryType): void {
     this.assertAlive();
-    this.selection.cancel();
+    this.selection.cancel(); this.translation.cancel();
     if (!this.session.start(kind)) return;
     this.renderer.renderSelection([]);
     this.enterInteraction();
@@ -307,7 +338,7 @@ export class GeometryEditor {
 
   cancel(): void {
     this.assertAlive();
-    this.selection.cancel();
+    this.selection.cancel(); this.translation.cancel();
     this.vertices.stop(true);
     if (!this.session.cancel()) return;
     this.leaveDrawing();
@@ -322,7 +353,7 @@ export class GeometryEditor {
   /** Atomically append a parsed Feature or FeatureCollection. Existing IDs cannot be overwritten. */
   importGeoJSON(input: unknown): GeometryFeatureCollection {
     this.assertAlive();
-    this.selection.cancel();
+    this.selection.cancel(); this.translation.cancel();
     const imported = this.session.importGeoJSON(input);
     if (imported.features.length === 0) return imported;
     this.renderer.renderCommitted(this.exportGeoJSON());
@@ -336,8 +367,11 @@ export class GeometryEditor {
   /** Apply a mixed batch atomically; callbacks receive the complete committed changes. */
   applyTransaction(input: FeatureTransaction): TransactionEvent | null {
     this.assertAlive();
-    this.selection.cancel();
-    const event = this.session.applyTransaction(input);
+    this.selection.cancel(); this.translation.cancel();
+    return this.publishTransaction(this.session.applyTransaction(input));
+  }
+
+  private publishTransaction(event: TransactionEvent | null): TransactionEvent | null {
     if (!event) return null;
     this.renderer.renderSelection(this.session.state.selectedFeatureIds);
     this.renderer.renderCommitted(this.exportGeoJSON());
@@ -362,6 +396,7 @@ export class GeometryEditor {
 
   clearHistory(): void {
     this.assertAlive();
+    this.translation.cancel();
     if (this.session.clearHistory()) this.emitChange();
   }
 
@@ -373,7 +408,7 @@ export class GeometryEditor {
 
   private replayHistory(direction: HistoryEvent['direction']): boolean {
     this.assertAlive();
-    this.selection.cancel();
+    this.selection.cancel(); this.translation.cancel();
     const event = this.session[direction]();
     if (!event) return false;
     this.renderer.renderSelection(this.session.state.selectedFeatureIds);
@@ -537,7 +572,7 @@ export class GeometryEditor {
   };
 
   private readonly handleStyleLoad = (): void => {
-    this.selection.cancel();
+    this.selection.cancel(); this.translation.cancel();
     this.vertices.stop(true);
     this.renderer.mount();
     this.renderer.renderCommitted(this.exportGeoJSON());
@@ -549,7 +584,7 @@ export class GeometryEditor {
   private readonly handleMapRemove = (): void => { this.dispose(false); };
 
   private readonly handleCameraMove = (): void => {
-    this.selection.cancel();
+    this.selection.cancel(); this.translation.cancel();
     this.snapping.invalidateCamera();
     this.vertices.refresh();
     if (this.session.state.mode !== 'idle') this.schedulePreview();
@@ -564,7 +599,7 @@ export class GeometryEditor {
         this.cursor = resolved.coordinate;
         this.setSnap(resolved.snap);
       }
-      if (this.destroyed) return;
+      if (this.destroyed || this.translation.active) return;
       const split = this.session.getSplitPreview();
       if (this.session.state.mode === 'split-polygon') this.renderer.renderEditing(split ? this.session.state.selectedFeatureId : null);
       this.renderer.renderPreview(this.session.getDraft(), this.cursor, this.session.state, this.snap, split);
@@ -593,6 +628,7 @@ export class GeometryEditor {
     this.snap = null;
     this.snapping.clear();
     this.selection.destroy(removeResources);
+    this.translation.destroy(removeResources);
     this.vertices.destroy(removeResources);
     const wasDrawing = this.session.cancel();
     this.session.clearHistory();

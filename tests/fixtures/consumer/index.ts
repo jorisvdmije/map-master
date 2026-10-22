@@ -74,6 +74,8 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const selection: editor.GeometryFeature[] = tool.getSelection();
   const selectedIds: editor.FeatureId[] = tool.getState().selectedFeatureIds;
   if (selection[0]) tool.toggleSelection(selection[0].id);
+  const translated: editor.TransactionEvent | null = tool.translateSelection([0.01, -0.01]);
+  void translated;
   const deletedSelection: editor.TransactionEvent | null = tool.deleteSelection();
   void [selectedIds, deletedSelection];
   void deleted;
@@ -109,6 +111,8 @@ export function integrate(map: Map): editor.LineCollection {
     const type: 'LineString' = feature.geometry.type;
     void type;
   });
+  const translated: editor.TransactionEvent | null = tool.translateSelection([0.01, -0.01]);
+  void translated;
   const deleted: editor.LineFeature | null = tool.deleteSelected();
   void deleted;
   const undone: boolean = tool.undo();

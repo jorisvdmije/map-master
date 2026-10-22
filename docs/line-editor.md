@@ -132,3 +132,7 @@ independent `LineFeature[]` snapshots. `deleteSelection()` deletes a group in on
 transaction and emits `onTransaction`, followed by `onChange`. `deleteSelected()`
 throws for multiple selections; `editSelected()` returns false. Undo restores
 deleted data without restoring selection.
+
+Group dragging and `translateSelection([deltaLng, deltaLat])` use the shared
+[translation contract](geometry-editor.md#move-selected-shapes), including one
+transaction/Undo, unchanged IDs/properties, and degree offsets without snapping.

@@ -1,8 +1,9 @@
 import { expect, it } from 'vitest';
-import { page, userEvent } from 'vitest/browser';
+import { commands, page, userEvent } from 'vitest/browser';
+import type { GeometryFeatureCollection } from '../../src/index.js';
 import html from '../../examples/basic/index.html?raw';
 
-it('selects a group in the built demo, disables single-feature tools, deletes once and restores with Undo', async () => {
+it('selects a group in the built demo, moves/cancels the group, deletes once and restores with Undo', async () => {
   history.replaceState(null, '', `${location.pathname}?basemap=off`);
   const parsed = new DOMParser().parseFromString(html, 'text/html');
   document.body.innerHTML = parsed.body.innerHTML;
@@ -33,6 +34,19 @@ it('selects a group in the built demo, disables single-feature tools, deletes on
   await expect.element(page.getByRole('button', { name: 'Edit vertices', exact: true })).toBeDisabled();
   await expect.element(page.getByRole('button', { name: 'Split polygon', exact: true })).toBeDisabled();
   expect(output.value).toBe(saved);
+  await commands.vertexPointer('down', 225, 225); await commands.vertexPointer('move', 260, 270);
+  await expect.poll(() => canvas.style.cursor).toBe('grabbing');
+  expect(output.value).toBe(saved);
+  await userEvent.keyboard('{Escape}'); await commands.vertexPointer('up', 260, 270);
+  expect(output.value).toBe(saved);
+  await expect.element(page.getByText('2 shapes selected', { exact: true })).toBeVisible();
+  await userEvent.dragAndDrop(canvas, canvas, { sourcePosition: { x: 225, y: 225 }, targetPosition: { x: 260, y: 270 } });
+  const moved = output.value; expect(moved).not.toBe(saved);
+  expect((JSON.parse(moved) as GeometryFeatureCollection).features.map((feature) => feature.id))
+    .toEqual((JSON.parse(saved) as GeometryFeatureCollection).features.map((feature) => feature.id));
+  await page.getByRole('button', { name: 'Undo', exact: true }).click(); expect(output.value).toBe(saved);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click(); expect(output.value).toBe(moved);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click(); expect(output.value).toBe(saved);
   await page.getByRole('button', { name: 'Delete selected shapes', exact: true }).click();
   expect(document.querySelector('#feature-count')?.textContent).toBe('0 features');
   await page.getByRole('button', { name: 'Undo', exact: true }).click(); expect(output.value).toBe(saved);

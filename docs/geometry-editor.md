@@ -2,7 +2,7 @@
 
 Status: experimental. Supports 2D LineString and single-outer-ring Polygon
 features on a flat Mercator MapLibre GL JS 6.15 map. Desktop mouse and keyboard
-input, selection, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are tested in Chromium.
+input, selection, group translation, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are tested in Chromium.
 Holes and multipart features are not implemented yet.
 
 ## One editor API
@@ -45,7 +45,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `new GeometryEditor(map, options?)` | Attach after `style.load` or `load`. One editor per map, including the LineEditor facade. `historyLimit` defaults to 100; `snapping.enabled` defaults to false. |
 | `draw('LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
 | `finish()` | Commit a valid draft once, returning a `GeometryFeature`. An invalid/incomplete draft returns `null` and remains active. |
-| `cancel()` | Discard the draft or cancel an active selection rectangle. |
+| `cancel()` | Discard the draft or cancel an active selection rectangle or group drag. |
 | `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`. |
 | `splitSelected()` | Begin a cutting line on the selected polygon; false with no polygon/already splitting. |
 | `setSplitLine(coordinates)` / `removeSplitPoint()` | Replace the cut or remove its last point while splitting. |
@@ -56,12 +56,13 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `selectMany(ids)` | Replace the whole selection atomically, deduplicating typed IDs. |
 | `toggleSelection(id)` | Add/remove one existing feature from the selection. |
 | `getSelection()` | Independent snapshots of all selected features in acquisition order. |
+| `translateSelection([deltaLng, deltaLat])` | Translate selected features in degrees as one transaction; returns `TransactionEvent` or null. Idle only. |
 | `deleteSelection()` | Delete all selected features as one transaction; returns `TransactionEvent` or null. |
 | `deleteSelected()` | Delete the selected committed feature and clear selection. Return its independent snapshot, or `null` with no selection. Throws for multiple selections; idle only. |
 | `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed lines and polygons. |
 | `importGeoJSON(input)` | Append a parsed Feature/FeatureCollection atomically; return an independent collection of imported features. Idle only. |
 | `applyTransaction({ create?, update?, delete? })` | Validate and commit a mixed batch atomically. Full features with explicit IDs; idle only. Return a TransactionEvent or null for no change. |
-| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed split or deleteSelection. Returns an unsubscribe function. |
+| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed split, deleteSelection or group translation. Returns an unsubscribe function. |
 | `onImport(listener)` | One notification per nonempty imported batch. Returns an unsubscribe function. |
 | `onUpdate(listener)` | One notification per changed saved edit. Returns an unsubscribe function. |
 | `undo()` / `redo()` | Reverse/replay one committed action; return true if applied, false if unavailable. Idle only. |
@@ -91,6 +92,57 @@ asynchronously; listen to the map's `error` event for rendering failures.
 After destruction, exports remain readable and selection is cleared;
 drawing, selecting, deleting, and subscribing throw.
 
+## Move selected shapes
+
+Select one or more shapes, then drag any selected shape with the primary mouse
+button and no modifiers. After 4 CSS pixels the group appears as an orange dashed
+preview. Release commits the complete group once; Escape cancels the gesture and
+keeps the selection. A shorter gesture remains an ordinary click. Shift+drag still
+adds to the selection. Drawing, editing vertices and splitting keep their own
+input behavior. Group dragging supports desktop mouse input.
+
+```ts
+editor.selectMany([7, '7']);
+const moved = editor.translateSelection([0.001, -0.002]);
+// Same offset in longitude/latitude degrees for every vertex.
+// IDs, properties, feature order and selection remain intact.
+editor.undo(); // Restore the complete group in one action.
+editor.redo();
+```
+
+The offset is **longitude/latitude degrees**, not meters or screen pixels. Dragging
+uses the difference between the pointer's unprojected start and release positions.
+Every preview is computed from the original coordinates, avoiding accumulated
+rounding drift. Relative coordinate offsets and closed rings are preserved;
+physical distances and projected screen dimensions can change with latitude.
+Group movement does not snap; drawing and vertex snapping remain available.
+
+Coordinates must remain within `[-180, 180]` longitude and `[-90, 90]` latitude.
+Nothing wraps or clamps individual vertices. One out-of-bounds member rejects the
+whole group, including offscreen selected features. During such a drag, the cursor
+shows `not-allowed`, the original group is previewed, and release cancels. Final
+transaction validation also rejects degenerate geometry caused by floating-point
+rounding. The API throws `TypeError` for malformed/nonfinite offsets, `RangeError`
+for bounds violations, and `GeoJSONImportError` for invalid resulting geometry.
+Failures preserve data, selection, revision, undo and redo. A zero offset or empty
+selection returns null without notifications or history.
+
+A changed movement emits one `onTransaction`, followed by `onChange`; it does not
+emit per-feature `onUpdate`. Undo/redo emits `onHistory` with action `transaction`.
+Exports and data revision remain unchanged throughout the drag. The transient
+pointer gesture leaves `getState().mode` at `idle`; it does not create an editable
+vertex draft or require `finish()`. Hosts persist the transaction on release.
+
+Blur, pointer cancellation, lost capture, camera movement, style replacement,
+selection/data/history API changes, starting another tool, `cancel()` and teardown
+cancel the active drag. The original cursor and drag-pan setting are restored.
+Release after cancellation cannot select or draw accidentally. A selected group
+outside a drag follows the normal Escape-to-deselect behavior.
+
+The renderer hides the original selected shapes with feature state. Animation
+frames upload only preview geometry for the moving group; the committed source
+is uploaded once on success. See the [performance baseline](performance.md#group-translation).
+
 ## Selection
 
 While idle, a plain left click replaces the selection with one visible committed
@@ -104,7 +156,7 @@ For click picking, outlines have a query box extending 6 CSS pixels on each side
 of the pointer, independent of zoom. Outline hits take priority over polygon
 interiors; among hits in the same layer, the topmost rendered feature wins.
 Overlapping objects are not cycled by repeated clicks. Host layers and drafts are
-excluded. Ctrl/Meta/Alt-modified clicks are ignored; ordinary dragging still pans.
+excluded. Ctrl/Meta/Alt-modified clicks are ignored; dragging a selected shape moves the selection; dragging elsewhere pans.
 
 ### Rectangle selection
 

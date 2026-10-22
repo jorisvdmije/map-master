@@ -319,3 +319,31 @@ source worker processing and frame rate. Group deletion reuses the transaction
 path with one full collection upload and one history action. Large selections,
 complex geometry and full browser performance still need application-specific
 budgets; these measurements are not supported-dataset guarantees.
+
+## Group translation
+
+Run `npm run benchmark:translation`. Fixed mixed two-point lines and four-corner
+polygons, selected in ID order; 10 warmups and 50 samples, 20 preview calculations
+per sample. Translation always starts from a captured baseline. Commit includes
+selection snapshots, full transaction validation, history recording and the
+returned event snapshots. Undo includes replay and its returned event. Import,
+selection setup, export and rendering are outside these timings; each fixture
+asserts exact restoration after all samples.
+
+Local Node.js v22.23.1, macOS arm64, Apple M2 Pro (2026-10-22):
+
+| Stored / selected | Preview median / p95 ms | Commit median / p95 ms | Undo median / p95 ms |
+| --- | --- | --- | --- |
+| 10 / 5 | 0.001 / 0.004 | 0.049 / 0.084 | 0.010 / 0.022 |
+| 10,000 / 5 | 0.001 / 0.001 | 0.022 / 0.031 | 0.004 / 0.005 |
+| 10,000 / 500 | 0.032 / 0.048 | 1.779 / 2.376 | 0.281 / 0.572 |
+| 10,000 / 5,000 | 0.387 / 0.472 | 20.786 / 29.761 | 4.233 / 5.341 |
+
+These are core timings, not end-to-end frame budgets. Preview cost scales with
+selected vertices. Browser tests verify that dragging uploads only selected
+preview geometry, hides originals through feature state, and does not upload the
+committed collection until release. A successful release performs one committed
+source upload. That upload/export still scales with the full stored collection;
+MapLibre worker/GPU time, callback overhead, picking and feature-state updates are
+not included above. Large groups can exceed a frame budget during the final
+validated commit and still need representative application profiling.

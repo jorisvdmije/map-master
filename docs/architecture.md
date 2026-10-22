@@ -1,7 +1,7 @@
 # Architecture proposal
 
 Status: the core/map separation, line/polygon drawing, single and multiple feature selection,
-and individual/transactional group deletion are implemented.
+individual/transactional group deletion, and atomic group translation are implemented.
 Additional geometry and editing capabilities below remain design direction.
 See the [GeometryEditor guide](geometry-editor.md) for the current public API and
 the [code walkthrough](code-walkthrough.md) for the implemented structure.
