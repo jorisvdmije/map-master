@@ -32,6 +32,7 @@ const deselect = element<HTMLButtonElement>('deselect');
 const deleteSelected = element<HTMLButtonElement>('delete-selected');
 const duplicateSelected = element<HTMLButtonElement>('duplicate-selected');
 const splitSelected = element<HTMLButtonElement>('split-selected');
+const intersectionSelected = element<HTMLButtonElement>('intersection-selected');
 const differenceSelected = element<HTMLButtonElement>('difference-selected');
 const unionSelected = element<HTMLButtonElement>('union-selected');
 const editSelected = element<HTMLButtonElement>('edit-selected');
@@ -116,6 +117,7 @@ map.on('load', () => {
     const drawing = state.mode !== 'idle';
     const editing = state.mode.startsWith('edit-');
     const splitting = state.mode === 'split-polygon';
+    const intersecting = state.mode === 'intersection-polygons';
     const subtracting = state.mode === 'difference-polygons';
     const merging = state.mode === 'union-polygons';
     const polygon = state.mode === 'draw-hole' || selected === 'Polygon';
@@ -157,9 +159,10 @@ map.on('load', () => {
     unionSelected.disabled = drawing || selectedCount < 2 || activeEditor.getSelection().some((feature) =>
       feature.geometry.type !== 'Polygon' && feature.geometry.type !== 'MultiPolygon');
     differenceSelected.disabled = unionSelected.disabled;
+    intersectionSelected.disabled = unionSelected.disabled;
     element('editing-tools').hidden = !editing;
-    element('finish-label').textContent = subtracting ? 'Apply subtraction' : merging ? 'Apply merge' : splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
-    element('drawing-instructions').hidden = editing || splitting || merging || subtracting || state.mode === 'draw-hole';
+    element('finish-label').textContent = intersecting ? 'Apply intersection' : subtracting ? 'Apply subtraction' : merging ? 'Apply merge' : splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
+    element('drawing-instructions').hidden = editing || splitting || merging || subtracting || intersecting || state.mode === 'draw-hole';
     removeVertex.disabled = !editing || state.selectedVertexIndex === null
       || state.vertexCount <= (state.mode === 'edit-polygon' ? 3 : 2);
     element('vertex-status').textContent = state.selectedVertexIndex === null
@@ -175,7 +178,9 @@ map.on('load', () => {
       element('selection-detail').textContent = details.join(' · ');
     } else if (selectedCount > 1) {
       element('selection-type').textContent = `${selectedCount} shapes selected`;
-      element('selection-detail').textContent = subtracting ? `Target: ${JSON.stringify(state.selectedFeatureIds[0])}. All other selected shapes are kept as cutters.` : merging ? 'Merge keeps the first selected shape’s ID and properties.'
+      element('selection-detail').textContent = intersecting ? activeEditor.getIntersectionPreview()?.geometry === null
+        ? 'No common area. All selected shapes are removed on apply.'
+        : 'Intersection keeps the common area under the first selected ID; other inputs are removed.' : subtracting ? `Target: ${JSON.stringify(state.selectedFeatureIds[0])}. All other selected shapes are kept as cutters.` : merging ? 'Merge keeps the first selected shape’s ID and properties.'
         : `First selected: ${JSON.stringify(state.selectedFeatureIds[0])}. Subtract cuts this shape using the others.`;
     }
     importFile.disabled = drawing || importing;
@@ -209,6 +214,15 @@ map.on('load', () => {
         : state.unionError ? 'The merge could not be calculated. Cancel and adjust the polygons.'
         : 'Merged area ready. Apply merge or Enter saves; Cancel keeps the originals. Undo restores all shapes.';
     }
+    if (intersecting) {
+      status.classList.toggle('is-invalid', state.intersectionError !== null);
+      const preview = activeEditor.getIntersectionPreview();
+      status.textContent = state.intersectionError === 'intersection-invalid-result'
+        ? 'The common boundary is unsupported (for example, touching parts). Cancel and adjust the polygons.'
+        : state.intersectionError ? 'The intersection could not be calculated. Cancel and adjust the polygons.'
+        : preview?.geometry === null ? 'No common area remains. Apply intersection deletes all selected shapes. Undo restores them.'
+        : 'Common area is orange. Apply intersection replaces all selected shapes with this area. Cancel keeps the originals; Undo restores them.';
+    }
     if (subtracting) {
       status.classList.toggle('is-invalid', state.differenceError !== null);
       const preview = activeEditor.getDifferencePreview();
@@ -218,7 +232,7 @@ map.on('load', () => {
         : preview?.geometry === null ? 'No target area remains. Apply subtraction deletes the target; cutting shapes are kept. Undo restores it.'
         : 'Remaining target area is orange; cutting shapes stay blue. Apply subtraction or Enter saves; Cancel keeps the original.';
     }
-    element('map-hint').textContent = subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
+    element('map-hint').textContent = intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
       : drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
@@ -288,6 +302,7 @@ duplicateSelected.addEventListener('click', () => {
 });
 splitSelected.addEventListener('click', () => { editor?.splitSelected(); });
 unionSelected.addEventListener('click', () => { editor?.unionSelection(); });
+intersectionSelected.addEventListener('click', () => { editor?.intersectionSelection(); });
 differenceSelected.addEventListener('click', () => { editor?.differenceSelection(); });
 editSelected.addEventListener('click', () => { editor?.editSelected(Number(ringIndex.value) || 0, Number(partIndex.value) || 0); });
 drawHole.addEventListener('click', () => { editor?.drawHole(Number(partIndex.value) || 0); });

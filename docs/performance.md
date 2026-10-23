@@ -496,3 +496,36 @@ geometry. Ring checks and hole/component pair checks can be quadratic, so these
 simple rectangular datasets do not bound complex or poorly conditioned workloads.
 Large operations can block the UI; workers and explicit workload budgets remain
 future work.
+
+## Polygon intersection
+
+`npm run benchmark:intersection` measures session preview (overlay plus validation),
+transaction confirmation and Undo. The overlap datasets contain 2, 25, 100 or 400
+2° squares, shifted by 0.001° longitude per input. Their shared result is one
+rectangle. The multipart datasets intersect one MultiPolygon of 2, 25, 100 or 400
+0.1° squares (0.2° grid spacing, 20 columns) with a containing square from (-1, -1)
+to (5, 5). Each ring has four unique vertices. Five warmups precede 30 measured
+iterations with history limit 1. Import, selection, snapshots and assertions are
+outside timing. Each iteration checks result type/part count, retained identity,
+replacement of all inputs, and exact Undo/Redo.
+
+Local baseline: Node v22.23.1, macOS arm64, Apple M2 Pro. Values are median / p95
+milliseconds. Core only; MapLibre uploads, rendering and input latency are excluded.
+
+| Layout | Inputs | Result parts | Preview | Commit | Undo |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Overlap | 2 | 1 | 0.117 / 0.284 | 0.019 / 0.032 | 0.005 / 0.007 |
+| Overlap | 25 | 1 | 0.702 / 1.286 | 0.046 / 0.064 | 0.019 / 0.047 |
+| Overlap | 100 | 1 | 1.653 / 2.315 | 0.105 / 0.279 | 0.052 / 0.078 |
+| Overlap | 400 | 1 | 6.626 / 7.836 | 0.334 / 0.597 | 0.172 / 0.369 |
+| Multipart | 2 | 2 | 0.061 / 0.066 | 0.022 / 0.025 | 0.001 / 0.001 |
+| Multipart | 2 | 25 | 0.236 / 0.273 | 0.141 / 0.194 | 0.007 / 0.015 |
+| Multipart | 2 | 100 | 0.702 / 1.157 | 0.551 / 0.886 | 0.024 / 0.028 |
+| Multipart | 2 | 400 | 3.854 / 6.894 | 2.728 / 3.195 | 0.081 / 0.702 |
+
+The adapter intersects operands sequentially and stops at empty output. All passes
+run synchronously at tool entry; cached state/preview reads do not rerun the engine.
+Intermediate complexity, holes and crossing counts can dominate input count.
+Strict final validation and confirmation revalidation can be quadratic. These
+simple datasets do not bound complex or poorly conditioned inputs; large overlays
+can block the UI. Workers, precision grids and workload budgets remain future work.

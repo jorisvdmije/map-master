@@ -1,5 +1,6 @@
 import { geometryParts, mapGeometry, replacePart, withGeometry, type Geometry, type GeometryPart } from './geometry.js';
 import { splitPolygonRings } from './split-polygon.js';
+import { intersectionPolygons } from './intersection.js';
 import { differencePolygons } from './difference.js';
 import { unionPolygons } from './union.js';
 import { translateFeatures } from './translation.js';
@@ -8,7 +9,7 @@ import { EditHistory, type HistoryEntry } from './history.js';
 import { copyProperties, prepareImport } from './geojson-import.js';
 import { closePolygon, openRing, samePosition, validatePolygonRings, validateMultiPolygon } from './polygon.js';
 import type {
-  Coordinate, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
+  Coordinate, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
 } from './types.js';
 
 function copyFeature(feature: GeometryFeature): GeometryFeature {
@@ -18,6 +19,9 @@ function copyFeature(feature: GeometryFeature): GeometryFeature {
 
 /** Internal editing state. No browser, map, or rendering dependencies. */
 export class DrawingSession {
+  private intersectionActive = false;
+  private intersectionPreview: IntersectionPreview | null = null;
+  private intersectionError: IntersectionError | null = null;
   private differenceActive = false;
   private differencePreview: DifferencePreview | null = null;
   private differenceError: DifferenceError | null = null;
@@ -51,7 +55,7 @@ export class DrawingSession {
 
   get state(): EditorState {
     return {
-      mode: this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.kind === null ? 'idle' : this.editingId !== null
+      mode: this.intersectionActive ? 'intersection-polygons' : this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.kind === null ? 'idle' : this.editingId !== null
         ? this.kind === 'LineString' ? 'edit-line' : 'edit-polygon'
         : this.kind === 'LineString' ? 'draw-line' : 'draw-polygon',
       vertexCount: this.draft.length,
@@ -62,19 +66,20 @@ export class DrawingSession {
       activeRingIndex: this.activeRingIndex,
       activePartIndex: this.activePartIndex,
       dataRevision: this.dataRevision,
-      canFinish: this.differenceActive ? this.differencePreview !== null : this.unionActive ? this.unionPreview !== null : this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
+      canFinish: this.intersectionActive ? this.intersectionPreview !== null : this.differenceActive ? this.differencePreview !== null : this.unionActive ? this.unionPreview !== null : this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
       canUndo: this.kind === null && this.history.canUndo,
       canRedo: this.kind === null && this.history.canRedo,
       validationError: this.validationError,
       splitError: this.splitError,
       unionError: this.unionError,
       differenceError: this.differenceError,
+      intersectionError: this.intersectionError,
     };
   }
 
   start(kind: DrawGeometryType): boolean {
     if (kind !== 'LineString' && kind !== 'Polygon') throw new TypeError('Unsupported geometry type.');
-    if (this.kind === kind && this.editingId === null && this.splitId === null && this.holeId === null && !this.unionActive && !this.differenceActive) return false;
+    if (this.kind === kind && this.editingId === null && this.splitId === null && this.holeId === null && !this.unionActive && !this.differenceActive && !this.intersectionActive) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before changing tools.');
     this.kind = kind;
     this.selectedFeatureIds.clear();
@@ -83,7 +88,7 @@ export class DrawingSession {
   }
 
   add([lng, lat]: Coordinate): boolean {
-    if (this.kind === null || this.editingId !== null || this.unionActive || this.differenceActive) return false;
+    if (this.kind === null || this.editingId !== null || this.unionActive || this.differenceActive || this.intersectionActive) return false;
     this.validatePosition([lng, lat]);
     const last = this.draft.at(-1);
     if (last && samePosition(last, [lng, lat])) return false;
@@ -100,7 +105,7 @@ export class DrawingSession {
   }
 
   finish(): GeometryFeature | null {
-    if (this.differenceActive || this.unionActive || this.splitId !== null || !this.state.canFinish) return null;
+    if (this.intersectionActive || this.differenceActive || this.unionActive || this.splitId !== null || !this.state.canFinish) return null;
     const targetId = this.editingId ?? this.holeId;
     const original = targetId === null ? undefined : this.features.get(targetId);
     const common = { type: 'Feature' as const, id: original?.id ?? this.allocateId(), properties: original ? copyProperties(original.properties) : {} };
@@ -122,6 +127,7 @@ export class DrawingSession {
 
   cancel(): boolean {
     if (this.kind === null) return false;
+    this.intersectionActive = false; this.intersectionPreview = null; this.intersectionError = null;
     this.differenceActive = false; this.differencePreview = null; this.differenceError = null;
     this.unionActive = false; this.unionPreview = null; this.unionError = null;
     this.splitId = null; this.splitPreview = null; this.splitError = null;
@@ -204,6 +210,44 @@ export class DrawingSession {
     const original = this.features.get(this.selectedFeatureIds.values().next().value!)!;
     const geometry = this.differencePreview.geometry;
     const changes = prepareTransaction(geometry ? { update: [withGeometry(original, geometry)] } : { delete: [original.id] }, this.features);
+    const committed = this.commit('transaction', changes);
+    this.cancel();
+    return committed ? { changes: changes.map(({ before, after }) => ({ before: before ? copyFeature(before) : null, after: after ? copyFeature(after) : null })) } : null;
+  }
+
+  /** Keep the filled area common to every selected polygon feature. */
+  intersectionSelection(): boolean {
+    if (this.intersectionActive) return false;
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before intersecting.');
+    const selected = this.getSelection();
+    if (selected.length < 2) return false;
+    const geometries: UnionPreview[] = [];
+    for (const { geometry } of selected) {
+      if (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon') return false;
+      geometries.push(geometry);
+    }
+    const result = intersectionPolygons(geometries);
+    this.intersectionActive = true; this.kind = 'Polygon';
+    this.intersectionPreview = result.preview; this.intersectionError = result.error;
+    return true;
+  }
+
+  getIntersectionPreview(): IntersectionPreview | null {
+    if (!this.intersectionPreview) return null;
+    const geometry = this.intersectionPreview.geometry;
+    if (!geometry) return { geometry: null };
+    const copyRings = (rings: Coordinate[][]): Coordinate[][] => rings.map((ring) => ring.map(([x, y]) => [x, y]));
+    return { geometry: geometry.type === 'Polygon' ? { type: geometry.type, coordinates: copyRings(geometry.coordinates) }
+      : { type: geometry.type, coordinates: geometry.coordinates.map(copyRings) } };
+  }
+
+  /** Retain the first ID for nonempty output; empty output deletes all inputs. */
+  finishIntersection(): TransactionEvent | null {
+    if (!this.intersectionActive || !this.intersectionPreview) return null;
+    const [retainedId, ...removedIds] = this.selectedFeatureIds;
+    const original = this.features.get(retainedId!)!;
+    const geometry = this.intersectionPreview.geometry;
+    const changes = prepareTransaction(geometry ? { update: [withGeometry(original, geometry)], delete: removedIds } : { delete: [original.id, ...removedIds] }, this.features);
     const committed = this.commit('transaction', changes);
     this.cancel();
     return committed ? { changes: changes.map(({ before, after }) => ({ before: before ? copyFeature(before) : null, after: after ? copyFeature(after) : null })) } : null;
@@ -462,7 +506,7 @@ export class DrawingSession {
 
   /** Draft ring plus preserved rings of the active component; independent open snapshots. */
   getDraftRings(): Coordinate[][] | null {
-    if (this.kind !== 'Polygon' || this.unionActive || this.differenceActive) return null;
+    if (this.kind !== 'Polygon' || this.unionActive || this.differenceActive || this.intersectionActive) return null;
     const id = this.editingId ?? this.holeId;
     const original = id === null ? undefined : this.features.get(id);
     if (!original) return [this.getDraft()];

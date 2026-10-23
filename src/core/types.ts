@@ -69,6 +69,12 @@ export interface DifferencePreview {
 }
 export type DifferenceError = 'difference-failed' | 'difference-invalid-result';
 
+/** A valid preview. Null geometry means confirmation deletes every selected input. */
+export interface IntersectionPreview {
+  geometry: PolygonFeature['geometry'] | MultiPolygonFeature['geometry'] | null;
+}
+export type IntersectionError = 'intersection-failed' | 'intersection-invalid-result';
+
 export interface SnappingOptions {
   enabled: boolean;
   /** Acquisition radius in CSS pixels, default 18, range (0, 100]. */
@@ -121,7 +127,7 @@ export interface HistoryEvent {
 }
 
 export interface EditorState {
-  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons';
+  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons';
   vertexCount: number;
   featureCount: number;
   /** The sole selected ID, or null for zero/multiple selections. */
@@ -148,4 +154,6 @@ export interface EditorState {
   unionError: UnionError | null;
   /** Subtraction failure; an empty result is valid and has no error. */
   differenceError: DifferenceError | null;
+  /** Overlay failure; null outside intersection and for valid empty results. */
+  intersectionError: IntersectionError | null;
 }

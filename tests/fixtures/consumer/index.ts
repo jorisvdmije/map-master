@@ -68,6 +68,15 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
     tool.cancel();
   }
   void [differencePreview, differenceError];
+  const intersecting: boolean = tool.intersectionSelection();
+  const intersectionPreview: editor.IntersectionPreview | null = tool.getIntersectionPreview();
+  const intersectionError: editor.IntersectionError | null = tool.getState().intersectionError;
+  if (intersecting) {
+    const intersected: editor.TransactionEvent | null = tool.finishIntersection();
+    void intersected;
+    tool.cancel();
+  }
+  void [intersectionPreview, intersectionError];
   const selected: editor.GeometryFeature | null = tool.getSelected();
   void selected;
   tool.editSelected();

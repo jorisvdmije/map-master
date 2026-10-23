@@ -1,6 +1,6 @@
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { DrawingSession } from '../core/drawing-session.js';
-import type { Coordinate, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
+import type { Coordinate, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
 import { MapLibreSnapping } from './snapping.js';
 import type { ScreenPoint } from '../core/snapping.js';
@@ -205,6 +205,23 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
+  /** Preview the area common to all selected Polygon/MultiPolygon features. */
+  intersectionSelection(): boolean {
+    this.assertAlive(); this.cancelIdleGestures();
+    if (!this.session.intersectionSelection()) return false;
+    this.enterInteraction('default'); this.schedulePreview(); return true;
+  }
+
+  getIntersectionPreview(): IntersectionPreview | null { return this.session.getIntersectionPreview(); }
+
+  finishIntersection(): TransactionEvent | null {
+    this.assertAlive();
+    const event = this.session.finishIntersection();
+    if (!event) return null;
+    this.leaveDrawing();
+    return this.publishTransaction(event);
+  }
+
   /** Subtract the remaining selected polygons from the first, preserving cutters. */
   differenceSelection(): boolean {
     this.assertAlive(); this.cancelIdleGestures();
@@ -341,7 +358,7 @@ export class GeometryEditor {
     this.enterInteraction();
   }
 
-  /** Confirm a valid tool; null also represents a successfully deleted difference target. */
+  /** Confirm a valid tool; null also represents a successfully committed empty overlay. */
   finish(): GeometryFeature | null {
     this.assertAlive();
     if (this.session.state.mode === 'difference-polygons') {
@@ -350,6 +367,14 @@ export class GeometryEditor {
       const retained = this.session.getSelection()[0]!;
       const event = this.finishDifference();
       return preview.geometry ? event?.changes[0]?.after ?? retained : null;
+    }
+    if (this.session.state.mode === 'intersection-polygons') {
+      const preview = this.session.getIntersectionPreview();
+      if (!preview) return null;
+      // Identical inputs can leave the retained geometry unchanged.
+      const retained = this.session.getSelection()[0]!;
+      const event = this.finishIntersection();
+      return event && preview.geometry ? event.changes.find((change) => change.after?.id === retained.id)?.after ?? retained : null;
     }
     if (this.session.state.mode === 'union-polygons') {
       // A contained/identical union can have only deletions in its change list.
@@ -460,7 +485,7 @@ export class GeometryEditor {
     const state = this.session.state;
     if (input.button !== 0
       || input.ctrlKey || input.metaKey || input.shiftKey || input.detail > 1) return;
-    if (state.mode.startsWith('edit-') || state.mode === 'union-polygons' || state.mode === 'difference-polygons') return;
+    if (state.mode.startsWith('edit-') || state.mode === 'union-polygons' || state.mode === 'difference-polygons' || state.mode === 'intersection-polygons') return;
     if (state.mode === 'idle') {
       if (input.altKey) return;
       const id = this.renderer.pick(event.point);
@@ -626,6 +651,12 @@ export class GeometryEditor {
         this.setSnap(resolved.snap);
       }
       if (this.destroyed || this.translation.active) return;
+      if (this.session.state.mode === 'intersection-polygons') {
+        const intersection = this.session.getIntersectionPreview();
+        this.renderer.renderEditingMany(intersection ? this.session.state.selectedFeatureIds : [], true);
+        this.renderer.renderOverlay(intersection?.geometry ?? null);
+        return;
+      }
       if (this.session.state.mode === 'union-polygons') {
         const union = this.session.getUnionPreview();
         this.renderer.renderEditingMany(union ? this.session.state.selectedFeatureIds : [], true);

@@ -9,7 +9,7 @@
   <body>
     <header class="header">
       <a class="brand" href="/" aria-label="geo home"><span class="brand-mark">g.</span>geo<span class="brand-divider"></span><span class="brand-caption">Drawing playground</span></a>
-      <span class="milestone"><span class="dot"></span> Milestone 15b <span class="milestone-label">/ Polygon difference</span></span>
+      <span class="milestone"><span class="dot"></span> Milestone 15c <span class="milestone-label">/ Polygon intersection</span></span>
     </header>
     <main class="workspace">
       <aside class="sidebar" aria-label="Drawing tools">
@@ -44,6 +44,7 @@
           <div><strong id="selection-type"></strong><span id="selection-detail"></span></div>
           <button id="split-selected" class="button secondary" disabled>Split polygon</button>
           <button id="union-selected" class="button secondary" disabled>Merge polygons</button>
+          <button id="intersection-selected" class="button secondary" disabled>Intersect polygons</button>
           <button id="difference-selected" class="button secondary" disabled>Subtract polygons</button>
           <label id="part-control" hidden>Part to edit
             <select id="part-index" aria-label="Part to edit"><option value="0">Part 1</option></select>
@@ -79,6 +80,7 @@
           <p id="import-help" class="import-help">Add lines and polygons, including multipart features, from a file (up to 5 MB). Existing shapes stay on the map.</p>
           <p class="import-help"><a href="./multipart.geojson" download>Download a multipart example</a> to try with Import GeoJSON.</p>
           <p class="import-help"><a href="./union.geojson" download>Download overlapping polygons</a>, import them, then Shift+click to select both and merge.</p>
+          <p class="import-help"><a href="./intersection.geojson" download>Download an intersection example</a>. Shift+click all three polygons and choose Intersect polygons to keep their common area.</p>
           <p class="import-help"><a href="./difference.geojson" download>Download a subtraction example</a>. Select the west target first, then Shift+click the east cutter and choose Subtract polygons.</p>
           <p id="import-status" class="import-status" role="status" hidden></p>
           <button id="export" class="button export" disabled>Export GeoJSON <span aria-hidden="true">↗</span></button>

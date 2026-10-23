@@ -16,6 +16,7 @@ src/
     geojson-import.ts        Validate/copy entire import batches and JSON properties
     polygon.ts               Ring validity, closure, exterior winding
     union.ts                 Polygon union adapter
+    intersection.ts          Common area of every input; valid empty results
     difference.ts            Target subtraction, empty and exact no-op results
     polygon-overlay.ts       Shared strict overlay result validation
     split-polygon.ts         Restricted two-crossing splitter and result validation
@@ -334,7 +335,7 @@ for property ownership, unsupported topology and numerical limits.
 target. `core/difference.ts` checks for filled-area overlap before subtraction so
 no-op results preserve exact input representation. Valid empty output has an
 explicit `{ geometry: null }` preview; it does not pass through the nonempty
-validator. Both union and difference use `core/polygon-overlay.ts` for nonempty
+validator. Union, difference and intersection use `core/polygon-overlay.ts` for nonempty
 result validation and winding normalization.
 
 The session caches the preview in `difference-polygons` mode. Confirmation prepares
@@ -342,3 +343,15 @@ one target update or deletion through the transaction boundary; cutting features
 are preserved. No-op confirmation cancels review without recording history.
 The renderer hides only the target for valid previews, including empty results.
 See [difference](difference.md) for API, events and numerical limits.
+
+## Polygon intersection
+
+`intersectionSelection()` freezes the full polygon selection. `core/intersection.ts`
+folds intersection across whole operands (MultiPolygon components stay together),
+short-circuits empty output and validates only the final nonempty result through
+`core/polygon-overlay.ts`. The session caches `{ geometry }` or a failure diagnostic.
+The renderer hides all inputs for a valid preview, including empty results.
+Confirmation retains the first selected ID for nonempty output and deletes the
+other inputs; empty output deletes every selected feature. The transaction boundary
+handles validation, one history action, events and exact replay. See
+[intersection](intersection.md) for the full contract.
