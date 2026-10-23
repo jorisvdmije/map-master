@@ -163,23 +163,25 @@ it('a drag returning to its start is a no-op, and capture commits release outsid
   expect(map.dragPan.isEnabled()).toBe(true); editor.undo(); expect(editor.exportGeoJSON()).toEqual(before);
 });
 
-it('keeps one flowing path per part while moving, with no preview source uploads or animation restarts', async () => {
+it('keeps the dots anchored to each outline while moving, with no animation or preview source uploads', async () => {
   await fixture();
   const draftId = Object.keys(map.getStyle().sources).find((id) => id.endsWith('-draft'))!;
   const uploads = vi.spyOn(map.getSource<GeoJSONSource>(draftId)!, 'setData');
   await commands.vertexPointer('down', 200, 200); await commands.vertexPointer('move', 250, 230);
   const paths = () => [...container.querySelectorAll<SVGPathElement>('[data-geo-translation-preview] path')];
   await expect.poll(() => paths().length).toBe(2);
-  const polygon = paths()[1]!; const animation = polygon.getAnimations()[0]!;
-  const initial = polygon.getAttribute('d'); const time = Number(animation.currentTime);
+  const polygon = paths()[1]!;
+  const initial = polygon.getAttribute('d');
+  expect(polygon.getAnimations()).toHaveLength(0);
+  expect(getComputedStyle(polygon).strokeDashoffset).toBe('0px');
   await commands.vertexPointer('move', 380, 250);
   await expect.poll(() => polygon.getAttribute('d')).not.toBe(initial);
-  expect(paths()[1]).toBe(polygon); expect(polygon.getAnimations()[0]).toBe(animation);
-  await expect.poll(() => Number(animation.currentTime)).toBeGreaterThan(time);
+  expect(paths()[1]).toBe(polygon); expect(polygon.getAnimations()).toHaveLength(0);
+  expect(getComputedStyle(polygon).strokeDashoffset).toBe('0px');
   expect(polygon.getAttribute('stroke-dasharray')).toBe('1 8');
   expect(uploads).not.toHaveBeenCalled();
   await userEvent.keyboard('{Escape}');
-  expect(paths()).toHaveLength(0); expect(animation.playState).toBe('idle');
+  expect(paths()).toHaveLength(0);
 });
 
 it('keeps the exact release visible and the original hidden while committed source processing is delayed', async () => {
@@ -235,11 +237,8 @@ it.each(['undo', 'edit', 'style', 'destroy', 'remove'] as const)('does not let a
   if (action === 'style') expect(marker(0)).not.toMatchObject({ editing: true });
 });
 
-it('preserves holes and multipart paths and keeps dots stationary for reduced motion', async () => {
+it('preserves holes and multipart paths with stationary dots', async () => {
   await fixture();
-  const native = window.matchMedia.bind(window);
-  vi.spyOn(window, 'matchMedia').mockImplementation((query) => query === '(prefers-reduced-motion: reduce)'
-    ? { ...native(query), matches: true } : native(query));
   const ring = (x: number, y: number, size: number) => [[x, y], [x + size, y], [x + size, y + size], [x, y + size], [x, y]]
     .map(([x, y]) => position(x!, y!));
   editor.applyTransaction({ update: [{ type: 'Feature', id: 0, properties: null, geometry: { type: 'MultiPolygon',

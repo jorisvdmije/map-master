@@ -206,8 +206,8 @@ no clipboard or keyboard shortcut side effects.
 ## Move selected shapes
 
 Select one or more shapes, then drag any selected shape with the primary mouse
-button and no modifiers. After 4 CSS pixels the group appears as an orange preview with dots flowing
-along its outline. Reduced-motion preferences keep the dots stationary. Release commits the complete group once; Escape cancels the gesture and
+button and no modifiers. After 4 CSS pixels the group appears as an orange preview with stationary
+dots anchored to its outline. Release commits the complete group once; Escape cancels the gesture and
 keeps the selection. A shorter gesture remains an ordinary click. Shift+drag still
 adds to the selection. Drawing, editing vertices and splitting keep their own
 input behavior. Group dragging supports desktop mouse input.
