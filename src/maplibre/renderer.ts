@@ -2,7 +2,7 @@ import type { GeometryPart } from '../core/geometry.js';
 import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
 import { samePosition } from '../core/polygon.js';
 import type { Coordinate, UnionPreview, SplitPreview, SnapResult, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
-import { TranslationPreview } from './translation-preview.js';
+import { PreviewBorder } from './preview-border.js';
 import { vertexHandles } from './vertex-handles.js';
 
 const emptyCollection = () => ({ type: 'FeatureCollection' as const, features: [] });
@@ -24,13 +24,15 @@ export class MapLibreRenderer {
   private selectedFeatureIds = new Set<FeatureId>();
   private editingFeatureIds = new Set<FeatureId>();
   private hiddenFeatureIds = new Set<FeatureId>();
-  private readonly translationPreview: TranslationPreview;
+  private readonly translationPreview: PreviewBorder;
+  private readonly draftBorder: PreviewBorder;
   private transfer: { ids: Set<FeatureId>; revision: number; ready: boolean; revealed: boolean } | undefined;
   private translationVisible = false;
   private revision = 0;
 
   constructor(private readonly map: MapLibreMap, namespace: string) {
-    this.translationPreview = new TranslationPreview(map);
+    this.translationPreview = new PreviewBorder(map, 'translation-preview', true);
+    this.draftBorder = new PreviewBorder(map, 'draft-border');
     this.featuresId = `${namespace}-features`;
     this.draftId = `${namespace}-draft`;
     const selected: ExpressionSpecification = ['boolean', ['feature-state', 'selected'], false];
@@ -46,9 +48,6 @@ export class MapLibreRenderer {
       { id: `${namespace}-draft-fill`, type: 'fill', source: this.draftId,
         filter: ['==', '$type', 'Polygon'],
         paint: { 'fill-color': ['case', ['==', ['get', 'part'], 1], '#7c3aed', '#df772e'], 'fill-opacity': 0.22 } },
-      { id: this.draftId, type: 'line', source: this.draftId,
-        filter: ['in', '$type', 'LineString', 'Polygon'],
-        paint: { 'line-color': '#df772e', 'line-width': 3, 'line-dasharray': [2, 1.5] } },
       { id: `${namespace}-midpoints`, type: 'circle', source: this.draftId,
         filter: ['==', 'kind', 'midpoint'],
         paint: { 'circle-radius': 4, 'circle-color': '#fff', 'circle-stroke-color': '#df772e', 'circle-stroke-width': 1 } },
@@ -66,6 +65,7 @@ export class MapLibreRenderer {
 
   mount(): void {
     this.stopTransfer();
+    this.draftBorder.clear();
     this.renderEditingMany([]);
     if (!this.map.getSource(this.featuresId)) this.selectedFeatureIds.clear();
     for (const id of [this.featuresId, this.draftId]) {
@@ -86,7 +86,7 @@ export class MapLibreRenderer {
       this.renderEditingMany([...this.editingFeatureIds], true);
       if (this.translationVisible) {
         const features = new Map(collection.features.map((feature) => [feature.id, feature]));
-        this.translationPreview.render([...this.transfer.ids].flatMap((id) => { const feature = features.get(id); return feature ? [feature] : []; }));
+        this.translationPreview.render([...this.transfer.ids].flatMap((id) => { const feature = features.get(id); return feature ? [feature.geometry] : []; }));
       }
     }
     const source = this.map.getSource<GeoJSONSource>(this.featuresId);
@@ -169,11 +169,13 @@ export class MapLibreRenderer {
   /** Synchronous selected-only overlay: no worker/tile lag or tile-local dash phase. */
   renderTranslation(features: GeometryFeatureCollection['features']): void {
     this.translationVisible = true;
-    this.translationPreview.render(features);
+    this.draftBorder.clear();
+    this.translationPreview.render(features.map((feature) => feature.geometry));
   }
 
   renderOverlay(geometry: UnionPreview | null): void {
     this.translationVisible = false; this.translationPreview.clear();
+    this.draftBorder.render(geometry ? [geometry] : []);
     void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection',
       features: geometry ? [{ type: 'Feature', properties: {}, geometry }] : [],
     });
@@ -248,15 +250,18 @@ export class MapLibreRenderer {
       features.push({ type: 'Feature', properties: {},
         geometry: { type: 'LineString', coordinates } });
     }
+    if (!this.translationVisible) this.draftBorder.render(features.flatMap(({ geometry }) => geometry.type === 'Point' ? [] : [geometry]), editing || state.mode.startsWith('draw-') ? 8 : 0);
     void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection', features });
   }
 
   clearPreview(): void {
+    this.draftBorder.clear();
     this.translationVisible = false; this.translationPreview.clear();
     void this.map.getSource<GeoJSONSource>(this.draftId)?.setData(emptyCollection());
   }
 
   destroy(removeResources = true): void {
+    this.draftBorder.clear();
     this.stopTransfer();
     if (!removeResources) return;
     for (const layer of [...this.layers].reverse()) {

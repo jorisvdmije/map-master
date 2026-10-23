@@ -203,6 +203,21 @@ The new copies are selected and can be dragged immediately. Duplication saves
 immediately; Undo removes the copies. The library default uses no offset and has
 no clipboard or keyboard shortcut side effects.
 
+## Preview borders
+
+Drawing, vertex editing, polygon operations and group dragging share the same
+border renderer. Dots are individual marks at 9 CSS pixel intervals from each
+edge's own start, rather than one dash pattern running around the whole polygon.
+Changing one edge does not shift dots on unchanged edges. Extending an edge adds
+dots at its end; it does not redistribute the existing ones. Dots on a changed
+edge follow that edge, and translated dots move with the shape. There is no
+animation. Drawing/editing leave room at the endpoints for vertex handles.
+
+The visible range is clipped without resetting dot positions at the viewport
+boundary. Work scales with visible edge length; huge offscreen segments do not
+allocate a dot for every offscreen interval. Border rendering does not alter
+GeoJSON, validation, snapping or history.
+
 ## Move selected shapes
 
 Select one or more shapes, then drag any selected shape with the primary mouse
@@ -251,8 +266,8 @@ Release after cancellation cannot select or draw accidentally. A selected group
 outside a drag follows the normal Escape-to-deselect behavior.
 
 The renderer hides the original selected shapes with feature state. Animation
-frames update SVG paths only for the moving group, keeping the dash phase
-continuous across tile boundaries. The committed source is uploaded once on
+frames update SVG fills and explicit dots only for the moving group. Dots are
+measured independently from each edge start, without tile-boundary resets. The committed source is uploaded once on
 success. The final preview remains until the new committed tiles are ready and
 painted, preventing a flash at the original position. A new pointer drag waits
 for this brief rendering handoff; data commands, events and Undo remain synchronous. See the [performance baseline](performance.md#group-translation).

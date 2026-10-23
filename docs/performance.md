@@ -342,8 +342,9 @@ Local Node.js v22.23.1, macOS arm64, Apple M2 Pro (2026-10-22):
 These are core timings, not end-to-end frame budgets. Preview cost scales with
 selected vertices. Browser tests verify that dragging updates only selected SVG
 preview paths, hides originals through feature state, and performs no GeoJSON
-source upload until release. Dotted outlines keep a fixed dash phase;
-path projection and SVG painting are outside these core timings. A successful release performs one committed
+source upload until release. Explicit dots are measured separately from each edge start, with generation
+bounded to the visible range; projection and SVG painting are outside these core
+timings. A successful release performs one committed
 source upload. That upload/export still scales with the full stored collection;
 MapLibre worker/GPU time, SVG rendering, callback overhead, picking and
 feature-state updates are not included above. Large groups can exceed a frame budget during the final

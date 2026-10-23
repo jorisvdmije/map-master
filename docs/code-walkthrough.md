@@ -30,7 +30,7 @@ src/
     snapping.ts              Map projection and camera/data-revision cache
     selection-interaction.ts Shift+click/rectangle selection and cancellation
     translation-interaction.ts Group drag preview, release and cancellation
-    translation-preview.ts   Stationary dotted SVG drag outlines and fills
+    preview-border.ts        Explicit dots per edge for every preview; optional drag fill
     vertex-interaction.ts    Pointer capture, vertex gestures, cancellation
     vertex-handles.ts        Shared screen-space corner/midpoint definitions
     line-editor.ts           Compatibility facade for the earlier line-only API
@@ -220,8 +220,11 @@ and changes only their MapLibre feature states without uploading geometry.
 captures one selection snapshot, suspends pan, and computes a shared geographic
 offset from the original pointer position. Animation frames translate only that
 snapshot. The renderer hides originals through feature state and projects the
-moving group into reusable SVG paths. Their dash phase stays fixed to the
-outline without animation, tile clipping or worker uploads. The authoritative store is unchanged.
+moving group into SVG fills and explicit dots using the same `PreviewBorder` as
+drawing, vertex editing and geometry-operation previews. Each edge measures dots
+from its own start at 9 CSS pixel intervals, without a dash pattern or animation.
+Changing an earlier edge cannot shift dots on untouched edges. Dot generation
+clips the visible index range without resetting its origin at viewport boundaries. The authoritative store is unchanged.
 
 Release draws the exact final pointer position and calls the session translation. The core
 translates selected features and passes the complete batch through transaction
