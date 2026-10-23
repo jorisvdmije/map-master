@@ -107,4 +107,4 @@ subscribe to both transaction and history events for persistence.
 
 The calculation is synchronous and result validation can be quadratic. See the
 [fixed-dataset benchmark](performance.md#polygon-union) before choosing selection
-size limits. Difference and intersection are separate planned operations.
+size limits. [Difference](difference.md) is available as a separate operation; intersection remains planned.

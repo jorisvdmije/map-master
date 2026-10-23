@@ -1,6 +1,6 @@
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { DrawingSession } from '../core/drawing-session.js';
-import type { Coordinate, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
+import type { Coordinate, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
 import { MapLibreSnapping } from './snapping.js';
 import type { ScreenPoint } from '../core/snapping.js';
@@ -198,6 +198,25 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
+  /** Subtract the remaining selected polygons from the first, preserving cutters. */
+  differenceSelection(): boolean {
+    this.assertAlive(); this.cancelIdleGestures();
+    if (!this.session.differenceSelection()) return false;
+    this.enterInteraction('default'); this.schedulePreview(); return true;
+  }
+
+  getDifferencePreview(): DifferencePreview | null { return this.session.getDifferencePreview(); }
+
+  finishDifference(): TransactionEvent | null {
+    this.assertAlive();
+    const state = this.session.state;
+    if (state.mode !== 'difference-polygons' || !state.canFinish) return null;
+    const event = this.session.finishDifference();
+    this.leaveDrawing();
+    if (!event) { this.emitChange(); return null; }
+    return this.publishTransaction(event);
+  }
+
   /** Start an outside-to-outside cutting line on the selected polygon (cuts must avoid holes). */
   splitSelected(): boolean {
     this.assertAlive();
@@ -315,9 +334,16 @@ export class GeometryEditor {
     this.enterInteraction();
   }
 
-  /** Commit a valid draft; otherwise return null and keep drawing active. */
+  /** Confirm a valid tool; null also represents a successfully deleted difference target. */
   finish(): GeometryFeature | null {
     this.assertAlive();
+    if (this.session.state.mode === 'difference-polygons') {
+      const preview = this.session.getDifferencePreview();
+      if (!preview) return null;
+      const retained = this.session.getSelection()[0]!;
+      const event = this.finishDifference();
+      return preview.geometry ? event?.changes[0]?.after ?? retained : null;
+    }
     if (this.session.state.mode === 'union-polygons') {
       // A contained/identical union can have only deletions in its change list.
       const retained = this.session.getSelection()[0]!;
@@ -427,7 +453,7 @@ export class GeometryEditor {
     const state = this.session.state;
     if (input.button !== 0
       || input.ctrlKey || input.metaKey || input.shiftKey || input.detail > 1) return;
-    if (state.mode.startsWith('edit-') || state.mode === 'union-polygons') return;
+    if (state.mode.startsWith('edit-') || state.mode === 'union-polygons' || state.mode === 'difference-polygons') return;
     if (state.mode === 'idle') {
       if (input.altKey) return;
       const id = this.renderer.pick(event.point);
@@ -596,7 +622,13 @@ export class GeometryEditor {
       if (this.session.state.mode === 'union-polygons') {
         const union = this.session.getUnionPreview();
         this.renderer.renderEditingMany(union ? this.session.state.selectedFeatureIds : [], true);
-        this.renderer.renderUnion(union);
+        this.renderer.renderOverlay(union);
+        return;
+      }
+      if (this.session.state.mode === 'difference-polygons') {
+        const difference = this.session.getDifferencePreview();
+        this.renderer.renderEditing(difference ? this.session.state.selectedFeatureIds[0]! : null);
+        this.renderer.renderOverlay(difference?.geometry ?? null);
         return;
       }
       const split = this.session.getSplitPreview();

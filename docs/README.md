@@ -9,6 +9,7 @@ separately so consumers can integrate without depending on internal modules.
 | Apply atomic create/update/delete batches | [Transactions and event semantics](transactions.md) |
 | Import and edit multipart lines/polygons | [Multipart geometry](multipart.md) |
 | Merge selected polygons | [Polygon union](union.md) |
+| Subtract cutting polygons from a target | [Polygon difference](difference.md) |
 | Split a supported polygon | [Polygon splitting](splitting.md) |
 | Maintain an older line-only integration | [LineEditor compatibility facade](line-editor.md) |
 | Locate code for a change | [Code map and walkthrough](code-walkthrough.md) |

@@ -119,7 +119,7 @@ export class MapLibreRenderer {
     });
   }
 
-  renderUnion(geometry: UnionPreview | null): void {
+  renderOverlay(geometry: UnionPreview | null): void {
     void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection',
       features: geometry ? [{ type: 'Feature', properties: {}, geometry }] : [],
     });

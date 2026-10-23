@@ -1,5 +1,5 @@
 import polygonClipping from 'polygon-clipping';
-import { closePolygon, validateMultiPolygon } from './polygon.js';
+import { normalizeOverlay } from './polygon-overlay.js';
 import type { UnionError, UnionPreview } from './types.js';
 
 /** Union of already validated stored geometries. Never mutates the inputs.
@@ -15,11 +15,6 @@ export function unionPolygons(geometries: UnionPreview[]): { preview: UnionPrevi
   } catch {
     return { preview: null, error: 'union-failed' };
   }
-  if (parts.some((part) => part.some((ring) => ring.some(([x, y]) => !Number.isFinite(x) || !Number.isFinite(y)
-    || x < -180 || x > 180 || y < -90 || y > 90))) || validateMultiPolygon(parts)) {
-    return { preview: null, error: 'union-invalid-result' };
-  }
-  const coordinates = parts.map((part) => part.map((ring, index) => closePolygon(ring, index > 0)));
-  return { preview: coordinates.length === 1 ? { type: 'Polygon', coordinates: coordinates[0]! }
-    : { type: 'MultiPolygon', coordinates }, error: null };
+  const preview = normalizeOverlay(parts);
+  return { preview, error: preview ? null : 'union-invalid-result' };
 }

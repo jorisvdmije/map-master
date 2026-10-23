@@ -44,9 +44,12 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | --- | --- |
 | `new GeometryEditor(map, options?)` | Attach after `style.load` or `load`. One editor per map, including the LineEditor facade. `historyLimit` defaults to 100; `snapping.enabled` defaults to false. |
 | `draw('LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
-| `finish()` | Commit a valid draft once, returning a `GeometryFeature`. An invalid/incomplete draft returns `null` and remains active. |
+| `finish()` | Confirm the active tool, returning the resulting feature. Invalid/incomplete previews return `null` and stay active. A valid empty difference also returns `null`, after deleting the target and exiting review. |
 | `cancel()` | Discard the draft or cancel an active selection rectangle or group drag. |
-| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`. |
+| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`, `differenceError`. |
+| `differenceSelection()` | Preview subtraction from the first selected polygon, using all other selected polygons as cutters. |
+| `getDifferencePreview()` | Independent `{ geometry }` result; null geometry means target deletion, null preview means inactive/invalid. |
+| `finishDifference()` | Commit target update/deletion; null for inactive/invalid/no-op. No-op exits review without changing history. |
 | `unionSelection()` | Preview union of at least two selected polygon features; false for insufficient/mixed selection or an already active union. |
 | `getUnionPreview()` | Independent Polygon/MultiPolygon result geometry, or null. |
 | `finishUnion()` | Commit the retained feature and deletions as one transaction; null for invalid/inactive union. |
@@ -69,7 +72,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed lines and polygons. |
 | `importGeoJSON(input)` | Append a parsed Feature/FeatureCollection atomically; return an independent collection of imported features. Idle only. |
 | `applyTransaction({ create?, update?, delete? })` | Validate and commit a mixed batch atomically. Full features with explicit IDs; idle only. Return a TransactionEvent or null for no change. |
-| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed split/union, deleteSelection, group translation, duplication or hole deletion. Returns an unsubscribe function. |
+| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed split/union or changed difference, deleteSelection, group translation, duplication or hole deletion. Returns an unsubscribe function. |
 | `onImport(listener)` | One notification per nonempty imported batch. Returns an unsubscribe function. |
 | `onUpdate(listener)` | One notification per changed saved edit. Returns an unsubscribe function. |
 | `undo()` / `redo()` | Reverse/replay one committed action; return true if applied, false if unavailable. Idle only. |
@@ -90,7 +93,7 @@ is a GeoJSON FeatureCollection containing all four geometry types. New drawings 
 string or numeric IDs and JSON properties (including null). Coordinates are
 `[longitude, latitude]`. Properties can be imported but there is no property-editing API yet.
 
-Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, and `union-polygons`. `validationError` is `null`
+Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, `union-polygons`, and `difference-polygons`. `validationError` is `null`
 when idle or when the current draft is valid. Check `canFinish` to enable Finish;
 an idle editor cannot finish even though it has no validation error.
 
@@ -524,6 +527,16 @@ through `unionError`. See the [union guide](union.md) for the complete contract.
 
 While reviewing a union, commands changing selection, tools, data or history throw.
 Consumers with exhaustive state switches must handle `union-polygons`.
+
+## Polygon difference
+
+Select the target first, then the cutters, and call `differenceSelection()`.
+`getDifferencePreview()` distinguishes an invalid/inactive preview (`null`) from a
+valid empty result (`{ geometry: null }`). `finishDifference()` updates or deletes
+only the target; cutters are kept. Disjoint/touching cutters are exact no-ops.
+Consumers with exhaustive switches must handle `difference-polygons` and the new
+`differenceError` state field. See the [difference guide](difference.md) for empty
+confirmation, no-op return values, transaction/history events and geometry limits.
 
 ## Splitting
 

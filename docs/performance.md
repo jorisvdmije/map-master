@@ -460,3 +460,37 @@ multipart validation compares component pairs (with bounds rejection). This simp
 square benchmark is not a bound for complex boundaries, many intersections or
 poorly conditioned coordinates; large overlays may block the UI. Workers, precision
 grids and explicit workload budgets remain future work.
+
+## Polygon difference
+
+`npm run benchmark:difference` measures session preview (filled-area intersection,
+subtraction and result validation), transaction confirmation and Undo. The fixed
+target is the rectangle from (-1, -1) to (41, 5). Each dataset has 1, 25, 100 or 400
+cutters. The holes layout uses 0.1° squares with 0.2° grid spacing and 20 columns;
+the strips layout uses 0.05° wide rectangles at 0.1° spacing, from latitude -2° to
+6°, splitting the target into `cutters + 1` parts. All input rings have four unique
+vertices. Five warmups precede 30 measured iterations with history limit 1.
+Import/selection and assertions are outside timing. Every iteration asserts one
+changed target, unchanged cutters, expected ring/part count and exact Undo/Redo.
+
+Local baseline: Node v22.23.1, macOS arm64, Apple M2 Pro. Values are median / p95
+milliseconds. Core only; MapLibre uploads, rendering and input latency are excluded.
+
+| Layout | Cutters | Preview | Commit | Undo |
+| --- | ---: | ---: | ---: | ---: |
+| Holes | 1 | 0.132 / 0.315 | 0.029 / 0.068 | 0.004 / 0.007 |
+| Holes | 25 | 0.507 / 1.016 | 0.148 / 0.408 | 0.007 / 0.032 |
+| Holes | 100 | 1.330 / 1.685 | 0.410 / 0.472 | 0.019 / 0.031 |
+| Holes | 400 | 5.208 / 5.770 | 1.749 / 2.367 | 0.062 / 0.099 |
+| Strips | 1 | 0.110 / 0.178 | 0.010 / 0.014 | 0.002 / 0.002 |
+| Strips | 25 | 0.746 / 1.163 | 0.099 / 0.141 | 0.006 / 0.011 |
+| Strips | 100 | 3.032 / 3.308 | 0.336 / 0.656 | 0.016 / 0.025 |
+| Strips | 400 | 13.223 / 17.028 | 1.566 / 2.206 | 0.072 / 0.112 |
+
+The initial intersection check preserves exact no-op inputs but adds an overlay
+pass when subtraction is needed. Both passes run synchronously once on entry;
+state/pointer/camera changes never repeat them. Confirmation revalidates changed
+geometry. Ring checks and hole/component pair checks can be quadratic, so these
+simple rectangular datasets do not bound complex or poorly conditioned workloads.
+Large operations can block the UI; workers and explicit workload budgets remain
+future work.

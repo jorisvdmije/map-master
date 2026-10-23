@@ -1,7 +1,7 @@
 # Atomic feature transactions
 
 Status: implemented in milestone 10. Transactions provide a commit boundary for
-split, union, and other operations affecting several features. The [split tool](splitting.md) introduced in milestone 11 builds on this boundary.
+split, union, difference, and other operations affecting several features. The [split tool](splitting.md) introduced in milestone 11 builds on this boundary.
 
 ## Public API
 
@@ -84,7 +84,7 @@ listeners. Unsubscribe and editor/map destruction clean up subscriptions.
 
 `onCreate`, `onUpdate`, `onDelete`, and `onImport` are not emitted for explicit
 transactions. Existing individual methods retain their current events.
-`onTransaction` reports explicit transactions, confirmed splits and unions, deleteSelection(), group translations, duplicateSelection() and deleteHole(); it is not a
+`onTransaction` reports explicit transactions, confirmed splits, unions and changed differences, deleteSelection(), group translations, duplicateSelection() and deleteHole(); it is not a
 universal change stream. Undo/redo emits only `onHistory` with `action: 'transaction'`, followed by
 `onChange`. Update exhaustive switches over HistoryAction for the new member.
 The existing history limit applies per batch, not per changed feature or byte.

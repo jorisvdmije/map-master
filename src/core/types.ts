@@ -63,6 +63,12 @@ export interface SplitPreview {
 export type UnionPreview = PolygonFeature['geometry'] | MultiPolygonFeature['geometry'];
 export type UnionError = 'union-failed' | 'union-invalid-result';
 
+/** A valid preview. Null geometry means confirmation deletes the target. */
+export interface DifferencePreview {
+  geometry: PolygonFeature['geometry'] | MultiPolygonFeature['geometry'] | null;
+}
+export type DifferenceError = 'difference-failed' | 'difference-invalid-result';
+
 export interface SnappingOptions {
   enabled: boolean;
   /** Acquisition radius in CSS pixels, default 18, range (0, 100]. */
@@ -115,7 +121,7 @@ export interface HistoryEvent {
 }
 
 export interface EditorState {
-  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons';
+  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons';
   vertexCount: number;
   featureCount: number;
   /** The sole selected ID, or null for zero/multiple selections. */
@@ -140,4 +146,6 @@ export interface EditorState {
   splitError: SplitError | null;
   /** Overlay calculation or strict result-topology failure; null outside union. */
   unionError: UnionError | null;
+  /** Subtraction failure; an empty result is valid and has no error. */
+  differenceError: DifferenceError | null;
 }

@@ -15,7 +15,9 @@ src/
     history.ts               Bounded undo/redo stacks of committed feature changes
     geojson-import.ts        Validate/copy entire import batches and JSON properties
     polygon.ts               Ring validity, closure, exterior winding
-    union.ts                 Polygon overlay adapter and strict result validation
+    union.ts                 Polygon union adapter
+    difference.ts            Target subtraction, empty and exact no-op results
+    polygon-overlay.ts       Shared strict overlay result validation
     split-polygon.ts         Restricted two-crossing splitter and result validation
     geometry.ts              Component views/replacement and coordinate mapping
     snapping.ts              Projected candidate index, nearest vertex/edge policy
@@ -316,3 +318,18 @@ inputs, then commits once through the transaction boundary. Cancel discards only
 the preview. `finish()` routes to this operation for Enter and the demo button;
 `onTransaction` and `onHistory` preserve the normal batch contract. See [union](union.md)
 for property ownership, unsupported topology and numerical limits.
+
+## Polygon difference
+
+`differenceSelection()` freezes the selection and uses its first polygon as the
+target. `core/difference.ts` checks for filled-area overlap before subtraction so
+no-op results preserve exact input representation. Valid empty output has an
+explicit `{ geometry: null }` preview; it does not pass through the nonempty
+validator. Both union and difference use `core/polygon-overlay.ts` for nonempty
+result validation and winding normalization.
+
+The session caches the preview in `difference-polygons` mode. Confirmation prepares
+one target update or deletion through the transaction boundary; cutting features
+are preserved. No-op confirmation cancels review without recording history.
+The renderer hides only the target for valid previews, including empty results.
+See [difference](difference.md) for API, events and numerical limits.

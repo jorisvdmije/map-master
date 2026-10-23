@@ -49,7 +49,7 @@ describe('line drawing state', () => {
       geometry: { type: 'LineString', coordinates: [[4, 52], [5, 53]] },
     });
     expect(tool.finish()).toBeNull();
-    expect(tool.state).toEqual({ mode: 'idle', vertexCount: 0, canFinish: false, featureCount: 1, validationError: null, splitError: null, unionError: null, selectedFeatureIds: [], selectedFeatureId: null, selectedVertexIndex: null, activeRingIndex: null, activePartIndex: null, dataRevision: 1, canUndo: true, canRedo: false });
+    expect(tool.state).toEqual({ mode: 'idle', vertexCount: 0, canFinish: false, featureCount: 1, validationError: null, splitError: null, unionError: null, differenceError: null, selectedFeatureIds: [], selectedFeatureId: null, selectedVertexIndex: null, activeRingIndex: null, activePartIndex: null, dataRevision: 1, canUndo: true, canRedo: false });
     tool.start('LineString');
     tool.add([6, 54]);
     tool.add([7, 55]);

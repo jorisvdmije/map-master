@@ -12,6 +12,7 @@ as GeoJSON through one GeometryEditor API.
 [Atomic transactions](docs/transactions.md) can create, update, and delete multiple
 features as one validated batch and one undo action.
 [Polygon union](docs/union.md) previews and merges selected polygons into one feature with atomic Undo.
+[Polygon difference](docs/difference.md) subtracts selected cutting shapes from the first selected target, preserving cutters and supporting empty results.
 [Split Features](docs/splitting.md) divides a selected polygon into two independent features.
 [Group movement](docs/geometry-editor.md#move-selected-shapes) previews a selected group and records the move as one undoable action.
 [Duplication](docs/geometry-editor.md#duplicate-selected-shapes) creates independent copies with new IDs and one Undo for the whole group.
@@ -103,6 +104,7 @@ npm run check
 | `npm test` | Run core behavior tests and test the packed library in an isolated consumer. |
 | `npm run test:browser` | Build the package and run real Chromium interaction and demo tests. |
 | `npm run build:demo` | Build the library and a deployable demo in `examples/basic/dist/`. |
+| `npm run benchmark:difference` | Measure subtraction preview, commit and Undo with holes and multipart results. |
 | `npm run benchmark:union` | Measure polygon union preview, atomic commit and Undo on overlapping/disjoint selections. |
 | `npm run benchmark:multipart` | Measure import, component editing and snapping index construction for multipart polygons. |
 | `npm run benchmark:holes` | Measure import and ring edits on polygons with fixed hole counts. |

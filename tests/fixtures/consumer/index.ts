@@ -59,6 +59,15 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
     tool.cancel();
   }
   void [unionPreview, unionError];
+  const subtracting: boolean = tool.differenceSelection();
+  const differencePreview: editor.DifferencePreview | null = tool.getDifferencePreview();
+  const differenceError: editor.DifferenceError | null = tool.getState().differenceError;
+  if (subtracting) {
+    const subtracted: editor.TransactionEvent | null = tool.finishDifference();
+    void subtracted;
+    tool.cancel();
+  }
+  void [differencePreview, differenceError];
   const selected: editor.GeometryFeature | null = tool.getSelected();
   void selected;
   tool.editSelected();

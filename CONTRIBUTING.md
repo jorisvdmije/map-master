@@ -92,8 +92,8 @@ orientation predicates for polygon validation and winding. Its purpose and the
 validation policy are described in the [GeometryEditor guide](docs/geometry-editor.md).
 
 The runtime dependency `polygon-clipping` (0.15.7, MIT) supplies polygon overlay
-behind `core/union.ts`. It adds `splaytree` (MIT) and reuses `robust-predicates`.
-Results must pass our stricter topology validator; see the [union contract](docs/union.md).
+behind `core/union.ts` and `core/difference.ts`, sharing `core/polygon-overlay.ts` validation. It adds `splaytree` (MIT) and reuses `robust-predicates`.
+Results must pass our stricter topology validator; see the [union](docs/union.md) and [difference](docs/difference.md) contracts.
 
 ## Public API and releases
 
