@@ -35,7 +35,7 @@ beforeEach(async () => {
   editor = new GeometryEditor(map);
 });
 afterEach(async () => {
-  await commands.vertexPointer('up', 650, 400);
+  if (map.getCanvas().isConnected) await commands.vertexPointer('up', 650, 400);
   vi.restoreAllMocks(); editor.destroy(); map.remove(); container.remove();
 });
 
@@ -50,18 +50,20 @@ it.each([6, 17])('previews only the selected group at zoom %s, commits the exact
   editor.onTransaction((event) => { event.changes.length = 0; }); editor.onTransaction(observed);
   editor.onChange(change); editor.onUpdate(update);
   await commands.vertexPointer('down', 200, 200); await commands.vertexPointer('move', 230, 240);
-  await expect.poll(() => preview.mock.calls.length).toBeGreaterThan(0);
+  await expect.poll(() => container.querySelectorAll('[data-geo-translation-preview] path').length).toBe(2);
+  expect(preview).not.toHaveBeenCalled();
   expect(editor.exportGeoJSON()).toEqual(before); expect(upload).not.toHaveBeenCalled();
   expect(marker(0)).toMatchObject({ selected: true, editing: true }); expect(marker('0')).toMatchObject({ editing: true });
   expect(marker('far')).not.toMatchObject({ editing: true });
   expect(change).not.toHaveBeenCalled(); expect(map.dragPan.isEnabled()).toBe(false);
-  const data = preview.mock.lastCall![0] as { features: unknown[] }; expect(data.features).toHaveLength(2);
+  const paths = [...container.querySelectorAll('[data-geo-translation-preview] path')];
+  expect(paths.map((path) => path.getAttribute('fill'))).toEqual(['none', '#df772e']);
   await commands.vertexPointer('up', 240, 260);
   expect(upload).toHaveBeenCalledOnce(); expect(observed).toHaveBeenCalledOnce(); expect(change).toHaveBeenCalledOnce();
   expect(update).not.toHaveBeenCalled(); expect(observed.mock.calls[0]![0].changes).toHaveLength(2);
   expect(editor.getState()).toMatchObject({ selectedFeatureIds: ['0', 0], dataRevision: 2 });
   expect(map.getCenter().toArray()).toEqual(center); expect(map.dragPan.isEnabled()).toBe(true);
-  expect(map.getCanvas().style.cursor).toBe(''); expect(marker(0)).not.toMatchObject({ editing: true });
+  expect(map.getCanvas().style.cursor).toBe(''); await expect.poll(() => marker(0)).not.toMatchObject({ editing: true });
   const after = editor.exportGeoJSON(); expect(after.features[2]).toEqual(before.features[2]);
   for (const index of [0, 1]) {
     const a = before.features[index]!.geometry; const b = after.features[index]!.geometry;
@@ -117,6 +119,7 @@ it('preserves click selection, ignores jitter, supports line drags, and pans on 
   await drag(200, 200, 202, 201); expect(editor.exportGeoJSON()).toEqual(before); expect(editor.getState().canUndo).toBe(false);
   editor.select('0'); await drag(400, 180, 420, 210); expect(editor.exportGeoJSON()).not.toEqual(before);
   editor.undo(); expect(editor.exportGeoJSON()).toEqual(before);
+  await expect.poll(() => marker('0')).not.toMatchObject({ editing: true });
   const center = map.getCenter().toArray(); await drag(550, 100, 600, 150); map.stop();
   expect(map.getCenter().toArray()).not.toEqual(center); expect(editor.exportGeoJSON()).toEqual(before);
 });
@@ -158,4 +161,96 @@ it('a drag returning to its start is a no-op, and capture commits release outsid
   await commands.vertexPointer('down', 200, 200); await commands.vertexPointer('up', 750, 250);
   expect(events).toHaveBeenCalledOnce(); expect(editor.exportGeoJSON()).not.toEqual(before);
   expect(map.dragPan.isEnabled()).toBe(true); editor.undo(); expect(editor.exportGeoJSON()).toEqual(before);
+});
+
+it('keeps one flowing path per part while moving, with no preview source uploads or animation restarts', async () => {
+  await fixture();
+  const draftId = Object.keys(map.getStyle().sources).find((id) => id.endsWith('-draft'))!;
+  const uploads = vi.spyOn(map.getSource<GeoJSONSource>(draftId)!, 'setData');
+  await commands.vertexPointer('down', 200, 200); await commands.vertexPointer('move', 250, 230);
+  const paths = () => [...container.querySelectorAll<SVGPathElement>('[data-geo-translation-preview] path')];
+  await expect.poll(() => paths().length).toBe(2);
+  const polygon = paths()[1]!; const animation = polygon.getAnimations()[0]!;
+  const initial = polygon.getAttribute('d'); const time = Number(animation.currentTime);
+  await commands.vertexPointer('move', 380, 250);
+  await expect.poll(() => polygon.getAttribute('d')).not.toBe(initial);
+  expect(paths()[1]).toBe(polygon); expect(polygon.getAnimations()[0]).toBe(animation);
+  await expect.poll(() => Number(animation.currentTime)).toBeGreaterThan(time);
+  expect(polygon.getAttribute('stroke-dasharray')).toBe('1 8');
+  expect(uploads).not.toHaveBeenCalled();
+  await userEvent.keyboard('{Escape}');
+  expect(paths()).toHaveLength(0); expect(animation.playState).toBe('idle');
+});
+
+it('keeps the exact release visible and the original hidden while committed source processing is delayed', async () => {
+  await fixture(); const committed = source(); const upload = committed.setData.bind(committed);
+  let resume: (() => void) | undefined;
+  vi.spyOn(committed, 'setData').mockImplementationOnce((data) => new Promise<void>((resolve, reject) => {
+    resume = () => { void upload(data).then(resolve, reject); };
+  }));
+  const duringCommit = vi.fn(() => marker(0)); editor.onTransaction(duringCommit);
+  const before = editor.exportGeoJSON();
+  await commands.vertexPointer('down', 200, 200);
+  // No intermediate preview is required: pointerup must draw its own exact position.
+  await commands.vertexPointer('up', 480, 200);
+  expect(duringCommit).toHaveReturnedWith(expect.objectContaining({ editing: true }));
+  expect(marker(0)).toMatchObject({ editing: true });
+  const polygon = container.querySelectorAll<SVGPathElement>('[data-geo-translation-preview] path')[1]!;
+  const target = editor.exportGeoJSON().features[0]!;
+  if (target.geometry.type !== 'Polygon') throw new Error('Expected polygon');
+  const first = map.project(target.geometry.coordinates[0]![0]!);
+  expect(polygon.getAttribute('d')).toContain(`M${first.x},${first.y}`);
+  expect(await committed.getData()).toMatchObject({ features: [{ geometry: before.features[0]!.geometry }, {}, {}] });
+  map.triggerRepaint(); await new Promise<void>((resolve) => { map.once('render', () => { resolve(); }); });
+  expect(marker(0)).toMatchObject({ editing: true }); expect(polygon.isConnected).toBe(true);
+  expect(map.getPaintProperty(sourceId(), 'line-opacity-transition')).toEqual({ duration: 0 });
+  resume!();
+  await expect.poll(() => container.querySelector('[data-geo-translation-preview]')).toBeNull();
+  expect(marker(0)).not.toMatchObject({ editing: true });
+  expect(await committed.getData()).toMatchObject({ features: [{ geometry: target.geometry }, {}, {}] });
+});
+
+it.each(['undo', 'edit', 'style', 'destroy', 'remove'] as const)('does not let a pending drag transfer overwrite %s', async (action) => {
+  await fixture(); const before = editor.exportGeoJSON(); const committed = source(); const upload = committed.setData.bind(committed);
+  let finish: (() => void) | undefined;
+  vi.spyOn(committed, 'setData').mockImplementationOnce(async (data) => {
+    await upload(data);
+    await new Promise<void>((resolve) => { finish = resolve; });
+  });
+  await commands.vertexPointer('down', 200, 200); await commands.vertexPointer('up', 480, 200);
+  await expect.poll(() => finish).toBeDefined();
+  if (action === 'undo') editor.undo();
+  if (action === 'edit') { editor.select(0); editor.editSelected(); }
+  if (action === 'style') {
+    const loaded = new Promise<void>((resolve) => { map.once('style.load', () => { resolve(); }); }); map.setStyle(style(), { diff: false }); await loaded;
+  }
+  if (action === 'destroy') editor.destroy();
+  if (action === 'remove') map.remove();
+  finish!();
+  await expect.poll(() => container.querySelector('[data-geo-translation-preview]')).toBeNull();
+  if (action === 'undo') expect(editor.exportGeoJSON()).toEqual(before);
+  if (action === 'edit') {
+    expect(editor.getState().mode).toBe('edit-polygon'); expect(marker(0)).toMatchObject({ editing: true });
+  }
+  if (action === 'style') expect(marker(0)).not.toMatchObject({ editing: true });
+});
+
+it('preserves holes and multipart paths and keeps dots stationary for reduced motion', async () => {
+  await fixture();
+  const native = window.matchMedia.bind(window);
+  vi.spyOn(window, 'matchMedia').mockImplementation((query) => query === '(prefers-reduced-motion: reduce)'
+    ? { ...native(query), matches: true } : native(query));
+  const ring = (x: number, y: number, size: number) => [[x, y], [x + size, y], [x + size, y + size], [x, y + size], [x, y]]
+    .map(([x, y]) => position(x!, y!));
+  editor.applyTransaction({ update: [{ type: 'Feature', id: 0, properties: null, geometry: { type: 'MultiPolygon',
+    coordinates: [[ring(100, 100, 200), ring(150, 150, 50)], [ring(500, 300, 50)]] } }] });
+  editor.select(0);
+  await expect.poll(() => map.isSourceLoaded(sourceId())).toBe(true);
+  await commands.vertexPointer('down', 120, 120); await commands.vertexPointer('move', 160, 140);
+  const paths = () => [...container.querySelectorAll<SVGPathElement>('[data-geo-translation-preview] path')];
+  await expect.poll(() => paths().length).toBe(2);
+  expect(paths()[0]!.getAttribute('d')!.match(/M/g)).toHaveLength(2);
+  expect(paths()[0]!.getAttribute('fill-rule')).toBe('evenodd');
+  for (const path of paths()) expect(path.getAnimations()).toHaveLength(0);
+  editor.cancel(); expect(paths()).toHaveLength(0);
 });

@@ -30,6 +30,7 @@ src/
     snapping.ts              Map projection and camera/data-revision cache
     selection-interaction.ts Shift+click/rectangle selection and cancellation
     translation-interaction.ts Group drag preview, release and cancellation
+    translation-preview.ts   Continuous animated SVG drag outlines and fills
     vertex-interaction.ts    Pointer capture, vertex gestures, cancellation
     vertex-handles.ts        Shared screen-space corner/midpoint definitions
     line-editor.ts           Compatibility facade for the earlier line-only API
@@ -218,13 +219,19 @@ and changes only their MapLibre feature states without uploading geometry.
 `TranslationInteraction` starts only on a selected committed hit while idle. It
 captures one selection snapshot, suspends pan, and computes a shared geographic
 offset from the original pointer position. Animation frames translate only that
-snapshot. The renderer hides originals through feature state and uploads the
-group to the draft source. The authoritative store is unchanged.
+snapshot. The renderer hides originals through feature state and projects the
+moving group into reusable SVG paths. Their dash phase animates continuously
+without tile clipping or worker uploads. Reduced-motion preferences disable the
+animation. The authoritative store is unchanged.
 
-Release resolves the final pointer and calls `translateSelection()`. The core
+Release draws the exact final pointer position and calls the session translation. The core
 translates selected features and passes the complete batch through transaction
 validation and the existing commit boundary. One revision, one event, and one
-history entry cover the whole group. Cancelling clears preview/feature state and
+history entry cover the whole group. The renderer keeps the final SVG and hides
+the old committed tiles until source processing and visible tile loading finish.
+It restores opacity without a transition, then removes SVG after a rendered frame.
+Revision checks prevent superseded uploads from clearing a newer preview; style
+replacement and teardown remove listeners and animations. Cancelling clears preview/feature state and
 restores capture, pan and cursor; API mutations cancel before touching the store.
 
 ## Event and input ownership

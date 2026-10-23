@@ -2,6 +2,7 @@ import type { GeometryPart } from '../core/geometry.js';
 import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
 import { samePosition } from '../core/polygon.js';
 import type { Coordinate, UnionPreview, SplitPreview, SnapResult, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
+import { TranslationPreview } from './translation-preview.js';
 import { vertexHandles } from './vertex-handles.js';
 
 const emptyCollection = () => ({ type: 'FeatureCollection' as const, features: [] });
@@ -22,8 +23,14 @@ export class MapLibreRenderer {
   private readonly layers: LayerSpecification[];
   private selectedFeatureIds = new Set<FeatureId>();
   private editingFeatureIds = new Set<FeatureId>();
+  private hiddenFeatureIds = new Set<FeatureId>();
+  private readonly translationPreview: TranslationPreview;
+  private transfer: { ids: Set<FeatureId>; revision: number; ready: boolean; revealed: boolean } | undefined;
+  private translationVisible = false;
+  private revision = 0;
 
   constructor(private readonly map: MapLibreMap, namespace: string) {
+    this.translationPreview = new TranslationPreview(map);
     this.featuresId = `${namespace}-features`;
     this.draftId = `${namespace}-draft`;
     const selected: ExpressionSpecification = ['boolean', ['feature-state', 'selected'], false];
@@ -32,10 +39,10 @@ export class MapLibreRenderer {
     this.layers = [
       { id: `${namespace}-fill`, type: 'fill', source: this.featuresId,
         filter: ['==', '$type', 'Polygon'],
-        paint: { 'fill-color': color, 'fill-opacity': ['case', editing, 0, selected, 0.3, 0.18] } },
+        paint: { 'fill-color': color, 'fill-opacity': ['case', editing, 0, selected, 0.3, 0.18], 'fill-opacity-transition': { duration: 0 } } },
       { id: this.featuresId, type: 'line', source: this.featuresId,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': color, 'line-width': ['case', selected, 6, 4], 'line-opacity': ['case', editing, 0, 1] } },
+        paint: { 'line-color': color, 'line-width': ['case', selected, 6, 4], 'line-opacity': ['case', editing, 0, 1], 'line-opacity-transition': { duration: 0 } } },
       { id: `${namespace}-draft-fill`, type: 'fill', source: this.draftId,
         filter: ['==', '$type', 'Polygon'],
         paint: { 'fill-color': ['case', ['==', ['get', 'part'], 1], '#7c3aed', '#df772e'], 'fill-opacity': 0.22 } },
@@ -58,6 +65,8 @@ export class MapLibreRenderer {
   }
 
   mount(): void {
+    this.stopTransfer();
+    this.renderEditingMany([]);
     if (!this.map.getSource(this.featuresId)) this.selectedFeatureIds.clear();
     for (const id of [this.featuresId, this.draftId]) {
       if (!this.map.getSource(id)) this.map.addSource(id, {
@@ -71,13 +80,56 @@ export class MapLibreRenderer {
   }
 
   renderCommitted(collection: GeometryFeatureCollection): void {
-    // Encode the ID type: MapLibre feature-state otherwise conflates 7 and "7".
-    // MapLibre reports worker failures through the map's error event.
-    void this.map.getSource<GeoJSONSource>(this.featuresId)?.setData({
+    const revision = ++this.revision;
+    if (this.transfer) {
+      this.transfer.revision = revision; this.transfer.ready = false; this.transfer.revealed = false;
+      this.renderEditingMany([...this.editingFeatureIds], true);
+      if (this.translationVisible) {
+        const features = new Map(collection.features.map((feature) => [feature.id, feature]));
+        this.translationPreview.render([...this.transfer.ids].flatMap((id) => { const feature = features.get(id); return feature ? [feature] : []; }));
+      }
+    }
+    const source = this.map.getSource<GeoJSONSource>(this.featuresId);
+    // Encode ID types; keep old tiles hidden until the worker AND visible tiles are ready.
+    void source?.setData({
       type: 'FeatureCollection', features: collection.features.map((feature) => ({
         ...feature, properties: { ...feature.properties, [renderIdProperty]: JSON.stringify(feature.id) },
       })),
-    });
+    }).then(() => {
+      if (this.transfer?.revision !== revision || this.map.getSource(this.featuresId) !== source) return;
+      this.transfer.ready = true; this.map.triggerRepaint();
+    }, () => { /* MapLibre reports source errors through the map error event. Keep the final preview. */ });
+  }
+
+  get transferringTranslation(): boolean { return this.transfer !== undefined; }
+
+  /** Bridge a released drag to the asynchronously rebuilt committed source. */
+  holdTranslation(): void {
+    this.transfer = { ids: new Set(this.editingFeatureIds), revision: this.revision, ready: false, revealed: false };
+    this.renderEditingMany([]);
+    this.map.off('render', this.finishTransfer);
+    this.map.on('render', this.finishTransfer);
+  }
+
+  private readonly finishTransfer = (): void => {
+    const transfer = this.transfer;
+    if (!transfer?.ready || !this.map.getSource(this.featuresId) || !this.map.isSourceLoaded(this.featuresId)) return;
+    if (!transfer.revealed) {
+      transfer.revealed = true;
+      this.renderEditingMany([...this.editingFeatureIds], true);
+      // Keep the overlay through this frame. Remove it only after a frame has
+      // actually painted the new committed tiles with their restored opacity.
+      this.map.triggerRepaint();
+      return;
+    }
+    this.stopTransfer();
+  };
+
+  private stopTransfer(): void {
+    this.transfer = undefined;
+    this.map.off('render', this.finishTransfer);
+    this.translationVisible = false;
+    this.translationPreview.clear();
   }
 
   /** Update only presentation state, without copying or re-uploading geometry. */
@@ -100,26 +152,28 @@ export class MapLibreRenderer {
   }
 
   renderEditingMany(ids: readonly FeatureId[], force = false): void {
+    this.editingFeatureIds = new Set(ids);
     const next = new Set(ids);
+    if (this.transfer && !this.transfer.revealed) for (const id of this.transfer.ids) next.add(id);
     if (this.map.getSource(this.featuresId)) {
-      for (const id of this.editingFeatureIds) {
+      for (const id of this.hiddenFeatureIds) {
         if (!next.has(id)) this.map.removeFeatureState({ source: this.featuresId, id: JSON.stringify(id) }, 'editing');
       }
       for (const id of next) {
-        if (force || !this.editingFeatureIds.has(id)) this.map.setFeatureState({ source: this.featuresId, id: JSON.stringify(id) }, { editing: true });
+        if (force || !this.hiddenFeatureIds.has(id)) this.map.setFeatureState({ source: this.featuresId, id: JSON.stringify(id) }, { editing: true });
       }
     }
-    this.editingFeatureIds = next;
+    this.hiddenFeatureIds = next;
   }
 
-  /** Only the moving group is uploaded per frame; committed data stays untouched. */
+  /** Synchronous selected-only overlay: no worker/tile lag or tile-local dash phase. */
   renderTranslation(features: GeometryFeatureCollection['features']): void {
-    void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection',
-      features: features.map((feature) => ({ type: 'Feature', properties: {}, geometry: feature.geometry })),
-    });
+    this.translationVisible = true;
+    this.translationPreview.render(features);
   }
 
   renderOverlay(geometry: UnionPreview | null): void {
+    this.translationVisible = false; this.translationPreview.clear();
     void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection',
       features: geometry ? [{ type: 'Feature', properties: {}, geometry }] : [],
     });
@@ -137,6 +191,7 @@ export class MapLibreRenderer {
     // Decode even a stale hit: the controller can then ignore deleted IDs instead
     // of treating the stale shape as empty space and clearing another selection.
     const id: unknown = JSON.parse(hit.id);
+    if ((typeof id === 'string' || typeof id === 'number') && this.transfer?.ids.has(id)) return null;
     return typeof id === 'string' || typeof id === 'number' ? id : null;
   }
 
@@ -151,12 +206,13 @@ export class MapLibreRenderer {
     for (const hit of hits) {
       if (typeof hit.id !== 'string') continue;
       const id: unknown = JSON.parse(hit.id);
-      if (typeof id === 'string' || typeof id === 'number') ids.add(id);
+      if ((typeof id === 'string' || typeof id === 'number') && !this.transfer?.ids.has(id)) ids.add(id);
     }
     return [...ids];
   }
 
   renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null, rings: Coordinate[][] | null = null, inactiveParts: GeometryPart[] = []): void {
+    if (state.mode !== 'idle') { this.translationVisible = false; this.translationPreview.clear(); }
     const editing = state.mode.startsWith('edit-');
     const polygon = state.mode === 'draw-polygon' || state.mode === 'edit-polygon' || state.mode === 'draw-hole';
     const handles = editing ? vertexHandles(this.map, coordinates, polygon)
@@ -196,10 +252,13 @@ export class MapLibreRenderer {
   }
 
   clearPreview(): void {
+    this.translationVisible = false; this.translationPreview.clear();
     void this.map.getSource<GeoJSONSource>(this.draftId)?.setData(emptyCollection());
   }
 
-  destroy(): void {
+  destroy(removeResources = true): void {
+    this.stopTransfer();
+    if (!removeResources) return;
     for (const layer of [...this.layers].reverse()) {
       if (this.map.getLayer(layer.id)) this.map.removeLayer(layer.id);
     }

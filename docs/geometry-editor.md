@@ -206,8 +206,8 @@ no clipboard or keyboard shortcut side effects.
 ## Move selected shapes
 
 Select one or more shapes, then drag any selected shape with the primary mouse
-button and no modifiers. After 4 CSS pixels the group appears as an orange dashed
-preview. Release commits the complete group once; Escape cancels the gesture and
+button and no modifiers. After 4 CSS pixels the group appears as an orange preview with dots flowing
+along its outline. Reduced-motion preferences keep the dots stationary. Release commits the complete group once; Escape cancels the gesture and
 keeps the selection. A shorter gesture remains an ordinary click. Shift+drag still
 adds to the selection. Drawing, editing vertices and splitting keep their own
 input behavior. Group dragging supports desktop mouse input.
@@ -251,8 +251,11 @@ Release after cancellation cannot select or draw accidentally. A selected group
 outside a drag follows the normal Escape-to-deselect behavior.
 
 The renderer hides the original selected shapes with feature state. Animation
-frames upload only preview geometry for the moving group; the committed source
-is uploaded once on success. See the [performance baseline](performance.md#group-translation).
+frames update SVG paths only for the moving group, keeping the dash phase
+continuous across tile boundaries. The committed source is uploaded once on
+success. The final preview remains until the new committed tiles are ready and
+painted, preventing a flash at the original position. A new pointer drag waits
+for this brief rendering handoff; data commands, events and Undo remain synchronous. See the [performance baseline](performance.md#group-translation).
 
 ## Selection
 

@@ -81,7 +81,7 @@ export class GeometryEditor {
     this.translation = new TranslationInteraction(map, {
       targets: (point) => {
         const state = this.session.state;
-        if (this.destroyed || state.mode !== 'idle' || state.selectedFeatureIds.length === 0) return [];
+        if (this.destroyed || this.renderer.transferringTranslation || state.mode !== 'idle' || state.selectedFeatureIds.length === 0) return [];
         const id = this.renderer.pick(point);
         return id !== null && state.selectedFeatureIds.includes(id) ? this.session.getSelection() : [];
       },
@@ -91,10 +91,17 @@ export class GeometryEditor {
       },
       clear: () => { this.renderer.renderEditing(null); this.renderer.clearPreview(); },
       commit: (delta) => {
-        try { this.translateSelection(delta); }
+        try {
+          const event = this.session.translateSelection(delta);
+          if (event) {
+            this.renderer.holdTranslation();
+            this.publishTransaction(event);
+          } else { this.renderer.renderEditing(null); this.renderer.clearPreview(); }
+        }
         catch (error) {
           // Final topology validation can reject a numerically degenerate result.
-          // The gesture has already been cleaned up; preserve data and history.
+          // Restore the original after a rejected commit; preserve data and history.
+          this.renderer.renderEditing(null); this.renderer.clearPreview();
           if (!(error instanceof GeoJSONImportError || error instanceof RangeError)) throw error;
         }
       },
@@ -685,6 +692,6 @@ export class GeometryEditor {
     this.view.removeEventListener('blur', this.handleSnapBlur);
     this.events.clear();
     editors.delete(this.map);
-    if (removeResources) this.renderer.destroy();
+    this.renderer.destroy(removeResources);
   }
 }

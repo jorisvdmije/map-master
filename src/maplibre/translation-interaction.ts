@@ -44,7 +44,7 @@ export class TranslationInteraction {
 
   get active(): boolean { return this.gesture !== undefined; }
 
-  cancel(restoreGestures = true): void {
+  cancel(restoreGestures = true, clearPreview = true): void {
     const gesture = this.gesture;
     if (!gesture) return;
     this.gesture = undefined;
@@ -56,7 +56,7 @@ export class TranslationInteraction {
     this.canvas.style.cursor = gesture.cursor;
     if (restoreGestures) {
       if (gesture.pan) this.map.dragPan.enable(); else this.map.dragPan.disable();
-      if (gesture.moved) this.actions.clear();
+      if (gesture.moved && clearPreview) this.actions.clear();
     }
   }
 
@@ -131,10 +131,11 @@ export class TranslationInteraction {
     const gesture = this.gesture;
     if (gesture?.pointerId !== event.pointerId) return;
     this.update(event);
-    const valid = gesture.moved && this.translated(gesture) !== null;
-    this.cancel();
+    const features = gesture.moved ? this.translated(gesture) : null;
+    if (features) this.actions.preview(features); // Exact release, even before the next animation frame.
+    this.cancel(true, features === null);
     this.suppressClick = gesture.moved;
-    if (valid) this.actions.commit(this.delta(gesture));
+    if (features) this.actions.commit(this.delta(gesture));
   };
 
   private readonly click = (event: MouseEvent): void => {
