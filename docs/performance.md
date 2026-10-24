@@ -749,3 +749,33 @@ fixtures establish no maximum supported size, frame-rate guarantee or CI budget.
 Calculation is synchronous: the measured 1,000-corner preview can block the UI for
 about 200 ms. Workers, cancellation of running calculations and configurable arc
 resolution are not implemented in this version.
+
+## Line offsets
+
+Run `npm run benchmark:offset`. Source lines start near `[4.895, 52.372]` and have
+10, 100 or 1,000 vertices. Longitude increases by 0.00001° per vertex; latitude
+varies by `0.00002 × sin(i / 10)` degrees. The group case selects 100 ten-vertex
+lines separated by 0.001° latitude. Each iteration enters at zero, previews +10
+Mercator meters, confirms, undoes and verifies exact Redo. Five warmups precede
+30 measured samples; import, selection and assertions are excluded.
+
+Local baseline on 2026-10-25: Node v22.23.1, macOS arm64, Apple M2 Pro. Values are
+median / p95 elapsed milliseconds. Entry includes checking simple open paths in
+both geographic/projected coordinates. Preview includes calculation, both output
+intersection checks and transaction validation. Commit revalidates the cached
+GeoJSON. Rendering and map uploads are excluded.
+
+| Features | Vertices per line | Entry | Preview | Commit | Undo |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 10 | 0.039 / 0.074 | 0.062 / 0.216 | 0.028 / 0.065 | 0.009 / 0.018 |
+| 1 | 100 | 0.039 / 0.209 | 0.135 / 0.527 | 0.050 / 0.194 | 0.005 / 0.020 |
+| 1 | 1,000 | 0.171 / 0.601 | 0.984 / 1.397 | 0.452 / 0.774 | 0.031 / 0.054 |
+| 100 | 10 | 0.215 / 0.873 | 0.838 / 1.686 | 0.611 / 1.065 | 0.091 / 0.120 |
+
+These smooth, eastward fixtures benefit from sorting segment bounds on longitude
+or projected x. Offset construction and auxiliary storage are linear; sorted
+bounds cost O(n log n) plus candidate-pair comparisons. Many overlapping x ranges
+can still cause quadratic work even for valid paths. The synchronous calculation
+can block the UI on large or unfavorable inputs. This benchmark establishes no
+supported maximum size, frame-rate guarantee or CI timing budget. Workers and
+interactive dragging of the offset are not implemented in this version.

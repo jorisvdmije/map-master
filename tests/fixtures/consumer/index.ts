@@ -155,6 +155,13 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const constraints: editor.DrawingConstraintsOptions = tool.getDrawingConstraints();
   tool.setDrawingConstraints({ enabled: true, angleStep: 90 });
   tool.setDrawingConstraints({ enabled: constraints.enabled, angleStep: constraints.angleStep });
+  const offsetting: boolean = tool.offsetSelection();
+  tool.setOffsetDistance(5);
+  const offsetResultPreview: editor.GeometryFeatureCollection | null = tool.getOffsetPreview();
+  const offsetResultError: editor.OffsetError | null = tool.getState().offsetError;
+  const offsetDistance: number | null = tool.getState().offsetDistance;
+  const offsetResult: editor.TransactionEvent | null = tool.finishOffset();
+  void [offsetting, offsetResultPreview, offsetResultError, offsetDistance, offsetResult];
   const buffering: boolean = tool.bufferSelection();
   tool.setBufferDistance(5);
   const bufferedPreview: editor.GeometryFeatureCollection | null = tool.getBufferPreview();

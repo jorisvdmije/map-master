@@ -13,6 +13,7 @@ as GeoJSON through one GeometryEditor API.
 features as one validated batch and one undo action.
 [Polygon union](docs/union.md) previews and merges selected polygons into one feature with atomic Undo.
 [Fixed drawing angles](docs/drawing-constraints.md) optionally constrain free pointer placement to 45° or 90° map directions, with Alt bypass and exact snapping priority.
+[Line offsets](docs/offset.md) move open lines left/right with a signed Mercator-meter distance, limited miter joins, validated preview and atomic Undo.
 [Selection buffers](docs/buffer.md) turn selected lines/polygons into outward zones with a positive Mercator-meter distance, validated preview and atomic Undo.
 [Selection simplification](docs/simplification.md) removes detail with a Mercator-meter tolerance, validated preview and atomic Undo.
 [Selection scaling](docs/scaling.md) resizes mixed selections around a fixed pivot, with numeric preview and atomic Undo.
@@ -116,6 +117,7 @@ npm run check
 | `npm test` | Run core behavior tests and test the packed library in an isolated consumer. |
 | `npm run test:browser` | Build the package and run real Chromium interaction and demo tests. |
 | `npm run build:demo` | Build the library and a deployable demo in `examples/basic/dist/`. |
+| `npm run benchmark:offset` | Measure line-offset entry, validated preview, commit and Undo. |
 | `npm run benchmark:buffer` | Measure buffer entry, validated preview, commit and Undo. |
 | `npm run benchmark:simplification` | Measure simplification entry, validated preview, commit and Undo. |
 | `npm run benchmark:constraints` | Measure angle resolution and anchor lookup across draft sizes. |

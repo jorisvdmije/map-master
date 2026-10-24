@@ -47,6 +47,7 @@
     "benchmark:transactions": "npm run build && node scripts/benchmark-transactions.mjs",
     "benchmark:split": "npm run build && node scripts/benchmark-split.mjs",
     "benchmark:union": "npm run build && node scripts/benchmark-union.mjs",
+    "benchmark:offset": "npm run build && node scripts/benchmark-offset.mjs",
     "benchmark:buffer": "npm run build && node scripts/benchmark-buffer.mjs",
     "benchmark:simplification": "npm run build && node scripts/benchmark-simplification.mjs",
     "benchmark:constraints": "npm run build && node scripts/benchmark-constraints.mjs",

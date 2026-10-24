@@ -461,6 +461,30 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
+  /** Begin a cancellable offset of the selection with a signed Mercator-plane distance. */
+  offsetSelection(): boolean {
+    this.assertAlive(); this.cancelIdleGestures();
+    if (!this.session.offsetSelection()) return false;
+    this.enterInteraction('default'); this.schedulePreview(); return true;
+  }
+
+  setOffsetDistance(meters: number): boolean {
+    this.assertAlive();
+    const changed = this.session.setOffsetDistance(meters);
+    this.draftChanged(changed); return changed;
+  }
+
+  getOffsetPreview(): GeometryFeatureCollection | null { return this.session.getOffsetPreview(); }
+
+  finishOffset(): TransactionEvent | null {
+    this.assertAlive();
+    if (this.session.state.mode !== 'offset-lines' || !this.session.state.canFinish) return null;
+    const event = this.session.finishOffset();
+    this.leaveDrawing();
+    if (!event) { this.emitChange(); return null; }
+    return this.publishTransaction(event);
+  }
+
   /** Begin a cancellable buffer of the selection with a positive Mercator-plane distance. */
   bufferSelection(distance = 10): boolean {
     this.assertAlive(); this.cancelIdleGestures();
@@ -600,6 +624,12 @@ export class GeometryEditor {
   /** Confirm a valid tool; null also represents a successfully committed empty overlay. */
   finish(): GeometryFeature | null {
     this.assertAlive();
+    if (this.session.state.mode === 'offset-lines') {
+      const preview = this.session.getOffsetPreview();
+      if (!preview) return null;
+      this.finishOffset();
+      return preview.features[0]!;
+    }
     if (this.session.state.mode === 'buffer-features') {
       const preview = this.session.getBufferPreview();
       if (!preview) return null;
@@ -759,7 +789,7 @@ export class GeometryEditor {
     const state = this.session.state;
     if (input.button !== 0
       || input.ctrlKey || input.metaKey || input.shiftKey || input.detail > 1) return;
-    if (state.mode === 'buffer-features' || state.mode === 'simplify-features' || state.mode === 'scale-features' || state.mode === 'rotate-features' || state.mode.startsWith('edit-') || state.mode === 'union-polygons' || state.mode === 'difference-polygons' || state.mode === 'intersection-polygons') return;
+    if (state.mode === 'offset-lines' || state.mode === 'buffer-features' || state.mode === 'simplify-features' || state.mode === 'scale-features' || state.mode === 'rotate-features' || state.mode.startsWith('edit-') || state.mode === 'union-polygons' || state.mode === 'difference-polygons' || state.mode === 'intersection-polygons') return;
     if (state.mode === 'reshape-polygon' && state.canFinish) return;
     if (state.mode === 'idle') {
       if (input.altKey) return;
@@ -955,6 +985,12 @@ export class GeometryEditor {
         this.setSnap(resolved.snap);
       }
       if (this.destroyed || this.translation.active) return;
+      if (this.session.state.mode === 'offset-lines') {
+        const preview = this.session.getOffsetPreview();
+        this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
+        this.renderer.renderTransform(preview);
+        return;
+      }
       if (this.session.state.mode === 'buffer-features') {
         const preview = this.session.getBufferPreview();
         this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);

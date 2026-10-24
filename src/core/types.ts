@@ -59,6 +59,8 @@ export interface SplitPreview {
   created: PolygonFeature['geometry'];
 }
 
+export type OffsetError = 'offset-out-of-bounds' | 'offset-join-too-sharp' | 'offset-invalid-result';
+
 export type BufferError = 'buffer-out-of-bounds' | 'buffer-failed' | 'buffer-invalid-result';
 
 export type SimplificationError = 'simplification-invalid-result';
@@ -170,7 +172,7 @@ export interface HistoryEvent {
 }
 
 export interface EditorState {
-  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon' | 'edit-shared-boundary' | 'rotate-features' | 'scale-features' | 'simplify-features' | 'buffer-features';
+  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon' | 'edit-shared-boundary' | 'rotate-features' | 'scale-features' | 'simplify-features' | 'buffer-features' | 'offset-lines';
   vertexCount: number;
   featureCount: number;
   /** The sole selected ID, or null for zero/multiple selections. */
@@ -210,6 +212,9 @@ export interface EditorState {
   /** Positive Mercator-plane meters; null outside buffering. */
   bufferDistance: number | null;
   bufferError: BufferError | null;
+  /** Signed Mercator-plane meters: positive left, negative right; null outside offset. */
+  offsetDistance: number | null;
+  offsetError: OffsetError | null;
   reshapeError: ReshapeError | null;
   /** Selected old boundary arc; null outside reshape. */
   reshapeSide: ReshapeSide | null;

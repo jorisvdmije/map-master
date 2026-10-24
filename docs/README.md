@@ -9,6 +9,7 @@ separately so consumers can integrate without depending on internal modules.
 | Apply atomic create/update/delete batches | [Transactions and event semantics](transactions.md) |
 | Import and edit multipart lines/polygons | [Multipart geometry](multipart.md) |
 | Draw with fixed 45°/90° directions | [Drawing constraints](drawing-constraints.md) |
+| Offset open lines left or right | [Line offsets](offset.md) |
 | Buffer selected lines and polygons | [Selection buffers](buffer.md) |
 | Simplify lines and polygons | [Selection simplification](simplification.md) |
 | Scale lines and polygons together | [Selection scaling](scaling.md) |

@@ -1,3 +1,4 @@
+import { canOffsetFeatures, offsetFeatures, validateOffsetDistance } from './offset.js';
 import { bufferFeatures, validateBufferDistance } from './buffer.js';
 import { simplifyFeatures, validateSimplificationTolerance } from './simplification.js';
 import { scaleFeatures, validateScaleFactor } from './scaling.js';
@@ -17,7 +18,7 @@ import { EditHistory, type HistoryEntry } from './history.js';
 import { GeoJSONImportError, copyProperties, prepareImport } from './geojson-import.js';
 import { closePolygon, openRing, samePosition, validatePolygonRings, validateMultiPolygon } from './polygon.js';
 import type {
-  Coordinate, BufferError, SimplificationError, ScaleError, RotationError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
+  Coordinate, OffsetError, BufferError, SimplificationError, ScaleError, RotationError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
 } from './types.js';
 
 function copyFeature(feature: GeometryFeature): GeometryFeature {
@@ -33,6 +34,7 @@ function sameTraceAttachment(a: Coordinate, b: Coordinate): boolean {
 
 /** Internal editing state. No browser, map, or rendering dependencies. */
 export class DrawingSession {
+  private offsetting: { originals: GeometryFeature[]; distance: number; preview: GeometryFeature[] | null; error: OffsetError | null } | null = null;
   private buffering: { originals: GeometryFeature[]; distance: number; preview: GeometryFeature[] | null; error: BufferError | null } | null = null;
   private simplification: { originals: GeometryFeature[]; tolerance: number; preview: GeometryFeature[] | null; error: SimplificationError | null } | null = null;
   private scaling: { originals: GeometryFeature[]; pivot: Coordinate; factor: number; preview: GeometryFeature[] | null; error: ScaleError | null } | null = null;
@@ -81,7 +83,7 @@ export class DrawingSession {
 
   get state(): EditorState {
     return {
-      mode: this.buffering ? 'buffer-features' : this.simplification ? 'simplify-features' : this.scaling ? 'scale-features' : this.rotation ? 'rotate-features' : this.sharedBoundary ? 'edit-shared-boundary' : this.reshapeId !== null ? 'reshape-polygon' : this.intersectionActive ? 'intersection-polygons' : this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.kind === null ? 'idle' : this.editingId !== null
+      mode: this.offsetting ? 'offset-lines' : this.buffering ? 'buffer-features' : this.simplification ? 'simplify-features' : this.scaling ? 'scale-features' : this.rotation ? 'rotate-features' : this.sharedBoundary ? 'edit-shared-boundary' : this.reshapeId !== null ? 'reshape-polygon' : this.intersectionActive ? 'intersection-polygons' : this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.kind === null ? 'idle' : this.editingId !== null
         ? this.kind === 'LineString' ? 'edit-line' : 'edit-polygon'
         : this.kind === 'LineString' ? 'draw-line' : 'draw-polygon',
       vertexCount: this.draft.length,
@@ -92,12 +94,14 @@ export class DrawingSession {
       activeRingIndex: this.activeRingIndex,
       activePartIndex: this.activePartIndex,
       dataRevision: this.dataRevision,
-      canFinish: this.buffering ? this.buffering.preview !== null : this.simplification ? this.simplification.preview !== null : this.scaling ? this.scaling.preview !== null : this.rotation ? this.rotation.preview !== null : this.sharedBoundary ? this.sharedBoundaryPreview !== null : this.reshapeId !== null ? this.reshapePreview !== null : this.intersectionActive ? this.intersectionPreview !== null : this.differenceActive ? this.differencePreview !== null : this.unionActive ? this.unionPreview !== null : this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
+      canFinish: this.offsetting ? this.offsetting.preview !== null : this.buffering ? this.buffering.preview !== null : this.simplification ? this.simplification.preview !== null : this.scaling ? this.scaling.preview !== null : this.rotation ? this.rotation.preview !== null : this.sharedBoundary ? this.sharedBoundaryPreview !== null : this.reshapeId !== null ? this.reshapePreview !== null : this.intersectionActive ? this.intersectionPreview !== null : this.differenceActive ? this.differencePreview !== null : this.unionActive ? this.unionPreview !== null : this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
       canUndo: this.kind === null && this.history.canUndo,
       canRedo: this.kind === null && this.history.canRedo,
       validationError: this.validationError,
       splitError: this.splitError,
       sharedBoundaryError: this.sharedBoundaryError,
+      offsetDistance: this.offsetting?.distance ?? null,
+      offsetError: this.offsetting?.error ?? null,
       bufferDistance: this.buffering?.distance ?? null,
       bufferError: this.buffering?.error ?? null,
       simplificationTolerance: this.simplification?.tolerance ?? null,
@@ -118,7 +122,7 @@ export class DrawingSession {
 
   start(kind: DrawGeometryType): boolean {
     if (kind !== 'LineString' && kind !== 'Polygon') throw new TypeError('Unsupported geometry type.');
-    if (!this.buffering && !this.simplification && !this.scaling && !this.rotation && !this.sharedBoundary && this.kind === kind && this.editingId === null && this.splitId === null && this.reshapeId === null && this.holeId === null && !this.unionActive && !this.differenceActive && !this.intersectionActive) return false;
+    if (!this.offsetting && !this.buffering && !this.simplification && !this.scaling && !this.rotation && !this.sharedBoundary && this.kind === kind && this.editingId === null && this.splitId === null && this.reshapeId === null && this.holeId === null && !this.unionActive && !this.differenceActive && !this.intersectionActive) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before changing tools.');
     this.kind = kind;
     this.selectedFeatureIds.clear();
@@ -127,7 +131,7 @@ export class DrawingSession {
   }
 
   add([lng, lat]: Coordinate): boolean {
-    if (this.buffering || this.simplification || this.scaling || this.rotation || this.sharedBoundary || this.kind === null || this.editingId !== null || this.unionActive || this.differenceActive || this.intersectionActive) return false;
+    if (this.offsetting || this.buffering || this.simplification || this.scaling || this.rotation || this.sharedBoundary || this.kind === null || this.editingId !== null || this.unionActive || this.differenceActive || this.intersectionActive) return false;
     this.validatePosition([lng, lat]);
     const last = this.draft.at(-1);
     if (last && samePosition(last, [lng, lat])) return false;
@@ -189,7 +193,7 @@ export class DrawingSession {
   }
 
   finish(): GeometryFeature | null {
-    if (this.buffering || this.simplification || this.scaling || this.rotation || this.sharedBoundary || this.reshapeId !== null || this.intersectionActive || this.differenceActive || this.unionActive || this.splitId !== null || !this.state.canFinish) return null;
+    if (this.offsetting || this.buffering || this.simplification || this.scaling || this.rotation || this.sharedBoundary || this.reshapeId !== null || this.intersectionActive || this.differenceActive || this.unionActive || this.splitId !== null || !this.state.canFinish) return null;
     const targetId = this.editingId ?? this.holeId;
     const original = targetId === null ? undefined : this.features.get(targetId);
     const common = { type: 'Feature' as const, id: original?.id ?? this.allocateId(), properties: original ? copyProperties(original.properties) : {} };
@@ -212,6 +216,7 @@ export class DrawingSession {
 
   cancel(): boolean {
     if (this.kind === null) return false;
+    this.offsetting = null;
     this.buffering = null;
     this.simplification = null;
     this.scaling = null;
@@ -761,6 +766,55 @@ export class DrawingSession {
   finishSimplification(): TransactionEvent | null {
     if (!this.simplification?.preview) return null;
     const changes = prepareTransaction({ update: this.simplification.preview }, this.features);
+    const changed = this.commit('transaction', changes);
+    this.cancel();
+    return changed ? { changes: changes.map(({ before, after }) => ({ before: before ? copyFeature(before) : null, after: after ? copyFeature(after) : null })) } : null;
+  }
+
+  /** Begin a selection-wide offsetting review in the Mercator plane. */
+  offsetSelection(): boolean {
+    if (this.offsetting) return false;
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before offsetting.');
+    const originals = this.getSelection();
+    if (!canOffsetFeatures(originals)) return false;
+    this.offsetting = { originals, distance: 0, preview: originals, error: null };
+    this.kind = 'LineString';
+    return true;
+  }
+
+  /** Absolute distance from the entry baseline, never an incremental transformation. */
+  setOffsetDistance(distance: number): boolean {
+    validateOffsetDistance(distance);
+    if (!this.offsetting || this.offsetting.distance === distance) return false;
+    const offsetting = this.offsetting;
+    let preview: GeometryFeature[] | null = null;
+    let error: OffsetError | null = null;
+    try {
+      const result = offsetFeatures(offsetting.originals, distance);
+      if (!result.preview) {
+        offsetting.distance = distance; offsetting.preview = null; offsetting.error = result.error;
+        return true;
+      }
+      const candidates = result.preview;
+      // Use the same validation/normalization as commit; previews contain exact commit geometry.
+      const changes = prepareTransaction({ update: candidates }, this.features);
+      const updated = new Map(changes.map((change) => [change.after!.id, change.after!]));
+      preview = candidates.map((feature) => updated.get(feature.id) ?? this.features.get(feature.id)!);
+    } catch (cause) {
+      if (cause instanceof GeoJSONImportError) error = 'offset-invalid-result';
+      else throw cause;
+    }
+    offsetting.distance = distance; offsetting.preview = preview; offsetting.error = error;
+    return true;
+  }
+
+  getOffsetPreview(): GeometryFeatureCollection | null {
+    return this.offsetting?.preview ? { type: 'FeatureCollection', features: this.offsetting.preview.map(copyFeature) } : null;
+  }
+
+  finishOffset(): TransactionEvent | null {
+    if (!this.offsetting?.preview) return null;
+    const changes = prepareTransaction({ update: this.offsetting.preview }, this.features);
     const changed = this.commit('transaction', changes);
     this.cancel();
     return changed ? { changes: changes.map(({ before, after }) => ({ before: before ? copyFeature(before) : null, after: after ? copyFeature(after) : null })) } : null;

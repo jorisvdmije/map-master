@@ -42,6 +42,8 @@ const intersectionSelected = element<HTMLButtonElement>('intersection-selected')
 const differenceSelected = element<HTMLButtonElement>('difference-selected');
 const unionSelected = element<HTMLButtonElement>('union-selected');
 const editSelected = element<HTMLButtonElement>('edit-selected');
+const offsetSelected = element<HTMLButtonElement>('offset-selected');
+const offsetDistance = element<HTMLInputElement>('offset-distance');
 const bufferSelected = element<HTMLButtonElement>('buffer-selected');
 const bufferDistance = element<HTMLInputElement>('buffer-distance');
 const simplifySelected = element<HTMLButtonElement>('simplify-selected');
@@ -156,6 +158,7 @@ map.on('load', () => {
     updateSnapStatus();
     const drawing = state.mode !== 'idle';
     const editing = state.mode.startsWith('edit-');
+    const offsetting = state.mode === 'offset-lines';
     const buffering = state.mode === 'buffer-features';
     const simplifying = state.mode === 'simplify-features';
     const scaling = state.mode === 'scale-features';
@@ -176,6 +179,10 @@ map.on('load', () => {
     deleteSelected.setAttribute('aria-label', selectedCount > 1 ? 'Delete selected shapes' : 'Delete selected shape');
     duplicateSelected.disabled = selectedCount === 0 || drawing;
     duplicateSelected.setAttribute('aria-label', selectedCount > 1 ? 'Duplicate selected shapes' : 'Duplicate selected shape');
+    offsetSelected.disabled = selectedCount === 0 || drawing || activeEditor.getSelection().some(f => f.geometry.type !== 'LineString' && f.geometry.type !== 'MultiLineString');
+    element('offset-tools').hidden = !offsetting;
+    if (!offsetting) offsetDistance.setCustomValidity('');
+    if (document.activeElement !== offsetDistance) offsetDistance.value = String(state.offsetDistance ?? 0);
     bufferSelected.disabled = selectedCount === 0 || drawing;
     element('buffer-tools').hidden = !buffering;
     if (!buffering) bufferDistance.setCustomValidity('');
@@ -228,8 +235,8 @@ map.on('load', () => {
     differenceSelected.disabled = unionSelected.disabled;
     intersectionSelected.disabled = unionSelected.disabled;
     element('editing-tools').hidden = !editing;
-    element('finish-label').textContent = buffering ? 'Apply buffer' : simplifying ? 'Apply simplification' : scaling ? 'Apply scale' : rotating ? 'Apply rotation' : shared ? 'Save both polygons' : reshaping ? 'Apply reshape' : intersecting ? 'Apply intersection' : subtracting ? 'Apply subtraction' : merging ? 'Apply merge' : splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
-    element('drawing-instructions').hidden = buffering || simplifying || scaling || rotating || editing || reshaping || splitting || merging || subtracting || intersecting || state.mode === 'draw-hole';
+    element('finish-label').textContent = offsetting ? 'Apply offset' : buffering ? 'Apply buffer' : simplifying ? 'Apply simplification' : scaling ? 'Apply scale' : rotating ? 'Apply rotation' : shared ? 'Save both polygons' : reshaping ? 'Apply reshape' : intersecting ? 'Apply intersection' : subtracting ? 'Apply subtraction' : merging ? 'Apply merge' : splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
+    element('drawing-instructions').hidden = offsetting || buffering || simplifying || scaling || rotating || editing || reshaping || splitting || merging || subtracting || intersecting || state.mode === 'draw-hole';
     removeVertex.disabled = !editing || state.selectedVertexIndex === null
       || state.vertexCount <= (state.mode === 'edit-polygon' ? 3 : 2)
       || shared && (state.selectedVertexIndex === 0 || state.selectedVertexIndex === state.vertexCount - 1);
@@ -258,7 +265,7 @@ map.on('load', () => {
     start.disabled = drawing;
     lineTool.disabled = drawing;
     polygonTool.disabled = drawing;
-    finish.disabled = !state.canFinish || buffering && !bufferDistance.validity.valid || simplifying && !simplificationTolerance.validity.valid || scaling && !scaleFactor.validity.valid || rotating && !rotationAngle.validity.valid;
+    finish.disabled = !state.canFinish || offsetting && !offsetDistance.validity.valid || buffering && !bufferDistance.validity.valid || simplifying && !simplificationTolerance.validity.valid || scaling && !scaleFactor.validity.valid || rotating && !rotationAngle.validity.valid;
     cancel.disabled = !drawing;
     undo.disabled = !state.canUndo;
     redo.disabled = !state.canRedo;
@@ -274,6 +281,14 @@ map.on('load', () => {
         : selectedFeature ? 'Drag to move this shape, or edit its corners. Escape cancels a drag.'
         : state.featureCount > 0 ? 'Click a shape to select it, or draw another.' : 'Ready when you are.';
     if (state.mode === 'draw-hole' && !invalid) status.textContent = `${state.vertexCount} corners. Draw inside the polygon; Enter saves the hole, Escape cancels.`;
+    if (offsetting) {
+      status.classList.toggle('is-invalid', state.offsetError !== null);
+      status.textContent = state.offsetError === 'offset-out-of-bounds'
+        ? 'The offset leaves the supported map area. Reduce the distance or Cancel.'
+        : state.offsetError === 'offset-join-too-sharp' ? 'A corner is too sharp for this miter join. Set 0 or Cancel and edit the line.'
+        : state.offsetError ? 'The offset crosses or reverses itself, or is too small to represent. Change the distance or Cancel.'
+        : `Preview: ${state.offsetDistance} Mercator m (${(state.offsetDistance ?? 0) > 0 ? 'left' : (state.offsetDistance ?? 0) < 0 ? 'right' : 'original'}). Apply replaces the selected lines; Undo restores them.`;
+    }
     if (buffering) {
       status.classList.toggle('is-invalid', state.bufferError !== null);
       status.textContent = state.bufferError === 'buffer-out-of-bounds'
@@ -344,7 +359,7 @@ map.on('load', () => {
         : preview?.geometry === null ? 'No target area remains. Apply subtraction deletes the target; cutting shapes are kept. Undo restores it.'
         : 'Remaining target area is orange; cutting shapes stay blue. Apply subtraction or Enter saves; Cancel keeps the original.';
     }
-    element('map-hint').textContent = buffering ? 'Set a distance · Review the zone · Enter applies · Esc cancels' : simplifying ? 'Set a tolerance · Review remaining vertices · Enter applies · Esc cancels' : scaling ? 'Set a factor · White marker is the centre · Enter applies · Esc cancels' : rotating ? 'Set an angle · White marker is the centre · Enter applies · Esc cancels' : shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
+    element('map-hint').textContent = offsetting ? 'Positive left · Negative right · Enter applies · Esc cancels' : buffering ? 'Set a distance · Review the zone · Enter applies · Esc cancels' : simplifying ? 'Set a tolerance · Review remaining vertices · Enter applies · Esc cancels' : scaling ? 'Set a factor · White marker is the centre · Enter applies · Esc cancels' : rotating ? 'Set an angle · White marker is the centre · Enter applies · Esc cancels' : shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
       : drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
@@ -444,6 +459,26 @@ for (const [button, delta] of [[rotateLeft, -15], [rotateRight, 15]] as const) {
     editor?.setRotationAngle((editor.getState().rotationAngle ?? 0) + delta);
   });
 }
+offsetSelected.addEventListener('click', () => {
+  if (!editor) return;
+  if (!editor.offsetSelection()) {
+    status.classList.add('is-invalid');
+    status.textContent = 'Select only simple open lines within the Mercator map area, without date-line crossings or a span over 180°.';
+  } else offsetDistance.focus();
+});
+offsetDistance.addEventListener('input', () => {
+  const distance = offsetDistance.valueAsNumber;
+  const valid = Number.isFinite(distance);
+  offsetDistance.setCustomValidity(valid ? '' : 'Enter a finite signed distance.');
+  if (valid) editor?.setOffsetDistance(distance);
+  finish.disabled = !valid || !editor?.getState().canFinish;
+});
+offsetDistance.addEventListener('blur', () => {
+  // A cleared/incomplete number is only a text-entry draft. Restore the last preview distance on exit.
+  offsetDistance.setCustomValidity('');
+  offsetDistance.value = String(editor?.getState().offsetDistance ?? 0);
+  finish.disabled = !editor?.getState().canFinish;
+});
 bufferSelected.addEventListener('click', () => {
   if (!editor) return;
   if (!editor.bufferSelection()) {

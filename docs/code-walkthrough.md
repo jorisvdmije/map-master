@@ -19,6 +19,7 @@ src/
     drawing-constraints.ts   Validated angle options and pure Mercator ray constraint
     mercator-transform.ts    Shared projection, pivot validation and bounds centre
     rotation.ts              Angle normalization and baseline rotation
+    offset.ts                Signed Mercator miter offsets and simple-path validation
     buffer.ts                Positive Mercator dilation with polygonal capsules and union
     simplification.ts        Iterative path/ring simplification in Mercator meters
     scaling.ts               Positive factor validation and baseline scaling
@@ -447,3 +448,13 @@ Output passes strict topology validation. DrawingSession owns the frozen entry
 selection, distance, cached preview/diagnostic and atomic transaction commit.
 GeometryEditor uses the shared collection preview without a pivot and exposes the
 public API, events, keyboard finish/cancel and lifecycle cleanup. See [buffers](buffer.md).
+
+## Line offsets
+
+`core/offset.ts` checks simple open input paths, computes signed perpendicular
+segment offsets and limited miter intersections, then rejects reversed or
+intersecting output in both projected and geographic representations. Segment
+bounds reduce intersection comparisons. DrawingSession freezes the selection,
+caches distance/preview/diagnostic and commits through the transaction boundary.
+GeometryEditor reuses collection-preview rendering and existing history/events.
+See [line offsets](offset.md) for the supported subset and numeric limits.

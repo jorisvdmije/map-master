@@ -7,7 +7,7 @@ export type {
   LineCollection, LineFeature, PolygonFeature, MultiLineFeature, MultiPolygonFeature,
   // Editor state and configuration.
   DrawingConstraintsOptions, EditorOptions, EditorState, ValidationError,
-  BufferError, SimplificationError, ScaleError, RotationError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, TracingOptions, SnappingOptions, SnapResult, ReshapePreview, ReshapeError, ReshapeSide, SplitPreview, SplitError, UnionPreview, UnionError, DifferencePreview, DifferenceError, IntersectionPreview, IntersectionError,
+  OffsetError, BufferError, SimplificationError, ScaleError, RotationError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, TracingOptions, SnappingOptions, SnapResult, ReshapePreview, ReshapeError, ReshapeSide, SplitPreview, SplitError, UnionPreview, UnionError, DifferencePreview, DifferenceError, IntersectionPreview, IntersectionError,
   // Committed changes and history.
   FeatureChange, FeatureTransaction, TransactionEvent, HistoryAction, HistoryEvent,
 } from './core/types.js';

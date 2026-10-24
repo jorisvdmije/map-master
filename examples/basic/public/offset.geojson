@@ -1,0 +1,7 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {"type":"Feature","id":"route","properties":{"name":"Eastbound route"},"geometry":{"type":"LineString","coordinates":[[4.89,52.37],[4.892,52.37],[4.892,52.371]]}},
+    {"type":"Feature","id":"return","properties":{"name":"Westbound route"},"geometry":{"type":"LineString","coordinates":[[4.892,52.372],[4.89,52.372]]}}
+  ]
+}

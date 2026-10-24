@@ -9,7 +9,7 @@
   <body>
     <header class="header">
       <a class="brand" href="/" aria-label="geo home"><span class="brand-mark">g.</span>geo<span class="brand-divider"></span><span class="brand-caption">Drawing playground</span></a>
-      <span class="milestone"><span class="dot"></span> Milestone 17c.3 <span class="milestone-label">/ Buffers</span></span>
+      <span class="milestone"><span class="dot"></span> Milestone 17c.4 <span class="milestone-label">/ Line offsets</span></span>
     </header>
     <main class="workspace">
       <aside class="sidebar" aria-label="Drawing tools">
@@ -43,6 +43,12 @@
             <button id="rotate-right" class="button secondary" type="button">+15°</button>
           </div>
           <p id="rotation-help">All selected shapes turn around the white centre marker. Positive angles turn clockwise. Apply saves the preview; Cancel keeps the originals.</p>
+        </section>
+        <section id="offset-tools" class="editing-tools" aria-label="Line offset" hidden>
+          <h2>OFFSET YOUR LINES</h2>
+          <label for="offset-distance">Offset distance (Mercator meters)</label>
+          <input id="offset-distance" type="number" step="any" value="0" aria-describedby="offset-help" />
+          <p id="offset-help">Positive is left of each line's direction; negative is right. 0 keeps the originals. Miter joins and perpendicular endpoints. Apply replaces the selected open lines; Undo restores them. Map-plane meters, not ground meters.</p>
         </section>
         <section id="buffer-tools" class="editing-tools" aria-label="Buffer" hidden>
           <h2>BUFFER YOUR SELECTION</h2>
@@ -83,6 +89,7 @@
         <div id="status" class="status" role="status">Loading the map…</div>
         <section id="selection" class="selection-card" aria-label="Selected geometry" hidden>
           <div><strong id="selection-type"></strong><span id="selection-detail"></span></div>
+          <button id="offset-selected" class="button secondary" disabled>Offset lines</button>
           <button id="buffer-selected" class="button secondary" disabled>Buffer selection</button>
           <button id="simplify-selected" class="button secondary" disabled>Simplify selection</button>
           <button id="scale-selected" class="button secondary" disabled>Scale selection</button>

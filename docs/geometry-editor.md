@@ -52,7 +52,11 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `removeLastDrawStep()` | Remove one drawing click, including a complete traced section. |
 | `getDrawingConstraints()` | Independent options snapshot: enabled and angleStep (45 or 90). |
 | `setDrawingConstraints(options)` | Update the opt-in direction grid for free drawing placement; exact snaps, tracing and closure take priority. |
-| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`, `differenceError`, `intersectionError`, `reshapeError`, `reshapeSide`, `sharedBoundaryError`, `rotationAngle`, `rotationPivot`, `rotationError`, `scaleFactor`, `scalePivot`, `scaleError`, `simplificationTolerance`, `simplificationError`, `bufferDistance`, `bufferError`. |
+| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`, `differenceError`, `intersectionError`, `reshapeError`, `reshapeSide`, `sharedBoundaryError`, `rotationAngle`, `rotationPivot`, `rotationError`, `scaleFactor`, `scalePivot`, `scaleError`, `simplificationTolerance`, `simplificationError`, `bufferDistance`, `bufferError`, `offsetDistance`, `offsetError`. |
+| `offsetSelection()` | Begin a signed Mercator offset of simple open lines at distance zero. |
+| `setOffsetDistance(meters)` | Set a finite signed distance from frozen originals; positive left, negative right. |
+| `getOffsetPreview()` | Independent validated line collection; null when inactive/invalid. |
+| `finishOffset()` | Replace selected lines as one transaction; null when inactive/invalid/unchanged. |
 | `bufferSelection(distance = 10)` | Begin positive Mercator buffering of selected lines/polygons. |
 | `setBufferDistance(meters)` | Set a positive distance, recomputing from frozen originals. |
 | `getBufferPreview()` | Independent validated replacement collection; null when inactive/invalid. |
@@ -106,7 +110,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed lines and polygons. |
 | `importGeoJSON(input)` | Append a parsed Feature/FeatureCollection atomically; return an independent collection of imported features. Idle only. |
 | `applyTransaction({ create?, update?, delete? })` | Validate and commit a mixed batch atomically. Full features with explicit IDs; idle only. Return a TransactionEvent or null for no change. |
-| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed buffering/simplification/scaling/rotation/shared-boundary edit/split/union/intersection/reshape or changed difference, deleteSelection, group translation, duplication or hole deletion. Returns an unsubscribe function. |
+| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed offsetting/buffering/simplification/scaling/rotation/shared-boundary edit/split/union/intersection/reshape or changed difference, deleteSelection, group translation, duplication or hole deletion. Returns an unsubscribe function. |
 | `onImport(listener)` | One notification per nonempty imported batch. Returns an unsubscribe function. |
 | `onUpdate(listener)` | One notification per changed saved edit. Returns an unsubscribe function. |
 | `undo()` / `redo()` | Reverse/replay one committed action; return true if applied, false if unavailable. Idle only. |
@@ -127,7 +131,7 @@ is a GeoJSON FeatureCollection containing all four geometry types. New drawings 
 string or numeric IDs and JSON properties (including null). Coordinates are
 `[longitude, latitude]`. Properties can be imported but there is no property-editing API yet.
 
-Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, `union-polygons`, `difference-polygons`, `intersection-polygons`, `reshape-polygon`, `edit-shared-boundary`, `rotate-features`, `scale-features`, `simplify-features`, and `buffer-features`. `validationError` is `null`
+Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, `union-polygons`, `difference-polygons`, `intersection-polygons`, `reshape-polygon`, `edit-shared-boundary`, `rotate-features`, `scale-features`, `simplify-features`, `buffer-features`, and `offset-lines`. `validationError` is `null`
 when idle or when the current draft is valid. Check `canFinish` to enable Finish;
 an idle editor cannot finish even though it has no validation error.
 
@@ -930,3 +934,13 @@ selected feature with its Polygon/MultiPolygon buffer, preserving IDs/properties
 and using one Undo action. Lines become polygons, holes can close, and parts can
 merge within each feature. See [buffers](buffer.md) for approximation, units,
 world bounds, diagnostics and lifecycle.
+
+## Line offsets
+
+`offsetSelection()` enters a zero-distance preview of simple open LineString or
+MultiLineString selections. `setOffsetDistance(meters)` shifts each path left for
+positive distances and right for negative distances in the Mercator plane.
+Corners use miter joins capped at four times the absolute distance; endpoints
+shift perpendicular to their segment. Invalid joins or intersecting/reversed
+results block confirmation. `finishOffset()` replaces the selection as one Undo
+action. See [line offsets](offset.md) for input restrictions, units and lifecycle.
