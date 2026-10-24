@@ -16,6 +16,7 @@ src/
     geojson-import.ts        Validate/copy entire import batches and JSON properties
     polygon.ts               Ring validity, closure, exterior winding
     union.ts                 Polygon union adapter
+    reshape-polygon.ts       Boundary attachments, arc choice and strict route validation
     intersection.ts          Common area of every input; valid empty results
     difference.ts            Target subtraction, empty and exact no-op results
     polygon-overlay.ts       Shared strict overlay result validation
@@ -28,6 +29,7 @@ src/
     keyboard-interaction.ts  Canvas-focused finish/cancel/delete/history commands
     pointer.ts               Shared viewport-to-map CSS coordinate conversion
     renderer.ts              Sources/layers, picking, selection styling, draft vertices
+    reshape-snapping.ts      Target-only boundary attachment and camera cache
     snapping.ts              Map projection and camera/data-revision cache
     selection-interaction.ts Shift+click/rectangle selection and cancellation
     translation-interaction.ts Group drag preview, release and cancellation
@@ -355,3 +357,16 @@ Confirmation retains the first selected ID for nonempty output and deletes the
 other inputs; empty output deletes every selected feature. The transaction boundary
 handles validation, one history action, events and exact replay. See
 [intersection](intersection.md) for the full contract.
+
+## Polygon reshape
+
+`reshapeSelected()` freezes one selected single-ring Polygon. The session stores
+its ID, draft route, selected boundary side and cached diagnostic/result.
+`core/reshape-polygon.ts` inserts boundary attachments, rejects route crossings and
+extra contacts, selects the old arc by planar length and validates the new ring.
+`maplibre/reshape-snapping.ts` supplies target-only attachments with an 18px radius,
+independent of general snapping. Its index is rebuilt only after camera changes.
+The original remains visible until a valid result is ready. The shared preview
+renderer draws the result and route handles; Backspace reopens construction.
+Confirmation uses the existing transaction boundary for one update. See
+[reshape](reshape.md) for numerical, event and lifecycle contracts.

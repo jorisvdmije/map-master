@@ -1,0 +1,9 @@
+{
+  "type": "FeatureCollection",
+  "features": [{
+    "type": "Feature", "id": "garden", "properties": { "name": "Reshape garden" },
+    "geometry": { "type": "Polygon", "coordinates": [
+      [[4.886,52.370],[4.896,52.370],[4.896,52.378],[4.886,52.378],[4.886,52.370]]
+    ] }
+  }]
+}

@@ -46,7 +46,13 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `draw('LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
 | `finish()` | Confirm the active tool, returning the resulting feature. Invalid/incomplete previews return `null` and stay active. A valid empty difference/intersection also returns `null`, after deleting the target/all inputs and exiting review. |
 | `cancel()` | Discard the draft or cancel an active selection rectangle or group drag. |
-| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`, `differenceError`, `intersectionError`. |
+| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`, `differenceError`, `intersectionError`, `reshapeError`, `reshapeSide`. |
+| `reshapeSelected()` | Start a boundary-to-boundary reshape of one selected Polygon without holes. |
+| `setReshapePath(coordinates)` | Replace the draft route; endpoints must attach to the original boundary. |
+| `setReshapeSide('shorter' \| 'longer')` | Choose which old boundary arc to replace; default shorter. |
+| `removeReshapePoint()` | Remove the last route point and revalidate; false for an empty route. |
+| `getReshapePreview()` | Independent cached Polygon result or null for invalid/incomplete/inactive reshape. |
+| `finishReshape()` | Commit one update as a transaction; null for invalid/inactive/unchanged review. |
 | `intersectionSelection()` | Preview the filled area common to all selected Polygon/MultiPolygon features. |
 | `getIntersectionPreview()` | Independent cached `IntersectionPreview` snapshot; null geometry means valid empty output. |
 | `finishIntersection()` | Replace inputs atomically; empty output deletes them all. Null for invalid/inactive review. |
@@ -75,7 +81,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed lines and polygons. |
 | `importGeoJSON(input)` | Append a parsed Feature/FeatureCollection atomically; return an independent collection of imported features. Idle only. |
 | `applyTransaction({ create?, update?, delete? })` | Validate and commit a mixed batch atomically. Full features with explicit IDs; idle only. Return a TransactionEvent or null for no change. |
-| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed split/union/intersection or changed difference, deleteSelection, group translation, duplication or hole deletion. Returns an unsubscribe function. |
+| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed split/union/intersection/reshape or changed difference, deleteSelection, group translation, duplication or hole deletion. Returns an unsubscribe function. |
 | `onImport(listener)` | One notification per nonempty imported batch. Returns an unsubscribe function. |
 | `onUpdate(listener)` | One notification per changed saved edit. Returns an unsubscribe function. |
 | `undo()` / `redo()` | Reverse/replay one committed action; return true if applied, false if unavailable. Idle only. |
@@ -96,7 +102,7 @@ is a GeoJSON FeatureCollection containing all four geometry types. New drawings 
 string or numeric IDs and JSON properties (including null). Coordinates are
 `[longitude, latitude]`. Properties can be imported but there is no property-editing API yet.
 
-Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, `union-polygons`, `difference-polygons`, and `intersection-polygons`. `validationError` is `null`
+Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, `union-polygons`, `difference-polygons`, `intersection-polygons`, and `reshape-polygon`. `validationError` is `null`
 when idle or when the current draft is valid. Check `canFinish` to enable Finish;
 an idle editor cannot finish even though it has no validation error.
 
@@ -548,6 +554,14 @@ through `unionError`. See the [union guide](union.md) for the complete contract.
 
 While reviewing a union, commands changing selection, tools, data or history throw.
 Consumers with exhaustive state switches must handle `union-polygons`.
+
+## Polygon reshape
+
+Select one Polygon without holes and call `reshapeSelected()`. Draw a route
+starting and ending on its boundary, inspect the preview and choose which old arc
+to replace with `setReshapeSide()`. `finishReshape()` preserves identity/properties
+in one transaction. Backspace corrects, Escape cancels and Undo restores the edit.
+See the [reshape guide](reshape.md) for attachment, geometry and event contracts.
 
 ## Polygon intersection
 

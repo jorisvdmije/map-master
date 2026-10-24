@@ -8,6 +8,7 @@ separately so consumers can integrate without depending on internal modules.
 | Set up a MapLibre host and use the editor | [GeometryEditor API](geometry-editor.md), [integration setup](line-editor.md#integrate) |
 | Apply atomic create/update/delete batches | [Transactions and event semantics](transactions.md) |
 | Import and edit multipart lines/polygons | [Multipart geometry](multipart.md) |
+| Replace part of a polygon boundary | [Polygon reshape](reshape.md) |
 | Keep the common area of selected polygons | [Polygon intersection](intersection.md) |
 | Merge selected polygons | [Polygon union](union.md) |
 | Subtract cutting polygons from a target | [Polygon difference](difference.md) |

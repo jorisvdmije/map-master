@@ -1,0 +1,95 @@
+import { orient2d } from 'robust-predicates';
+import { closePolygon, openRing, samePosition, validatePolygon } from './polygon.js';
+import type { Coordinate, ReshapeError, ReshapePreview, ReshapeSide } from './types.js';
+
+const orientation = (a: Coordinate, b: Coordinate, c: Coordinate): number => orient2d(...a, ...b, ...c);
+const opposite = (a: number, b: number): boolean => a < 0 && b > 0 || a > 0 && b < 0;
+const onSegment = (a: Coordinate, b: Coordinate, p: Coordinate): boolean => orientation(a, b, p) === 0
+  && p[0] >= Math.min(a[0], b[0]) && p[0] <= Math.max(a[0], b[0]) && p[1] >= Math.min(a[1], b[1]) && p[1] <= Math.max(a[1], b[1]);
+const intersects = (a: Coordinate, b: Coordinate, c: Coordinate, d: Coordinate): boolean =>
+  onSegment(a, b, c) || onSegment(a, b, d) || onSegment(c, d, a) || onSegment(c, d, b)
+  || opposite(orientation(a, b, c), orientation(a, b, d)) && opposite(orientation(c, d, a), orientation(c, d, b));
+
+/** Nearest position on a planar lon/lat edge, preserving exact endpoint coordinates. */
+export function projectToEdge(point: Coordinate, a: Coordinate, b: Coordinate): { point: Coordinate; t: number } {
+  const dx = b[0] - a[0]; const dy = b[1] - a[1];
+  const length = dx * dx + dy * dy;
+  const t = length === 0 ? 0 : Math.max(0, Math.min(1, ((point[0] - a[0]) * dx + (point[1] - a[1]) * dy) / length));
+  return { t, point: t === 0 ? [...a] : t === 1 ? [...b] : [a[0] + t * dx, a[1] + t * dy] };
+}
+interface Anchor { edge: number; t: number; point: Coordinate }
+function anchor(point: Coordinate, ring: Coordinate[]): Anchor | null {
+  // Only accommodate construction roundoff, never a UI/geographic snapping radius.
+  const tolerance = 64 * Number.EPSILON * Math.max(1, Math.abs(point[0]), Math.abs(point[1]));
+  const vertex = ring.findIndex((p) => Math.hypot(p[0] - point[0], p[1] - point[1]) <= tolerance);
+  if (vertex !== -1) return { edge: vertex, t: 0, point: [...ring[vertex]!] };
+  let nearest: Anchor | null = null; let distance = Infinity;
+  for (let edge = 0; edge < ring.length; edge++) {
+    const projected = projectToEdge(point, ring[edge]!, ring[(edge + 1) % ring.length]!);
+    const delta = Math.hypot(point[0] - projected.point[0], point[1] - projected.point[1]);
+    if (delta <= tolerance && delta < distance) { nearest = { edge, ...projected }; distance = delta; }
+  }
+  return nearest;
+}
+export type ReshapeCalculation = { preview: ReshapePreview; error: null } | { preview: null; error: ReshapeError };
+const fail = (error: ReshapeError): ReshapeCalculation => ({ preview: null, error });
+const length = (path: Coordinate[]): number => path.slice(1).reduce((sum, p, i) => sum + Math.hypot(p[0] - path[i]![0], p[1] - path[i]![1]), 0);
+
+/** Replace one boundary arc of a validated single-ring polygon. No input mutation. */
+export function reshapePolygon(closedRing: Coordinate[], coordinates: Coordinate[], side: ReshapeSide = 'shorter'): ReshapeCalculation {
+  if (side !== 'shorter' && side !== 'longer') throw new TypeError('Unknown reshape side.');
+  if (coordinates.some((p) => p.length !== 2 || !Number.isFinite(p[0]) || !Number.isFinite(p[1])
+    || Math.abs(p[0]) > 180 || Math.abs(p[1]) > 90)) return fail('reshape-invalid-result');
+  if (coordinates.length < 2) return fail('reshape-too-few-points');
+  const ring = openRing(closePolygon(closedRing));
+  let start = anchor(coordinates[0]!, ring); let end = anchor(coordinates.at(-1)!, ring);
+  if (!start || !end) return fail('reshape-endpoints-off-boundary');
+  if (samePosition(start.point, end.point)) return fail('reshape-same-endpoint');
+  let path = coordinates.map((p): Coordinate => [...p]); path[0] = start.point; path[path.length - 1] = end.point;
+  // Canonical endpoint order makes equal-length ties independent of path direction.
+  if (start.point[0] > end.point[0] || start.point[0] === end.point[0] && start.point[1] > end.point[1]) {
+    [start, end] = [end, start]; path = path.reverse();
+  }
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i]!; const b = path[i + 1]!;
+    if (Math.abs(a[0] - b[0]) > 180) return fail('reshape-antimeridian');
+    if (samePosition(a, b)) return fail('reshape-self-intersection');
+    if (i + 2 < path.length && (onSegment(a, b, path[i + 2]!) || onSegment(b, path[i + 2]!, a))) return fail('reshape-self-intersection');
+    for (let j = i + 2; j < path.length - 1; j++) {
+      if (intersects(a, b, path[j]!, path[j + 1]!)) return fail('reshape-self-intersection');
+    }
+  }
+  const boundary: Coordinate[] = [];
+  for (let edge = 0; edge < ring.length; edge++) {
+    boundary.push(ring[edge]!);
+    for (const hit of [start, end].filter((hit) => hit.edge === edge && hit.t > 0 && hit.t < 1).sort((a, b) => a.t - b.t)) boundary.push(hit.point);
+  }
+  // Endpoints are explicit boundary vertices, avoiding brittle collinearity tests
+  // against the original unsplit edge after floating-point projection.
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i]!; const b = path[i + 1]!;
+    for (let j = 0; j < boundary.length; j++) {
+      const c = boundary[j]!; const d = boundary[(j + 1) % boundary.length]!;
+      if (!intersects(a, b, c, d)) continue;
+      const atStart = i === 0 && (samePosition(a, c) || samePosition(a, d));
+      const atEnd = i === path.length - 2 && (samePosition(b, c) || samePosition(b, d));
+      // Meeting at the two attachments is allowed; following any boundary is not.
+      const extraContact = [c, d].some((p) => !samePosition(p, a) && !samePosition(p, b) && onSegment(a, b, p))
+        || [a, b].some((p) => !samePosition(p, c) && !samePosition(p, d) && onSegment(c, d, p));
+      if (!atStart && !atEnd || extraContact || atStart && atEnd) return fail('reshape-boundary-touch');
+    }
+  }
+  const startIndex = boundary.findIndex((p) => samePosition(p, start.point));
+  const endIndex = boundary.findIndex((p) => samePosition(p, end.point));
+  const arc = (from: number, to: number): Coordinate[] => {
+    const points = [boundary[from]!];
+    for (let i = (from + 1) % boundary.length; i !== to; i = (i + 1) % boundary.length) points.push(boundary[i]!);
+    return [...points, boundary[to]!];
+  };
+  const forward = arc(startIndex, endIndex); const backward = arc(endIndex, startIndex);
+  const removeForward = side === 'shorter' ? length(forward) <= length(backward) : length(forward) > length(backward);
+  const kept = removeForward ? backward : [...forward].reverse();
+  const result = [...path, ...kept.slice(1, -1)];
+  if (validatePolygon(result)) return fail('reshape-invalid-result');
+  return { preview: { type: 'Polygon', coordinates: [closePolygon(result)] }, error: null };
+}

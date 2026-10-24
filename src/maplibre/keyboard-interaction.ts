@@ -7,6 +7,7 @@ interface KeyboardActions {
   deleteSelected(): void;
   deleteSelection(): void;
   removeSplitPoint(): void;
+  removeReshapePoint(): void;
   removeVertex(index: number): void;
   finish(): void;
   cancel(): void;
@@ -46,6 +47,9 @@ export class KeyboardInteraction {
         else this.actions.deleteSelection();
       }
       return;
+    }
+    if (state.mode === 'reshape-polygon' && (event.key === 'Delete' || event.key === 'Backspace')) {
+      event.preventDefault(); this.actions.removeReshapePoint(); return;
     }
     if (state.mode === 'split-polygon' && (event.key === 'Delete' || event.key === 'Backspace')) {
       event.preventDefault(); this.actions.removeSplitPoint(); return;

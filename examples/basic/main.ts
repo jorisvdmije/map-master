@@ -1,6 +1,6 @@
 import { Map, LngLatBounds, NavigationControl, setWorkerUrl } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-import { GeometryEditor, type DrawGeometryType, type GeometryFeature, type Coordinate, type SplitError, type ValidationError } from '@geo/editor';
+import { GeometryEditor, type DrawGeometryType, type GeometryFeature, type Coordinate, type ReshapeError, type SplitError, type ValidationError } from '@geo/editor';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
 
@@ -31,6 +31,8 @@ const selection = element('selection');
 const deselect = element<HTMLButtonElement>('deselect');
 const deleteSelected = element<HTMLButtonElement>('delete-selected');
 const duplicateSelected = element<HTMLButtonElement>('duplicate-selected');
+const reshapeSelected = element<HTMLButtonElement>('reshape-selected');
+const reshapeSide = element<HTMLButtonElement>('reshape-side');
 const splitSelected = element<HTMLButtonElement>('split-selected');
 const intersectionSelected = element<HTMLButtonElement>('intersection-selected');
 const differenceSelected = element<HTMLButtonElement>('difference-selected');
@@ -53,6 +55,16 @@ const validationMessages: Record<Exclude<ValidationError, 'too-few-vertices'>, s
   'self-intersection': 'Polygon edges cannot cross, touch, or overlap.',
   'duplicate-vertex': 'A corner is used more than once. Cancel to start again.',
   'antimeridian-crossing': 'Polygons across the date line are not supported yet.',
+};
+
+const reshapeMessages: Record<ReshapeError, string> = {
+  'reshape-too-few-points': 'Start on the selected boundary, draw a new route, then click the boundary again.',
+  'reshape-endpoints-off-boundary': 'Continue the route and finish on the selected boundary. Backspace removes the last point.',
+  'reshape-same-endpoint': 'Choose a different endpoint on the boundary. Backspace corrects the last point.',
+  'reshape-self-intersection': 'The route cannot cross itself or double back. Use Backspace to correct it.',
+  'reshape-boundary-touch': 'Only the first and last points may touch the old boundary. Use Backspace to correct the route.',
+  'reshape-antimeridian': 'Routes crossing the date line are not supported.',
+  'reshape-invalid-result': 'This route cannot form a valid polygon. Try the other boundary or correct the route.',
 };
 
 const splitMessages: Record<SplitError, string> = {
@@ -116,6 +128,7 @@ map.on('load', () => {
     updateSnapStatus();
     const drawing = state.mode !== 'idle';
     const editing = state.mode.startsWith('edit-');
+    const reshaping = state.mode === 'reshape-polygon';
     const splitting = state.mode === 'split-polygon';
     const intersecting = state.mode === 'intersection-polygons';
     const subtracting = state.mode === 'difference-polygons';
@@ -155,14 +168,18 @@ map.on('load', () => {
     drawHole.disabled = ringCount === 0 || drawing;
     deleteHole.hidden = ringCount < 2;
     deleteHole.disabled = drawing || Number(ringIndex.value) < 1;
+    reshapeSelected.disabled = drawing || selectedFeature?.geometry.type !== 'Polygon' || selectedFeature.geometry.coordinates.length !== 1;
+    reshapeSide.hidden = !reshaping;
+    reshapeSide.disabled = !reshaping || state.vertexCount < 2;
+    reshapeSide.setAttribute('aria-pressed', String(state.reshapeSide === 'longer'));
     splitSelected.disabled = selectedFeature?.geometry.type !== 'Polygon' || drawing;
     unionSelected.disabled = drawing || selectedCount < 2 || activeEditor.getSelection().some((feature) =>
       feature.geometry.type !== 'Polygon' && feature.geometry.type !== 'MultiPolygon');
     differenceSelected.disabled = unionSelected.disabled;
     intersectionSelected.disabled = unionSelected.disabled;
     element('editing-tools').hidden = !editing;
-    element('finish-label').textContent = intersecting ? 'Apply intersection' : subtracting ? 'Apply subtraction' : merging ? 'Apply merge' : splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
-    element('drawing-instructions').hidden = editing || splitting || merging || subtracting || intersecting || state.mode === 'draw-hole';
+    element('finish-label').textContent = reshaping ? 'Apply reshape' : intersecting ? 'Apply intersection' : subtracting ? 'Apply subtraction' : merging ? 'Apply merge' : splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
+    element('drawing-instructions').hidden = editing || reshaping || splitting || merging || subtracting || intersecting || state.mode === 'draw-hole';
     removeVertex.disabled = !editing || state.selectedVertexIndex === null
       || state.vertexCount <= (state.mode === 'edit-polygon' ? 3 : 2);
     element('vertex-status').textContent = state.selectedVertexIndex === null
@@ -203,6 +220,11 @@ map.on('load', () => {
         : selectedFeature ? 'Drag to move this shape, or edit its corners. Escape cancels a drag.'
         : state.featureCount > 0 ? 'Click a shape to select it, or draw another.' : 'Ready when you are.';
     if (state.mode === 'draw-hole' && !invalid) status.textContent = `${state.vertexCount} corners. Draw inside the polygon; Enter saves the hole, Escape cancels.`;
+    if (reshaping) {
+      status.classList.toggle('is-invalid', state.reshapeError !== null && state.reshapeError !== 'reshape-too-few-points' && state.reshapeError !== 'reshape-endpoints-off-boundary');
+      status.textContent = state.reshapeError ? reshapeMessages[state.reshapeError]
+        : `Replacing the ${state.reshapeSide} old boundary. Other boundary switches sides. Apply reshape saves; Cancel keeps the original.`;
+    }
     if (splitting) {
       status.classList.toggle('is-invalid', state.splitError !== null && state.splitError !== 'split-too-few-points');
       status.textContent = state.splitError ? splitMessages[state.splitError] : 'Two parts ready. Enter saves both shapes; Cancel keeps the original.';
@@ -232,7 +254,7 @@ map.on('load', () => {
         : preview?.geometry === null ? 'No target area remains. Apply subtraction deletes the target; cutting shapes are kept. Undo restores it.'
         : 'Remaining target area is orange; cutting shapes stay blue. Apply subtraction or Enter saves; Cancel keeps the original.';
     }
-    element('map-hint').textContent = intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
+    element('map-hint').textContent = reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
       : drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
@@ -249,6 +271,7 @@ map.on('load', () => {
     const snap = activeEditor.getSnap();
     element('snap-status').textContent = snap
       ? snap.featureId === null ? 'Snapped to start · Click to close' : `Snapped to ${snap.kind}`
+      : activeEditor.getState().mode === 'reshape-polygon' ? 'Start and end attach to this boundary, even with snapping off.'
       : activeEditor.getSnapping().enabled
         ? activeEditor.getState().mode.startsWith('edit-') ? 'Drag a corner near another shape to snap. Hold Alt to move freely.'
           : 'Draw near an existing shape to snap.'
@@ -300,6 +323,8 @@ duplicateSelected.addEventListener('click', () => {
     status.textContent = error instanceof Error ? error.message : 'Could not duplicate this selection.';
   }
 });
+reshapeSelected.addEventListener('click', () => { editor?.reshapeSelected(); });
+reshapeSide.addEventListener('click', () => { editor?.setReshapeSide(editor.getState().reshapeSide === 'shorter' ? 'longer' : 'shorter'); });
 splitSelected.addEventListener('click', () => { editor?.splitSelected(); });
 unionSelected.addEventListener('click', () => { editor?.unionSelection(); });
 intersectionSelected.addEventListener('click', () => { editor?.intersectionSelection(); });

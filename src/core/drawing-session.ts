@@ -1,4 +1,5 @@
 import { geometryParts, mapGeometry, replacePart, withGeometry, type Geometry, type GeometryPart } from './geometry.js';
+import { reshapePolygon } from './reshape-polygon.js';
 import { splitPolygonRings } from './split-polygon.js';
 import { intersectionPolygons } from './intersection.js';
 import { differencePolygons } from './difference.js';
@@ -9,7 +10,7 @@ import { EditHistory, type HistoryEntry } from './history.js';
 import { copyProperties, prepareImport } from './geojson-import.js';
 import { closePolygon, openRing, samePosition, validatePolygonRings, validateMultiPolygon } from './polygon.js';
 import type {
-  Coordinate, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
+  Coordinate, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
 } from './types.js';
 
 function copyFeature(feature: GeometryFeature): GeometryFeature {
@@ -31,6 +32,10 @@ export class DrawingSession {
   private holeId: FeatureId | null = null;
   private activePartIndex: number | null = null;
   private activeRingIndex: number | null = null;
+  private reshapeId: FeatureId | null = null;
+  private reshapePreview: ReshapePreview | null = null;
+  private reshapeError: ReshapeError | null = null;
+  private reshapeSide: ReshapeSide = 'shorter';
   private splitId: FeatureId | null = null;
   private splitPreview: SplitPreview | null = null;
   private splitError: SplitError | null = null;
@@ -55,7 +60,7 @@ export class DrawingSession {
 
   get state(): EditorState {
     return {
-      mode: this.intersectionActive ? 'intersection-polygons' : this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.kind === null ? 'idle' : this.editingId !== null
+      mode: this.reshapeId !== null ? 'reshape-polygon' : this.intersectionActive ? 'intersection-polygons' : this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.kind === null ? 'idle' : this.editingId !== null
         ? this.kind === 'LineString' ? 'edit-line' : 'edit-polygon'
         : this.kind === 'LineString' ? 'draw-line' : 'draw-polygon',
       vertexCount: this.draft.length,
@@ -66,11 +71,13 @@ export class DrawingSession {
       activeRingIndex: this.activeRingIndex,
       activePartIndex: this.activePartIndex,
       dataRevision: this.dataRevision,
-      canFinish: this.intersectionActive ? this.intersectionPreview !== null : this.differenceActive ? this.differencePreview !== null : this.unionActive ? this.unionPreview !== null : this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
+      canFinish: this.reshapeId !== null ? this.reshapePreview !== null : this.intersectionActive ? this.intersectionPreview !== null : this.differenceActive ? this.differencePreview !== null : this.unionActive ? this.unionPreview !== null : this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
       canUndo: this.kind === null && this.history.canUndo,
       canRedo: this.kind === null && this.history.canRedo,
       validationError: this.validationError,
       splitError: this.splitError,
+      reshapeError: this.reshapeError,
+      reshapeSide: this.reshapeId !== null ? this.reshapeSide : null,
       unionError: this.unionError,
       differenceError: this.differenceError,
       intersectionError: this.intersectionError,
@@ -79,7 +86,7 @@ export class DrawingSession {
 
   start(kind: DrawGeometryType): boolean {
     if (kind !== 'LineString' && kind !== 'Polygon') throw new TypeError('Unsupported geometry type.');
-    if (this.kind === kind && this.editingId === null && this.splitId === null && this.holeId === null && !this.unionActive && !this.differenceActive && !this.intersectionActive) return false;
+    if (this.kind === kind && this.editingId === null && this.splitId === null && this.reshapeId === null && this.holeId === null && !this.unionActive && !this.differenceActive && !this.intersectionActive) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before changing tools.');
     this.kind = kind;
     this.selectedFeatureIds.clear();
@@ -94,6 +101,7 @@ export class DrawingSession {
     if (last && samePosition(last, [lng, lat])) return false;
     this.draft.push([lng, lat]);
     if (this.splitId !== null) { this.validateSplit(); return true; }
+    if (this.reshapeId !== null) { this.validateReshape(); return true; }
     // Cache validity on clicks. Pointer movement and state reads never run topology checks.
     this.validationError = this.kind === 'Polygon' ? this.validateDraftPolygon()
       : this.draft.length < 2 ? 'too-few-vertices' : null;
@@ -105,7 +113,7 @@ export class DrawingSession {
   }
 
   finish(): GeometryFeature | null {
-    if (this.intersectionActive || this.differenceActive || this.unionActive || this.splitId !== null || !this.state.canFinish) return null;
+    if (this.reshapeId !== null || this.intersectionActive || this.differenceActive || this.unionActive || this.splitId !== null || !this.state.canFinish) return null;
     const targetId = this.editingId ?? this.holeId;
     const original = targetId === null ? undefined : this.features.get(targetId);
     const common = { type: 'Feature' as const, id: original?.id ?? this.allocateId(), properties: original ? copyProperties(original.properties) : {} };
@@ -130,6 +138,7 @@ export class DrawingSession {
     this.intersectionActive = false; this.intersectionPreview = null; this.intersectionError = null;
     this.differenceActive = false; this.differencePreview = null; this.differenceError = null;
     this.unionActive = false; this.unionPreview = null; this.unionError = null;
+    this.reshapeId = null; this.reshapePreview = null; this.reshapeError = null; this.reshapeSide = 'shorter';
     this.splitId = null; this.splitPreview = null; this.splitError = null;
     this.kind = null;
     this.draft = [];
@@ -248,6 +257,59 @@ export class DrawingSession {
     const original = this.features.get(retainedId!)!;
     const geometry = this.intersectionPreview.geometry;
     const changes = prepareTransaction(geometry ? { update: [withGeometry(original, geometry)], delete: removedIds } : { delete: [original.id, ...removedIds] }, this.features);
+    const committed = this.commit('transaction', changes);
+    this.cancel();
+    return committed ? { changes: changes.map(({ before, after }) => ({ before: before ? copyFeature(before) : null, after: after ? copyFeature(after) : null })) } : null;
+  }
+
+  reshapeSelected(): boolean {
+    if (this.reshapeId !== null) return false;
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before reshaping.');
+    const feature = this.getSelected();
+    if (!feature || feature.geometry.type !== 'Polygon' || feature.geometry.coordinates.length !== 1) return false;
+    this.reshapeId = feature.id; this.kind = 'LineString'; this.draft = [];
+    this.reshapeError = 'reshape-too-few-points'; this.reshapePreview = null;
+    return true;
+  }
+
+  setReshapePath(coordinates: Coordinate[]): void {
+    if (this.reshapeId === null) throw new Error('Start reshaping a selected polygon first.');
+    if (!Array.isArray(coordinates)) throw new TypeError('Expected an array of reshape-path coordinates.');
+    for (const coordinate of coordinates) {
+      if (!Array.isArray(coordinate) || coordinate.length !== 2) throw new TypeError('Expected a 2D reshape-path coordinate.');
+      this.validatePosition(coordinate);
+    }
+    this.draft = coordinates.map((point) => [...point]); this.validateReshape();
+  }
+
+  removeReshapePoint(): boolean {
+    if (this.reshapeId === null) throw new Error('Start reshaping a selected polygon first.');
+    if (this.draft.length === 0) return false;
+    this.draft.pop(); this.validateReshape(); return true;
+  }
+
+  setReshapeSide(side: ReshapeSide): boolean {
+    if (this.reshapeId === null) throw new Error('Start reshaping a selected polygon first.');
+    if (side !== 'shorter' && side !== 'longer') throw new TypeError('Unknown reshape side.');
+    if (side === this.reshapeSide) return false;
+    this.reshapeSide = side; this.validateReshape(); return true;
+  }
+
+  getReshapePreview(): ReshapePreview | null {
+    return this.reshapePreview ? { type: 'Polygon', coordinates: this.reshapePreview.coordinates.map((ring) => ring.map((p) => [...p])) } : null;
+  }
+
+  private validateReshape(): void {
+    const feature = this.features.get(this.reshapeId!)!;
+    if (feature.geometry.type !== 'Polygon') throw new Error('Expected a polygon reshape target.');
+    const result = reshapePolygon(feature.geometry.coordinates[0]!, this.draft, this.reshapeSide);
+    this.reshapePreview = result.preview; this.reshapeError = result.error;
+  }
+
+  finishReshape(): TransactionEvent | null {
+    if (this.reshapeId === null || !this.reshapePreview) return null;
+    const original = this.features.get(this.reshapeId)!;
+    const changes = prepareTransaction({ update: [withGeometry(original, this.reshapePreview)] }, this.features);
     const committed = this.commit('transaction', changes);
     this.cancel();
     return committed ? { changes: changes.map(({ before, after }) => ({ before: before ? copyFeature(before) : null, after: after ? copyFeature(after) : null })) } : null;

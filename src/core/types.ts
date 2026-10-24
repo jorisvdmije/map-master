@@ -59,6 +59,12 @@ export interface SplitPreview {
   created: PolygonFeature['geometry'];
 }
 
+/** Which old boundary arc to replace; length is measured in planar coordinate units. */
+export type ReshapeSide = 'shorter' | 'longer';
+export type ReshapePreview = PolygonFeature['geometry'];
+export type ReshapeError = 'reshape-too-few-points' | 'reshape-endpoints-off-boundary' | 'reshape-same-endpoint'
+  | 'reshape-self-intersection' | 'reshape-boundary-touch' | 'reshape-antimeridian' | 'reshape-invalid-result';
+
 /** Result geometry before confirmation; no new ID is allocated. */
 export type UnionPreview = PolygonFeature['geometry'] | MultiPolygonFeature['geometry'];
 export type UnionError = 'union-failed' | 'union-invalid-result';
@@ -127,7 +133,7 @@ export interface HistoryEvent {
 }
 
 export interface EditorState {
-  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons';
+  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon';
   vertexCount: number;
   featureCount: number;
   /** The sole selected ID, or null for zero/multiple selections. */
@@ -150,6 +156,9 @@ export interface EditorState {
   validationError: ValidationError | null;
   /** Split diagnostics are separate from ordinary drawing validation. */
   splitError: SplitError | null;
+  reshapeError: ReshapeError | null;
+  /** Selected old boundary arc; null outside reshape. */
+  reshapeSide: ReshapeSide | null;
   /** Overlay calculation or strict result-topology failure; null outside union. */
   unionError: UnionError | null;
   /** Subtraction failure; an empty result is valid and has no error. */

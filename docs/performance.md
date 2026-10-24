@@ -529,3 +529,35 @@ Intermediate complexity, holes and crossing counts can dominate input count.
 Strict final validation and confirmation revalidation can be quadratic. These
 simple datasets do not bound complex or poorly conditioned inputs; large overlays
 can block the UI. Workers, precision grids and workload budgets remain future work.
+
+## Polygon reshape
+
+`npm run benchmark:reshape` measures complete session path validation/preview,
+transaction confirmation and Undo. Fixed inputs are regular 10-, 100- and
+1,000-corner polygons centred at (4.895, 52.372) with radius 0.01°. The route joins
+vertex 0 to vertex `corners / 5`, using 3 or 25 points along their chord with a
+sinusoidal inward displacement of up to 0.001° in both coordinates. The shorter
+old arc is replaced. Five warmups precede 30 measurements with history limit 1.
+Import, selection, snapshots and assertions are excluded from timing. Every
+iteration verifies one update, preserved ID/properties and exact Undo/Redo.
+
+Local baseline: Node v22.23.1, macOS arm64, Apple M2 Pro. Values are median / p95
+milliseconds. Core only; MapLibre projection, attachment, rendering and uploads
+are excluded.
+
+| Polygon corners | Route points | Preview | Commit | Undo |
+| --- | ---: | ---: | ---: | ---: |
+| 10 | 3 | 0.042 / 0.109 | 0.022 / 0.048 | 0.004 / 0.006 |
+| 10 | 25 | 0.292 / 0.329 | 0.037 / 0.069 | 0.003 / 0.003 |
+| 100 | 3 | 0.175 / 0.475 | 0.099 / 0.187 | 0.004 / 0.006 |
+| 100 | 25 | 1.180 / 1.552 | 0.133 / 0.147 | 0.004 / 0.005 |
+| 1,000 | 3 | 4.833 / 6.651 | 4.252 / 4.814 | 0.025 / 0.039 |
+| 1,000 | 25 | 12.476 / 13.190 | 4.456 / 4.693 | 0.023 / 0.034 |
+
+For n original corners and m route points, route self-validation is O(m²), boundary
+contact checking is O(nm), and final ring validation is O((n+m)²). Confirmation
+revalidates the result. Calculations run synchronously on route edits or side
+changes, never pointer motion or state reads. Target-only mouse attachment reuses
+the projected SnapIndex until the camera changes. Cached preview copying/rendering
+still scales with output size. These simple datasets are not a bound for complex
+or poorly conditioned shapes; workload caps and worker execution remain future work.

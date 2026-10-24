@@ -39,6 +39,17 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   tool.draw('Circle');
   tool.cancel();
   tool.select(null);
+  const reshaping: boolean = tool.reshapeSelected();
+  const reshapePreview: editor.ReshapePreview | null = tool.getReshapePreview();
+  const reshapeError: editor.ReshapeError | null = tool.getState().reshapeError;
+  const reshapeSide: editor.ReshapeSide | null = tool.getState().reshapeSide;
+  if (reshaping) {
+    tool.setReshapePath([[0, 0], [1, -1], [2, 0]]);
+    tool.setReshapeSide('longer'); tool.removeReshapePoint();
+    const reshaped: editor.TransactionEvent | null = tool.finishReshape();
+    void reshaped; tool.cancel();
+  }
+  void [reshapePreview, reshapeError, reshapeSide];
   const splitting: boolean = tool.splitSelected();
   const splitPreview: editor.SplitPreview | null = tool.getSplitPreview();
   const splitError: editor.SplitError | null = tool.getState().splitError;

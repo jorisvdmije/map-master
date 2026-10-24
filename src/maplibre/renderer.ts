@@ -1,7 +1,7 @@
 import type { GeometryPart } from '../core/geometry.js';
 import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
 import { samePosition } from '../core/polygon.js';
-import type { Coordinate, UnionPreview, SplitPreview, SnapResult, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
+import type { Coordinate, ReshapePreview, UnionPreview, SplitPreview, SnapResult, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
 import { PreviewBorder } from './preview-border.js';
 import { vertexHandles } from './vertex-handles.js';
 
@@ -10,7 +10,7 @@ const emptyCollection = () => ({ type: 'FeatureCollection' as const, features: [
 // This property exists only in render data; the core/export never receives it.
 const renderIdProperty = '__geo_editor_id';
 type PreviewFeature = {
-  type: 'Feature'; properties: { kind?: 'vertex' | 'midpoint' | 'snap' | 'split-part'; part?: number; active?: boolean; snapKind?: 'vertex' | 'edge' };
+  type: 'Feature'; properties: { kind?: 'vertex' | 'midpoint' | 'snap' | 'split-part' | 'reshape'; part?: number; active?: boolean; snapKind?: 'vertex' | 'edge' };
   geometry: { type: 'Point'; coordinates: Coordinate }
     | { type: 'LineString'; coordinates: Coordinate[] }
     | { type: 'Polygon'; coordinates: Coordinate[][] };
@@ -213,7 +213,7 @@ export class MapLibreRenderer {
     return [...ids];
   }
 
-  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null, rings: Coordinate[][] | null = null, inactiveParts: GeometryPart[] = []): void {
+  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null, rings: Coordinate[][] | null = null, inactiveParts: GeometryPart[] = [], reshape: ReshapePreview | null = null): void {
     if (state.mode !== 'idle') { this.translationVisible = false; this.translationPreview.clear(); }
     const editing = state.mode.startsWith('edit-');
     const polygon = state.mode === 'draw-polygon' || state.mode === 'edit-polygon' || state.mode === 'draw-hole';
@@ -226,6 +226,7 @@ export class MapLibreRenderer {
     for (const geometry of inactiveParts) features.push({ type: 'Feature', properties: {}, geometry });
     if (snap) features.push({ type: 'Feature', properties: { kind: 'snap', snapKind: snap.kind },
       geometry: { type: 'Point', coordinates: [...snap.coordinate] } });
+    if (reshape) features.push({ type: 'Feature', properties: { kind: 'reshape' }, geometry: reshape });
     if (split) {
       for (const [part, geometry] of [split.retained, split.created].entries()) {
         features.push({ type: 'Feature', properties: { kind: 'split-part', part }, geometry });
@@ -246,11 +247,11 @@ export class MapLibreRenderer {
           if (index === (state.activeRingIndex ?? 0)) return coordinates;
           return [...ring, [...ring[0]!] as Coordinate];
         }) : [coordinates] } });
-    } else if (coordinates.length >= 2) {
+    } else if (coordinates.length >= 2 && !reshape) {
       features.push({ type: 'Feature', properties: {},
         geometry: { type: 'LineString', coordinates } });
     }
-    if (!this.translationVisible) this.draftBorder.render(features.flatMap(({ geometry }) => geometry.type === 'Point' ? [] : [geometry]), editing || state.mode.startsWith('draw-') ? 8 : 0);
+    if (!this.translationVisible) this.draftBorder.render(features.flatMap(({ geometry }) => geometry.type === 'Point' ? [] : [geometry]), editing || state.mode.startsWith('draw-') || state.mode === 'reshape-polygon' ? 8 : 0);
     void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection', features });
   }
 
