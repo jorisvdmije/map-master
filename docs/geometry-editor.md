@@ -50,7 +50,10 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `getTracePreview()` | Independent prospective source route while hovering, or null. |
 | `traceBoundary(target, from, to, side?)` | Append a whole source section while drawing a line, polygon or hole. |
 | `removeLastDrawStep()` | Remove one drawing click, including a complete traced section. |
-| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`, `differenceError`, `intersectionError`, `reshapeError`, `reshapeSide`. |
+| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`, `differenceError`, `intersectionError`, `reshapeError`, `reshapeSide`, `sharedBoundaryError`. |
+| `editSharedBoundary()` | Edit one exactly matching shared chain of two selected single-ring polygons; junctions stay fixed. |
+| `getSharedBoundaryPreview()` | Independent two-Polygon FeatureCollection, or null for inactive/invalid shared editing. |
+| `finishSharedBoundary()` | Confirm both updates atomically; returns the complete transaction or null for inactive/invalid/unchanged drafts. |
 | `reshapeSelected()` | Start a boundary-to-boundary reshape of one selected Polygon without holes. |
 | `setReshapePath(coordinates)` | Replace the draft route; endpoints must attach to the original boundary. |
 | `setReshapeSide('shorter' \| 'longer')` | Choose which old boundary arc to replace; default shorter. |
@@ -85,7 +88,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed lines and polygons. |
 | `importGeoJSON(input)` | Append a parsed Feature/FeatureCollection atomically; return an independent collection of imported features. Idle only. |
 | `applyTransaction({ create?, update?, delete? })` | Validate and commit a mixed batch atomically. Full features with explicit IDs; idle only. Return a TransactionEvent or null for no change. |
-| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed split/union/intersection/reshape or changed difference, deleteSelection, group translation, duplication or hole deletion. Returns an unsubscribe function. |
+| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed shared-boundary edit/split/union/intersection/reshape or changed difference, deleteSelection, group translation, duplication or hole deletion. Returns an unsubscribe function. |
 | `onImport(listener)` | One notification per nonempty imported batch. Returns an unsubscribe function. |
 | `onUpdate(listener)` | One notification per changed saved edit. Returns an unsubscribe function. |
 | `undo()` / `redo()` | Reverse/replay one committed action; return true if applied, false if unavailable. Idle only. |
@@ -106,7 +109,7 @@ is a GeoJSON FeatureCollection containing all four geometry types. New drawings 
 string or numeric IDs and JSON properties (including null). Coordinates are
 `[longitude, latitude]`. Properties can be imported but there is no property-editing API yet.
 
-Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, `union-polygons`, `difference-polygons`, `intersection-polygons`, and `reshape-polygon`. `validationError` is `null`
+Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, `union-polygons`, `difference-polygons`, `intersection-polygons`, `reshape-polygon`, and `edit-shared-boundary`. `validationError` is `null`
 when idle or when the current draft is valid. Check `canFinish` to enable Finish;
 an idle editor cannot finish even though it has no validation error.
 
@@ -854,3 +857,13 @@ corners as one correctable draft step. `side: 'longer'` selects the other ring a
 Backspace/Delete removes the last drawing step. Finish and Undo keep their normal
 drawing behavior. See [tracing](tracing.md) for source addressing, route selection,
 programmatic input, numerical limits and lifecycle contracts.
+
+## Shared-boundary editing
+
+Select two adjoining Polygon features without holes, then call `editSharedBoundary()`.
+The common chain must match exactly, including intermediate vertices. Use the normal
+vertex editing commands to change its interior points while keeping both junctions
+fixed. `getSharedBoundaryPreview()` returns both complete results. Enter/Finish or
+`finishSharedBoundary()` saves both as one transaction and one Undo action.
+See [shared boundaries](shared-boundaries.md) for eligibility, diagnostics, snapping,
+events and performance limits.

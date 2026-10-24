@@ -16,6 +16,7 @@ src/
     geojson-import.ts        Validate/copy entire import batches and JSON properties
     polygon.ts               Ring validity, closure, exterior winding
     union.ts                 Polygon union adapter
+    shared-boundary.ts       Exact shared-chain discovery and paired result validation
     trace-boundary.ts        Explicit source addressing, attachment and route selection
     reshape-polygon.ts       Boundary attachments, arc choice and strict route validation
     intersection.ts          Common area of every input; valid empty results
@@ -382,3 +383,13 @@ settings; `MapLibreSnapping` maps edge acquisition onto planar source segments.
 `MapLibreRenderer` adds the prospective route only to preview geometry, leaving
 clicked vertex handles/state untouched. Completion uses normal drawing history.
 See [tracing](tracing.md) for the complete contract.
+
+## Shared-boundary editing
+
+`core/shared-boundary.ts` finds one reversed matching edge chain, retains the other
+polygon arcs and checks both result rings plus their pairwise overlap. The session
+owns the shared-chain draft and cached two-feature preview. It reuses vertex editing
+commands with fixed endpoint guards and commits through the existing transaction
+boundary. The renderer hides both originals only for a valid preview. Vertex input
+reuses pointer cancellation and excludes both source IDs from the snapping index.
+See [shared boundaries](shared-boundaries.md) for the public contract.

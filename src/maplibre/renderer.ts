@@ -1,7 +1,7 @@
 import type { GeometryPart } from '../core/geometry.js';
 import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
 import { samePosition } from '../core/polygon.js';
-import type { Coordinate, ReshapePreview, UnionPreview, SplitPreview, SnapResult, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
+import type { Coordinate, SharedBoundaryPreview, ReshapePreview, UnionPreview, SplitPreview, SnapResult, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
 import { PreviewBorder } from './preview-border.js';
 import { vertexHandles } from './vertex-handles.js';
 
@@ -10,7 +10,7 @@ const emptyCollection = () => ({ type: 'FeatureCollection' as const, features: [
 // This property exists only in render data; the core/export never receives it.
 const renderIdProperty = '__geo_editor_id';
 type PreviewFeature = {
-  type: 'Feature'; properties: { kind?: 'vertex' | 'midpoint' | 'snap' | 'split-part' | 'reshape'; part?: number; active?: boolean; snapKind?: 'vertex' | 'edge' };
+  type: 'Feature'; properties: { kind?: 'vertex' | 'midpoint' | 'snap' | 'split-part' | 'reshape' | 'shared-boundary-part'; part?: number; active?: boolean; locked?: boolean; snapKind?: 'vertex' | 'edge' };
   geometry: { type: 'Point'; coordinates: Coordinate }
     | { type: 'LineString'; coordinates: Coordinate[] }
     | { type: 'Polygon'; coordinates: Coordinate[][] };
@@ -54,7 +54,7 @@ export class MapLibreRenderer {
       { id: `${namespace}-vertices`, type: 'circle', source: this.draftId,
         filter: ['==', 'kind', 'vertex'],
         paint: { 'circle-radius': ['case', ['boolean', ['get', 'active'], false], 7, 5],
-          'circle-color': ['case', ['boolean', ['get', 'active'], false], '#df772e', '#fff'],
+          'circle-color': ['case', ['boolean', ['get', 'locked'], false], '#64748b', ['boolean', ['get', 'active'], false], '#df772e', '#fff'],
           'circle-stroke-color': '#df772e', 'circle-stroke-width': 2 } },
       { id: `${namespace}-snap`, type: 'circle', source: this.draftId,
         filter: ['==', 'kind', 'snap'],
@@ -213,19 +213,21 @@ export class MapLibreRenderer {
     return [...ids];
   }
 
-  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null, rings: Coordinate[][] | null = null, inactiveParts: GeometryPart[] = [], reshape: ReshapePreview | null = null, trace: Coordinate[] | null = null): void {
+  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null, rings: Coordinate[][] | null = null, inactiveParts: GeometryPart[] = [], reshape: ReshapePreview | null = null, trace: Coordinate[] | null = null, shared: SharedBoundaryPreview | null = null): void {
     if (state.mode !== 'idle') { this.translationVisible = false; this.translationPreview.clear(); }
     const editing = state.mode.startsWith('edit-');
     const polygon = state.mode === 'draw-polygon' || state.mode === 'edit-polygon' || state.mode === 'draw-hole';
     const handles = editing ? vertexHandles(this.map, coordinates, polygon)
       : coordinates.map((coordinate, index) => ({ kind: 'vertex' as const, index, coordinate }));
     const features: PreviewFeature[] = handles.map((handle) => ({
-      type: 'Feature', properties: { kind: handle.kind, active: editing && handle.kind === 'vertex' && handle.index === state.selectedVertexIndex },
+      type: 'Feature', properties: { kind: handle.kind, active: editing && handle.kind === 'vertex' && handle.index === state.selectedVertexIndex,
+        locked: state.mode === 'edit-shared-boundary' && handle.kind === 'vertex' && (handle.index === 0 || handle.index === coordinates.length - 1) },
       geometry: { type: 'Point', coordinates: handle.coordinate },
     }));
     for (const geometry of inactiveParts) features.push({ type: 'Feature', properties: {}, geometry });
     if (snap) features.push({ type: 'Feature', properties: { kind: 'snap', snapKind: snap.kind },
       geometry: { type: 'Point', coordinates: [...snap.coordinate] } });
+    if (shared) shared.features.forEach((feature, part) => { features.push({ type: 'Feature', properties: { kind: 'shared-boundary-part', part }, geometry: feature.geometry }); });
     if (reshape) features.push({ type: 'Feature', properties: { kind: 'reshape' }, geometry: reshape });
     if (split) {
       for (const [part, geometry] of [split.retained, split.created].entries()) {

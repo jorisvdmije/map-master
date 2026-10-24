@@ -99,6 +99,9 @@ export class VertexInteraction {
       return Math.hypot(projected.x - point.x, projected.y - point.y) <= (handle.kind === 'vertex' ? 8 : 6);
     });
     if (!hit) { this.actions.select(null); return; }
+    if (state.mode === 'edit-shared-boundary' && hit.kind === 'vertex' && (hit.index === 0 || hit.index === state.vertexCount - 1)) {
+      event.preventDefault(); this.canvas.focus({ preventScroll: true }); this.actions.select(null); return;
+    }
     event.preventDefault();
     this.canvas.focus({ preventScroll: true });
     const restorePan = this.map.dragPan.isEnabled();

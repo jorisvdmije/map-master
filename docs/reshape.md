@@ -27,7 +27,8 @@ empty output or a self-intersecting polygon. Result rings are closed and CCW.
 
 This first version accepts exactly one single-ring Polygon. Lines, multi-selection,
 polygons with holes and MultiPolygon features (even one-part ones) are ineligible.
-Shared-boundary editing, tracing and multipart reshape remain separate work.
+Use the separate [shared-boundary](shared-boundaries.md) and [tracing](tracing.md) tools
+for their supported workflows. Multipart reshape remains planned.
 
 ## Public API
 

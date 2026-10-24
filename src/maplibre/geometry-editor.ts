@@ -1,6 +1,6 @@
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { DrawingSession } from '../core/drawing-session.js';
-import type { Coordinate, TraceTarget, TraceSide, TracingOptions, ReshapePreview, ReshapeSide, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
+import type { Coordinate, SharedBoundaryPreview, TraceTarget, TraceSide, TracingOptions, ReshapePreview, ReshapeSide, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
 import { ReshapeSnapping } from './reshape-snapping.js';
 import { MapLibreSnapping } from './snapping.js';
@@ -377,6 +377,30 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
+  /** Edit the common boundary of two selected single-ring polygons, keeping junctions fixed. */
+  editSharedBoundary(): boolean {
+    this.assertAlive(); this.cancelIdleGestures();
+    if (!this.session.editSharedBoundary()) return false;
+    this.renderer.renderEditingMany(this.session.state.selectedFeatureIds);
+    this.enterInteraction(); this.schedulePreview(); return true;
+  }
+
+  getSharedBoundaryPreview(): SharedBoundaryPreview | null { return this.session.getSharedBoundaryPreview(); }
+
+  finishSharedBoundary(): TransactionEvent | null {
+    this.assertAlive();
+    const initial = this.session.state;
+    if (initial.mode !== 'edit-shared-boundary') return null;
+    this.vertices.stop();
+    const state = this.session.state;
+    if (state.mode !== 'edit-shared-boundary' || !state.canFinish) return null;
+    const event = this.session.finishSharedBoundary();
+    if (this.session.state.mode !== 'idle') return null;
+    this.leaveDrawing();
+    if (!event) { this.emitChange(); return null; }
+    return this.publishTransaction(event);
+  }
+
   /** Begin a cancellable edit of the selected feature; false with no selection/already editing. */
   editSelected(ringIndex = 0, partIndex = 0): boolean {
     this.assertAlive();
@@ -468,6 +492,12 @@ export class GeometryEditor {
   /** Confirm a valid tool; null also represents a successfully committed empty overlay. */
   finish(): GeometryFeature | null {
     this.assertAlive();
+    if (this.session.state.mode === 'edit-shared-boundary') {
+      this.vertices.stop();
+      if (!this.session.state.canFinish) return null;
+      const original = this.session.getSelection()[0]!;
+      return this.finishSharedBoundary()?.changes.find((change) => change.after?.id === original.id)?.after ?? original;
+    }
     if (this.session.state.mode === 'difference-polygons') {
       const preview = this.session.getDifferencePreview();
       if (!preview) return null;
@@ -714,7 +744,7 @@ export class GeometryEditor {
         snap: snapping ? { kind: 'vertex', featureId: null, index: 0, coordinate: first, distance } : null,
       };
     }
-    const excludedId = state.mode.startsWith('edit-') || state.mode === 'draw-hole' || state.mode === 'reshape-polygon' ? state.selectedFeatureId : null;
+    const excludedId = state.mode === 'edit-shared-boundary' ? new Set(state.selectedFeatureIds) : state.mode.startsWith('edit-') || state.mode === 'draw-hole' || state.mode === 'reshape-polygon' ? state.selectedFeatureId : null;
     const snap = altPressed ? null : this.snapping.resolve(point, state.dataRevision, () => this.session.exportGeoJSON(), excludedId, this.canTracePointer());
     return { coordinate: snap?.coordinate ?? this.map.unproject([point.x, point.y]).wrap().toArray(), snap, close: false };
   }
@@ -806,8 +836,10 @@ export class GeometryEditor {
       if (this.session.state.mode === 'reshape-polygon') this.renderer.renderEditing(reshape ? this.session.state.selectedFeatureId : null);
       const split = this.session.getSplitPreview();
       if (this.session.state.mode === 'split-polygon') this.renderer.renderEditing(split ? this.session.state.selectedFeatureId : null);
+      const shared = this.session.getSharedBoundaryPreview();
+      if (this.session.state.mode === 'edit-shared-boundary') this.renderer.renderEditingMany(shared ? this.session.state.selectedFeatureIds : []);
       const trace = this.getTracePreview();
-      this.renderer.renderPreview(this.session.getDraft(), reshape || trace ? undefined : this.cursor, this.session.state, this.snap, split, this.session.getDraftRings(), this.session.getInactiveParts(), reshape, trace);
+      this.renderer.renderPreview(this.session.getDraft(), reshape || trace ? undefined : this.cursor, this.session.state, this.snap, split, this.session.getDraftRings(), this.session.getInactiveParts(), reshape, trace, shared);
     });
   }
 

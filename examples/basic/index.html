@@ -9,7 +9,7 @@
   <body>
     <header class="header">
       <a class="brand" href="/" aria-label="geo home"><span class="brand-mark">g.</span>geo<span class="brand-divider"></span><span class="brand-caption">Drawing playground</span></a>
-      <span class="milestone"><span class="dot"></span> Milestone 16b <span class="milestone-label">/ Boundary tracing</span></span>
+      <span class="milestone"><span class="dot"></span> Milestone 16c <span class="milestone-label">/ Shared boundaries</span></span>
     </header>
     <main class="workspace">
       <aside class="sidebar" aria-label="Drawing tools">
@@ -45,6 +45,7 @@
         <div id="status" class="status" role="status">Loading the map…</div>
         <section id="selection" class="selection-card" aria-label="Selected geometry" hidden>
           <div><strong id="selection-type"></strong><span id="selection-detail"></span></div>
+          <button id="edit-shared-boundary" class="button secondary" disabled>Edit shared boundary</button>
           <button id="reshape-selected" class="button secondary" disabled>Reshape polygon</button>
           <button id="reshape-side" class="button secondary" aria-pressed="false" hidden>Other boundary</button>
           <button id="split-selected" class="button secondary" disabled>Split polygon</button>
@@ -68,7 +69,7 @@
         </section>
         <section id="editing-tools" class="editing-tools" aria-label="Vertex editing" hidden>
           <h2>RESHAPE YOUR GEOMETRY</h2>
-          <p>Drag a large point to move a corner. Click a small point between corners to add one.</p>
+          <p id="editing-help">Drag a large point to move a corner. Click a small point between corners to add one.</p>
           <p id="vertex-status"></p>
           <button id="remove-vertex" class="button secondary" disabled>Remove vertex</button>
           <p>Delete removes the selected corner. Save applies your changes; Cancel restores the original shape.</p>
@@ -85,6 +86,7 @@
           <p id="import-help" class="import-help">Add lines and polygons, including multipart features, from a file (up to 5 MB). Existing shapes stay on the map.</p>
           <p class="import-help"><a href="./multipart.geojson" download>Download a multipart example</a> to try with Import GeoJSON.</p>
           <p class="import-help"><a href="./union.geojson" download>Download overlapping polygons</a>, import them, then Shift+click to select both and merge.</p>
+          <p class="import-help"><a href="./shared-boundary.geojson" download>Download two adjoining parcels</a>. Import, Shift+click both, then Edit shared boundary. Add a point on the shared edge and drag it.</p>
           <p class="import-help"><a href="./trace.geojson" download>Download a tracing example</a>. Import it, enable Trace existing boundaries, start a line and click two points on the outline.</p>
           <p class="import-help"><a href="./reshape.geojson" download>Download a reshape example</a>. Select it, choose Reshape polygon, then draw a route starting and ending on its boundary.</p>
           <p class="import-help"><a href="./intersection.geojson" download>Download an intersection example</a>. Shift+click all three polygons and choose Intersect polygons to keep their common area.</p>

@@ -89,7 +89,7 @@ export class SnapIndex {
     this.root = tree(items);
   }
 
-  query(point: ScreenPoint, options: SnappingOptions, unproject: (point: ScreenPoint) => Coordinate, excludedFeatureId: FeatureId | null = null): SnapResult | null {
+  query(point: ScreenPoint, options: SnappingOptions, unproject: (point: ScreenPoint) => Coordinate, excludedFeatureId: FeatureId | ReadonlySet<FeatureId> | null = null): SnapResult | null {
     if (!options.enabled || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return null;
     const distance = options.distance;
     const box: Bounds = { minX: point.x - distance, minY: point.y - distance, maxX: point.x + distance, maxY: point.y + distance };
@@ -100,7 +100,7 @@ export class SnapIndex {
       if (node.right) visit(node.right);
       for (const candidate of node.items ?? []) {
         // Exclude the entire saved edit target without rebuilding the shared index.
-        if (candidate.featureId === excludedFeatureId) continue;
+        if (typeof excludedFeatureId === 'object' && excludedFeatureId !== null ? excludedFeatureId.has(candidate.featureId) : candidate.featureId === excludedFeatureId) continue;
         if (!intersects(candidate, box) || candidate.kind === 'vertex' && !options.vertices || candidate.kind === 'edge' && !options.edges) continue;
         const { a, b } = candidate;
         const dx = b.x - a.x; const dy = b.y - a.y;

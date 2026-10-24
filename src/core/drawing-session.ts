@@ -1,3 +1,4 @@
+import { prepareSharedBoundary, updateSharedBoundary, type SharedBoundary } from './shared-boundary.js';
 import { traceBoundary, traceSource } from './trace-boundary.js';
 import { geometryParts, mapGeometry, replacePart, withGeometry, type Geometry, type GeometryPart } from './geometry.js';
 import { reshapePolygon } from './reshape-polygon.js';
@@ -11,7 +12,7 @@ import { EditHistory, type HistoryEntry } from './history.js';
 import { copyProperties, prepareImport } from './geojson-import.js';
 import { closePolygon, openRing, samePosition, validatePolygonRings, validateMultiPolygon } from './polygon.js';
 import type {
-  Coordinate, TraceTarget, TraceSide, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
+  Coordinate, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
 } from './types.js';
 
 function copyFeature(feature: GeometryFeature): GeometryFeature {
@@ -27,6 +28,9 @@ function sameTraceAttachment(a: Coordinate, b: Coordinate): boolean {
 
 /** Internal editing state. No browser, map, or rendering dependencies. */
 export class DrawingSession {
+  private sharedBoundary: SharedBoundary | null = null;
+  private sharedBoundaryPreview: SharedBoundaryPreview | null = null;
+  private sharedBoundaryError: SharedBoundaryError | null = null;
   private intersectionActive = false;
   private intersectionPreview: IntersectionPreview | null = null;
   private intersectionError: IntersectionError | null = null;
@@ -68,7 +72,7 @@ export class DrawingSession {
 
   get state(): EditorState {
     return {
-      mode: this.reshapeId !== null ? 'reshape-polygon' : this.intersectionActive ? 'intersection-polygons' : this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.kind === null ? 'idle' : this.editingId !== null
+      mode: this.sharedBoundary ? 'edit-shared-boundary' : this.reshapeId !== null ? 'reshape-polygon' : this.intersectionActive ? 'intersection-polygons' : this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.kind === null ? 'idle' : this.editingId !== null
         ? this.kind === 'LineString' ? 'edit-line' : 'edit-polygon'
         : this.kind === 'LineString' ? 'draw-line' : 'draw-polygon',
       vertexCount: this.draft.length,
@@ -79,11 +83,12 @@ export class DrawingSession {
       activeRingIndex: this.activeRingIndex,
       activePartIndex: this.activePartIndex,
       dataRevision: this.dataRevision,
-      canFinish: this.reshapeId !== null ? this.reshapePreview !== null : this.intersectionActive ? this.intersectionPreview !== null : this.differenceActive ? this.differencePreview !== null : this.unionActive ? this.unionPreview !== null : this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
+      canFinish: this.sharedBoundary ? this.sharedBoundaryPreview !== null : this.reshapeId !== null ? this.reshapePreview !== null : this.intersectionActive ? this.intersectionPreview !== null : this.differenceActive ? this.differencePreview !== null : this.unionActive ? this.unionPreview !== null : this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
       canUndo: this.kind === null && this.history.canUndo,
       canRedo: this.kind === null && this.history.canRedo,
       validationError: this.validationError,
       splitError: this.splitError,
+      sharedBoundaryError: this.sharedBoundaryError,
       reshapeError: this.reshapeError,
       reshapeSide: this.reshapeId !== null ? this.reshapeSide : null,
       unionError: this.unionError,
@@ -94,7 +99,7 @@ export class DrawingSession {
 
   start(kind: DrawGeometryType): boolean {
     if (kind !== 'LineString' && kind !== 'Polygon') throw new TypeError('Unsupported geometry type.');
-    if (this.kind === kind && this.editingId === null && this.splitId === null && this.reshapeId === null && this.holeId === null && !this.unionActive && !this.differenceActive && !this.intersectionActive) return false;
+    if (!this.sharedBoundary && this.kind === kind && this.editingId === null && this.splitId === null && this.reshapeId === null && this.holeId === null && !this.unionActive && !this.differenceActive && !this.intersectionActive) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before changing tools.');
     this.kind = kind;
     this.selectedFeatureIds.clear();
@@ -103,7 +108,7 @@ export class DrawingSession {
   }
 
   add([lng, lat]: Coordinate): boolean {
-    if (this.kind === null || this.editingId !== null || this.unionActive || this.differenceActive || this.intersectionActive) return false;
+    if (this.sharedBoundary || this.kind === null || this.editingId !== null || this.unionActive || this.differenceActive || this.intersectionActive) return false;
     this.validatePosition([lng, lat]);
     const last = this.draft.at(-1);
     if (last && samePosition(last, [lng, lat])) return false;
@@ -159,7 +164,7 @@ export class DrawingSession {
   }
 
   finish(): GeometryFeature | null {
-    if (this.reshapeId !== null || this.intersectionActive || this.differenceActive || this.unionActive || this.splitId !== null || !this.state.canFinish) return null;
+    if (this.sharedBoundary || this.reshapeId !== null || this.intersectionActive || this.differenceActive || this.unionActive || this.splitId !== null || !this.state.canFinish) return null;
     const targetId = this.editingId ?? this.holeId;
     const original = targetId === null ? undefined : this.features.get(targetId);
     const common = { type: 'Feature' as const, id: original?.id ?? this.allocateId(), properties: original ? copyProperties(original.properties) : {} };
@@ -182,6 +187,7 @@ export class DrawingSession {
 
   cancel(): boolean {
     if (this.kind === null) return false;
+    this.sharedBoundary = null; this.sharedBoundaryPreview = null; this.sharedBoundaryError = null;
     this.intersectionActive = false; this.intersectionPreview = null; this.intersectionError = null;
     this.differenceActive = false; this.differencePreview = null; this.differenceError = null;
     this.unionActive = false; this.unionPreview = null; this.unionError = null;
@@ -590,6 +596,47 @@ export class DrawingSession {
     return event;
   }
 
+  /** Edit the one complete common boundary of exactly two adjacent simple polygons. */
+  editSharedBoundary(): boolean {
+    if (this.sharedBoundary) return false;
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before editing a shared boundary.');
+    const selected = this.getSelection();
+    if (selected.length !== 2) return false;
+    const first = selected[0]!; const second = selected[1]!;
+    if (first.geometry.type !== 'Polygon' || second.geometry.type !== 'Polygon') return false;
+    const context = prepareSharedBoundary(first.geometry, second.geometry);
+    if (!context) return false;
+    this.sharedBoundary = context; this.kind = 'LineString';
+    this.draft = context.path.map((point) => [...point]);
+    this.selectedVertexIndex = null;
+    this.validateSharedBoundary(); return true;
+  }
+
+  getSharedBoundaryPreview(): SharedBoundaryPreview | null {
+    if (!this.sharedBoundaryPreview) return null;
+    return { type: 'FeatureCollection', features: this.sharedBoundaryPreview.features.map(copyFeature) as SharedBoundaryPreview['features'] };
+  }
+
+  finishSharedBoundary(): TransactionEvent | null {
+    if (!this.sharedBoundary || !this.sharedBoundaryPreview) return null;
+    // Revalidate before preparing the complete batch. Invalid output never partially commits.
+    this.validateSharedBoundary();
+    if (!this.sharedBoundaryPreview) return null;
+    const changes = prepareTransaction({ update: this.sharedBoundaryPreview.features }, this.features);
+    const changed = this.commit('transaction', changes);
+    this.cancel();
+    return changed ? { changes: changes.map(({ before, after }) => ({ before: before ? copyFeature(before) : null, after: after ? copyFeature(after) : null })) } : null;
+  }
+
+  private validateSharedBoundary(): void {
+    const result = updateSharedBoundary(this.sharedBoundary!, this.draft);
+    this.sharedBoundaryError = result.error;
+    const ids = [...this.selectedFeatureIds];
+    this.sharedBoundaryPreview = result.geometries ? { type: 'FeatureCollection', features: result.geometries.map((geometry, i) =>
+      withGeometry(this.features.get(ids[i]!)!, geometry)) as SharedBoundaryPreview['features'] } : null;
+    this.validationError = null;
+  }
+
   editSelected(ringIndex = 0, partIndex = 0): boolean {
     if (this.editingId !== null) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before editing.');
@@ -694,6 +741,7 @@ export class DrawingSession {
 
   moveVertex(index: number, coordinate: Coordinate): boolean {
     this.assertEditing(); this.assertIndex(index); this.validatePosition(coordinate);
+    if (this.sharedBoundary && (index === 0 || index === this.draft.length - 1)) return false;
     const changed = !samePosition(this.draft[index]!, coordinate);
     const selected = this.selectVertex(index);
     if (!changed) return selected;
@@ -705,6 +753,7 @@ export class DrawingSession {
   /** Insert before index; index === vertexCount appends (also on a polygon's closing edge). */
   insertVertex(index: number, coordinate: Coordinate): boolean {
     this.assertEditing(); this.assertIndex(index, true); this.validatePosition(coordinate);
+    if (this.sharedBoundary && (index === 0 || index === this.draft.length)) throw new RangeError('Insert between the fixed boundary endpoints.');
     this.draft.splice(index, 0, [...coordinate]);
     this.selectedVertexIndex = index;
     this.validateEdit();
@@ -713,6 +762,7 @@ export class DrawingSession {
 
   removeVertex(index: number): boolean {
     this.assertEditing(); this.assertIndex(index);
+    if (this.sharedBoundary && (index === 0 || index === this.draft.length - 1)) return false;
     if (this.draft.length <= (this.kind === 'Polygon' ? 3 : 2)) return false;
     this.draft.splice(index, 1);
     this.selectedVertexIndex = null;
@@ -721,7 +771,7 @@ export class DrawingSession {
   }
 
   private assertEditing(): void {
-    if (this.editingId === null) throw new Error('Start editing a selected feature first.');
+    if (this.editingId === null && !this.sharedBoundary) throw new Error('Start editing a selected feature first.');
   }
 
   private assertIndex(index: number, insertion = false): void {
@@ -738,6 +788,7 @@ export class DrawingSession {
   }
 
   private validateEdit(): void {
+    if (this.sharedBoundary) { this.validateSharedBoundary(); return; }
     if (this.kind === 'Polygon') {
       // Edit drafts never contain a closing copy: coinciding first/last corners are invalid.
       this.validationError = new Set(this.draft.map(([x, y]) => `${x},${y}`)).size !== this.draft.length

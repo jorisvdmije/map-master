@@ -59,6 +59,13 @@ export interface SplitPreview {
   created: PolygonFeature['geometry'];
 }
 
+/** Two complete polygon previews in selection order. */
+export interface SharedBoundaryPreview {
+  type: 'FeatureCollection';
+  features: [PolygonFeature, PolygonFeature];
+}
+export type SharedBoundaryError = 'shared-boundary-invalid-result' | 'shared-boundary-overlap' | 'shared-boundary-calculation-failed';
+
 /** Which old boundary arc to replace; length is measured in planar coordinate units. */
 export type ReshapeSide = 'shorter' | 'longer';
 export type ReshapePreview = PolygonFeature['geometry'];
@@ -148,7 +155,7 @@ export interface HistoryEvent {
 }
 
 export interface EditorState {
-  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon';
+  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon' | 'edit-shared-boundary';
   vertexCount: number;
   featureCount: number;
   /** The sole selected ID, or null for zero/multiple selections. */
@@ -171,6 +178,7 @@ export interface EditorState {
   validationError: ValidationError | null;
   /** Split diagnostics are separate from ordinary drawing validation. */
   splitError: SplitError | null;
+  sharedBoundaryError: SharedBoundaryError | null;
   reshapeError: ReshapeError | null;
   /** Selected old boundary arc; null outside reshape. */
   reshapeSide: ReshapeSide | null;

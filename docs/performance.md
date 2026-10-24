@@ -588,3 +588,31 @@ Batch insertion avoids validation per inserted corner, but polygon validation
 remains O(m²) in total draft corners. These timings exclude MapLibre snapping,
 projection, uploads and rendering; they are local observations, not supported
 size/frame-rate guarantees or CI budgets. See the snapping baseline for index costs.
+
+## Shared-boundary editing
+
+Run `npm run benchmark:shared-boundary`. Two adjoining rectangles share a straight
+chain with 10, 100 or 1,000 segments near `[4.895, 52.375]`. Each sample enters the
+tool, moves the middle shared vertex 0.001 degrees east, confirms both results and
+undoes. Five warmups precede 30 samples. Import, selection, snapshots and assertions
+are outside timing; each iteration verifies both updates and exact Undo/Redo.
+
+Local baseline on 2026-10-24: Node v22.23.1, macOS arm64, Apple M2 Pro. Values are
+median / p95 milliseconds, excluding MapLibre projection, snapping, uploads and
+rendering.
+
+| Shared segments | Entry | Move + validation | Commit | Undo |
+| ---: | ---: | ---: | ---: | ---: |
+| 10 | 0.113 / 0.286 | 0.122 / 0.264 | 0.165 / 0.307 | 0.004 / 0.011 |
+| 100 | 0.266 / 0.591 | 0.564 / 0.804 | 1.053 / 1.324 | 0.009 / 0.025 |
+| 1,000 | 2.776 / 3.268 | 36.665 / 40.346 | 71.608 / 78.295 | 0.058 / 0.096 |
+
+Exact-edge discovery uses a map of reversed edges; remaining-boundary contact checks
+can be quadratic. Each move validates both complete polygon rings (quadratic) and
+checks their intersection. Confirmation repeats result validation and transaction
+validation. Pointer moves are coalesced per animation frame, but calculations are
+synchronous: 1,000 shared segments already exceed a 60 Hz frame budget locally.
+These measurements are neither workload limits nor frame-rate guarantees. Large
+shared boundaries need further validation/indexing or worker work before claiming
+smooth interaction. Other features in the dataset are not part of this topology
+check.

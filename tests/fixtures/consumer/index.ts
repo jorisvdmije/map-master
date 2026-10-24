@@ -47,6 +47,15 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   tool.draw('Circle');
   tool.cancel();
   tool.select(null);
+  const sharedEditing: boolean = tool.editSharedBoundary();
+  const sharedPreview: editor.SharedBoundaryPreview | null = tool.getSharedBoundaryPreview();
+  const sharedError: editor.SharedBoundaryError | null = tool.getState().sharedBoundaryError;
+  if (sharedEditing) {
+    tool.insertVertex(1, [1, 1]); tool.moveVertex(1, [1.1, 1]); tool.removeVertex(1);
+    const sharedTransaction: editor.TransactionEvent | null = tool.finishSharedBoundary();
+    void sharedTransaction; tool.cancel();
+  }
+  void [sharedPreview, sharedError];
   const reshaping: boolean = tool.reshapeSelected();
   const reshapePreview: editor.ReshapePreview | null = tool.getReshapePreview();
   const reshapeError: editor.ReshapeError | null = tool.getState().reshapeError;

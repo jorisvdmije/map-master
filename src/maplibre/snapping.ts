@@ -27,7 +27,7 @@ export class MapLibreSnapping {
   invalidateCamera(): void { this.index = undefined; }
   clear(): void { this.index = undefined; this.revision = -1; this.collection = { type: 'FeatureCollection', features: [] }; this.features.clear(); }
 
-  resolve(point: ScreenPoint, revision: number, read: () => GeometryFeatureCollection, excludedFeatureId: FeatureId | null = null, planar = false): SnapResult | null {
+  resolve(point: ScreenPoint, revision: number, read: () => GeometryFeatureCollection, excludedFeatureId: FeatureId | ReadonlySet<FeatureId> | null = null, planar = false): SnapResult | null {
     if (!this.options.enabled || !this.options.vertices && !this.options.edges) return null;
     if (revision !== this.revision) {
       this.collection = read(); this.revision = revision; this.index = undefined;

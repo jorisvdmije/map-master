@@ -14,13 +14,13 @@ export function openRing(points: readonly Coordinate[]): Coordinate[] {
   return ring.map(([lng, lat]) => [lng, lat]);
 }
 
-function onSegment(a: Coordinate, b: Coordinate, point: Coordinate): boolean {
+export function onSegment(a: Coordinate, b: Coordinate, point: Coordinate): boolean {
   return orientation(a, b, point) === 0
     && point[0] >= Math.min(a[0], b[0]) && point[0] <= Math.max(a[0], b[0])
     && point[1] >= Math.min(a[1], b[1]) && point[1] <= Math.max(a[1], b[1]);
 }
 
-function intersects(a: Coordinate, b: Coordinate, c: Coordinate, d: Coordinate): boolean {
+export function segmentsIntersect(a: Coordinate, b: Coordinate, c: Coordinate, d: Coordinate): boolean {
   const abC = orientation(a, b, c);
   const abD = orientation(a, b, d);
   const cdA = orientation(c, d, a);
@@ -52,7 +52,7 @@ export function validatePolygon(points: readonly Coordinate[]): ValidationError 
     if (onSegment(a, b, c) || onSegment(b, c, a)) return 'self-intersection';
     for (let j = i + 2; j < ring.length; j++) {
       if (i === 0 && j === ring.length - 1) continue;
-      if (intersects(a, b, at(j), at(j + 1))) return 'self-intersection';
+      if (segmentsIntersect(a, b, at(j), at(j + 1))) return 'self-intersection';
     }
   }
   return null;
@@ -100,7 +100,7 @@ export function ringsIntersect(first: readonly Coordinate[], second: readonly Co
   const a = openRing(first); const b = openRing(second);
   for (let i = 0; i < a.length; i++) {
     for (let j = 0; j < b.length; j++) {
-      if (intersects(a[i]!, a[(i + 1) % a.length]!, b[j]!, b[(j + 1) % b.length]!)) return true;
+      if (segmentsIntersect(a[i]!, a[(i + 1) % a.length]!, b[j]!, b[(j + 1) % b.length]!)) return true;
     }
   }
   return false;

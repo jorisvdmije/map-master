@@ -40,6 +40,7 @@ const intersectionSelected = element<HTMLButtonElement>('intersection-selected')
 const differenceSelected = element<HTMLButtonElement>('difference-selected');
 const unionSelected = element<HTMLButtonElement>('union-selected');
 const editSelected = element<HTMLButtonElement>('edit-selected');
+const editSharedBoundary = element<HTMLButtonElement>('edit-shared-boundary');
 const drawHole = element<HTMLButtonElement>('draw-hole');
 const deleteHole = element<HTMLButtonElement>('delete-hole');
 const partIndex = element<HTMLSelectElement>('part-index');
@@ -137,6 +138,7 @@ map.on('load', () => {
     updateSnapStatus();
     const drawing = state.mode !== 'idle';
     const editing = state.mode.startsWith('edit-');
+    const shared = state.mode === 'edit-shared-boundary';
     const reshaping = state.mode === 'reshape-polygon';
     const splitting = state.mode === 'split-polygon';
     const intersecting = state.mode === 'intersection-polygons';
@@ -153,6 +155,7 @@ map.on('load', () => {
     duplicateSelected.disabled = selectedCount === 0 || drawing;
     duplicateSelected.setAttribute('aria-label', selectedCount > 1 ? 'Duplicate selected shapes' : 'Duplicate selected shape');
     editSelected.disabled = selectedFeature === null || drawing;
+    editSharedBoundary.disabled = drawing || selectedCount !== 2 || activeEditor.getSelection().some((feature) => feature.geometry.type !== 'Polygon' || feature.geometry.coordinates.length !== 1);
     const parts = selectedFeature ? partsOf(selectedFeature.geometry) : [];
     if (ringSelectionId !== state.selectedFeatureId || partIndex.options.length !== parts.length) {
       const previous = ringSelectionId === state.selectedFeatureId ? Number(partIndex.value) : 0;
@@ -187,10 +190,14 @@ map.on('load', () => {
     differenceSelected.disabled = unionSelected.disabled;
     intersectionSelected.disabled = unionSelected.disabled;
     element('editing-tools').hidden = !editing;
-    element('finish-label').textContent = reshaping ? 'Apply reshape' : intersecting ? 'Apply intersection' : subtracting ? 'Apply subtraction' : merging ? 'Apply merge' : splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
+    element('finish-label').textContent = shared ? 'Save both polygons' : reshaping ? 'Apply reshape' : intersecting ? 'Apply intersection' : subtracting ? 'Apply subtraction' : merging ? 'Apply merge' : splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
     element('drawing-instructions').hidden = editing || reshaping || splitting || merging || subtracting || intersecting || state.mode === 'draw-hole';
     removeVertex.disabled = !editing || state.selectedVertexIndex === null
-      || state.vertexCount <= (state.mode === 'edit-polygon' ? 3 : 2);
+      || state.vertexCount <= (state.mode === 'edit-polygon' ? 3 : 2)
+      || shared && (state.selectedVertexIndex === 0 || state.selectedVertexIndex === state.vertexCount - 1);
+    element('editing-help').textContent = shared
+      ? 'Edit the common edge. Small points add a corner; large white points can be dragged. Grey endpoints stay fixed. Both polygons change together.'
+      : 'Drag a large point to move a corner. Click a small point between corners to add one.';
     element('vertex-status').textContent = state.selectedVertexIndex === null
       ? 'Click a corner to select it.' : `Corner ${state.selectedVertexIndex + 1} of ${state.vertexCount} selected.`;
     if (selectedFeature) {
@@ -204,7 +211,7 @@ map.on('load', () => {
       element('selection-detail').textContent = details.join(' · ');
     } else if (selectedCount > 1) {
       element('selection-type').textContent = `${selectedCount} shapes selected`;
-      element('selection-detail').textContent = intersecting ? activeEditor.getIntersectionPreview()?.geometry === null
+      element('selection-detail').textContent = shared ? 'One shared boundary. Both polygons are saved and restored together.' : intersecting ? activeEditor.getIntersectionPreview()?.geometry === null
         ? 'No common area. All selected shapes are removed on apply.'
         : 'Intersection keeps the common area under the first selected ID; other inputs are removed.' : subtracting ? `Target: ${JSON.stringify(state.selectedFeatureIds[0])}. All other selected shapes are kept as cutters.` : merging ? 'Merge keeps the first selected shape’s ID and properties.'
         : `First selected: ${JSON.stringify(state.selectedFeatureIds[0])}. Subtract cuts this shape using the others.`;
@@ -229,6 +236,12 @@ map.on('load', () => {
         : selectedFeature ? 'Drag to move this shape, or edit its corners. Escape cancels a drag.'
         : state.featureCount > 0 ? 'Click a shape to select it, or draw another.' : 'Ready when you are.';
     if (state.mode === 'draw-hole' && !invalid) status.textContent = `${state.vertexCount} corners. Draw inside the polygon; Enter saves the hole, Escape cancels.`;
+    if (shared) {
+      status.classList.toggle('is-invalid', state.sharedBoundaryError !== null);
+      status.textContent = state.sharedBoundaryError === 'shared-boundary-overlap' ? 'The polygons would overlap. Move the shared boundary back inside their outer outline.'
+        : state.sharedBoundaryError ? 'Both polygons must remain valid. Correct the shared boundary or Cancel.'
+        : 'Add or drag points on the common boundary. Endpoints stay fixed. Save applies both polygons; Undo restores both.';
+    }
     if (reshaping) {
       status.classList.toggle('is-invalid', state.reshapeError !== null && state.reshapeError !== 'reshape-too-few-points' && state.reshapeError !== 'reshape-endpoints-off-boundary');
       status.textContent = state.reshapeError ? reshapeMessages[state.reshapeError]
@@ -263,7 +276,7 @@ map.on('load', () => {
         : preview?.geometry === null ? 'No target area remains. Apply subtraction deletes the target; cutting shapes are kept. Undo restores it.'
         : 'Remaining target area is orange; cutting shapes stay blue. Apply subtraction or Enter saves; Cancel keeps the original.';
     }
-    element('map-hint').textContent = reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
+    element('map-hint').textContent = shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
       : drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
@@ -333,6 +346,12 @@ duplicateSelected.addEventListener('click', () => {
   } catch (error) {
     status.classList.add('is-invalid');
     status.textContent = error instanceof Error ? error.message : 'Could not duplicate this selection.';
+  }
+});
+editSharedBoundary.addEventListener('click', () => {
+  if (editor && !editor.editSharedBoundary()) {
+    status.classList.add('is-invalid');
+    status.textContent = 'Choose two polygons without holes sharing one complete, exactly matching boundary. Their boundary vertices must match.';
   }
 });
 reshapeSelected.addEventListener('click', () => { editor?.reshapeSelected(); });
