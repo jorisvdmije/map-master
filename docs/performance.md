@@ -718,3 +718,34 @@ linear auxiliary memory and an explicit stack, but can take quadratic time.
 Polygon validation is quadratic per output ring, with additional ring/component
 comparisons. These timings are local baselines, not supported-size or frame-rate
 guarantees. No worker offloading is implemented; large inputs can block the UI.
+
+## Selection buffers
+
+Run `npm run benchmark:buffer`. The same regular polygons used for simplification
+have 10, 100 or 1,000 corners near `[4.895, 52.372]` at radius 0.002°. A fourth
+case selects 100 ten-corner polygons on a 0.01° grid. Each iteration enters with
+10 Mercator meters, previews 20 meters, confirms, undoes and verifies exact Redo.
+Five warmups precede 30 measured samples. Import, selection and assertions are
+excluded. Entry includes the initial buffer calculation and validation, unlike
+simplification entry at zero tolerance.
+
+Local baseline on 2026-10-24: Node v22.23.1, macOS arm64, Apple M2 Pro. Values are
+median / p95 elapsed milliseconds. Browser rendering/uploads are excluded. Preview
+includes capsule construction, batched overlay, projection and strict transaction
+validation. Commit includes another validation of the cached result.
+
+| Features | Input corners per polygon | Entry | Preview | Commit | Undo |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 10 | 0.716 / 1.311 | 0.698 / 0.904 | 0.042 / 0.063 | 0.003 / 0.010 |
+| 1 | 100 | 5.795 / 6.465 | 6.777 / 7.290 | 0.180 / 0.202 | 0.006 / 0.009 |
+| 1 | 1,000 | 143.395 / 159.896 | 199.032 / 207.231 | 6.718 / 7.159 | 0.028 / 0.168 |
+| 100 | 10 | 57.956 / 61.376 | 56.961 / 61.558 | 3.105 / 3.489 | 0.125 / 0.574 |
+
+The 32-gon disk adds geometry per source segment. Grouped unions remove redundant
+capsule interiors before the final overlay, but dense intersections, many holes,
+disjoint parts or complex output can cost substantially more. Validation remains
+quadratic per output ring, plus comparisons between rings/components. These local
+fixtures establish no maximum supported size, frame-rate guarantee or CI budget.
+Calculation is synchronous: the measured 1,000-corner preview can block the UI for
+about 200 ms. Workers, cancellation of running calculations and configurable arc
+resolution are not implemented in this version.

@@ -94,6 +94,7 @@ validation policy are described in the [GeometryEditor guide](docs/geometry-edit
 The runtime dependency `polygon-clipping` (0.15.7, MIT) supplies polygon overlay
 behind `core/union.ts`, `core/difference.ts` and `core/intersection.ts`, sharing `core/polygon-overlay.ts` validation. `core/shared-boundary.ts` also uses
 its intersection calculation to reject overlapping input/output polygon pairs. It adds `splaytree` (MIT) and reuses `robust-predicates`.
+`core/buffer.ts` also uses polygon-clipping union for positive projected dilation; see the [buffer contract](docs/buffer.md).
 Results must pass our stricter topology validator; see the [union](docs/union.md), [difference](docs/difference.md) and [intersection](docs/intersection.md) contracts.
 
 ## Public API and releases

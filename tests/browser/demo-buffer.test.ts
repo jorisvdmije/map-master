@@ -1,0 +1,42 @@
+import { Map } from 'maplibre-gl';
+import { expect, it, vi } from 'vitest';
+import { page, userEvent } from 'vitest/browser';
+import type { GeometryFeatureCollection, PolygonFeature } from '../../src/index.js';
+import html from '../../examples/basic/index.html?raw';
+import fixture from '../../examples/basic/public/buffer.geojson?raw';
+it('buffers through demo controls, blocks invalid distances and restores exact data with Undo/Redo', async () => {
+  const spy = vi.spyOn(Map.prototype, 'fitBounds'); let map: Map | undefined;
+  try {
+    history.replaceState(null, '', `${location.pathname}?basemap=off`);
+    document.body.innerHTML = new DOMParser().parseFromString(html, 'text/html').body.innerHTML;
+    document.querySelectorAll('script').forEach(script => { script.remove(); });
+    await import('../../examples/basic/main.js');
+    const input = page.getByLabelText('Import GeoJSON'); await expect.element(input).toBeEnabled();
+    await input.upload(new File([fixture], 'buffer.geojson', { type: 'application/geo+json' }));
+    await expect.poll(() => spy.mock.contexts[0]).toBeDefined(); const instance = spy.mock.contexts[0];
+    if (!(instance instanceof Map)) throw new Error('Expected imported map'); map = instance;
+    const canvas = document.querySelector('canvas')!;
+    const output = (): GeometryFeatureCollection => JSON.parse(document.querySelector<HTMLTextAreaElement>('#output')!.value) as GeometryFeatureCollection;
+    const original = output();
+    const fillId = Object.keys(instance.getStyle().sources).find(id => id.endsWith('-features'))!.replace(/-features$/, '-fill');
+    await expect.poll(() => instance.queryRenderedFeatures(instance.project([4.891, 52.3705]), { layers: [fillId] }).length).toBeGreaterThan(0);
+    await userEvent.click(canvas, { position: instance.project([4.891, 52.3705]) });
+    const buffer = page.getByRole('button', { name: 'Buffer selection', exact: true }); await buffer.click();
+    const distance = page.getByLabelText('Buffer distance (Mercator meters)');
+    const apply = page.getByRole('button', { name: 'Apply buffer', exact: true });
+    await distance.fill('10'); await expect.element(apply).toBeEnabled(); expect(output()).toEqual(original);
+    await expect.element(page.getByText('Preview: 10 Mercator m.', { exact: false })).toBeVisible();
+    await expect.element(input).toBeDisabled(); await expect.element(buffer).toBeDisabled();
+    await distance.fill(''); await expect.element(apply).toBeDisabled();
+    await distance.fill('0'); await expect.element(apply).toBeDisabled();
+    await distance.fill('-1'); await expect.element(apply).toBeDisabled();
+    await distance.fill('100000000'); await expect.element(apply).toBeDisabled();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click(); expect(output()).toEqual(original);
+    await buffer.click(); await expect.element(distance).toHaveValue(10);
+    await distance.fill('10'); await apply.click(); const after = output();
+    expect((after.features[0] as PolygonFeature).geometry.coordinates[0]).not.toEqual((original.features[0] as PolygonFeature).geometry.coordinates[0]);
+    expect(after.features[0]!.properties).toEqual(original.features[0]!.properties); expect(after.features[1]).toEqual(original.features[1]);
+    await page.getByRole('button', { name: 'Undo', exact: true }).click(); expect(output()).toEqual(original);
+    await page.getByRole('button', { name: 'Redo', exact: true }).click(); expect(output()).toEqual(after);
+  } finally { map?.remove(); spy.mockRestore(); }
+});

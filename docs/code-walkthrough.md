@@ -19,6 +19,7 @@ src/
     drawing-constraints.ts   Validated angle options and pure Mercator ray constraint
     mercator-transform.ts    Shared projection, pivot validation and bounds centre
     rotation.ts              Angle normalization and baseline rotation
+    buffer.ts                Positive Mercator dilation with polygonal capsules and union
     simplification.ts        Iterative path/ring simplification in Mercator meters
     scaling.ts               Positive factor validation and baseline scaling
     shared-boundary.ts       Exact shared-chain discovery and paired result validation
@@ -437,3 +438,12 @@ freezes selected originals, validates candidates with prepareTransaction, and
 caches the result/error. The adapter uses the shared collection-preview renderer
 without a pivot. Confirmation uses the existing transaction/history boundary.
 See [simplification](simplification.md) for units, topology limits and no-op behavior.
+
+## Selection buffers
+
+`core/buffer.ts` forms local projected segment capsules using a regular 32-gon and
+robust convex hulls, then unions them with polygon interiors via polygon-clipping.
+Output passes strict topology validation. DrawingSession owns the frozen entry
+selection, distance, cached preview/diagnostic and atomic transaction commit.
+GeometryEditor uses the shared collection preview without a pivot and exposes the
+public API, events, keyboard finish/cancel and lifecycle cleanup. See [buffers](buffer.md).

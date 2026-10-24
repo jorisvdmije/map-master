@@ -1,6 +1,6 @@
 # Incremental roadmap
 
-Steps 0–17c.2 have been implemented locally;
+Steps 0–17c.3 have been implemented locally;
 subsequent steps are planned. The
 workflow still needs a GitHub remote to run in hosted CI. Each row describes
 a reviewable change or a milestone that can be split further when needed. Create
@@ -36,7 +36,7 @@ each branch from updated `main` after its dependencies have merged.
 | 17b | `feat/scale-features` | Implemented: uniform positive Mercator scaling of mixed selections, fixed/default or explicit pivot, numeric preview, validation, atomic save/Undo, demo, tests and benchmark. See [scaling](scaling.md). |
 | 17c.1 | `feat/drawing-constraints` | Implemented: optional 45°/90° Mercator drawing directions, exact snapping/tracing/closure precedence, Alt bypass, live controls, tests and benchmark. See [drawing constraints](drawing-constraints.md). |
 | 17c.2 | `feat/simplify-features` | Implemented: mixed-selection simplification with Mercator-meter tolerance, frozen originals, validated preview, exact retained coordinates, atomic Undo, demo, tests and benchmark. See [simplification](simplification.md). |
-| 17c.3 | `feat/buffer-features` | Planned: buffers with an explicit distance/unit/projection policy, preview and atomic Undo. |
+| 17c.3 | `feat/buffer-features` | Implemented: positive Mercator buffers of mixed selections, rounded polygonal caps/joins, validated preview, per-feature replacement and atomic Undo, demo, tests and benchmark. See [buffers](buffer.md). |
 | 17c.4 | `feat/offset-lines` | Planned: parallel lines with explicit distance units and corner/end policies. |
 | 17c.5 | `feat/trim-extend` | Planned: trim/extend lines to target geometry with preview and atomic Undo. |
 

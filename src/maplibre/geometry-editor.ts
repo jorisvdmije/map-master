@@ -461,6 +461,30 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
+  /** Begin a cancellable buffer of the selection with a positive Mercator-plane distance. */
+  bufferSelection(distance = 10): boolean {
+    this.assertAlive(); this.cancelIdleGestures();
+    if (!this.session.bufferSelection(distance)) return false;
+    this.enterInteraction('default'); this.schedulePreview(); return true;
+  }
+
+  setBufferDistance(meters: number): boolean {
+    this.assertAlive();
+    const changed = this.session.setBufferDistance(meters);
+    this.draftChanged(changed); return changed;
+  }
+
+  getBufferPreview(): GeometryFeatureCollection | null { return this.session.getBufferPreview(); }
+
+  finishBuffer(): TransactionEvent | null {
+    this.assertAlive();
+    if (this.session.state.mode !== 'buffer-features' || !this.session.state.canFinish) return null;
+    const event = this.session.finishBuffer();
+    this.leaveDrawing();
+    if (!event) { this.emitChange(); return null; }
+    return this.publishTransaction(event);
+  }
+
   /** Edit the common boundary of two selected single-ring polygons, keeping junctions fixed. */
   editSharedBoundary(): boolean {
     this.assertAlive(); this.cancelIdleGestures();
@@ -576,6 +600,12 @@ export class GeometryEditor {
   /** Confirm a valid tool; null also represents a successfully committed empty overlay. */
   finish(): GeometryFeature | null {
     this.assertAlive();
+    if (this.session.state.mode === 'buffer-features') {
+      const preview = this.session.getBufferPreview();
+      if (!preview) return null;
+      this.finishBuffer();
+      return preview.features[0]!;
+    }
     if (this.session.state.mode === 'simplify-features') {
       const preview = this.session.getSimplificationPreview();
       if (!preview) return null;
@@ -729,7 +759,7 @@ export class GeometryEditor {
     const state = this.session.state;
     if (input.button !== 0
       || input.ctrlKey || input.metaKey || input.shiftKey || input.detail > 1) return;
-    if (state.mode === 'simplify-features' || state.mode === 'scale-features' || state.mode === 'rotate-features' || state.mode.startsWith('edit-') || state.mode === 'union-polygons' || state.mode === 'difference-polygons' || state.mode === 'intersection-polygons') return;
+    if (state.mode === 'buffer-features' || state.mode === 'simplify-features' || state.mode === 'scale-features' || state.mode === 'rotate-features' || state.mode.startsWith('edit-') || state.mode === 'union-polygons' || state.mode === 'difference-polygons' || state.mode === 'intersection-polygons') return;
     if (state.mode === 'reshape-polygon' && state.canFinish) return;
     if (state.mode === 'idle') {
       if (input.altKey) return;
@@ -925,6 +955,12 @@ export class GeometryEditor {
         this.setSnap(resolved.snap);
       }
       if (this.destroyed || this.translation.active) return;
+      if (this.session.state.mode === 'buffer-features') {
+        const preview = this.session.getBufferPreview();
+        this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
+        this.renderer.renderTransform(preview);
+        return;
+      }
       if (this.session.state.mode === 'simplify-features') {
         const preview = this.session.getSimplificationPreview();
         this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
