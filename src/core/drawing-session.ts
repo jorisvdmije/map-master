@@ -1,3 +1,4 @@
+import { normalizeRotationAngle, rotateFeatures, rotationPivot, validateRotationPivot } from './rotation.js';
 import { prepareSharedBoundary, updateSharedBoundary, type SharedBoundary } from './shared-boundary.js';
 import { traceBoundary, traceSource } from './trace-boundary.js';
 import { geometryParts, mapGeometry, replacePart, withGeometry, type Geometry, type GeometryPart } from './geometry.js';
@@ -9,10 +10,10 @@ import { unionPolygons } from './union.js';
 import { translateFeatures } from './translation.js';
 import { prepareTransaction } from './transaction.js';
 import { EditHistory, type HistoryEntry } from './history.js';
-import { copyProperties, prepareImport } from './geojson-import.js';
+import { GeoJSONImportError, copyProperties, prepareImport } from './geojson-import.js';
 import { closePolygon, openRing, samePosition, validatePolygonRings, validateMultiPolygon } from './polygon.js';
 import type {
-  Coordinate, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
+  Coordinate, RotationError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
 } from './types.js';
 
 function copyFeature(feature: GeometryFeature): GeometryFeature {
@@ -28,6 +29,7 @@ function sameTraceAttachment(a: Coordinate, b: Coordinate): boolean {
 
 /** Internal editing state. No browser, map, or rendering dependencies. */
 export class DrawingSession {
+  private rotation: { originals: GeometryFeature[]; pivot: Coordinate; angle: number; preview: GeometryFeature[] | null; error: RotationError | null } | null = null;
   private sharedBoundary: SharedBoundary | null = null;
   private sharedBoundaryPreview: SharedBoundaryPreview | null = null;
   private sharedBoundaryError: SharedBoundaryError | null = null;
@@ -72,7 +74,7 @@ export class DrawingSession {
 
   get state(): EditorState {
     return {
-      mode: this.sharedBoundary ? 'edit-shared-boundary' : this.reshapeId !== null ? 'reshape-polygon' : this.intersectionActive ? 'intersection-polygons' : this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.kind === null ? 'idle' : this.editingId !== null
+      mode: this.rotation ? 'rotate-features' : this.sharedBoundary ? 'edit-shared-boundary' : this.reshapeId !== null ? 'reshape-polygon' : this.intersectionActive ? 'intersection-polygons' : this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.kind === null ? 'idle' : this.editingId !== null
         ? this.kind === 'LineString' ? 'edit-line' : 'edit-polygon'
         : this.kind === 'LineString' ? 'draw-line' : 'draw-polygon',
       vertexCount: this.draft.length,
@@ -83,12 +85,15 @@ export class DrawingSession {
       activeRingIndex: this.activeRingIndex,
       activePartIndex: this.activePartIndex,
       dataRevision: this.dataRevision,
-      canFinish: this.sharedBoundary ? this.sharedBoundaryPreview !== null : this.reshapeId !== null ? this.reshapePreview !== null : this.intersectionActive ? this.intersectionPreview !== null : this.differenceActive ? this.differencePreview !== null : this.unionActive ? this.unionPreview !== null : this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
+      canFinish: this.rotation ? this.rotation.preview !== null : this.sharedBoundary ? this.sharedBoundaryPreview !== null : this.reshapeId !== null ? this.reshapePreview !== null : this.intersectionActive ? this.intersectionPreview !== null : this.differenceActive ? this.differencePreview !== null : this.unionActive ? this.unionPreview !== null : this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
       canUndo: this.kind === null && this.history.canUndo,
       canRedo: this.kind === null && this.history.canRedo,
       validationError: this.validationError,
       splitError: this.splitError,
       sharedBoundaryError: this.sharedBoundaryError,
+      rotationAngle: this.rotation?.angle ?? null,
+      rotationPivot: this.rotation ? [...this.rotation.pivot] : null,
+      rotationError: this.rotation?.error ?? null,
       reshapeError: this.reshapeError,
       reshapeSide: this.reshapeId !== null ? this.reshapeSide : null,
       unionError: this.unionError,
@@ -99,7 +104,7 @@ export class DrawingSession {
 
   start(kind: DrawGeometryType): boolean {
     if (kind !== 'LineString' && kind !== 'Polygon') throw new TypeError('Unsupported geometry type.');
-    if (!this.sharedBoundary && this.kind === kind && this.editingId === null && this.splitId === null && this.reshapeId === null && this.holeId === null && !this.unionActive && !this.differenceActive && !this.intersectionActive) return false;
+    if (!this.rotation && !this.sharedBoundary && this.kind === kind && this.editingId === null && this.splitId === null && this.reshapeId === null && this.holeId === null && !this.unionActive && !this.differenceActive && !this.intersectionActive) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before changing tools.');
     this.kind = kind;
     this.selectedFeatureIds.clear();
@@ -108,7 +113,7 @@ export class DrawingSession {
   }
 
   add([lng, lat]: Coordinate): boolean {
-    if (this.sharedBoundary || this.kind === null || this.editingId !== null || this.unionActive || this.differenceActive || this.intersectionActive) return false;
+    if (this.rotation || this.sharedBoundary || this.kind === null || this.editingId !== null || this.unionActive || this.differenceActive || this.intersectionActive) return false;
     this.validatePosition([lng, lat]);
     const last = this.draft.at(-1);
     if (last && samePosition(last, [lng, lat])) return false;
@@ -164,7 +169,7 @@ export class DrawingSession {
   }
 
   finish(): GeometryFeature | null {
-    if (this.sharedBoundary || this.reshapeId !== null || this.intersectionActive || this.differenceActive || this.unionActive || this.splitId !== null || !this.state.canFinish) return null;
+    if (this.rotation || this.sharedBoundary || this.reshapeId !== null || this.intersectionActive || this.differenceActive || this.unionActive || this.splitId !== null || !this.state.canFinish) return null;
     const targetId = this.editingId ?? this.holeId;
     const original = targetId === null ? undefined : this.features.get(targetId);
     const common = { type: 'Feature' as const, id: original?.id ?? this.allocateId(), properties: original ? copyProperties(original.properties) : {} };
@@ -187,6 +192,7 @@ export class DrawingSession {
 
   cancel(): boolean {
     if (this.kind === null) return false;
+    this.rotation = null;
     this.sharedBoundary = null; this.sharedBoundaryPreview = null; this.sharedBoundaryError = null;
     this.intersectionActive = false; this.intersectionPreview = null; this.intersectionError = null;
     this.differenceActive = false; this.differencePreview = null; this.differenceError = null;
@@ -594,6 +600,54 @@ export class DrawingSession {
     const event = this.applyTransaction({ create: copies });
     if (event) this.selectedFeatureIds = reserved;
     return event;
+  }
+
+  /** Begin a selection-wide rotation review in the Mercator plane. */
+  rotateSelection(pivot?: Coordinate): boolean {
+    if (this.rotation) return false;
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before rotating.');
+    if (pivot !== undefined) validateRotationPivot(pivot);
+    const originals = this.getSelection();
+    const center = rotationPivot(originals);
+    if (!center) return false;
+    this.rotation = { originals, pivot: [...(pivot ?? center)], angle: 0, preview: originals, error: null };
+    this.kind = 'LineString';
+    return true;
+  }
+
+  /** Absolute angle from the entry baseline, never an incremental transformation. */
+  setRotationAngle(degrees: number): boolean {
+    const angle = normalizeRotationAngle(degrees);
+    if (!this.rotation || this.rotation.angle === angle) return false;
+    const rotation = this.rotation;
+    let preview: GeometryFeature[] | null = null;
+    let error: RotationError | null = null;
+    try {
+      const candidates = rotateFeatures(rotation.originals, angle, rotation.pivot);
+      if (!rotationPivot(candidates)) throw new RangeError('Rotation creates an unsupported world-spanning selection.');
+      // Use the same validation/normalization as commit; previews contain exact commit geometry.
+      const changes = prepareTransaction({ update: candidates }, this.features);
+      const updated = new Map(changes.map((change) => [change.after!.id, change.after!]));
+      preview = candidates.map((feature) => updated.get(feature.id) ?? this.features.get(feature.id)!);
+    } catch (cause) {
+      if (cause instanceof GeoJSONImportError) error = 'rotation-invalid-result';
+      else if (cause instanceof RangeError) error = 'rotation-out-of-bounds';
+      else throw cause;
+    }
+    rotation.angle = angle; rotation.preview = preview; rotation.error = error;
+    return true;
+  }
+
+  getRotationPreview(): GeometryFeatureCollection | null {
+    return this.rotation?.preview ? { type: 'FeatureCollection', features: this.rotation.preview.map(copyFeature) } : null;
+  }
+
+  finishRotation(): TransactionEvent | null {
+    if (!this.rotation?.preview) return null;
+    const changes = prepareTransaction({ update: this.rotation.preview }, this.features);
+    const changed = this.commit('transaction', changes);
+    this.cancel();
+    return changed ? { changes: changes.map(({ before, after }) => ({ before: before ? copyFeature(before) : null, after: after ? copyFeature(after) : null })) } : null;
   }
 
   /** Edit the one complete common boundary of exactly two adjacent simple polygons. */

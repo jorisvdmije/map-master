@@ -16,6 +16,7 @@ src/
     geojson-import.ts        Validate/copy entire import batches and JSON properties
     polygon.ts               Ring validity, closure, exterior winding
     union.ts                 Polygon union adapter
+    rotation.ts              Mercator pivot, angle normalization and baseline rotation
     shared-boundary.ts       Exact shared-chain discovery and paired result validation
     trace-boundary.ts        Explicit source addressing, attachment and route selection
     reshape-polygon.ts       Boundary attachments, arc choice and strict route validation
@@ -393,3 +394,13 @@ commands with fixed endpoint guards and commits through the existing transaction
 boundary. The renderer hides both originals only for a valid preview. Vertex input
 reuses pointer cancellation and excludes both source IDs from the snapping index.
 See [shared boundaries](shared-boundaries.md) for the public contract.
+
+## Selection rotation
+
+`core/rotation.ts` computes the fixed projected bounds centre and rotates every
+coordinate from immutable selected originals. `DrawingSession` owns the angle,
+pivot and cached result, using transaction preparation for preview validation and
+again before committing. `GeometryEditor` exposes the review lifecycle; the renderer
+shows selected result geometry and a pivot marker without committed-source uploads.
+The host demo owns numeric/step controls; map shortcuts reuse Enter/Escape handling.
+See [rotation](rotation.md) for coordinate conventions, limits and event semantics.

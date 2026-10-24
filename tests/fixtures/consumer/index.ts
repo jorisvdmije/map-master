@@ -152,6 +152,14 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const duplicated: editor.TransactionEvent | null = tool.duplicateSelection();
   tool.duplicateSelection([0.01, -0.01]);
   void duplicated;
+  const rotating: boolean = tool.rotateSelection([4.895, 52.372]);
+  tool.setRotationAngle(30);
+  const rotationPreview: editor.GeometryFeatureCollection | null = tool.getRotationPreview();
+  const rotationError: editor.RotationError | null = tool.getState().rotationError;
+  const rotationPivot: editor.Coordinate | null = tool.getState().rotationPivot;
+  const rotationAngle: number | null = tool.getState().rotationAngle;
+  const rotated: editor.TransactionEvent | null = tool.finishRotation();
+  void [rotating, rotationPreview, rotationError, rotationPivot, rotationAngle, rotated];
   const translated: editor.TransactionEvent | null = tool.translateSelection([0.01, -0.01]);
   void translated;
   const deletedSelection: editor.TransactionEvent | null = tool.deleteSelection();

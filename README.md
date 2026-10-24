@@ -12,6 +12,8 @@ as GeoJSON through one GeometryEditor API.
 [Atomic transactions](docs/transactions.md) can create, update, and delete multiple
 features as one validated batch and one undo action.
 [Polygon union](docs/union.md) previews and merges selected polygons into one feature with atomic Undo.
+[Selection rotation](docs/rotation.md) rotates mixed selections in the Mercator plane, with a fixed pivot, numeric preview and atomic Undo.
+
 [Shared-boundary editing](docs/shared-boundaries.md) updates two adjacent single-ring polygons together, with fixed junctions and atomic Undo.
 
 [Boundary tracing](docs/tracing.md) follows existing lines and rings while drawing, with route preview and whole-section correction.
@@ -110,6 +112,7 @@ npm run check
 | `npm test` | Run core behavior tests and test the packed library in an isolated consumer. |
 | `npm run test:browser` | Build the package and run real Chromium interaction and demo tests. |
 | `npm run build:demo` | Build the library and a deployable demo in `examples/basic/dist/`. |
+| `npm run benchmark:rotation` | Measure rotation entry, validated preview, commit and Undo for polygons and groups. |
 | `npm run benchmark:shared-boundary` | Measure shared-chain entry, two-polygon preview validation, atomic commit and Undo. |
 | `npm run benchmark:trace` | Measure source-route preview, batch append/validation, confirmation and Undo. |
 | `npm run benchmark:reshape` | Measure route validation, reshape confirmation and Undo for increasing polygon sizes. |

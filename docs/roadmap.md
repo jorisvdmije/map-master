@@ -1,6 +1,6 @@
 # Incremental roadmap
 
-Steps 0–16c have been implemented locally; subsequent steps are planned. The
+Steps 0–17a have been implemented locally; subsequent steps are planned. The
 workflow still needs a GitHub remote to run in hosted CI. Each row describes
 a reviewable change or a milestone that can be split further when needed. Create
 each branch from updated `main` after its dependencies have merged.
@@ -31,11 +31,13 @@ each branch from updated `main` after its dependencies have merged.
 | 16a | `feat/reshape-polygon` | Implemented: replace one arc of a single-ring polygon, boundary attachments, shorter/longer choice, cancellable preview, atomic update and exact Undo/Redo, demo, tests and benchmark. See [reshape](reshape.md). |
 | 16b | `feat/trace-boundaries` | Implemented: trace one existing line/ring while drawing, exact source corners, partial-edge attachments, shorter/longer preview, Alt bypass, whole-section correction, unchanged sources, normal drawing history, demo, tests and benchmark. See [tracing](tracing.md). |
 | 16c | `feat/shared-boundaries` | Implemented: edit one exactly matching shared chain of two single-ring polygons, fixed junctions, two-result preview, validation, snapping exclusions, atomic save/Undo, demo, tests and benchmark. See [shared boundaries](shared-boundaries.md). |
-| 17 | Separate precision/geometry-operation branches | Planned: rotate, scale, constraints, buffer/offset, simplify and trim/extend with explicit measurement units. |
+| 17a | `feat/rotate-features` | Implemented: clockwise Mercator rotation of mixed selections, fixed/default or explicit pivot, numeric preview, validity checks, atomic save/Undo, demo, tests and benchmark. See [rotation](rotation.md). |
+| 17b | `feat/scale-features` | Planned: scale selected geometry around an explicit pivot with preview, validation and atomic Undo. |
+| 17c | Separate precision/geometry-operation branches | Planned: constraints, buffer/offset, simplify and trim/extend with explicit measurement units. |
 
 Steps 2–7 produce the first small CRUD editor. Step 8 adds recovery from user
 mistakes. Step 9 adds precise placement against existing shapes. Later candidates include touch interactions,
-interactive multipart construction, rotation, broader cutting/splitting support, and framework wrappers.
+interactive multipart construction, rotation handles, broader cutting/splitting support, and framework wrappers.
 Prioritize those using actual application requirements.
 
 ## First working milestone: draw one line

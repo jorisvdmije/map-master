@@ -40,6 +40,10 @@ const intersectionSelected = element<HTMLButtonElement>('intersection-selected')
 const differenceSelected = element<HTMLButtonElement>('difference-selected');
 const unionSelected = element<HTMLButtonElement>('union-selected');
 const editSelected = element<HTMLButtonElement>('edit-selected');
+const rotateSelected = element<HTMLButtonElement>('rotate-selected');
+const rotationAngle = element<HTMLInputElement>('rotation-angle');
+const rotateLeft = element<HTMLButtonElement>('rotate-left');
+const rotateRight = element<HTMLButtonElement>('rotate-right');
 const editSharedBoundary = element<HTMLButtonElement>('edit-shared-boundary');
 const drawHole = element<HTMLButtonElement>('draw-hole');
 const deleteHole = element<HTMLButtonElement>('delete-hole');
@@ -138,6 +142,7 @@ map.on('load', () => {
     updateSnapStatus();
     const drawing = state.mode !== 'idle';
     const editing = state.mode.startsWith('edit-');
+    const rotating = state.mode === 'rotate-features';
     const shared = state.mode === 'edit-shared-boundary';
     const reshaping = state.mode === 'reshape-polygon';
     const splitting = state.mode === 'split-polygon';
@@ -154,6 +159,10 @@ map.on('load', () => {
     deleteSelected.setAttribute('aria-label', selectedCount > 1 ? 'Delete selected shapes' : 'Delete selected shape');
     duplicateSelected.disabled = selectedCount === 0 || drawing;
     duplicateSelected.setAttribute('aria-label', selectedCount > 1 ? 'Duplicate selected shapes' : 'Duplicate selected shape');
+    rotateSelected.disabled = selectedCount === 0 || drawing;
+    element('rotation-tools').hidden = !rotating;
+    if (!rotating) rotationAngle.setCustomValidity('');
+    if (document.activeElement !== rotationAngle) rotationAngle.value = String(state.rotationAngle ?? 0);
     editSelected.disabled = selectedFeature === null || drawing;
     editSharedBoundary.disabled = drawing || selectedCount !== 2 || activeEditor.getSelection().some((feature) => feature.geometry.type !== 'Polygon' || feature.geometry.coordinates.length !== 1);
     const parts = selectedFeature ? partsOf(selectedFeature.geometry) : [];
@@ -190,8 +199,8 @@ map.on('load', () => {
     differenceSelected.disabled = unionSelected.disabled;
     intersectionSelected.disabled = unionSelected.disabled;
     element('editing-tools').hidden = !editing;
-    element('finish-label').textContent = shared ? 'Save both polygons' : reshaping ? 'Apply reshape' : intersecting ? 'Apply intersection' : subtracting ? 'Apply subtraction' : merging ? 'Apply merge' : splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
-    element('drawing-instructions').hidden = editing || reshaping || splitting || merging || subtracting || intersecting || state.mode === 'draw-hole';
+    element('finish-label').textContent = rotating ? 'Apply rotation' : shared ? 'Save both polygons' : reshaping ? 'Apply reshape' : intersecting ? 'Apply intersection' : subtracting ? 'Apply subtraction' : merging ? 'Apply merge' : splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
+    element('drawing-instructions').hidden = rotating || editing || reshaping || splitting || merging || subtracting || intersecting || state.mode === 'draw-hole';
     removeVertex.disabled = !editing || state.selectedVertexIndex === null
       || state.vertexCount <= (state.mode === 'edit-polygon' ? 3 : 2)
       || shared && (state.selectedVertexIndex === 0 || state.selectedVertexIndex === state.vertexCount - 1);
@@ -220,7 +229,7 @@ map.on('load', () => {
     start.disabled = drawing;
     lineTool.disabled = drawing;
     polygonTool.disabled = drawing;
-    finish.disabled = !state.canFinish;
+    finish.disabled = !state.canFinish || rotating && !rotationAngle.validity.valid;
     cancel.disabled = !drawing;
     undo.disabled = !state.canUndo;
     redo.disabled = !state.canRedo;
@@ -236,6 +245,13 @@ map.on('load', () => {
         : selectedFeature ? 'Drag to move this shape, or edit its corners. Escape cancels a drag.'
         : state.featureCount > 0 ? 'Click a shape to select it, or draw another.' : 'Ready when you are.';
     if (state.mode === 'draw-hole' && !invalid) status.textContent = `${state.vertexCount} corners. Draw inside the polygon; Enter saves the hole, Escape cancels.`;
+    if (rotating) {
+      status.classList.toggle('is-invalid', state.rotationError !== null);
+      status.textContent = state.rotationError === 'rotation-out-of-bounds'
+        ? 'This angle moves shapes outside the supported map area. Change the angle or Cancel.'
+        : state.rotationError ? 'The rotated geometry is invalid. Change the angle or Cancel.'
+        : `Preview: ${state.rotationAngle}° clockwise. Apply rotation saves the whole selection; Undo restores it.`;
+    }
     if (shared) {
       status.classList.toggle('is-invalid', state.sharedBoundaryError !== null);
       status.textContent = state.sharedBoundaryError === 'shared-boundary-overlap' ? 'The polygons would overlap. Move the shared boundary back inside their outer outline.'
@@ -276,7 +292,7 @@ map.on('load', () => {
         : preview?.geometry === null ? 'No target area remains. Apply subtraction deletes the target; cutting shapes are kept. Undo restores it.'
         : 'Remaining target area is orange; cutting shapes stay blue. Apply subtraction or Enter saves; Cancel keeps the original.';
     }
-    element('map-hint').textContent = shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
+    element('map-hint').textContent = rotating ? 'Set an angle · White marker is the centre · Enter applies · Esc cancels' : shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
       : drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
@@ -348,6 +364,32 @@ duplicateSelected.addEventListener('click', () => {
     status.textContent = error instanceof Error ? error.message : 'Could not duplicate this selection.';
   }
 });
+rotateSelected.addEventListener('click', () => {
+  if (!editor) return;
+  if (!editor.rotateSelection()) {
+    status.classList.add('is-invalid');
+    status.textContent = 'Select shapes within the Mercator map area, without date-line crossings or a span over 180°.';
+  } else rotationAngle.focus();
+});
+rotationAngle.addEventListener('input', () => {
+  const angle = rotationAngle.valueAsNumber;
+  const valid = Number.isFinite(angle);
+  rotationAngle.setCustomValidity(valid ? '' : 'Enter a finite angle.');
+  if (valid) editor?.setRotationAngle(angle);
+  finish.disabled = !valid || !editor?.getState().canFinish;
+});
+rotationAngle.addEventListener('blur', () => {
+  // A cleared/incomplete number is only a text-entry draft. Restore the last preview angle on exit.
+  rotationAngle.setCustomValidity('');
+  rotationAngle.value = String(editor?.getState().rotationAngle ?? 0);
+  finish.disabled = !editor?.getState().canFinish;
+});
+for (const [button, delta] of [[rotateLeft, -15], [rotateRight, 15]] as const) {
+  button.addEventListener('click', () => {
+    rotationAngle.setCustomValidity('');
+    editor?.setRotationAngle((editor.getState().rotationAngle ?? 0) + delta);
+  });
+}
 editSharedBoundary.addEventListener('click', () => {
   if (editor && !editor.editSharedBoundary()) {
     status.classList.add('is-invalid');

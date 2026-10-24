@@ -9,7 +9,7 @@
   <body>
     <header class="header">
       <a class="brand" href="/" aria-label="geo home"><span class="brand-mark">g.</span>geo<span class="brand-divider"></span><span class="brand-caption">Drawing playground</span></a>
-      <span class="milestone"><span class="dot"></span> Milestone 16c <span class="milestone-label">/ Shared boundaries</span></span>
+      <span class="milestone"><span class="dot"></span> Milestone 17a <span class="milestone-label">/ Rotation</span></span>
     </header>
     <main class="workspace">
       <aside class="sidebar" aria-label="Drawing tools">
@@ -34,6 +34,16 @@
           <button id="undo" class="button secondary" aria-keyshortcuts="Control+z Meta+z" disabled>Undo <span aria-hidden="true">↶</span></button>
           <button id="redo" class="button secondary" aria-keyshortcuts="Control+Shift+z Meta+Shift+z Control+y" disabled>Redo <span aria-hidden="true">↷</span></button>
         </div>
+        <section id="rotation-tools" class="editing-tools" aria-label="Rotation" hidden>
+          <h2>ROTATE YOUR SELECTION</h2>
+          <label for="rotation-angle">Angle (degrees clockwise)</label>
+          <input id="rotation-angle" type="number" step="any" value="0" aria-describedby="rotation-help" />
+          <div class="action-row">
+            <button id="rotate-left" class="button secondary" type="button">−15°</button>
+            <button id="rotate-right" class="button secondary" type="button">+15°</button>
+          </div>
+          <p id="rotation-help">All selected shapes turn around the white centre marker. Positive angles turn clockwise. Apply saves the preview; Cancel keeps the originals.</p>
+        </section>
         <section class="snapping-tools" aria-label="Snapping">
           <label class="snap-toggle"><input id="snapping" type="checkbox" checked disabled /> Snap to vertices &amp; edges</label>
           <p>Hold Alt to place a point freely.</p>
@@ -45,6 +55,7 @@
         <div id="status" class="status" role="status">Loading the map…</div>
         <section id="selection" class="selection-card" aria-label="Selected geometry" hidden>
           <div><strong id="selection-type"></strong><span id="selection-detail"></span></div>
+          <button id="rotate-selected" class="button secondary" disabled>Rotate selection</button>
           <button id="edit-shared-boundary" class="button secondary" disabled>Edit shared boundary</button>
           <button id="reshape-selected" class="button secondary" disabled>Reshape polygon</button>
           <button id="reshape-side" class="button secondary" aria-pressed="false" hidden>Other boundary</button>

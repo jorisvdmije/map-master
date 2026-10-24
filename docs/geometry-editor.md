@@ -50,7 +50,11 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `getTracePreview()` | Independent prospective source route while hovering, or null. |
 | `traceBoundary(target, from, to, side?)` | Append a whole source section while drawing a line, polygon or hole. |
 | `removeLastDrawStep()` | Remove one drawing click, including a complete traced section. |
-| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`, `differenceError`, `intersectionError`, `reshapeError`, `reshapeSide`, `sharedBoundaryError`. |
+| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`, `differenceError`, `intersectionError`, `reshapeError`, `reshapeSide`, `sharedBoundaryError`, `rotationAngle`, `rotationPivot`, `rotationError`. |
+| `rotateSelection(pivot?)` | Start a selection-wide rotation review around a fixed Mercator pivot. |
+| `setRotationAngle(degrees)` | Set an absolute clockwise angle from the entry baseline; validate the whole preview. |
+| `getRotationPreview()` | Independent selected-result FeatureCollection, or null for inactive/invalid rotation. |
+| `finishRotation()` | Confirm the rotation as one transaction; null for inactive/invalid/unchanged results. |
 | `editSharedBoundary()` | Edit one exactly matching shared chain of two selected single-ring polygons; junctions stay fixed. |
 | `getSharedBoundaryPreview()` | Independent two-Polygon FeatureCollection, or null for inactive/invalid shared editing. |
 | `finishSharedBoundary()` | Confirm both updates atomically; returns the complete transaction or null for inactive/invalid/unchanged drafts. |
@@ -88,7 +92,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed lines and polygons. |
 | `importGeoJSON(input)` | Append a parsed Feature/FeatureCollection atomically; return an independent collection of imported features. Idle only. |
 | `applyTransaction({ create?, update?, delete? })` | Validate and commit a mixed batch atomically. Full features with explicit IDs; idle only. Return a TransactionEvent or null for no change. |
-| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed shared-boundary edit/split/union/intersection/reshape or changed difference, deleteSelection, group translation, duplication or hole deletion. Returns an unsubscribe function. |
+| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed rotation/shared-boundary edit/split/union/intersection/reshape or changed difference, deleteSelection, group translation, duplication or hole deletion. Returns an unsubscribe function. |
 | `onImport(listener)` | One notification per nonempty imported batch. Returns an unsubscribe function. |
 | `onUpdate(listener)` | One notification per changed saved edit. Returns an unsubscribe function. |
 | `undo()` / `redo()` | Reverse/replay one committed action; return true if applied, false if unavailable. Idle only. |
@@ -109,7 +113,7 @@ is a GeoJSON FeatureCollection containing all four geometry types. New drawings 
 string or numeric IDs and JSON properties (including null). Coordinates are
 `[longitude, latitude]`. Properties can be imported but there is no property-editing API yet.
 
-Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, `union-polygons`, `difference-polygons`, `intersection-polygons`, `reshape-polygon`, and `edit-shared-boundary`. `validationError` is `null`
+Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, `union-polygons`, `difference-polygons`, `intersection-polygons`, `reshape-polygon`, `edit-shared-boundary`, and `rotate-features`. `validationError` is `null`
 when idle or when the current draft is valid. Check `canFinish` to enable Finish;
 an idle editor cannot finish even though it has no validation error.
 
@@ -867,3 +871,12 @@ fixed. `getSharedBoundaryPreview()` returns both complete results. Enter/Finish 
 `finishSharedBoundary()` saves both as one transaction and one Undo action.
 See [shared boundaries](shared-boundaries.md) for eligibility, diagnostics, snapping,
 events and performance limits.
+
+## Selection rotation
+
+`rotateSelection(pivot?)` freezes the selected lines/polygons, including holes and
+multipart geometry. `setRotationAngle(degrees)` rotates the complete group clockwise
+in the Mercator plane around a fixed pivot. The default is the projected bounds
+centre. `getRotationPreview()` provides a cached, validated result; `finishRotation()`
+saves it as one transaction and one Undo action. See [rotation](rotation.md) for
+angle normalization, geographic limits, cancellation and lifecycle contracts.

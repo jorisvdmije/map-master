@@ -616,3 +616,32 @@ These measurements are neither workload limits nor frame-rate guarantees. Large
 shared boundaries need further validation/indexing or worker work before claiming
 smooth interaction. Other features in the dataset are not part of this topology
 check.
+
+## Selection rotation
+
+Run `npm run benchmark:rotation`. Regular polygons near `[4.895, 52.372]` have
+10, 100 or 1,000 corners at radius 0.002°. A fourth case selects 100 ten-corner
+polygons on a 0.01° grid. Each iteration computes the default pivot, previews an
+absolute 30° rotation, confirms, undoes and verifies exact Redo. Five warmups
+precede 30 measured samples. Import, selection and assertions are excluded.
+
+Local baseline on 2026-10-24: Node v22.23.1, macOS arm64, Apple M2 Pro. Values are
+median / p95 elapsed milliseconds; MapLibre projection, uploads and rendering are
+excluded. The preview column includes rotation, output-range checks and topology
+validation; commit includes transaction validation and history recording.
+
+| Features | Corners per polygon | Entry | Preview | Commit | Undo |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 10 | 0.007 / 0.015 | 0.030 / 0.106 | 0.022 / 0.134 | 0.004 / 0.007 |
+| 1 | 100 | 0.025 / 0.034 | 0.192 / 0.307 | 0.131 / 0.273 | 0.005 / 0.006 |
+| 1 | 1,000 | 0.064 / 0.087 | 6.787 / 7.543 | 6.633 / 7.274 | 0.028 / 0.042 |
+| 100 | 10 | 0.103 / 0.481 | 1.118 / 1.715 | 0.975 / 1.069 | 0.092 / 0.115 |
+
+Coordinate rotation and pivot/range scans are linear in selected vertices. Polygon
+validation remains quadratic per ring, with additional hole/component comparisons.
+Angle changes run synchronously from frozen originals, never from the last preview.
+State reads do not recalculate; public preview copies scale with selected output.
+Only selected geometry is uploaded for preview, but confirmation still uploads
+committed data through the normal renderer. These timings are not supported-size
+guarantees, frame-rate guarantees or CI budgets; larger and more complex shapes
+need workload-specific measurement.

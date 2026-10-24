@@ -59,6 +59,8 @@ export interface SplitPreview {
   created: PolygonFeature['geometry'];
 }
 
+export type RotationError = 'rotation-out-of-bounds' | 'rotation-invalid-result';
+
 /** Two complete polygon previews in selection order. */
 export interface SharedBoundaryPreview {
   type: 'FeatureCollection';
@@ -155,7 +157,7 @@ export interface HistoryEvent {
 }
 
 export interface EditorState {
-  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon' | 'edit-shared-boundary';
+  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon' | 'edit-shared-boundary' | 'rotate-features';
   vertexCount: number;
   featureCount: number;
   /** The sole selected ID, or null for zero/multiple selections. */
@@ -179,6 +181,11 @@ export interface EditorState {
   /** Split diagnostics are separate from ordinary drawing validation. */
   splitError: SplitError | null;
   sharedBoundaryError: SharedBoundaryError | null;
+  /** Clockwise degrees in (-180, 180]; null outside rotation. */
+  rotationAngle: number | null;
+  /** Fixed geographic pivot; an independent snapshot, null outside rotation. */
+  rotationPivot: Coordinate | null;
+  rotationError: RotationError | null;
   reshapeError: ReshapeError | null;
   /** Selected old boundary arc; null outside reshape. */
   reshapeSide: ReshapeSide | null;
