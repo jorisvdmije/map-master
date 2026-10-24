@@ -1,3 +1,4 @@
+import { simplifyFeatures, validateSimplificationTolerance } from './simplification.js';
 import { scaleFeatures, validateScaleFactor } from './scaling.js';
 import { transformPivot, validateTransformPivot } from './mercator-transform.js';
 import { normalizeRotationAngle, rotateFeatures, rotationPivot, validateRotationPivot } from './rotation.js';
@@ -15,7 +16,7 @@ import { EditHistory, type HistoryEntry } from './history.js';
 import { GeoJSONImportError, copyProperties, prepareImport } from './geojson-import.js';
 import { closePolygon, openRing, samePosition, validatePolygonRings, validateMultiPolygon } from './polygon.js';
 import type {
-  Coordinate, ScaleError, RotationError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
+  Coordinate, SimplificationError, ScaleError, RotationError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
 } from './types.js';
 
 function copyFeature(feature: GeometryFeature): GeometryFeature {
@@ -31,6 +32,7 @@ function sameTraceAttachment(a: Coordinate, b: Coordinate): boolean {
 
 /** Internal editing state. No browser, map, or rendering dependencies. */
 export class DrawingSession {
+  private simplification: { originals: GeometryFeature[]; tolerance: number; preview: GeometryFeature[] | null; error: SimplificationError | null } | null = null;
   private scaling: { originals: GeometryFeature[]; pivot: Coordinate; factor: number; preview: GeometryFeature[] | null; error: ScaleError | null } | null = null;
   private rotation: { originals: GeometryFeature[]; pivot: Coordinate; angle: number; preview: GeometryFeature[] | null; error: RotationError | null } | null = null;
   private sharedBoundary: SharedBoundary | null = null;
@@ -77,7 +79,7 @@ export class DrawingSession {
 
   get state(): EditorState {
     return {
-      mode: this.scaling ? 'scale-features' : this.rotation ? 'rotate-features' : this.sharedBoundary ? 'edit-shared-boundary' : this.reshapeId !== null ? 'reshape-polygon' : this.intersectionActive ? 'intersection-polygons' : this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.kind === null ? 'idle' : this.editingId !== null
+      mode: this.simplification ? 'simplify-features' : this.scaling ? 'scale-features' : this.rotation ? 'rotate-features' : this.sharedBoundary ? 'edit-shared-boundary' : this.reshapeId !== null ? 'reshape-polygon' : this.intersectionActive ? 'intersection-polygons' : this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.kind === null ? 'idle' : this.editingId !== null
         ? this.kind === 'LineString' ? 'edit-line' : 'edit-polygon'
         : this.kind === 'LineString' ? 'draw-line' : 'draw-polygon',
       vertexCount: this.draft.length,
@@ -88,12 +90,14 @@ export class DrawingSession {
       activeRingIndex: this.activeRingIndex,
       activePartIndex: this.activePartIndex,
       dataRevision: this.dataRevision,
-      canFinish: this.scaling ? this.scaling.preview !== null : this.rotation ? this.rotation.preview !== null : this.sharedBoundary ? this.sharedBoundaryPreview !== null : this.reshapeId !== null ? this.reshapePreview !== null : this.intersectionActive ? this.intersectionPreview !== null : this.differenceActive ? this.differencePreview !== null : this.unionActive ? this.unionPreview !== null : this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
+      canFinish: this.simplification ? this.simplification.preview !== null : this.scaling ? this.scaling.preview !== null : this.rotation ? this.rotation.preview !== null : this.sharedBoundary ? this.sharedBoundaryPreview !== null : this.reshapeId !== null ? this.reshapePreview !== null : this.intersectionActive ? this.intersectionPreview !== null : this.differenceActive ? this.differencePreview !== null : this.unionActive ? this.unionPreview !== null : this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
       canUndo: this.kind === null && this.history.canUndo,
       canRedo: this.kind === null && this.history.canRedo,
       validationError: this.validationError,
       splitError: this.splitError,
       sharedBoundaryError: this.sharedBoundaryError,
+      simplificationTolerance: this.simplification?.tolerance ?? null,
+      simplificationError: this.simplification?.error ?? null,
       scaleFactor: this.scaling?.factor ?? null,
       scalePivot: this.scaling ? [...this.scaling.pivot] : null,
       scaleError: this.scaling?.error ?? null,
@@ -110,7 +114,7 @@ export class DrawingSession {
 
   start(kind: DrawGeometryType): boolean {
     if (kind !== 'LineString' && kind !== 'Polygon') throw new TypeError('Unsupported geometry type.');
-    if (!this.scaling && !this.rotation && !this.sharedBoundary && this.kind === kind && this.editingId === null && this.splitId === null && this.reshapeId === null && this.holeId === null && !this.unionActive && !this.differenceActive && !this.intersectionActive) return false;
+    if (!this.simplification && !this.scaling && !this.rotation && !this.sharedBoundary && this.kind === kind && this.editingId === null && this.splitId === null && this.reshapeId === null && this.holeId === null && !this.unionActive && !this.differenceActive && !this.intersectionActive) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before changing tools.');
     this.kind = kind;
     this.selectedFeatureIds.clear();
@@ -119,7 +123,7 @@ export class DrawingSession {
   }
 
   add([lng, lat]: Coordinate): boolean {
-    if (this.scaling || this.rotation || this.sharedBoundary || this.kind === null || this.editingId !== null || this.unionActive || this.differenceActive || this.intersectionActive) return false;
+    if (this.simplification || this.scaling || this.rotation || this.sharedBoundary || this.kind === null || this.editingId !== null || this.unionActive || this.differenceActive || this.intersectionActive) return false;
     this.validatePosition([lng, lat]);
     const last = this.draft.at(-1);
     if (last && samePosition(last, [lng, lat])) return false;
@@ -181,7 +185,7 @@ export class DrawingSession {
   }
 
   finish(): GeometryFeature | null {
-    if (this.scaling || this.rotation || this.sharedBoundary || this.reshapeId !== null || this.intersectionActive || this.differenceActive || this.unionActive || this.splitId !== null || !this.state.canFinish) return null;
+    if (this.simplification || this.scaling || this.rotation || this.sharedBoundary || this.reshapeId !== null || this.intersectionActive || this.differenceActive || this.unionActive || this.splitId !== null || !this.state.canFinish) return null;
     const targetId = this.editingId ?? this.holeId;
     const original = targetId === null ? undefined : this.features.get(targetId);
     const common = { type: 'Feature' as const, id: original?.id ?? this.allocateId(), properties: original ? copyProperties(original.properties) : {} };
@@ -204,6 +208,7 @@ export class DrawingSession {
 
   cancel(): boolean {
     if (this.kind === null) return false;
+    this.simplification = null;
     this.scaling = null;
     this.rotation = null;
     this.sharedBoundary = null; this.sharedBoundaryPreview = null; this.sharedBoundaryError = null;
@@ -706,6 +711,51 @@ export class DrawingSession {
   finishScale(): TransactionEvent | null {
     if (!this.scaling?.preview) return null;
     const changes = prepareTransaction({ update: this.scaling.preview }, this.features);
+    const changed = this.commit('transaction', changes);
+    this.cancel();
+    return changed ? { changes: changes.map(({ before, after }) => ({ before: before ? copyFeature(before) : null, after: after ? copyFeature(after) : null })) } : null;
+  }
+
+  /** Begin a selection-wide simplification review in the Mercator plane. */
+  simplifySelection(): boolean {
+    if (this.simplification) return false;
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before simplification.');
+    const originals = this.getSelection();
+    const center = transformPivot(originals);
+    if (!center) return false;
+    this.simplification = { originals, tolerance: 0, preview: originals, error: null };
+    this.kind = 'LineString';
+    return true;
+  }
+
+  /** Absolute tolerance from the entry baseline, never an incremental transformation. */
+  setSimplificationTolerance(tolerance: number): boolean {
+    validateSimplificationTolerance(tolerance);
+    if (!this.simplification || this.simplification.tolerance === tolerance) return false;
+    const simplification = this.simplification;
+    let preview: GeometryFeature[] | null = null;
+    let error: SimplificationError | null = null;
+    try {
+      const candidates = simplifyFeatures(simplification.originals, tolerance);
+      // Use the same validation/normalization as commit; previews contain exact commit geometry.
+      const changes = prepareTransaction({ update: candidates }, this.features);
+      const updated = new Map(changes.map((change) => [change.after!.id, change.after!]));
+      preview = candidates.map((feature) => updated.get(feature.id) ?? this.features.get(feature.id)!);
+    } catch (cause) {
+      if (cause instanceof GeoJSONImportError) error = 'simplification-invalid-result';
+      else throw cause;
+    }
+    simplification.tolerance = tolerance; simplification.preview = preview; simplification.error = error;
+    return true;
+  }
+
+  getSimplificationPreview(): GeometryFeatureCollection | null {
+    return this.simplification?.preview ? { type: 'FeatureCollection', features: this.simplification.preview.map(copyFeature) } : null;
+  }
+
+  finishSimplification(): TransactionEvent | null {
+    if (!this.simplification?.preview) return null;
+    const changes = prepareTransaction({ update: this.simplification.preview }, this.features);
     const changed = this.commit('transaction', changes);
     this.cancel();
     return changed ? { changes: changes.map(({ before, after }) => ({ before: before ? copyFeature(before) : null, after: after ? copyFeature(after) : null })) } : null;

@@ -176,14 +176,14 @@ export class MapLibreRenderer {
     this.translationPreview.render(features.map((feature) => feature.geometry));
   }
 
-  renderTransform(collection: GeometryFeatureCollection | null, pivot: Coordinate): void {
+  renderTransform(collection: GeometryFeatureCollection | null, pivot?: Coordinate): void {
     this.translationVisible = false; this.translationPreview.clear();
     const features = collection?.features ?? [];
     this.draftBorder.render(features.map((feature) => feature.geometry));
     // Do not copy application properties into renderer styling fields.
     void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection', features: [
       ...features.map((feature) => ({ type: 'Feature' as const, properties: {}, geometry: feature.geometry })),
-      { type: 'Feature', properties: { kind: 'transform-pivot' }, geometry: { type: 'Point', coordinates: pivot } },
+      ...(pivot ? [{ type: 'Feature' as const, properties: { kind: 'transform-pivot' }, geometry: { type: 'Point' as const, coordinates: pivot } }] : []),
     ] });
   }
 

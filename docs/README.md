@@ -9,6 +9,7 @@ separately so consumers can integrate without depending on internal modules.
 | Apply atomic create/update/delete batches | [Transactions and event semantics](transactions.md) |
 | Import and edit multipart lines/polygons | [Multipart geometry](multipart.md) |
 | Draw with fixed 45°/90° directions | [Drawing constraints](drawing-constraints.md) |
+| Simplify lines and polygons | [Selection simplification](simplification.md) |
 | Scale lines and polygons together | [Selection scaling](scaling.md) |
 | Rotate lines and polygons together | [Selection rotation](rotation.md) |
 | Edit two adjoining polygons together | [Shared boundaries](shared-boundaries.md) |

@@ -692,3 +692,29 @@ This benchmark excludes MapLibre unprojection, snapping acquisition, the existin
 preview renderer and topology validation. It measures incremental constraint cost,
 not complete input-to-frame latency or supported drawing sizes. Measurements are
 local baselines, not CI timing budgets.
+
+## Selection simplification
+
+Run `npm run benchmark:simplification`. Regular polygons near `[4.895, 52.372]`
+have 10, 100 or 1,000 corners at radius 0.002°. A fourth case selects 100 ten-corner
+polygons on a 0.01° grid. Each iteration enters the tool, previews tolerance 100
+Mercator meters, confirms, undoes and verifies exact Redo. Five warmups precede
+30 measured samples; import, selection and assertions are excluded.
+
+Local baseline on 2026-10-24: Node v22.23.1, macOS arm64, Apple M2 Pro. Values are
+median / p95 elapsed milliseconds. Browser rendering/uploads are excluded; preview
+includes simplification and candidate validation, commit includes revalidation.
+
+| Features | Input corners per polygon | Entry | Preview | Commit | Undo |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 10 | 0.008 / 0.055 | 0.022 / 0.039 | 0.017 / 0.030 | 0.003 / 0.014 |
+| 1 | 100 | 0.025 / 0.136 | 0.061 / 0.122 | 0.028 / 0.039 | 0.003 / 0.004 |
+| 1 | 1,000 | 0.061 / 0.094 | 0.313 / 0.502 | 0.199 / 0.437 | 0.014 / 0.021 |
+| 100 | 10 | 0.105 / 0.297 | 0.715 / 0.979 | 0.655 / 0.974 | 0.084 / 0.115 |
+
+These smooth polygon fixtures simplify substantially. Lower tolerances, jagged
+paths and shapes with holes/components can cost much more. Douglas–Peucker uses
+linear auxiliary memory and an explicit stack, but can take quadratic time.
+Polygon validation is quadratic per output ring, with additional ring/component
+comparisons. These timings are local baselines, not supported-size or frame-rate
+guarantees. No worker offloading is implemented; large inputs can block the UI.

@@ -59,6 +59,7 @@ export interface SplitPreview {
   created: PolygonFeature['geometry'];
 }
 
+export type SimplificationError = 'simplification-invalid-result';
 export type ScaleError = 'scale-out-of-bounds' | 'scale-invalid-result';
 export type RotationError = 'rotation-out-of-bounds' | 'rotation-invalid-result';
 
@@ -167,7 +168,7 @@ export interface HistoryEvent {
 }
 
 export interface EditorState {
-  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon' | 'edit-shared-boundary' | 'rotate-features' | 'scale-features';
+  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon' | 'edit-shared-boundary' | 'rotate-features' | 'scale-features' | 'simplify-features';
   vertexCount: number;
   featureCount: number;
   /** The sole selected ID, or null for zero/multiple selections. */
@@ -201,6 +202,9 @@ export interface EditorState {
   /** Fixed geographic pivot; an independent snapshot, null outside scaling. */
   scalePivot: Coordinate | null;
   scaleError: ScaleError | null;
+  /** Nonnegative Mercator-plane meters; null outside simplification. */
+  simplificationTolerance: number | null;
+  simplificationError: SimplificationError | null;
   reshapeError: ReshapeError | null;
   /** Selected old boundary arc; null outside reshape. */
   reshapeSide: ReshapeSide | null;

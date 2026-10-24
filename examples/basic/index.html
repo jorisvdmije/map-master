@@ -9,7 +9,7 @@
   <body>
     <header class="header">
       <a class="brand" href="/" aria-label="geo home"><span class="brand-mark">g.</span>geo<span class="brand-divider"></span><span class="brand-caption">Drawing playground</span></a>
-      <span class="milestone"><span class="dot"></span> Milestone 17c <span class="milestone-label">/ Drawing constraints</span></span>
+      <span class="milestone"><span class="dot"></span> Milestone 17c.2 <span class="milestone-label">/ Simplification</span></span>
     </header>
     <main class="workspace">
       <aside class="sidebar" aria-label="Drawing tools">
@@ -44,6 +44,12 @@
           </div>
           <p id="rotation-help">All selected shapes turn around the white centre marker. Positive angles turn clockwise. Apply saves the preview; Cancel keeps the originals.</p>
         </section>
+        <section id="simplification-tools" class="editing-tools" aria-label="Simplification" hidden>
+          <h2>SIMPLIFY YOUR SELECTION</h2>
+          <label for="simplification-tolerance">Tolerance (Mercator meters)</label>
+          <input id="simplification-tolerance" type="number" min="0" step="any" value="0" aria-describedby="simplification-help" />
+          <p id="simplification-help">0 keeps every vertex. Increase to remove small details. These are map-plane meters, not ground meters. Invalid results cannot be saved. Neighbouring boundaries are not linked.</p>
+        </section>
         <section id="scale-tools" class="editing-tools" aria-label="Scaling" hidden>
           <h2>SCALE YOUR SELECTION</h2>
           <label for="scale-factor">Scale factor</label>
@@ -71,6 +77,7 @@
         <div id="status" class="status" role="status">Loading the map…</div>
         <section id="selection" class="selection-card" aria-label="Selected geometry" hidden>
           <div><strong id="selection-type"></strong><span id="selection-detail"></span></div>
+          <button id="simplify-selected" class="button secondary" disabled>Simplify selection</button>
           <button id="scale-selected" class="button secondary" disabled>Scale selection</button>
           <button id="rotate-selected" class="button secondary" disabled>Rotate selection</button>
           <button id="edit-shared-boundary" class="button secondary" disabled>Edit shared boundary</button>

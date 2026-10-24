@@ -19,6 +19,7 @@ src/
     drawing-constraints.ts   Validated angle options and pure Mercator ray constraint
     mercator-transform.ts    Shared projection, pivot validation and bounds centre
     rotation.ts              Angle normalization and baseline rotation
+    simplification.ts        Iterative path/ring simplification in Mercator meters
     scaling.ts               Positive factor validation and baseline scaling
     shared-boundary.ts       Exact shared-chain discovery and paired result validation
     trace-boundary.ts        Explicit source addressing, attachment and route selection
@@ -427,3 +428,12 @@ applies it after exact snapping/closure acquisition, only for line/polygon/hole
 drawing. The session supplies a constant-time copied anchor; the complete draft
 is not copied for this new calculation. Rejected out-of-range candidates neither
 render nor append a point. Existing tracing, commit and history paths are reused.
+
+## Selection simplification
+
+`core/simplification.ts` simplifies projected paths using an explicit stack and
+retained source indices. Rings are processed as two anchored arcs. DrawingSession
+freezes selected originals, validates candidates with prepareTransaction, and
+caches the result/error. The adapter uses the shared collection-preview renderer
+without a pivot. Confirmation uses the existing transaction/history boundary.
+See [simplification](simplification.md) for units, topology limits and no-op behavior.

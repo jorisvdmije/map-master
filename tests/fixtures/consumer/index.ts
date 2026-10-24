@@ -155,6 +155,13 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const constraints: editor.DrawingConstraintsOptions = tool.getDrawingConstraints();
   tool.setDrawingConstraints({ enabled: true, angleStep: 90 });
   tool.setDrawingConstraints({ enabled: constraints.enabled, angleStep: constraints.angleStep });
+  const simplifying: boolean = tool.simplifySelection();
+  tool.setSimplificationTolerance(5);
+  const simplifiedPreview: editor.GeometryFeatureCollection | null = tool.getSimplificationPreview();
+  const simplifiedError: editor.SimplificationError | null = tool.getState().simplificationError;
+  const tolerance: number | null = tool.getState().simplificationTolerance;
+  const simplified: editor.TransactionEvent | null = tool.finishSimplification();
+  void [simplifying, simplifiedPreview, simplifiedError, tolerance, simplified];
   const rotating: boolean = tool.rotateSelection([4.895, 52.372]);
   tool.setRotationAngle(30);
   const rotationPreview: editor.GeometryFeatureCollection | null = tool.getRotationPreview();

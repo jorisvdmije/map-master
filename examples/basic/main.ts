@@ -42,6 +42,8 @@ const intersectionSelected = element<HTMLButtonElement>('intersection-selected')
 const differenceSelected = element<HTMLButtonElement>('difference-selected');
 const unionSelected = element<HTMLButtonElement>('union-selected');
 const editSelected = element<HTMLButtonElement>('edit-selected');
+const simplifySelected = element<HTMLButtonElement>('simplify-selected');
+const simplificationTolerance = element<HTMLInputElement>('simplification-tolerance');
 const scaleSelected = element<HTMLButtonElement>('scale-selected');
 const scaleFactor = element<HTMLInputElement>('scale-factor');
 const scaleHalf = element<HTMLButtonElement>('scale-half');
@@ -152,6 +154,7 @@ map.on('load', () => {
     updateSnapStatus();
     const drawing = state.mode !== 'idle';
     const editing = state.mode.startsWith('edit-');
+    const simplifying = state.mode === 'simplify-features';
     const scaling = state.mode === 'scale-features';
     const rotating = state.mode === 'rotate-features';
     const shared = state.mode === 'edit-shared-boundary';
@@ -170,6 +173,10 @@ map.on('load', () => {
     deleteSelected.setAttribute('aria-label', selectedCount > 1 ? 'Delete selected shapes' : 'Delete selected shape');
     duplicateSelected.disabled = selectedCount === 0 || drawing;
     duplicateSelected.setAttribute('aria-label', selectedCount > 1 ? 'Duplicate selected shapes' : 'Duplicate selected shape');
+    simplifySelected.disabled = selectedCount === 0 || drawing;
+    element('simplification-tools').hidden = !simplifying;
+    if (!simplifying) simplificationTolerance.setCustomValidity('');
+    if (document.activeElement !== simplificationTolerance) simplificationTolerance.value = String(state.simplificationTolerance ?? 0);
     scaleSelected.disabled = selectedCount === 0 || drawing;
     element('scale-tools').hidden = !scaling;
     if (!scaling) scaleFactor.setCustomValidity('');
@@ -214,8 +221,8 @@ map.on('load', () => {
     differenceSelected.disabled = unionSelected.disabled;
     intersectionSelected.disabled = unionSelected.disabled;
     element('editing-tools').hidden = !editing;
-    element('finish-label').textContent = scaling ? 'Apply scale' : rotating ? 'Apply rotation' : shared ? 'Save both polygons' : reshaping ? 'Apply reshape' : intersecting ? 'Apply intersection' : subtracting ? 'Apply subtraction' : merging ? 'Apply merge' : splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
-    element('drawing-instructions').hidden = scaling || rotating || editing || reshaping || splitting || merging || subtracting || intersecting || state.mode === 'draw-hole';
+    element('finish-label').textContent = simplifying ? 'Apply simplification' : scaling ? 'Apply scale' : rotating ? 'Apply rotation' : shared ? 'Save both polygons' : reshaping ? 'Apply reshape' : intersecting ? 'Apply intersection' : subtracting ? 'Apply subtraction' : merging ? 'Apply merge' : splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
+    element('drawing-instructions').hidden = simplifying || scaling || rotating || editing || reshaping || splitting || merging || subtracting || intersecting || state.mode === 'draw-hole';
     removeVertex.disabled = !editing || state.selectedVertexIndex === null
       || state.vertexCount <= (state.mode === 'edit-polygon' ? 3 : 2)
       || shared && (state.selectedVertexIndex === 0 || state.selectedVertexIndex === state.vertexCount - 1);
@@ -244,7 +251,7 @@ map.on('load', () => {
     start.disabled = drawing;
     lineTool.disabled = drawing;
     polygonTool.disabled = drawing;
-    finish.disabled = !state.canFinish || scaling && !scaleFactor.validity.valid || rotating && !rotationAngle.validity.valid;
+    finish.disabled = !state.canFinish || simplifying && !simplificationTolerance.validity.valid || scaling && !scaleFactor.validity.valid || rotating && !rotationAngle.validity.valid;
     cancel.disabled = !drawing;
     undo.disabled = !state.canUndo;
     redo.disabled = !state.canRedo;
@@ -260,6 +267,15 @@ map.on('load', () => {
         : selectedFeature ? 'Drag to move this shape, or edit its corners. Escape cancels a drag.'
         : state.featureCount > 0 ? 'Click a shape to select it, or draw another.' : 'Ready when you are.';
     if (state.mode === 'draw-hole' && !invalid) status.textContent = `${state.vertexCount} corners. Draw inside the polygon; Enter saves the hole, Escape cancels.`;
+    if (simplifying) {
+      const preview = activeEditor.getSimplificationPreview();
+      const count = (features: GeometryFeature[]): number => features.reduce((sum, feature) => sum + partsOf(feature.geometry).reduce((total, part) =>
+        total + (part.type === 'Polygon' ? part.coordinates.reduce((n, ring) => n + ring.length - 1, 0) : part.coordinates.length), 0), 0);
+      status.classList.toggle('is-invalid', state.simplificationError !== null);
+      status.textContent = preview
+        ? `${count(activeEditor.getSelection())} → ${count(preview.features)} vertices at ${state.simplificationTolerance} Mercator m. Apply saves the selection; Undo restores it.`
+        : 'This tolerance creates invalid geometry. Reduce the tolerance or Cancel.';
+    }
     if (scaling) {
       status.classList.toggle('is-invalid', state.scaleError !== null);
       status.textContent = state.scaleError === 'scale-out-of-bounds'
@@ -314,7 +330,7 @@ map.on('load', () => {
         : preview?.geometry === null ? 'No target area remains. Apply subtraction deletes the target; cutting shapes are kept. Undo restores it.'
         : 'Remaining target area is orange; cutting shapes stay blue. Apply subtraction or Enter saves; Cancel keeps the original.';
     }
-    element('map-hint').textContent = scaling ? 'Set a factor · White marker is the centre · Enter applies · Esc cancels' : rotating ? 'Set an angle · White marker is the centre · Enter applies · Esc cancels' : shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
+    element('map-hint').textContent = simplifying ? 'Set a tolerance · Review remaining vertices · Enter applies · Esc cancels' : scaling ? 'Set a factor · White marker is the centre · Enter applies · Esc cancels' : rotating ? 'Set an angle · White marker is the centre · Enter applies · Esc cancels' : shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
       : drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
@@ -414,6 +430,26 @@ for (const [button, delta] of [[rotateLeft, -15], [rotateRight, 15]] as const) {
     editor?.setRotationAngle((editor.getState().rotationAngle ?? 0) + delta);
   });
 }
+simplifySelected.addEventListener('click', () => {
+  if (!editor) return;
+  if (!editor.simplifySelection()) {
+    status.classList.add('is-invalid');
+    status.textContent = 'Select shapes within the Mercator map area, without date-line crossings or a span over 180°.';
+  } else simplificationTolerance.focus();
+});
+simplificationTolerance.addEventListener('input', () => {
+  const tolerance = simplificationTolerance.valueAsNumber;
+  const valid = Number.isFinite(tolerance) && tolerance >= 0;
+  simplificationTolerance.setCustomValidity(valid ? '' : 'Enter a nonnegative tolerance.');
+  if (valid) editor?.setSimplificationTolerance(tolerance);
+  finish.disabled = !valid || !editor?.getState().canFinish;
+});
+simplificationTolerance.addEventListener('blur', () => {
+  // A cleared/incomplete number is only a text-entry draft. Restore the last preview tolerance on exit.
+  simplificationTolerance.setCustomValidity('');
+  simplificationTolerance.value = String(editor?.getState().simplificationTolerance ?? 0);
+  finish.disabled = !editor?.getState().canFinish;
+});
 scaleSelected.addEventListener('click', () => {
   if (!editor) return;
   if (!editor.scaleSelection()) {

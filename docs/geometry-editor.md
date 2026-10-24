@@ -52,7 +52,11 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `removeLastDrawStep()` | Remove one drawing click, including a complete traced section. |
 | `getDrawingConstraints()` | Independent options snapshot: enabled and angleStep (45 or 90). |
 | `setDrawingConstraints(options)` | Update the opt-in direction grid for free drawing placement; exact snaps, tracing and closure take priority. |
-| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`, `differenceError`, `intersectionError`, `reshapeError`, `reshapeSide`, `sharedBoundaryError`, `rotationAngle`, `rotationPivot`, `rotationError`, `scaleFactor`, `scalePivot`, `scaleError`. |
+| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`, `differenceError`, `intersectionError`, `reshapeError`, `reshapeSide`, `sharedBoundaryError`, `rotationAngle`, `rotationPivot`, `rotationError`, `scaleFactor`, `scalePivot`, `scaleError`, `simplificationTolerance`, `simplificationError`. |
+| `simplifySelection()` | Start a selection-wide simplification preview at tolerance zero. |
+| `setSimplificationTolerance(meters)` | Set nonnegative tolerance in Mercator meters; recalculate from entry geometry. |
+| `getSimplificationPreview()` | Independent validated selected-result collection, or null when inactive/invalid. |
+| `finishSimplification()` | Confirm changes as one transaction; null when inactive/invalid/unchanged. |
 | `scaleSelection(pivot?)` | Start a uniform scale review around a fixed Mercator pivot. |
 | `setScaleFactor(factor)` | Set an absolute positive factor from entry geometry; validate the whole preview. |
 | `getScalePreview()` | Independent selected-result FeatureCollection, or null when inactive/invalid. |
@@ -98,7 +102,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed lines and polygons. |
 | `importGeoJSON(input)` | Append a parsed Feature/FeatureCollection atomically; return an independent collection of imported features. Idle only. |
 | `applyTransaction({ create?, update?, delete? })` | Validate and commit a mixed batch atomically. Full features with explicit IDs; idle only. Return a TransactionEvent or null for no change. |
-| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed scaling/rotation/shared-boundary edit/split/union/intersection/reshape or changed difference, deleteSelection, group translation, duplication or hole deletion. Returns an unsubscribe function. |
+| `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed simplification/scaling/rotation/shared-boundary edit/split/union/intersection/reshape or changed difference, deleteSelection, group translation, duplication or hole deletion. Returns an unsubscribe function. |
 | `onImport(listener)` | One notification per nonempty imported batch. Returns an unsubscribe function. |
 | `onUpdate(listener)` | One notification per changed saved edit. Returns an unsubscribe function. |
 | `undo()` / `redo()` | Reverse/replay one committed action; return true if applied, false if unavailable. Idle only. |
@@ -119,7 +123,7 @@ is a GeoJSON FeatureCollection containing all four geometry types. New drawings 
 string or numeric IDs and JSON properties (including null). Coordinates are
 `[longitude, latitude]`. Properties can be imported but there is no property-editing API yet.
 
-Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, `union-polygons`, `difference-polygons`, `intersection-polygons`, `reshape-polygon`, `edit-shared-boundary`, `rotate-features`, and `scale-features`. `validationError` is `null`
+Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, `union-polygons`, `difference-polygons`, `intersection-polygons`, `reshape-polygon`, `edit-shared-boundary`, `rotate-features`, `scale-features`, and `simplify-features`. `validationError` is `null`
 when idle or when the current draft is valid. Check `canFinish` to enable Finish;
 an idle editor cannot finish even though it has no validation error.
 
@@ -903,3 +907,12 @@ Only new free pointer placements for lines, polygons and holes are affected.
 Exact snapping/tracing and polygon closure take priority; Alt bypasses the angle
 constraint and snapping. The default is disabled. See [drawing constraints](drawing-constraints.md)
 for coordinate limits, precedence, public types and lifecycle behavior.
+
+## Selection simplification
+
+`simplifySelection()` freezes the current lines/polygons, including holes and
+multipart geometry. `setSimplificationTolerance(meters)` removes detail using a
+nonnegative Mercator-plane tolerance. `getSimplificationPreview()` returns the
+validated result; `finishSimplification()` commits the whole selection as one Undo
+action. Invalid topology blocks confirmation; exact retained coordinates and
+properties are preserved. See [simplification](simplification.md) for the contract.
