@@ -401,6 +401,30 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
+  /** Begin a cancellable scaling of the selection around a fixed Mercator pivot. */
+  scaleSelection(pivot?: Coordinate): boolean {
+    this.assertAlive(); this.cancelIdleGestures();
+    if (!this.session.scaleSelection(pivot)) return false;
+    this.enterInteraction('default'); this.schedulePreview(); return true;
+  }
+
+  setScaleFactor(factor: number): boolean {
+    this.assertAlive();
+    const changed = this.session.setScaleFactor(factor);
+    this.draftChanged(changed); return changed;
+  }
+
+  getScalePreview(): GeometryFeatureCollection | null { return this.session.getScalePreview(); }
+
+  finishScale(): TransactionEvent | null {
+    this.assertAlive();
+    if (this.session.state.mode !== 'scale-features' || !this.session.state.canFinish) return null;
+    const event = this.session.finishScale();
+    this.leaveDrawing();
+    if (!event) { this.emitChange(); return null; }
+    return this.publishTransaction(event);
+  }
+
   /** Edit the common boundary of two selected single-ring polygons, keeping junctions fixed. */
   editSharedBoundary(): boolean {
     this.assertAlive(); this.cancelIdleGestures();
@@ -516,6 +540,12 @@ export class GeometryEditor {
   /** Confirm a valid tool; null also represents a successfully committed empty overlay. */
   finish(): GeometryFeature | null {
     this.assertAlive();
+    if (this.session.state.mode === 'scale-features') {
+      const preview = this.session.getScalePreview();
+      if (!preview) return null;
+      this.finishScale();
+      return preview.features[0]!;
+    }
     if (this.session.state.mode === 'rotate-features') {
       const preview = this.session.getRotationPreview();
       if (!preview) return null;
@@ -657,7 +687,7 @@ export class GeometryEditor {
     const state = this.session.state;
     if (input.button !== 0
       || input.ctrlKey || input.metaKey || input.shiftKey || input.detail > 1) return;
-    if (state.mode === 'rotate-features' || state.mode.startsWith('edit-') || state.mode === 'union-polygons' || state.mode === 'difference-polygons' || state.mode === 'intersection-polygons') return;
+    if (state.mode === 'scale-features' || state.mode === 'rotate-features' || state.mode.startsWith('edit-') || state.mode === 'union-polygons' || state.mode === 'difference-polygons' || state.mode === 'intersection-polygons') return;
     if (state.mode === 'reshape-polygon' && state.canFinish) return;
     if (state.mode === 'idle') {
       if (input.altKey) return;
@@ -844,10 +874,16 @@ export class GeometryEditor {
         this.setSnap(resolved.snap);
       }
       if (this.destroyed || this.translation.active) return;
+      if (this.session.state.mode === 'scale-features') {
+        const preview = this.session.getScalePreview();
+        this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
+        this.renderer.renderTransform(preview, this.session.state.scalePivot!);
+        return;
+      }
       if (this.session.state.mode === 'rotate-features') {
         const preview = this.session.getRotationPreview();
         this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
-        this.renderer.renderRotation(preview, this.session.state.rotationPivot!);
+        this.renderer.renderTransform(preview, this.session.state.rotationPivot!);
         return;
       }
       if (this.session.state.mode === 'intersection-polygons') {

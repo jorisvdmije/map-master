@@ -645,3 +645,29 @@ Only selected geometry is uploaded for preview, but confirmation still uploads
 committed data through the normal renderer. These timings are not supported-size
 guarantees, frame-rate guarantees or CI budgets; larger and more complex shapes
 need workload-specific measurement.
+
+## Selection scaling
+
+Run `npm run benchmark:scaling`. The same regular polygon/group fixtures as the
+rotation benchmark use 10, 100 or 1,000 corners and a group of 100 ten-corner
+polygons. Each iteration enters scaling with the default pivot, previews factor
+1.5, confirms, undoes and verifies exact Redo. Five warmups precede 30 measured
+samples; import, selection and assertions are excluded.
+
+Local baseline on 2026-10-24: Node v22.23.1, macOS arm64, Apple M2 Pro. Values are
+median / p95 elapsed milliseconds; browser rendering and uploads are excluded.
+Preview includes transformation, range checks and topology validation; commit
+includes revalidation and history recording.
+
+| Features | Corners per polygon | Entry | Preview | Commit | Undo |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 10 | 0.006 / 0.011 | 0.030 / 0.088 | 0.023 / 0.043 | 0.004 / 0.006 |
+| 1 | 100 | 0.025 / 0.039 | 0.195 / 0.313 | 0.131 / 0.246 | 0.005 / 0.006 |
+| 1 | 1,000 | 0.067 / 0.110 | 6.968 / 7.687 | 6.745 / 9.196 | 0.028 / 0.070 |
+| 100 | 10 | 0.101 / 0.132 | 1.012 / 1.244 | 0.904 / 1.113 | 0.092 / 0.439 |
+
+Scaling and pivot/range scans are linear in selected vertices. Polygon validation
+remains quadratic per ring, with additional hole/component comparisons. Factor
+changes run synchronously from frozen originals. State reads do not recalculate;
+preview snapshots copy selected output. These local timings are not frame-rate
+or supported-size guarantees. Large complex workloads need separate measurement.

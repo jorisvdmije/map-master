@@ -8,6 +8,7 @@ separately so consumers can integrate without depending on internal modules.
 | Set up a MapLibre host and use the editor | [GeometryEditor API](geometry-editor.md), [integration setup](line-editor.md#integrate) |
 | Apply atomic create/update/delete batches | [Transactions and event semantics](transactions.md) |
 | Import and edit multipart lines/polygons | [Multipart geometry](multipart.md) |
+| Scale lines and polygons together | [Selection scaling](scaling.md) |
 | Rotate lines and polygons together | [Selection rotation](rotation.md) |
 | Edit two adjoining polygons together | [Shared boundaries](shared-boundaries.md) |
 | Follow existing edges while drawing | [Boundary tracing](tracing.md) |

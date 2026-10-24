@@ -16,7 +16,9 @@ src/
     geojson-import.ts        Validate/copy entire import batches and JSON properties
     polygon.ts               Ring validity, closure, exterior winding
     union.ts                 Polygon union adapter
-    rotation.ts              Mercator pivot, angle normalization and baseline rotation
+    mercator-transform.ts    Shared projection, pivot validation and bounds centre
+    rotation.ts              Angle normalization and baseline rotation
+    scaling.ts               Positive factor validation and baseline scaling
     shared-boundary.ts       Exact shared-chain discovery and paired result validation
     trace-boundary.ts        Explicit source addressing, attachment and route selection
     reshape-polygon.ts       Boundary attachments, arc choice and strict route validation
@@ -397,10 +399,21 @@ See [shared boundaries](shared-boundaries.md) for the public contract.
 
 ## Selection rotation
 
-`core/rotation.ts` computes the fixed projected bounds centre and rotates every
+`core/mercator-transform.ts` computes the fixed projected bounds centre;
+`core/rotation.ts` rotates every
 coordinate from immutable selected originals. `DrawingSession` owns the angle,
 pivot and cached result, using transaction preparation for preview validation and
 again before committing. `GeometryEditor` exposes the review lifecycle; the renderer
 shows selected result geometry and a pivot marker without committed-source uploads.
 The host demo owns numeric/step controls; map shortcuts reuse Enter/Escape handling.
 See [rotation](rotation.md) for coordinate conventions, limits and event semantics.
+
+## Selection scaling
+
+`core/scaling.ts` scales each stored vertex uniformly in the Mercator plane,
+sharing projection and pivot rules with rotation. DrawingSession freezes selected
+originals and the pivot, validates candidates through prepareTransaction, and
+caches the preview/error until the next factor change. Confirmation revalidates
+and records one transaction. The MapLibre adapter shares the transform renderer
+with rotation, hides valid-preview originals and restores them on cancellation.
+See [scaling](scaling.md) for factor, coordinate and lifecycle contracts.

@@ -59,6 +59,7 @@ export interface SplitPreview {
   created: PolygonFeature['geometry'];
 }
 
+export type ScaleError = 'scale-out-of-bounds' | 'scale-invalid-result';
 export type RotationError = 'rotation-out-of-bounds' | 'rotation-invalid-result';
 
 /** Two complete polygon previews in selection order. */
@@ -157,7 +158,7 @@ export interface HistoryEvent {
 }
 
 export interface EditorState {
-  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon' | 'edit-shared-boundary' | 'rotate-features';
+  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon' | 'edit-shared-boundary' | 'rotate-features' | 'scale-features';
   vertexCount: number;
   featureCount: number;
   /** The sole selected ID, or null for zero/multiple selections. */
@@ -186,6 +187,11 @@ export interface EditorState {
   /** Fixed geographic pivot; an independent snapshot, null outside rotation. */
   rotationPivot: Coordinate | null;
   rotationError: RotationError | null;
+  /** Positive uniform factor from entry geometry; null outside scaling. */
+  scaleFactor: number | null;
+  /** Fixed geographic pivot; an independent snapshot, null outside scaling. */
+  scalePivot: Coordinate | null;
+  scaleError: ScaleError | null;
   reshapeError: ReshapeError | null;
   /** Selected old boundary arc; null outside reshape. */
   reshapeSide: ReshapeSide | null;

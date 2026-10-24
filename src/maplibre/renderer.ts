@@ -56,8 +56,8 @@ export class MapLibreRenderer {
         paint: { 'circle-radius': ['case', ['boolean', ['get', 'active'], false], 7, 5],
           'circle-color': ['case', ['boolean', ['get', 'locked'], false], '#64748b', ['boolean', ['get', 'active'], false], '#df772e', '#fff'],
           'circle-stroke-color': '#df772e', 'circle-stroke-width': 2 } },
-      { id: `${namespace}-rotation-pivot`, type: 'circle', source: this.draftId,
-        filter: ['==', 'kind', 'rotation-pivot'],
+      { id: `${namespace}-transform-pivot`, type: 'circle', source: this.draftId,
+        filter: ['==', 'kind', 'transform-pivot'],
         paint: { 'circle-radius': 6, 'circle-color': '#fff', 'circle-stroke-color': '#1e293b', 'circle-stroke-width': 3 } },
       { id: `${namespace}-snap`, type: 'circle', source: this.draftId,
         filter: ['==', 'kind', 'snap'],
@@ -176,14 +176,14 @@ export class MapLibreRenderer {
     this.translationPreview.render(features.map((feature) => feature.geometry));
   }
 
-  renderRotation(collection: GeometryFeatureCollection | null, pivot: Coordinate): void {
+  renderTransform(collection: GeometryFeatureCollection | null, pivot: Coordinate): void {
     this.translationVisible = false; this.translationPreview.clear();
     const features = collection?.features ?? [];
     this.draftBorder.render(features.map((feature) => feature.geometry));
     // Do not copy application properties into renderer styling fields.
     void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection', features: [
       ...features.map((feature) => ({ type: 'Feature' as const, properties: {}, geometry: feature.geometry })),
-      { type: 'Feature', properties: { kind: 'rotation-pivot' }, geometry: { type: 'Point', coordinates: pivot } },
+      { type: 'Feature', properties: { kind: 'transform-pivot' }, geometry: { type: 'Point', coordinates: pivot } },
     ] });
   }
 

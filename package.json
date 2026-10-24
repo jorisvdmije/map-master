@@ -47,6 +47,7 @@
     "benchmark:transactions": "npm run build && node scripts/benchmark-transactions.mjs",
     "benchmark:split": "npm run build && node scripts/benchmark-split.mjs",
     "benchmark:union": "npm run build && node scripts/benchmark-union.mjs",
+    "benchmark:scaling": "npm run build && node scripts/benchmark-scaling.mjs",
     "benchmark:rotation": "npm run build && node scripts/benchmark-rotation.mjs",
     "benchmark:shared-boundary": "npm run build && node scripts/benchmark-shared-boundary.mjs",
     "benchmark:trace": "npm run build && node scripts/benchmark-trace.mjs",

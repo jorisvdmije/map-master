@@ -160,6 +160,14 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const rotationAngle: number | null = tool.getState().rotationAngle;
   const rotated: editor.TransactionEvent | null = tool.finishRotation();
   void [rotating, rotationPreview, rotationError, rotationPivot, rotationAngle, rotated];
+  const scaling: boolean = tool.scaleSelection([4.895, 52.372]);
+  tool.setScaleFactor(2);
+  const scalePreview: editor.GeometryFeatureCollection | null = tool.getScalePreview();
+  const scaleError: editor.ScaleError | null = tool.getState().scaleError;
+  const scalePivot: editor.Coordinate | null = tool.getState().scalePivot;
+  const scaleFactor: number | null = tool.getState().scaleFactor;
+  const scaled: editor.TransactionEvent | null = tool.finishScale();
+  void [scaling, scalePreview, scaleError, scalePivot, scaleFactor, scaled];
   const translated: editor.TransactionEvent | null = tool.translateSelection([0.01, -0.01]);
   void translated;
   const deletedSelection: editor.TransactionEvent | null = tool.deleteSelection();

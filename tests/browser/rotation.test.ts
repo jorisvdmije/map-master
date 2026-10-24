@@ -39,7 +39,7 @@ it('rotates clockwise in map space, previews without uploads, and saves once wit
   expect(rotated.y).toBeCloseTo(pivot.y + (original.x - pivot.x), 6);
   await expect.poll(draft).toHaveLength(3);
   expect((await draft()).filter((f) => f.geometry.type !== 'Point').map((f) => f.geometry)).toEqual(preview.features.map((f) => f.geometry));
-  expect((await draft()).filter((f) => f.properties?.kind === 'rotation-pivot')).toHaveLength(1);
+  expect((await draft()).filter((f) => f.properties?.kind === 'transform-pivot')).toHaveLength(1);
   for (const id of ['0', '"0"']) expect(map.getFeatureState({ source: sourceId('-features'), id })).toMatchObject({ editing: true, selected: true });
   await click(550, 350); await userEvent.keyboard('{Backspace}');
   expect(editor.getSnap()).toBeNull(); expect(editor.getDraft()).toEqual([]); expect(editor.getState().selectedFeatureIds).toEqual([0, '0']);
