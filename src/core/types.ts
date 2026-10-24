@@ -104,6 +104,13 @@ export interface TracingOptions {
   side: TraceSide;
 }
 
+/** Pointer placement aid; exact snapping, tracing and polygon closure take precedence. */
+export interface DrawingConstraintsOptions {
+  enabled: boolean;
+  /** Absolute north/east-aligned directions in the Mercator plane; default 45. */
+  angleStep: 45 | 90;
+}
+
 export interface SnappingOptions {
   enabled: boolean;
   /** Acquisition radius in CSS pixels, default 18, range (0, 100]. */
@@ -126,6 +133,8 @@ export interface SnapResult {
 }
 
 export interface EditorOptions {
+  /** Opt-in angle constraints for new line, polygon and hole segments. Alt bypasses them. */
+  drawingConstraints?: Partial<DrawingConstraintsOptions>;
   /** Maximum retained actions, default 100; 0 disables history. Not a byte limit. */
   historyLimit?: number;
   /** Drawing and vertex-drag snapping is opt-in; vertices/edges default true, distance defaults to 18. */

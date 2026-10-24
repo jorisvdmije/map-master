@@ -20,6 +20,8 @@ const finish = element<HTMLButtonElement>('finish');
 const cancel = element<HTMLButtonElement>('cancel');
 const undo = element<HTMLButtonElement>('undo');
 const redo = element<HTMLButtonElement>('redo');
+const drawingConstraints = element<HTMLInputElement>('drawing-constraints');
+const angleStep = element<HTMLSelectElement>('angle-step');
 const snapping = element<HTMLInputElement>('snapping');
 const tracing = element<HTMLInputElement>('tracing');
 const traceSide = element<HTMLButtonElement>('trace-side');
@@ -134,6 +136,10 @@ map.on('load', () => {
   let ringSelectionId: string | number | null = null;
   const update = (): void => {
     const state = activeEditor.getState();
+    drawingConstraints.disabled = false;
+    drawingConstraints.checked = activeEditor.getDrawingConstraints().enabled;
+    angleStep.disabled = !drawingConstraints.checked;
+    angleStep.value = String(activeEditor.getDrawingConstraints().angleStep);
     snapping.disabled = false;
     snapping.checked = activeEditor.getSnapping().enabled;
     tracing.disabled = false; tracing.checked = activeEditor.getTracing().enabled;
@@ -352,6 +358,8 @@ map.on('load', () => {
 tracing.addEventListener('change', () => { editor?.setTracing({ enabled: tracing.checked }); });
 traceSide.addEventListener('click', () => { editor?.setTracing({ side: editor.getTracing().side === 'shorter' ? 'longer' : 'shorter' }); });
 
+drawingConstraints.addEventListener('change', () => { editor?.setDrawingConstraints({ enabled: drawingConstraints.checked }); });
+angleStep.addEventListener('change', () => { editor?.setDrawingConstraints({ angleStep: Number(angleStep.value) as 45 | 90 }); });
 snapping.addEventListener('change', () => {
   editor?.setSnapping({ enabled: snapping.checked });
 });

@@ -671,3 +671,24 @@ remains quadratic per ring, with additional hole/component comparisons. Factor
 changes run synchronously from frozen originals. State reads do not recalculate;
 preview snapshots copy selected output. These local timings are not frame-rate
 or supported-size guarantees. Large complex workloads need separate measurement.
+
+## Drawing constraints
+
+Run `npm run benchmark:constraints`. Each sample resolves 10,000 pointers with a
+45° constraint and a constant-time last-point snapshot from a line draft with
+10, 1,000 or 100,000 vertices. Coordinates stay near the Netherlands. Five warmup
+samples precede 30 measured samples. Draft construction and assertions are excluded.
+
+Local baseline on 2026-10-24: Node v22.23.1, macOS arm64, Apple M2 Pro.
+
+| Draft vertices | 10,000 resolutions median / p95 (ms) |
+| ---: | ---: |
+| 10 | 2.280 / 2.620 |
+| 1,000 | 2.313 / 2.589 |
+| 100,000 | 2.251 / 2.522 |
+
+The added angle calculation and anchor lookup have constant work per pointer.
+This benchmark excludes MapLibre unprojection, snapping acquisition, the existing
+preview renderer and topology validation. It measures incremental constraint cost,
+not complete input-to-frame latency or supported drawing sizes. Measurements are
+local baselines, not CI timing budgets.

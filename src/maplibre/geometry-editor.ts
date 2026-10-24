@@ -1,6 +1,7 @@
+import { constrainDrawingPoint, drawingConstraintsOptions } from '../core/drawing-constraints.js';
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { DrawingSession } from '../core/drawing-session.js';
-import type { Coordinate, SharedBoundaryPreview, TraceTarget, TraceSide, TracingOptions, ReshapePreview, ReshapeSide, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
+import type { Coordinate, DrawingConstraintsOptions, SharedBoundaryPreview, TraceTarget, TraceSide, TracingOptions, ReshapePreview, ReshapeSide, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
 import { ReshapeSnapping } from './reshape-snapping.js';
 import { MapLibreSnapping } from './snapping.js';
@@ -15,6 +16,7 @@ import { GeoJSONImportError } from '../core/geojson-import.js';
 const editors = new WeakSet<MapLibreMap>();
 /** Public drawing API. MapLibre input and rendering stay behind this boundary. */
 export class GeometryEditor {
+  private drawingConstraints: DrawingConstraintsOptions;
   private tracing: TracingOptions;
   private traceAnchor: { target: TraceTarget; coordinate: Coordinate } | null = null;
   private traceCache: { key: string; path: Coordinate[] | null } | null = null;
@@ -50,6 +52,7 @@ export class GeometryEditor {
       throw new Error('GeometryEditor requires HTTPS or localhost for feature IDs.');
     }
     this.view = view;
+    this.drawingConstraints = drawingConstraintsOptions(options.drawingConstraints);
     this.tracing = this.tracingOptions(options.tracing ?? {});
     this.events = new EditorEvents((error) => { view.queueMicrotask(() => { throw error; }); });
     this.session = new DrawingSession(() => view.crypto.randomUUID(), options.historyLimit);
@@ -204,6 +207,15 @@ export class GeometryEditor {
       && (mode === 'draw-line' || mode === 'draw-polygon' || mode === 'draw-hole');
   }
 
+  getDrawingConstraints(): DrawingConstraintsOptions { return { ...this.drawingConstraints }; }
+  setDrawingConstraints(update: Partial<DrawingConstraintsOptions>): void {
+    this.assertAlive();
+    const next = drawingConstraintsOptions(update, this.drawingConstraints);
+    if (next.enabled === this.drawingConstraints.enabled && next.angleStep === this.drawingConstraints.angleStep) return;
+    this.drawingConstraints = next;
+    this.schedulePreview(); this.emitChange();
+  }
+
   getSnapping(): SnappingOptions { return this.snapping.getOptions(); }
   setSnapping(options: Partial<SnappingOptions>): void {
     this.assertAlive();
@@ -212,7 +224,7 @@ export class GeometryEditor {
     this.vertices.refresh();
     if (this.pointer && this.isDrawing()) {
       const resolved = this.resolvePointer(this.pointer);
-      this.cursor = resolved.coordinate;
+      this.cursor = resolved.blocked ? undefined : resolved.coordinate;
       this.setSnap(resolved.snap);
     }
     this.schedulePreview();
@@ -714,7 +726,7 @@ export class GeometryEditor {
     }
     if (resolved.close) { this.finish(); return; }
     if (state.mode === 'reshape-polygon' && state.vertexCount === 0 && resolved.snap?.featureId !== state.selectedFeatureId) return;
-    if (!this.session.add(resolved.coordinate)) return;
+    if (resolved.blocked || !this.session.add(resolved.coordinate)) return;
     this.traceAnchor = this.canTracePointer() && resolved.snap?.featureId !== null && resolved.snap && !this.altPressed
       ? { target: { featureId: resolved.snap.featureId, ...(resolved.snap.partIndex === undefined ? {} : { partIndex: resolved.snap.partIndex }),
         ...(resolved.snap.ringIndex === undefined ? {} : { ringIndex: resolved.snap.ringIndex }) }, coordinate: [...resolved.coordinate] } : null;
@@ -787,7 +799,7 @@ export class GeometryEditor {
     this.events.emit('snap', () => result ? structuredClone(result) : null);
   }
 
-  private resolvePointer(point: ScreenPoint, altPressed = this.altPressed): { coordinate: Coordinate; snap: SnapResult | null; close: boolean } {
+  private resolvePointer(point: ScreenPoint, altPressed = this.altPressed): { coordinate: Coordinate; snap: SnapResult | null; close: boolean; blocked?: boolean } {
     const options = this.snapping.getOptions();
     const state = this.session.state;
     if (state.mode === 'reshape-polygon') {
@@ -806,7 +818,16 @@ export class GeometryEditor {
     }
     const excludedId = state.mode === 'edit-shared-boundary' ? new Set(state.selectedFeatureIds) : state.mode.startsWith('edit-') || state.mode === 'draw-hole' || state.mode === 'reshape-polygon' ? state.selectedFeatureId : null;
     const snap = altPressed ? null : this.snapping.resolve(point, state.dataRevision, () => this.session.exportGeoJSON(), excludedId, this.canTracePointer());
-    return { coordinate: snap?.coordinate ?? this.map.unproject([point.x, point.y]).wrap().toArray(), snap, close: false };
+    const coordinate = snap?.coordinate ?? this.map.unproject([point.x, point.y]).wrap().toArray();
+    if (!snap && !altPressed && this.drawingConstraints.enabled
+      && (state.mode === 'draw-line' || state.mode === 'draw-polygon' || state.mode === 'draw-hole')) {
+      const anchor = this.session.getLastDrawPoint();
+      if (anchor) {
+        const constrained = constrainDrawingPoint(anchor, coordinate, this.drawingConstraints.angleStep);
+        return { coordinate: constrained ?? coordinate, snap: null, close: false, blocked: constrained === null };
+      }
+    }
+    return { coordinate, snap, close: false };
   }
 
   private isDrawing(): boolean {
@@ -870,7 +891,7 @@ export class GeometryEditor {
       this.frame = undefined;
       if (this.pointer && this.isDrawing()) {
         const resolved = this.resolvePointer(this.pointer);
-        this.cursor = resolved.coordinate;
+        this.cursor = resolved.blocked ? undefined : resolved.coordinate;
         this.setSnap(resolved.snap);
       }
       if (this.destroyed || this.translation.active) return;

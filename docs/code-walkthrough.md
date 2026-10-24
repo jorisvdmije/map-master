@@ -16,6 +16,7 @@ src/
     geojson-import.ts        Validate/copy entire import batches and JSON properties
     polygon.ts               Ring validity, closure, exterior winding
     union.ts                 Polygon union adapter
+    drawing-constraints.ts   Validated angle options and pure Mercator ray constraint
     mercator-transform.ts    Shared projection, pivot validation and bounds centre
     rotation.ts              Angle normalization and baseline rotation
     scaling.ts               Positive factor validation and baseline scaling
@@ -417,3 +418,12 @@ caches the preview/error until the next factor change. Confirmation revalidates
 and records one transaction. The MapLibre adapter shares the transform renderer
 with rotation, hides valid-preview originals and restores them on cancellation.
 See [scaling](scaling.md) for factor, coordinate and lifecycle contracts.
+
+## Drawing constraints
+
+`core/drawing-constraints.ts` validates opt-in 45°/90° options and constrains a
+pointer coordinate to a Mercator direction from a supplied anchor. The adapter
+applies it after exact snapping/closure acquisition, only for line/polygon/hole
+drawing. The session supplies a constant-time copied anchor; the complete draft
+is not copied for this new calculation. Rejected out-of-range candidates neither
+render nor append a point. Existing tracing, commit and history paths are reused.

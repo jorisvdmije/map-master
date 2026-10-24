@@ -1,6 +1,7 @@
 # Incremental roadmap
 
-Steps 0–17b have been implemented locally; subsequent steps are planned. The
+Steps 0–17b and the drawing-constraints part of 17c have been implemented locally;
+subsequent steps are planned. The
 workflow still needs a GitHub remote to run in hosted CI. Each row describes
 a reviewable change or a milestone that can be split further when needed. Create
 each branch from updated `main` after its dependencies have merged.
@@ -33,7 +34,11 @@ each branch from updated `main` after its dependencies have merged.
 | 16c | `feat/shared-boundaries` | Implemented: edit one exactly matching shared chain of two single-ring polygons, fixed junctions, two-result preview, validation, snapping exclusions, atomic save/Undo, demo, tests and benchmark. See [shared boundaries](shared-boundaries.md). |
 | 17a | `feat/rotate-features` | Implemented: clockwise Mercator rotation of mixed selections, fixed/default or explicit pivot, numeric preview, validity checks, atomic save/Undo, demo, tests and benchmark. See [rotation](rotation.md). |
 | 17b | `feat/scale-features` | Implemented: uniform positive Mercator scaling of mixed selections, fixed/default or explicit pivot, numeric preview, validation, atomic save/Undo, demo, tests and benchmark. See [scaling](scaling.md). |
-| 17c | Separate precision/geometry-operation branches | Planned: constraints, buffer/offset, simplify and trim/extend with explicit measurement units. |
+| 17c.1 | `feat/drawing-constraints` | Implemented: optional 45°/90° Mercator drawing directions, exact snapping/tracing/closure precedence, Alt bypass, live controls, tests and benchmark. See [drawing constraints](drawing-constraints.md). |
+| 17c.2 | `feat/simplify-features` | Planned: simplify selected geometry with explicit tolerance, preview, topology validation and atomic Undo. |
+| 17c.3 | `feat/buffer-features` | Planned: buffers with an explicit distance/unit/projection policy, preview and atomic Undo. |
+| 17c.4 | `feat/offset-lines` | Planned: parallel lines with explicit distance units and corner/end policies. |
+| 17c.5 | `feat/trim-extend` | Planned: trim/extend lines to target geometry with preview and atomic Undo. |
 
 Steps 2–7 produce the first small CRUD editor. Step 8 adds recovery from user
 mistakes. Step 9 adds precise placement against existing shapes. Later candidates include touch interactions,

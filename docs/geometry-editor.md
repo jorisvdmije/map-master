@@ -50,6 +50,8 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `getTracePreview()` | Independent prospective source route while hovering, or null. |
 | `traceBoundary(target, from, to, side?)` | Append a whole source section while drawing a line, polygon or hole. |
 | `removeLastDrawStep()` | Remove one drawing click, including a complete traced section. |
+| `getDrawingConstraints()` | Independent options snapshot: enabled and angleStep (45 or 90). |
+| `setDrawingConstraints(options)` | Update the opt-in direction grid for free drawing placement; exact snaps, tracing and closure take priority. |
 | `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`, `differenceError`, `intersectionError`, `reshapeError`, `reshapeSide`, `sharedBoundaryError`, `rotationAngle`, `rotationPivot`, `rotationError`, `scaleFactor`, `scalePivot`, `scaleError`. |
 | `scaleSelection(pivot?)` | Start a uniform scale review around a fixed Mercator pivot. |
 | `setScaleFactor(factor)` | Set an absolute positive factor from entry geometry; validate the whole preview. |
@@ -892,3 +894,12 @@ and multipart geometry. `setScaleFactor(factor)` applies a positive uniform fact
 from the entry baseline around a fixed projected bounds centre or explicit pivot.
 `getScalePreview()` returns the validated output; `finishScale()` saves the group
 as one transaction and one Undo. See [scaling](scaling.md) for the full contract.
+
+## Fixed drawing angles
+
+Pass `drawingConstraints: { enabled: true, angleStep: 45 }` to the constructor, or
+use `setDrawingConstraints` to switch live between 45° and 90° Mercator directions.
+Only new free pointer placements for lines, polygons and holes are affected.
+Exact snapping/tracing and polygon closure take priority; Alt bypasses the angle
+constraint and snapping. The default is disabled. See [drawing constraints](drawing-constraints.md)
+for coordinate limits, precedence, public types and lifecycle behavior.

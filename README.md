@@ -12,6 +12,7 @@ as GeoJSON through one GeometryEditor API.
 [Atomic transactions](docs/transactions.md) can create, update, and delete multiple
 features as one validated batch and one undo action.
 [Polygon union](docs/union.md) previews and merges selected polygons into one feature with atomic Undo.
+[Fixed drawing angles](docs/drawing-constraints.md) optionally constrain free pointer placement to 45° or 90° map directions, with Alt bypass and exact snapping priority.
 [Selection scaling](docs/scaling.md) resizes mixed selections around a fixed pivot, with numeric preview and atomic Undo.
 [Selection rotation](docs/rotation.md) rotates mixed selections in the Mercator plane, with a fixed pivot, numeric preview and atomic Undo.
 
@@ -113,6 +114,7 @@ npm run check
 | `npm test` | Run core behavior tests and test the packed library in an isolated consumer. |
 | `npm run test:browser` | Build the package and run real Chromium interaction and demo tests. |
 | `npm run build:demo` | Build the library and a deployable demo in `examples/basic/dist/`. |
+| `npm run benchmark:constraints` | Measure angle resolution and anchor lookup across draft sizes. |
 | `npm run benchmark:scaling` | Measure scale entry, validated preview, commit and Undo for polygons and groups. |
 | `npm run benchmark:rotation` | Measure rotation entry, validated preview, commit and Undo for polygons and groups. |
 | `npm run benchmark:shared-boundary` | Measure shared-chain entry, two-polygon preview validation, atomic commit and Undo. |

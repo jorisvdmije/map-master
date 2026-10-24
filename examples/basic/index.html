@@ -9,7 +9,7 @@
   <body>
     <header class="header">
       <a class="brand" href="/" aria-label="geo home"><span class="brand-mark">g.</span>geo<span class="brand-divider"></span><span class="brand-caption">Drawing playground</span></a>
-      <span class="milestone"><span class="dot"></span> Milestone 17b <span class="milestone-label">/ Scaling</span></span>
+      <span class="milestone"><span class="dot"></span> Milestone 17c <span class="milestone-label">/ Drawing constraints</span></span>
     </header>
     <main class="workspace">
       <aside class="sidebar" aria-label="Drawing tools">
@@ -53,6 +53,12 @@
             <button id="scale-double" class="button secondary" type="button">Double size</button>
           </div>
           <p id="scale-help">1 keeps the original size; 0.5 halves it; 2 doubles it. All selected shapes scale together around the white centre marker. Apply saves the preview; Cancel keeps the originals.</p>
+        </section>
+        <section class="snapping-tools" aria-label="Drawing constraints">
+          <label class="snap-toggle"><input id="drawing-constraints" type="checkbox" disabled /> Fixed drawing angles</label>
+          <label for="angle-step">Angle step</label>
+          <select id="angle-step" disabled><option value="45">45° — axes and diagonals</option><option value="90">90° — axes only</option></select>
+          <p>New line and polygon segments follow map directions. Snapping, tracing and closing take priority. Hold Alt to draw freely.</p>
         </section>
         <section class="snapping-tools" aria-label="Snapping">
           <label class="snap-toggle"><input id="snapping" type="checkbox" checked disabled /> Snap to vertices &amp; edges</label>

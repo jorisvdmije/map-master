@@ -152,6 +152,9 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const duplicated: editor.TransactionEvent | null = tool.duplicateSelection();
   tool.duplicateSelection([0.01, -0.01]);
   void duplicated;
+  const constraints: editor.DrawingConstraintsOptions = tool.getDrawingConstraints();
+  tool.setDrawingConstraints({ enabled: true, angleStep: 90 });
+  tool.setDrawingConstraints({ enabled: constraints.enabled, angleStep: constraints.angleStep });
   const rotating: boolean = tool.rotateSelection([4.895, 52.372]);
   tool.setRotationAngle(30);
   const rotationPreview: editor.GeometryFeatureCollection | null = tool.getRotationPreview();

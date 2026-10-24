@@ -142,3 +142,9 @@ transaction/Undo, unchanged IDs/properties, and degree offsets without snapping.
 IDs. The optional offset is in degrees and defaults to `[0, 0]`. It emits one
 `onTransaction` and supports one Undo for the batch; see the shared
 [duplication contract](geometry-editor.md#duplicate-selected-shapes).
+
+## Fixed drawing angles
+
+The compatibility facade accepts `drawingConstraints` in its constructor options
+and exposes `getDrawingConstraints()` / `setDrawingConstraints(options)`. See
+[drawing constraints](drawing-constraints.md) for the shared 45°/90° placement policy.

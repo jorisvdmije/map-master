@@ -170,6 +170,12 @@ export class DrawingSession {
     return true;
   }
 
+  /** Constant-time snapshot for pointer constraints; avoids copying the complete draft. */
+  getLastDrawPoint(): Coordinate | null {
+    const point = this.draft.at(-1);
+    return point ? [...point] : null;
+  }
+
   getDraft(): Coordinate[] {
     return this.draft.map(([lng, lat]) => [lng, lat]);
   }
