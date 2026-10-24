@@ -9,7 +9,7 @@
   <body>
     <header class="header">
       <a class="brand" href="/" aria-label="geo home"><span class="brand-mark">g.</span>geo<span class="brand-divider"></span><span class="brand-caption">Drawing playground</span></a>
-      <span class="milestone"><span class="dot"></span> Milestone 16a <span class="milestone-label">/ Polygon reshape</span></span>
+      <span class="milestone"><span class="dot"></span> Milestone 16b <span class="milestone-label">/ Boundary tracing</span></span>
     </header>
     <main class="workspace">
       <aside class="sidebar" aria-label="Drawing tools">
@@ -37,6 +37,9 @@
         <section class="snapping-tools" aria-label="Snapping">
           <label class="snap-toggle"><input id="snapping" type="checkbox" checked disabled /> Snap to vertices &amp; edges</label>
           <p>Hold Alt to place a point freely.</p>
+          <label class="snap-toggle"><input id="tracing" type="checkbox" disabled /> Trace existing boundaries</label>
+          <button id="trace-side" class="button secondary" aria-pressed="false" hidden>Other trace route</button>
+          <p id="trace-help" class="snap-status" hidden>Click two points on the same boundary to follow its corners. Alt draws freely. Backspace removes the last section.</p>
           <p id="snap-status" class="snap-status" role="status">Draw near an existing shape to snap.</p>
         </section>
         <div id="status" class="status" role="status">Loading the map…</div>
@@ -82,6 +85,7 @@
           <p id="import-help" class="import-help">Add lines and polygons, including multipart features, from a file (up to 5 MB). Existing shapes stay on the map.</p>
           <p class="import-help"><a href="./multipart.geojson" download>Download a multipart example</a> to try with Import GeoJSON.</p>
           <p class="import-help"><a href="./union.geojson" download>Download overlapping polygons</a>, import them, then Shift+click to select both and merge.</p>
+          <p class="import-help"><a href="./trace.geojson" download>Download a tracing example</a>. Import it, enable Trace existing boundaries, start a line and click two points on the outline.</p>
           <p class="import-help"><a href="./reshape.geojson" download>Download a reshape example</a>. Select it, choose Reshape polygon, then draw a route starting and ending on its boundary.</p>
           <p class="import-help"><a href="./intersection.geojson" download>Download an intersection example</a>. Shift+click all three polygons and choose Intersect polygons to keep their common area.</p>
           <p class="import-help"><a href="./difference.geojson" download>Download a subtraction example</a>. Select the west target first, then Shift+click the east cutter and choose Subtract polygons.</p>

@@ -1,0 +1,42 @@
+import { Map } from 'maplibre-gl';
+import { expect, it, vi } from 'vitest';
+import { page, userEvent } from 'vitest/browser';
+import type { Coordinate, GeometryFeatureCollection } from '../../src/index.js';
+import html from '../../examples/basic/index.html?raw';
+import fixture from '../../examples/basic/public/trace.geojson?raw';
+it('demonstrates tracing through the real controls and exported GeoJSON', async () => {
+  const spy = vi.spyOn(Map.prototype, 'fitBounds'); let map: Map | undefined;
+  try {
+    history.replaceState(null, '', `${location.pathname}?basemap=off`);
+    document.body.innerHTML = new DOMParser().parseFromString(html, 'text/html').body.innerHTML;
+    document.querySelectorAll('script').forEach((script) => { script.remove(); });
+    await import('../../examples/basic/main.js');
+    const input = page.getByLabelText('Import GeoJSON'); await expect.element(input).toBeEnabled();
+    await input.upload(new File([fixture], 'trace.geojson', { type: 'application/geo+json' }));
+    await expect.poll(() => spy.mock.contexts[0]).toBeDefined(); const instance = spy.mock.contexts[0];
+    if (!(instance instanceof Map)) throw new Error('Expected map after import.'); map = instance;
+    const canvas = document.querySelector('canvas')!;
+    const output = (): GeometryFeatureCollection => JSON.parse(document.querySelector<HTMLTextAreaElement>('#output')!.value) as GeometryFeatureCollection;
+    const original = output(); const click = (coordinate: Coordinate) => userEvent.click(canvas, { position: instance.project(coordinate) });
+    await page.getByLabelText('Trace existing boundaries', { exact: true }).click();
+    await page.getByRole('button', { name: 'Line drawing', exact: true }).click();
+    await page.getByRole('button', { name: 'Draw a line', exact: true }).click();
+    await click([4.890, 52.370]);
+    await page.getByRole('button', { name: 'Other trace route', exact: true }).click();
+    await expect.element(page.getByRole('button', { name: 'Use shorter trace route', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'Use shorter trace route', exact: true }).click();
+    await click([4.891, 52.373]); expect(output()).toEqual(original);
+    await page.getByRole('button', { name: 'Finish', exact: true }).click();
+    const after = output(); expect(after.features).toHaveLength(2); expect(after.features[0]).toEqual(original.features[0]);
+    const created = after.features[1]!;
+    expect(created.geometry.type).toBe('LineString');
+    if (created.geometry.type !== 'LineString') throw new Error('Expected a traced line.');
+    expect(created.geometry.coordinates).toHaveLength(5);
+    expect(created.geometry.coordinates.slice(1, -1)).toEqual([[4.894, 52.370], [4.894, 52.372], [4.891, 52.372]]);
+    await page.getByRole('button', { name: 'Undo', exact: true }).click(); expect(output()).toEqual(original);
+    await page.getByRole('button', { name: 'Redo', exact: true }).click(); expect(output()).toEqual(after);
+    await page.getByRole('button', { name: 'Draw a line', exact: true }).click();
+    await click([4.886, 52.370]); await click([4.891, 52.375]);
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click(); expect(output()).toEqual(after);
+  } finally { map?.remove(); spy.mockRestore(); }
+});

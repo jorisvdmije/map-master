@@ -23,7 +23,15 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const committed: editor.TransactionEvent | null = tool.applyTransaction(transaction);
   tool.onTransaction((event: editor.TransactionEvent) => { const changes: editor.FeatureChange[] = event.changes; void changes; });
   void committed;
+  const target: editor.TraceTarget = { featureId: 'boundary', partIndex: 0, ringIndex: 0 };
+  const side: editor.TraceSide = 'shorter';
+  tool.setTracing({ enabled: true, side });
+  const tracing: editor.TracingOptions = tool.getTracing();
+  const trace: editor.Coordinate[] | null = tool.getTracePreview();
   tool.draw('Polygon');
+  const traced: boolean = tool.traceBoundary(target, [0, 0], [1, 1]);
+  const corrected: boolean = tool.removeLastDrawStep();
+  void [tracing, trace, traced, corrected];
   tool.onCreate((feature) => {
     if (feature.geometry.type === 'Polygon') {
       const rings: editor.Coordinate[][] = feature.geometry.coordinates;

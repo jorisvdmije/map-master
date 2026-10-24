@@ -561,3 +561,30 @@ changes, never pointer motion or state reads. Target-only mouse attachment reuse
 the projected SnapIndex until the camera changes. Cached preview copying/rendering
 still scales with output size. These simple datasets are not a bound for complex
 or poorly conditioned shapes; workload caps and worker execution remain future work.
+
+## Boundary tracing
+
+Run `npm run benchmark:trace`. Fixed regular source rings centered at
+`[4.895, 52.372]`, radius 0.01 degrees, have 10, 100 or 1,000 corners. Each sample
+traces half the ring into a line or polygon draft (6, 51 or 501 points), confirms
+and verifies exact Undo/Redo and unchanged source data. Five warmups precede 30
+samples; preparation/import is outside the timed sections.
+
+Local baseline on 2026-10-24: Apple M2 Pro, macOS arm64, Node.js 22.23.1.
+Values are median / p95 elapsed milliseconds.
+
+| Source corners | Draw type | Route | Append + validation | Commit | Undo |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| 10 | LineString | 0.004 / 0.008 | 0.004 / 0.009 | 0.003 / 0.008 | 0.002 / 0.005 |
+| 10 | Polygon | 0.003 / 0.003 | 0.009 / 0.014 | 0.003 / 0.004 | 0.001 / 0.002 |
+| 100 | LineString | 0.011 / 0.024 | 0.011 / 0.021 | 0.006 / 0.015 | 0.002 / 0.003 |
+| 100 | Polygon | 0.007 / 0.008 | 0.038 / 0.108 | 0.005 / 0.014 | 0.001 / 0.002 |
+| 1,000 | LineString | 0.062 / 0.084 | 0.062 / 0.259 | 0.014 / 0.024 | 0.007 / 0.013 |
+| 1,000 | Polygon | 0.063 / 0.074 | 1.625 / 1.836 | 0.024 / 0.302 | 0.008 / 0.011 |
+
+Route building is O(n) in source-path vertices and does not validate the whole
+draft on hover. Identical pointer-route requests reuse the last cached result.
+Batch insertion avoids validation per inserted corner, but polygon validation
+remains O(m²) in total draft corners. These timings exclude MapLibre snapping,
+projection, uploads and rendering; they are local observations, not supported
+size/frame-rate guarantees or CI budgets. See the snapping baseline for index costs.

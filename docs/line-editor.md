@@ -86,6 +86,7 @@ to the map's `error` event for worker or rendering errors.
 - Plain left clicks add vertices. Consecutive identical positions are ignored.
 - The line follows the mouse as a preview, but finishing includes clicked points only.
 - Enter finishes and Escape cancels only when the map canvas has keyboard focus.
+- Backspace/Delete while drawing removes the last draft point; stored lines stay unchanged.
   Shortcuts do not intercept typing in other inputs or modified key combinations.
 - Drag panning and scroll zoom remain available. Modified clicks do not add points.
 - Double-click zoom is temporarily disabled. A double click does not finish a line

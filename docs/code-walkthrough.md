@@ -16,6 +16,7 @@ src/
     geojson-import.ts        Validate/copy entire import batches and JSON properties
     polygon.ts               Ring validity, closure, exterior winding
     union.ts                 Polygon union adapter
+    trace-boundary.ts        Explicit source addressing, attachment and route selection
     reshape-polygon.ts       Boundary attachments, arc choice and strict route validation
     intersection.ts          Common area of every input; valid empty results
     difference.ts            Target subtraction, empty and exact no-op results
@@ -370,3 +371,14 @@ The original remains visible until a valid result is ready. The shared preview
 renderer draws the result and route handles; Backspace reopens construction.
 Confirmation uses the existing transaction boundary for one update. See
 [reshape](reshape.md) for numerical, event and lifecycle contracts.
+
+## Boundary tracing
+
+`core/trace-boundary.ts` resolves an explicitly addressed source line/ring and
+constructs the route between attachments. `DrawingSession.traceBoundary()` appends
+all corners at once, validates once, and records a draft-step length for correction.
+`GeometryEditor` coordinates mouse anchors, a cached prospective route and tracing
+settings; `MapLibreSnapping` maps edge acquisition onto planar source segments.
+`MapLibreRenderer` adds the prospective route only to preview geometry, leaving
+clicked vertex handles/state untouched. Completion uses normal drawing history.
+See [tracing](tracing.md) for the complete contract.

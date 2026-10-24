@@ -1,3 +1,4 @@
+import { traceBoundary, traceSource } from './trace-boundary.js';
 import { geometryParts, mapGeometry, replacePart, withGeometry, type Geometry, type GeometryPart } from './geometry.js';
 import { reshapePolygon } from './reshape-polygon.js';
 import { splitPolygonRings } from './split-polygon.js';
@@ -10,12 +11,18 @@ import { EditHistory, type HistoryEntry } from './history.js';
 import { copyProperties, prepareImport } from './geojson-import.js';
 import { closePolygon, openRing, samePosition, validatePolygonRings, validateMultiPolygon } from './polygon.js';
 import type {
-  Coordinate, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
+  Coordinate, TraceTarget, TraceSide, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
 } from './types.js';
 
 function copyFeature(feature: GeometryFeature): GeometryFeature {
   return withGeometry({ id: feature.id, properties: copyProperties(feature.properties) },
     mapGeometry(feature.geometry, ([lng, lat]) => [lng, lat]));
+}
+
+/** Match attachments after repeated projection, without a geographic snapping tolerance. */
+function sameTraceAttachment(a: Coordinate, b: Coordinate): boolean {
+  const tolerance = 64 * Number.EPSILON * Math.max(1, Math.abs(a[0]), Math.abs(a[1]));
+  return Math.hypot(a[0] - b[0], a[1] - b[1]) <= tolerance;
 }
 
 /** Internal editing state. No browser, map, or rendering dependencies. */
@@ -41,6 +48,7 @@ export class DrawingSession {
   private splitError: SplitError | null = null;
   private kind: DrawGeometryType | null = null;
   private draft: Coordinate[] = [];
+  private drawingSteps: number[] = [];
   private readonly features = new Map<FeatureId, GeometryFeature>();
   private selectedFeatureIds = new Set<FeatureId>();
   private validationError: ValidationError | null = null;
@@ -99,12 +107,50 @@ export class DrawingSession {
     this.validatePosition([lng, lat]);
     const last = this.draft.at(-1);
     if (last && samePosition(last, [lng, lat])) return false;
+    if (this.canTrace()) this.drawingSteps.push(this.draft.length);
     this.draft.push([lng, lat]);
     if (this.splitId !== null) { this.validateSplit(); return true; }
     if (this.reshapeId !== null) { this.validateReshape(); return true; }
     // Cache validity on clicks. Pointer movement and state reads never run topology checks.
     this.validationError = this.kind === 'Polygon' ? this.validateDraftPolygon()
       : this.draft.length < 2 ? 'too-few-vertices' : null;
+    return true;
+  }
+
+  private canTrace(): boolean {
+    const mode = this.state.mode;
+    return mode === 'draw-line' || mode === 'draw-polygon' || mode === 'draw-hole';
+  }
+
+  getBoundaryTrace(target: TraceTarget, from: Coordinate, to: Coordinate, side: TraceSide = 'shorter'): Coordinate[] | null {
+    const feature = this.features.get(target.featureId);
+    if (!feature) return null;
+    const source = traceSource(feature, target);
+    return source ? traceBoundary(source.points, source.closed, from, to, side) : null;
+  }
+
+  /** Append one traced section as one correctable drawing step, without committing data. */
+  traceBoundary(target: TraceTarget, from: Coordinate, to: Coordinate, side: TraceSide = 'shorter'): boolean {
+    if (!this.canTrace()) return false;
+    const path = this.getBoundaryTrace(target, from, to, side);
+    if (!path) return false;
+    const last = this.draft.at(-1);
+    if (last && !sameTraceAttachment(last, path[0]!)) return false;
+    const addition = last ? path.slice(1) : path;
+    // Polygon closure is implicit in the draft; tracing back to its start adds only intervening corners.
+    if (this.kind === 'Polygon' && this.draft[0] && sameTraceAttachment(this.draft[0], addition.at(-1)!)) addition.pop();
+    if (!addition.length) return false;
+    this.drawingSteps.push(this.draft.length);
+    this.draft = this.draft.concat(addition);
+    this.validationError = this.kind === 'Polygon' ? this.validateDraftPolygon() : this.draft.length < 2 ? 'too-few-vertices' : null;
+    return true;
+  }
+
+  /** Backspace removes the last click, including all corners inserted by a trace. */
+  removeLastDrawStep(): boolean {
+    if (!this.canTrace() || !this.drawingSteps.length) return false;
+    this.draft.length = this.drawingSteps.pop()!;
+    this.validationError = this.kind === 'Polygon' ? this.validateDraftPolygon() : this.draft.length < 2 ? 'too-few-vertices' : null;
     return true;
   }
 
@@ -123,6 +169,7 @@ export class DrawingSession {
       this.commit(original ? 'edit' : 'create', [{ before: original ?? null, after: feature }]);
     }
     this.draft = [];
+    this.drawingSteps = [];
     this.kind = null;
     this.validationError = null;
     this.editingId = null;
@@ -142,6 +189,7 @@ export class DrawingSession {
     this.splitId = null; this.splitPreview = null; this.splitError = null;
     this.kind = null;
     this.draft = [];
+    this.drawingSteps = [];
     this.validationError = null;
     this.editingId = null;
     this.holeId = null;

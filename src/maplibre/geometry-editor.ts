@@ -1,6 +1,6 @@
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { DrawingSession } from '../core/drawing-session.js';
-import type { Coordinate, ReshapePreview, ReshapeSide, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
+import type { Coordinate, TraceTarget, TraceSide, TracingOptions, ReshapePreview, ReshapeSide, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
 import { ReshapeSnapping } from './reshape-snapping.js';
 import { MapLibreSnapping } from './snapping.js';
@@ -15,6 +15,9 @@ import { GeoJSONImportError } from '../core/geojson-import.js';
 const editors = new WeakSet<MapLibreMap>();
 /** Public drawing API. MapLibre input and rendering stay behind this boundary. */
 export class GeometryEditor {
+  private tracing: TracingOptions;
+  private traceAnchor: { target: TraceTarget; coordinate: Coordinate } | null = null;
+  private traceCache: { key: string; path: Coordinate[] | null } | null = null;
   private readonly reshapeSnapping: ReshapeSnapping;
   private readonly snapping: MapLibreSnapping;
   private snap: SnapResult | null = null;
@@ -47,6 +50,7 @@ export class GeometryEditor {
       throw new Error('GeometryEditor requires HTTPS or localhost for feature IDs.');
     }
     this.view = view;
+    this.tracing = this.tracingOptions(options.tracing ?? {});
     this.events = new EditorEvents((error) => { view.queueMicrotask(() => { throw error; }); });
     this.session = new DrawingSession(() => view.crypto.randomUUID(), options.historyLimit);
     this.reshapeSnapping = new ReshapeSnapping(map);
@@ -122,6 +126,7 @@ export class GeometryEditor {
       deselect: () => { this.select(null); },
       deleteSelected: () => { this.deleteSelected(); },
       deleteSelection: () => { this.deleteSelection(); },
+      removeLastDrawStep: () => { this.removeLastDrawStep(); },
       removeSplitPoint: () => { this.removeSplitPoint(); },
       removeReshapePoint: () => { this.removeReshapePoint(); },
       removeVertex: (index) => { this.removeVertex(index); },
@@ -139,10 +144,71 @@ export class GeometryEditor {
     return this.session.state;
   }
 
+  private tracingOptions(update: Partial<TracingOptions>, previous: TracingOptions = { enabled: false, side: 'shorter' }): TracingOptions {
+    const options = { ...previous, ...update };
+    if (typeof options.enabled !== 'boolean' || options.side !== 'shorter' && options.side !== 'longer') throw new TypeError('Invalid tracing options.');
+    return options;
+  }
+
+  getTracing(): TracingOptions { return { ...this.tracing }; }
+  setTracing(update: Partial<TracingOptions>): void {
+    this.assertAlive();
+    const next = this.tracingOptions(update, this.tracing);
+    if (next.enabled === this.tracing.enabled && next.side === this.tracing.side) return;
+    this.tracing = next; this.traceCache = null;
+    if (!next.enabled) this.traceAnchor = null;
+    this.schedulePreview(); this.emitChange();
+  }
+
+  /** Programmatic tracing does not require mouse snapping or the tracing toggle. */
+  traceBoundary(target: TraceTarget, from: Coordinate, to: Coordinate, side: TraceSide = this.tracing.side): boolean {
+    this.assertAlive();
+    const changed = this.session.traceBoundary(target, from, to, side);
+    if (changed) {
+      const last = this.session.getDraft().at(-1)!;
+      this.traceAnchor = { target: { ...target }, coordinate: last };
+      this.traceCache = null; this.pointer = undefined; this.cursor = undefined; this.setSnap(null);
+    }
+    this.draftChanged(changed); return changed;
+  }
+
+  removeLastDrawStep(): boolean {
+    this.assertAlive();
+    const changed = this.session.removeLastDrawStep();
+    if (changed) {
+      const last = this.session.getDraft().at(-1);
+      if (last && this.traceAnchor) this.traceAnchor.coordinate = last;
+      else this.traceAnchor = null;
+      this.traceCache = null;
+    }
+    this.draftChanged(changed); return changed;
+  }
+
+  /** Prospective source route only; pointer motion never changes draft validity or stored data. */
+  getTracePreview(): Coordinate[] | null {
+    if (!this.pointer || !this.canTracePointer() || !this.traceAnchor || this.altPressed) return null;
+    const resolved = this.resolvePointer(this.pointer);
+    const snap = resolved.snap;
+    const { target, coordinate } = this.traceAnchor;
+    if (!resolved.close && (!snap || snap.featureId !== target.featureId
+      || (snap.partIndex ?? 0) !== (target.partIndex ?? 0) || (snap.ringIndex ?? 0) !== (target.ringIndex ?? 0))) return null;
+    const key = JSON.stringify([target, coordinate, resolved.coordinate, this.tracing.side, this.session.state.dataRevision]);
+    if (this.traceCache?.key !== key) this.traceCache = { key, path: this.session.getBoundaryTrace(target, coordinate, resolved.coordinate, this.tracing.side) };
+    return this.traceCache.path?.map((p) => [...p]) ?? null;
+  }
+
+  private canTracePointer(): boolean {
+    const mode = this.session.state.mode;
+    const options = this.snapping.getOptions();
+    return this.tracing.enabled && options.enabled && (options.vertices || options.edges)
+      && (mode === 'draw-line' || mode === 'draw-polygon' || mode === 'draw-hole');
+  }
+
   getSnapping(): SnappingOptions { return this.snapping.getOptions(); }
   setSnapping(options: Partial<SnappingOptions>): void {
     this.assertAlive();
     if (!this.snapping.setOptions(options)) return;
+    if (!this.snapping.getOptions().enabled) { this.traceAnchor = null; this.traceCache = null; }
     this.vertices.refresh();
     if (this.pointer && this.isDrawing()) {
       const resolved = this.resolvePointer(this.pointer);
@@ -546,9 +612,23 @@ export class GeometryEditor {
     this.setSnap(resolved.snap);
     if (this.destroyed || !this.isDrawing()) return;
     this.schedulePreview();
+    const trace = this.getTracePreview();
+    if (trace && this.traceAnchor) {
+      const changed = this.session.traceBoundary(this.traceAnchor.target, trace[0]!, trace.at(-1)!, this.tracing.side);
+      if (changed) {
+        this.traceAnchor.coordinate = this.session.getDraft().at(-1)!; this.traceCache = null;
+        this.cursor = undefined; this.schedulePreview(); this.emitChange();
+      }
+      if (resolved.close) this.finish();
+      return;
+    }
     if (resolved.close) { this.finish(); return; }
     if (state.mode === 'reshape-polygon' && state.vertexCount === 0 && resolved.snap?.featureId !== state.selectedFeatureId) return;
     if (!this.session.add(resolved.coordinate)) return;
+    this.traceAnchor = this.canTracePointer() && resolved.snap?.featureId !== null && resolved.snap && !this.altPressed
+      ? { target: { featureId: resolved.snap.featureId, ...(resolved.snap.partIndex === undefined ? {} : { partIndex: resolved.snap.partIndex }),
+        ...(resolved.snap.ringIndex === undefined ? {} : { ringIndex: resolved.snap.ringIndex }) }, coordinate: [...resolved.coordinate] } : null;
+    this.traceCache = null;
     this.cursor = undefined;
     this.schedulePreview();
     this.emitChange();
@@ -635,7 +715,7 @@ export class GeometryEditor {
       };
     }
     const excludedId = state.mode.startsWith('edit-') || state.mode === 'draw-hole' || state.mode === 'reshape-polygon' ? state.selectedFeatureId : null;
-    const snap = altPressed ? null : this.snapping.resolve(point, state.dataRevision, () => this.session.exportGeoJSON(), excludedId);
+    const snap = altPressed ? null : this.snapping.resolve(point, state.dataRevision, () => this.session.exportGeoJSON(), excludedId, this.canTracePointer());
     return { coordinate: snap?.coordinate ?? this.map.unproject([point.x, point.y]).wrap().toArray(), snap, close: false };
   }
 
@@ -726,11 +806,13 @@ export class GeometryEditor {
       if (this.session.state.mode === 'reshape-polygon') this.renderer.renderEditing(reshape ? this.session.state.selectedFeatureId : null);
       const split = this.session.getSplitPreview();
       if (this.session.state.mode === 'split-polygon') this.renderer.renderEditing(split ? this.session.state.selectedFeatureId : null);
-      this.renderer.renderPreview(this.session.getDraft(), reshape ? undefined : this.cursor, this.session.state, this.snap, split, this.session.getDraftRings(), this.session.getInactiveParts(), reshape);
+      const trace = this.getTracePreview();
+      this.renderer.renderPreview(this.session.getDraft(), reshape || trace ? undefined : this.cursor, this.session.state, this.snap, split, this.session.getDraftRings(), this.session.getInactiveParts(), reshape, trace);
     });
   }
 
   private leaveDrawing(): void {
+    this.traceAnchor = null; this.traceCache = null;
     this.reshapeSnapping.clear();
     this.pointer = undefined;
     this.altPressed = false;
@@ -749,6 +831,7 @@ export class GeometryEditor {
   private dispose(removeResources: boolean): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.traceAnchor = null; this.traceCache = null;
     this.pointer = undefined;
     this.snap = null;
     this.snapping.clear();

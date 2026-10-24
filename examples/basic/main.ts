@@ -21,6 +21,8 @@ const cancel = element<HTMLButtonElement>('cancel');
 const undo = element<HTMLButtonElement>('undo');
 const redo = element<HTMLButtonElement>('redo');
 const snapping = element<HTMLInputElement>('snapping');
+const tracing = element<HTMLInputElement>('tracing');
+const traceSide = element<HTMLButtonElement>('trace-side');
 const download = element<HTMLButtonElement>('export');
 const importFile = element<HTMLInputElement>('import-file');
 const importStatus = element('import-status');
@@ -125,6 +127,13 @@ map.on('load', () => {
     const state = activeEditor.getState();
     snapping.disabled = false;
     snapping.checked = activeEditor.getSnapping().enabled;
+    tracing.disabled = false; tracing.checked = activeEditor.getTracing().enabled;
+    traceSide.hidden = !tracing.checked;
+    traceSide.setAttribute('aria-pressed', String(activeEditor.getTracing().side === 'longer'));
+    traceSide.textContent = activeEditor.getTracing().side === 'longer' ? 'Use shorter trace route' : 'Other trace route';
+    element('trace-help').hidden = !tracing.checked;
+    element('trace-help').textContent = !snapping.checked ? 'Enable snapping to trace existing boundaries.'
+      : `Click two points on the same boundary to follow its corners (${activeEditor.getTracing().side} route). Alt draws freely. Backspace removes the last section.`;
     updateSnapStatus();
     const drawing = state.mode !== 'idle';
     const editing = state.mode.startsWith('edit-');
@@ -294,6 +303,9 @@ map.on('load', () => {
     'raster-saturation': -0.85, 'raster-opacity': 0.72,
   } }, firstOverlay);
 });
+
+tracing.addEventListener('change', () => { editor?.setTracing({ enabled: tracing.checked }); });
+traceSide.addEventListener('click', () => { editor?.setTracing({ side: editor.getTracing().side === 'shorter' ? 'longer' : 'shorter' }); });
 
 snapping.addEventListener('change', () => {
   editor?.setSnapping({ enabled: snapping.checked });

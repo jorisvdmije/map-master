@@ -46,6 +46,10 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `draw('LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
 | `finish()` | Confirm the active tool, returning the resulting feature. Invalid/incomplete previews return `null` and stay active. A valid empty difference/intersection also returns `null`, after deleting the target/all inputs and exiting review. |
 | `cancel()` | Discard the draft or cancel an active selection rectangle or group drag. |
+| `getTracing()` / `setTracing(options)` | Read/update opt-in tracing settings (`enabled`, `side`). |
+| `getTracePreview()` | Independent prospective source route while hovering, or null. |
+| `traceBoundary(target, from, to, side?)` | Append a whole source section while drawing a line, polygon or hole. |
+| `removeLastDrawStep()` | Remove one drawing click, including a complete traced section. |
 | `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`, `differenceError`, `intersectionError`, `reshapeError`, `reshapeSide`. |
 | `reshapeSelected()` | Start a boundary-to-boundary reshape of one selected Polygon without holes. |
 | `setReshapePath(coordinates)` | Replace the draft route; endpoints must attach to the original boundary. |
@@ -412,7 +416,8 @@ prevent later listeners from running. Repeating deletion after selection has
 cleared is a no-op.
 
 Deleting through the API during drawing throws without changing the draft or
-stored features; Delete/Backspace during drawing are ignored. Escape continues
+stored features; Delete/Backspace during drawing removes the last draft step
+(including a whole traced section). Escape continues
 to cancel the draft. After destruction, deleting or subscribing throws. Destroy
 and map removal are lifecycle cleanup and do not emit deletion events.
 
@@ -840,3 +845,12 @@ The repeatable [benchmarks](performance.md) characterize core validation and
 selection, deletion/export, vertex movement, import, undo/export, and snapping index/query costs. Large-dataset rendering,
 interaction latency, memory, touch input, and
 other browser engines still require measurement before production-scale claims.
+
+## Boundary tracing
+
+Use `tracing: { enabled: true }` together with snapping to follow existing line
+segments or polygon rings while drawing. Each click inserts all intervening
+corners as one correctable draft step. `side: 'longer'` selects the other ring arc;
+Backspace/Delete removes the last drawing step. Finish and Undo keep their normal
+drawing behavior. See [tracing](tracing.md) for source addressing, route selection,
+programmatic input, numerical limits and lifecycle contracts.

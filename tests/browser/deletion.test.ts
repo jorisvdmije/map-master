@@ -83,12 +83,12 @@ it.each(['Delete', 'Backspace'])('deletes using focused %s and ignores unrelated
   expect(noSelection.defaultPrevented).toBe(false);
 });
 
-it('does not delete during drawing or damage an unfinished draft', async () => {
+it('corrects the drawing draft without deleting stored features', async () => {
   const feature = await draw('Polygon');
   editor.draw('LineString'); await click(100, 100);
   expect(() => editor.deleteSelected()).toThrow('Finish or cancel');
   await userEvent.keyboard('{Delete}{Backspace}');
-  expect(editor.getState()).toMatchObject({ mode: 'draw-line', vertexCount: 1, featureCount: 1 });
+  expect(editor.getState()).toMatchObject({ mode: 'draw-line', vertexCount: 0, featureCount: 1 });
   expect(editor.exportGeoJSON().features).toEqual([feature]);
   editor.cancel();
 });

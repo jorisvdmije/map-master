@@ -81,6 +81,19 @@ export interface IntersectionPreview {
 }
 export type IntersectionError = 'intersection-failed' | 'intersection-invalid-result';
 
+/** One source path; omitted part/ring indices mean zero. */
+export interface TraceTarget {
+  featureId: FeatureId;
+  partIndex?: number;
+  ringIndex?: number;
+}
+export type TraceSide = 'shorter' | 'longer';
+export interface TracingOptions {
+  enabled: boolean;
+  /** Ring arc length in longitude/latitude units; open lines have one route. */
+  side: TraceSide;
+}
+
 export interface SnappingOptions {
   enabled: boolean;
   /** Acquisition radius in CSS pixels, default 18, range (0, 100]. */
@@ -107,6 +120,8 @@ export interface EditorOptions {
   historyLimit?: number;
   /** Drawing and vertex-drag snapping is opt-in; vertices/edges default true, distance defaults to 18. */
   snapping?: Partial<SnappingOptions>;
+  /** Opt-in boundary tracing while drawing; uses ordinary snapping acquisition. */
+  tracing?: Partial<TracingOptions>;
 }
 
 /** Full feature replacements with explicit IDs. An ID may occur only once per transaction. */

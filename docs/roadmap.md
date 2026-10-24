@@ -1,6 +1,6 @@
 # Incremental roadmap
 
-Steps 0–16a have been implemented locally; subsequent steps are planned. The
+Steps 0–16b have been implemented locally; subsequent steps are planned. The
 workflow still needs a GitHub remote to run in hosted CI. Each row describes
 a reviewable change or a milestone that can be split further when needed. Create
 each branch from updated `main` after its dependencies have merged.
@@ -29,7 +29,7 @@ each branch from updated `main` after its dependencies have merged.
 | 15b | `feat/difference` | Implemented: subtract selected cutters from the first selected target; preserve cutters, holes/multipart, explicit empty preview and target deletion, exact no-ops, atomic Undo/Redo, demo, core/browser/package tests and benchmark. See [difference](difference.md). |
 | 15c | `feat/intersection` | Implemented: common area of all selected polygons, holes/multipart, explicit empty output, cancellable preview, atomic replacement and exact Undo/Redo, demo, core/browser/package tests and benchmark. See [intersection](intersection.md). |
 | 16a | `feat/reshape-polygon` | Implemented: replace one arc of a single-ring polygon, boundary attachments, shorter/longer choice, cancellable preview, atomic update and exact Undo/Redo, demo, tests and benchmark. See [reshape](reshape.md). |
-| 16b | `feat/trace-boundaries` | Planned: follow existing edges while drawing. |
+| 16b | `feat/trace-boundaries` | Implemented: trace one existing line/ring while drawing, exact source corners, partial-edge attachments, shorter/longer preview, Alt bypass, whole-section correction, unchanged sources, normal drawing history, demo, tests and benchmark. See [tracing](tracing.md). |
 | 16c | `feat/shared-boundaries` | Planned: edit shared boundaries together. |
 | 17 | Separate precision/geometry-operation branches | Planned: rotate, scale, constraints, buffer/offset, simplify and trim/extend with explicit measurement units. |
 

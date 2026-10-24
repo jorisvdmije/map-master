@@ -6,6 +6,7 @@ interface KeyboardActions {
   deselect(): void;
   deleteSelected(): void;
   deleteSelection(): void;
+  removeLastDrawStep(): void;
   removeSplitPoint(): void;
   removeReshapePoint(): void;
   removeVertex(index: number): void;
@@ -47,6 +48,9 @@ export class KeyboardInteraction {
         else this.actions.deleteSelection();
       }
       return;
+    }
+    if (state.mode.startsWith('draw-') && (event.key === 'Delete' || event.key === 'Backspace')) {
+      event.preventDefault(); this.actions.removeLastDrawStep(); return;
     }
     if (state.mode === 'reshape-polygon' && (event.key === 'Delete' || event.key === 'Backspace')) {
       event.preventDefault(); this.actions.removeReshapePoint(); return;

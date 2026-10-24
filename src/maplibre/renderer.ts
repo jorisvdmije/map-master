@@ -213,7 +213,7 @@ export class MapLibreRenderer {
     return [...ids];
   }
 
-  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null, rings: Coordinate[][] | null = null, inactiveParts: GeometryPart[] = [], reshape: ReshapePreview | null = null): void {
+  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null, rings: Coordinate[][] | null = null, inactiveParts: GeometryPart[] = [], reshape: ReshapePreview | null = null, trace: Coordinate[] | null = null): void {
     if (state.mode !== 'idle') { this.translationVisible = false; this.translationPreview.clear(); }
     const editing = state.mode.startsWith('edit-');
     const polygon = state.mode === 'draw-polygon' || state.mode === 'edit-polygon' || state.mode === 'draw-hole';
@@ -232,6 +232,7 @@ export class MapLibreRenderer {
         features.push({ type: 'Feature', properties: { kind: 'split-part', part }, geometry });
       }
     }
+    if (trace) coordinates.push(...trace.slice(1));
     const last = coordinates.at(-1);
     if (!editing && last && cursor && !samePosition(last, cursor)) coordinates.push(cursor);
     if (state.mode === 'draw-hole' && coordinates.length < 3 && rings) {
