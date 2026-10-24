@@ -34,6 +34,15 @@ The API is experimental. Code and contributor documentation use English.
 
 ## Try the demo
 
+For the smaller **Area workspace** application, run `npm run dev:workspace`
+after `npm ci` and open <http://127.0.0.1:5174>. Draw/edit areas and routes,
+change names, save/reopen locally, and exchange GeoJSON files. It installs a
+fresh npm archive outside this checkout and uses only public APIs. See the
+[beta integration guide](docs/beta.md) for acceptance checks and release gates.
+This is a local beta preview; the package remains private and unpublished.
+
+For the full geometry playground:
+
 ```sh
 npm ci
 npm run dev
@@ -111,6 +120,9 @@ npm run check
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Start the demo with live library source updates. |
+| `npm run dev:workspace` | Pack and install the library in a standalone area-workspace app on port 5174. |
+| `npm run test:workspace` | Build an isolated installed consumer; exercise production CRUD/storage/recovery and development rendering in Chromium. |
+| `npm run lock:workspace` | Refresh the example lockfile after dependency/version changes; review before committing. |
 | `npm run typecheck` | Check library, browser-independent core, tests, demo, and configuration. |
 | `npm run lint` | Run ESLint with type-aware rules and no warnings allowed. |
 | `npm run build` | Clean `dist/` and emit ESM JavaScript and declarations. |
@@ -142,7 +154,7 @@ npm run check
 | `npm run benchmark:snapping` | Measure projected index building and nearby-point queries on fixed polygon grids. |
 | `npm run benchmark:transactions` | Measure mixed batch commits and exact undo on fixed datasets. |
 | `npm run benchmark:split` | Measure splitting and result validation on fixed polygon fixtures. |
-| `npm run check` | Run all type checks, linting, tests, and the production demo build. |
+| `npm run check` | Run all type checks, linting, tests, the demo build and isolated workspace acceptance. |
 | `npm pack` | Build and create a local installable archive. |
 
 Build output lives in `dist/`. MapLibre GL JS is a host-supplied peer dependency,

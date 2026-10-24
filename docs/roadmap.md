@@ -1,7 +1,7 @@
 # Incremental roadmap
 
-Steps 0–17c.4 have been implemented locally;
-subsequent steps are planned. The
+Steps 0–17c.4 and beta integration milestone 18a have been implemented locally;
+trim/extend is deferred and remaining beta gates are planned. The
 workflow still needs a GitHub remote to run in hosted CI. Each row describes
 a reviewable change or a milestone that can be split further when needed. Create
 each branch from updated `main` after its dependencies have merged.
@@ -38,12 +38,18 @@ each branch from updated `main` after its dependencies have merged.
 | 17c.2 | `feat/simplify-features` | Implemented: mixed-selection simplification with Mercator-meter tolerance, frozen originals, validated preview, exact retained coordinates, atomic Undo, demo, tests and benchmark. See [simplification](simplification.md). |
 | 17c.3 | `feat/buffer-features` | Implemented: positive Mercator buffers of mixed selections, rounded polygonal caps/joins, validated preview, per-feature replacement and atomic Undo, demo, tests and benchmark. See [buffers](buffer.md). |
 | 17c.4 | `feat/offset-lines` | Implemented: signed Mercator offsets of simple open lines, limited miter joins, perpendicular endpoints, validated preview, atomic replacement/Undo, demo, tests and benchmark. See [line offsets](offset.md). |
-| 17c.5 | `feat/trim-extend` | Planned: trim/extend lines to target geometry with preview and atomic Undo. |
+| 17c.5 | `feat/trim-extend` | Deferred until a real application needs it: trim/extend lines to target geometry with preview and atomic Undo. |
+| 18a | `feat/beta-workspace` | Implemented: standalone area-workspace app installed from a fresh npm archive outside the repo; CRUD, names via transactions, local save/restore, dirty state, recovery, conflict detection, independent dependency lockfile, production browser acceptance and dev rendering smoke. See [beta integration](beta.md). No public release yet. |
+| 18b | `feat/editor-appearance` | Planned: public styling configuration for committed, selected, draft and vertex states, verified across style reloads. |
+| 18c | `feat/feature-restrictions` | Planned: host-defined edit restrictions enforced consistently across API, keyboard and pointer actions, retaining reference snapping. |
+| 18d | `test/beta-budgets` | Planned: measurable browser interaction/memory budgets and supported dataset, browser, input and MapLibre scope; validate in the installed consumer. |
+| 18e | `chore/public-beta` | Planned: agreed package identity/license, real security contacts, remote CI and required checks, prerelease version/migration notes and validated release archive. |
 
 Steps 2–7 produce the first small CRUD editor. Step 8 adds recovery from user
 mistakes. Step 9 adds precise placement against existing shapes. Later candidates include touch interactions,
 interactive multipart construction, rotation handles, broader cutting/splitting support, and framework wrappers.
-Prioritize those using actual application requirements.
+Prioritize those using actual application requirements. The next sequence is the
+beta gates above; specialized geometry tools no longer automatically take priority.
 
 ## First working milestone: draw one line
 

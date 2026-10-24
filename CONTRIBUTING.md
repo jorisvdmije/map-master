@@ -60,7 +60,8 @@ Run `npm ci` and `npx playwright install chromium` after cloning, then
 `npm run check` before submitting a code change. On Linux, use
 `npx playwright install --with-deps chromium` to include system dependencies.
 The check command includes type checking, linting, core/package/browser tests,
-and the production demo build. Package tests build through the `prepack` hook. See the
+the production demo build, and standalone installed-consumer acceptance.
+Package tests build through the `prepack` hook. See the
 [README](README.md#development) for individual commands and supported Node versions.
 Documentation-only changes need link and diff checks, not application tests.
 
@@ -75,6 +76,15 @@ increasing test timeouts alone does not establish that the map is ready.
 The complete demo test consumes the built package and checks its buttons and
 download payload. During development, `npm run dev` resolves the editor to source
 for live updates; the production demo resolves it through package exports.
+
+`npm run test:workspace` installs a fresh archive into an independent copy of
+`examples/workspace` outside the checkout, builds it, and runs Playwright acceptance
+against its production UI plus a development render/pick smoke check. This is the
+documented workflow for verifying application integration. Run `npm run dev:workspace`
+to inspect that consumer manually; restart it after changes. See [beta integration](docs/beta.md).
+The example has a separate lockfile; refresh it with `npm run lock:workspace` when
+library metadata/dependencies or consumer dependencies change, and keep shared
+third-party versions aligned with the root cache. Commit the reviewed lockfile.
 
 Tool dependencies are pinned in `package.json` and `package-lock.json`. TypeScript
 6.0 is intentionally used because the installed typescript-eslint release does

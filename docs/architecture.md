@@ -23,7 +23,8 @@ Expose data and change events so applications can integrate their own backend.
 - TypeScript with strict checking, an ESM build, and generated type declarations.
 - MapLibre GL JS as the first renderer, supplied by the host as a peer dependency.
 - GeoJSON as the external data model, with stable feature IDs and preserved properties.
-- One package, a small demo, and a single dependency lockfile.
+- One library package, a full playground, and a standalone consuming application.
+  The latter has an independent lockfile to verify installation outside the repo.
 - A public programmatic API; UI controls call that same API.
 
 [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/) provides WebGL-based map
@@ -39,11 +40,12 @@ src/
   maplibre/         Controller, focused input handlers, events, rendering and cleanup
   index.ts          Deliberate public exports
 examples/
-  basic/            Small executable consumer of the library
+  basic/            Full geometry playground
+  workspace/        Independent installed-package app with application-owned storage
 tests/              Core behavior, architecture and packed-package tests
   browser/          Real Chromium interaction and demo tests
 docs/               Integration contracts and maintainer guides
-scripts/            Reproducible performance benchmarks
+scripts/            Reproducible benchmarks and installed-consumer acceptance
 ```
 
 `DrawingSession` owns the draft, selection, committed feature store and commit/replay
@@ -62,6 +64,11 @@ The example imports only `@geo/editor`, just like an external application. Map
 creation, basemap configuration, toolbar elements, file dialogs and downloads
 belong there. Internal helpers are not exported from the package entry point.
 
+The [area workspace](beta.md) is installed from an npm archive in a temporary
+directory outside this checkout, type-checked and built against that installation,
+and exercised through browser UI. Its persistence, dirty tracking and recovery
+stay in the application. No library APIs were added for those responsibilities.
+
 The core must not import MapLibre, the DOM, or a UI framework. Initially keep the
 renderer boundary narrow; a general plugin system, monorepo, and framework
 wrappers can wait for demonstrated needs.
@@ -77,6 +84,8 @@ wrappers can wait for demonstrated needs.
   package entry point. Host-owned MapLibre worker and CSS imports remain allowed.
 - Architecture tests exercise both forbidden and allowed import paths. Packed
   consumer tests verify public exports and declarations outside this checkout.
+- Workspace acceptance verifies rendering, CRUD and persistence with the installed
+  production application, plus worker setup on its development server.
 
 These checks support the module boundaries; they do not replace code review of
 state ownership, cancellation or commit atomicity.

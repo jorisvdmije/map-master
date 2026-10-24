@@ -5,6 +5,7 @@ separately so consumers can integrate without depending on internal modules.
 
 | Goal | Guide |
 | --- | --- |
+| Run a standalone installed-package app with saving and recovery | [Beta integration milestone](beta.md) |
 | Set up a MapLibre host and use the editor | [GeometryEditor API](geometry-editor.md), [integration setup](line-editor.md#integrate) |
 | Apply atomic create/update/delete batches | [Transactions and event semantics](transactions.md) |
 | Import and edit multipart lines/polygons | [Multipart geometry](multipart.md) |
@@ -31,4 +32,5 @@ separately so consumers can integrate without depending on internal modules.
 Start development with `npm ci` and `npm run dev` from the repository root.
 Install Chromium with `npx playwright install chromium` before browser testing.
 Run `npm run check` before committing code changes; it includes type checks,
-architectural lint rules, core/package/browser tests and the demo build.
+architectural lint rules, core/package/browser tests, the demo build and isolated
+workspace acceptance against both production and development servers.
