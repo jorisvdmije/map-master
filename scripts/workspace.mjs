@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, URL } from 'node:url';
 
@@ -28,9 +28,16 @@ try {
     filter: (source) => !/(?:^|\/)(?:node_modules|dist|vendor)(?:\/|$)/u.test(source),
   });
   mkdirSync(join(workspace, 'vendor'));
-  process.stdout.write('Building and packing @geo/editor for a separate application…\n');
-  const packed = JSON.parse(run(['pack', '--json', '--pack-destination', workspace], root))[0];
-  cpSync(join(workspace, packed.filename), join(workspace, 'vendor/geo-editor.tgz'));
+  let archive = process.env.GEO_RELEASE_ARCHIVE;
+  if (archive) {
+    archive = resolve(root, archive);
+    process.stdout.write(`Installing prepared archive: ${archive}\n`);
+  } else {
+    process.stdout.write('Building and packing @geo/editor for a separate application…\n');
+    const packed = JSON.parse(run(['pack', '--json', '--pack-destination', workspace], root))[0];
+    archive = join(workspace, packed.filename);
+  }
+  cpSync(archive, join(workspace, 'vendor/geo-editor.tgz'));
   // All third-party versions come from the example lockfile; only the local tarball changes.
   // npm ci in the repository has already cached the same pinned tooling and MapLibre versions.
   process.stdout.write(run([mode === 'lock' ? 'install' : 'ci', '--offline', '--ignore-scripts', '--no-audit', '--no-fund']));
@@ -64,7 +71,8 @@ export default defineConfig({ build: { rolldownOptions: { input: { workspace: 'i
     const address = server.httpServer.address();
     if (!address || typeof address === 'string') throw new Error('No preview server address.');
     const { checkBudgets } = await import('./beta-budgets.mjs');
-    await checkBudgets(`http://127.0.0.1:${address.port}`, join(root, 'artifacts'), {
+    await checkBudgets(`http://127.0.0.1:${address.port}`, process.env.GEO_BETA_REPORT_DIR
+      ? resolve(root, process.env.GEO_BETA_REPORT_DIR) : join(root, 'artifacts'), {
       maplibre: JSON.parse(readFileSync(join(workspace, 'node_modules/maplibre-gl/package.json'), 'utf8')).version,
       playwright: JSON.parse(readFileSync(join(root, 'node_modules/playwright/package.json'), 'utf8')).version,
       archiveSha256: createHash('sha256').update(readFileSync(join(workspace, 'vendor/geo-editor.tgz'))).digest('hex'),

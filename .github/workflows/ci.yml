@@ -32,12 +32,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run check
-      - name: Retain beta measurements
+      - run: npm run release:prepare
+      - name: Retain candidate archive and verification evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: beta-budgets-node-${{ matrix.node }}
-          path: artifacts/beta-budgets.json
+          name: beta-candidate-node-${{ matrix.node }}
+          path: artifacts/releases/
           if-no-files-found: ignore
           retention-days: 14

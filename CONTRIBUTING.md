@@ -119,3 +119,10 @@ before 1.0, including supported browsers, MapLibre versions, and deprecation rul
 Before publishing, add a license, security reporting instructions, maintainer
 contacts, and a reproducible release workflow. A completed milestone is not
 automatically a production-readiness claim.
+
+Use `npm run release:prepare` to verify one candidate archive through the full
+checks and retain its checksum and reports. CI runs this on Node 22 and 24.
+Follow the [release checklist](docs/releases.md), record user-visible changes in
+the [changelog](CHANGELOG.md), and document upgrades in the
+[migration guide](docs/migration.md). Preparation does not publish the package;
+the final identity, license, contacts and hosted checks are still pending.

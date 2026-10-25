@@ -163,7 +163,10 @@ The next beta work is deliberately separate and reviewable:
    previews and repeated map/editor teardown. The browser/input matrix explicitly
    limits evidence to desktop Chromium and MapLibre 6.15.0; hosted CI is configured
    but has not run without a remote.
-4. **Public prerelease:** choose the package identity and license, configure a
+4. **Public prerelease — locally prepared, publication pending:**
+   [release preparation](releases.md) verifies one archive through package and
+   workspace checks and retains its checksum and reports. A changelog and
+   migration policy are included. Still choose the package identity and license, configure a
    GitHub remote and required CI checks, add actual maintainer/security contacts,
    versioning and migration notes, and validate the exact release archive before
    publishing under a prerelease tag. No registry publication is performed here.

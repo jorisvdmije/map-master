@@ -55,6 +55,8 @@ change names, save/reopen locally, and exchange GeoJSON files. It installs a
 fresh npm archive outside this checkout and uses only public APIs. See the
 [beta integration guide](docs/beta.md) for acceptance checks and release gates.
 This is a local beta preview; the package remains private and unpublished.
+The [release guide](docs/releases.md), [changelog](CHANGELOG.md) and
+[migration policy](docs/migration.md) cover preparation for the public beta.
 
 For the full geometry playground:
 
@@ -139,6 +141,7 @@ npm run check
 | `npm run test:budgets` | Run installed-browser latency and lifecycle-memory gates; write `artifacts/beta-budgets.json`. |
 | `npm run test:workspace` | Build an isolated installed consumer; exercise production CRUD/storage/recovery and development rendering in Chromium. |
 | `npm run lock:workspace` | Refresh the example lockfile after dependency/version changes; review before committing. |
+| `npm run release:prepare` | Pack once, run the full checks against that candidate and retain its archive, checksum and reports. |
 | `npm run typecheck` | Check library, browser-independent core, tests, demo, and configuration. |
 | `npm run lint` | Run ESLint with type-aware rules and no warnings allowed. |
 | `npm run build` | Clean `dist/` and emit ESM JavaScript and declarations. |
@@ -189,7 +192,8 @@ the tests. Chromium tests exercise real MapLibre rendering, pointer and keyboard
 input, cancellation, map gestures, style replacement, event isolation, teardown,
 and the demo's export controls. Tests use local styles and need no tile service.
 
-CI installs Chromium and runs `npm ci` and `npm run check` on Node.js 22 and 24 for
+CI installs Chromium and runs `npm ci` and `npm run release:prepare` (including
+`npm run check`) on Node.js 22 and 24 for
 pull requests and pushes to `main`. The workflow will run once the repository is
 hosted on GitHub with Actions enabled; required branch checks need configuration
 in the repository settings. On Linux, `npx playwright install --with-deps chromium`

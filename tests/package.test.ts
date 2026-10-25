@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -32,9 +32,13 @@ describe('packed package', () => {
       JSON.stringify({ name: 'geo-test-consumer', private: true, type: 'module' }),
     );
 
-    // prepack builds from scratch, so this tests the same artifact npm pack creates.
+    // Release preparation supplies one archive to both this suite and the workspace.
+    // A dry-run on that local tarball inspects its contents without rebuilding it.
+    const archive = process.env.GEO_RELEASE_ARCHIVE;
     const result = JSON.parse(
-      run(process.execPath, [npm, 'pack', '--json', '--pack-destination', consumer], root),
+      run(process.execPath, [npm, 'pack', '--json', ...(archive
+        ? [resolve(root, archive), '--dry-run', '--ignore-scripts', '--offline']
+        : ['--pack-destination', consumer])], root),
     ) as { filename: string; files: { path: string }[] }[];
     const packed = result[0];
     if (!packed) throw new Error('npm pack did not produce an archive.');
@@ -42,7 +46,7 @@ describe('packed package', () => {
 
     // Install the archive outside the repository: no workspace links or source aliases.
     run(process.execPath, [
-      npm, 'install', join(consumer, packed.filename),
+      npm, 'install', archive ? resolve(root, archive) : join(consumer, packed.filename),
       '--offline', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false',
     ], consumer);
   });
@@ -53,7 +57,8 @@ describe('packed package', () => {
 
   it('ships JavaScript and declarations without development files', () => {
     expect(packedFiles).toEqual(expect.arrayContaining([
-      'package.json', 'README.md', 'dist/index.js', 'dist/index.d.ts',
+      'package.json', 'README.md', 'CHANGELOG.md', 'docs/migration.md',
+      'dist/index.js', 'dist/index.d.ts',
     ]));
     expect(packedFiles.some((file) => /^(src|tests|node_modules|\.github)\//u.test(file)))
       .toBe(false);

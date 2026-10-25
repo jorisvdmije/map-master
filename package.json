@@ -17,7 +17,8 @@
     "dist",
     "assets/icon.svg",
     "docs",
-    "CONTRIBUTING.md"
+    "CONTRIBUTING.md",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": "^22.13.0 || ^24.0.0"
@@ -62,7 +63,8 @@
     "dev:workspace": "node scripts/workspace.mjs dev",
     "test:budgets": "node --test scripts/beta-budget-policy.test.mjs && node scripts/workspace.mjs budgets",
     "test:workspace": "node --test scripts/beta-budget-policy.test.mjs && node scripts/workspace.mjs check",
-    "lock:workspace": "node scripts/workspace.mjs lock"
+    "lock:workspace": "node scripts/workspace.mjs lock",
+    "release:prepare": "node scripts/prepare-release.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

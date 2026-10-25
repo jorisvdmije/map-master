@@ -11,7 +11,7 @@ claim that every dataset of this size has the same cost.
 | --- | --- |
 | Browser engine | Playwright 1.64.1 bundled Chromium 156.0.8078.4; real desktop browser interactions and budget checks pass locally. The report records the browser actually launched. |
 | Local platform | macOS arm64, Apple M2 Pro, Node 22.23.1. See the committed raw baseline for exact measurements. |
-| Hosted CI | Ubuntu with Node 22 and 24 is configured to run `npm run check` and retain reports. No remote is configured yet; no hosted performance result is claimed. |
+| Hosted CI | Ubuntu with Node 22 and 24 is configured to run `npm run release:prepare`, including `npm run check`, and retain the candidate archive and reports. No remote is configured yet; no hosted performance result is claimed. |
 | MapLibre | 6.15.0 is tested. The peer range remains `^6.15.0`; that installation range is broader than the verified-version list. Rerun checks before qualifying an upgrade. |
 | Chrome / Edge releases | Not separately qualified. Sharing an engine does not establish that a shipping browser version passes. |
 | Firefox / Safari / WebKit | Not qualified in this milestone. Add real interaction/installed-consumer runs before expanding the support matrix. Chromium CDP memory measurements cannot be reused as cross-engine evidence. |
@@ -116,14 +116,15 @@ the repository using the consumer lockfile, and builds the real workspace plus a
 or test controls to the normal application or library. The test build shares
 bundler chunks between the two entries; initial bundle-loading time is excluded.
 
-Every completed browser run writes `artifacts/beta-budgets.json`, including raw
+Standalone budget/workspace runs write `artifacts/beta-budgets.json`, including raw
 samples, limits, observed package/browser versions, CPU/OS, archive SHA-256 and
 errors. Breaches, incomplete measurements, browser errors and external requests
 exit nonzero. Policy unit tests exercise latency breaches, retained heap/node/
 listener growth, slope, invalid samples and fixture size. Failures before the
 browser harness starts (for example build errors) may have no report.
 
-CI retains the JSON report for 14 days per Node version using GitHub's
+Release preparation writes the same report alongside its candidate archive in
+`artifacts/releases/candidate-*`. CI retains that directory for 14 days per Node version using GitHub's
 [upload-artifact action](https://github.com/actions/upload-artifact), also when a
 budget fails. The workflow is configured locally; hosted qualification remains a
 release prerequisite once the repository has a remote.
