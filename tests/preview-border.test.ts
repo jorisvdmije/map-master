@@ -28,3 +28,11 @@ it('bounds work for enormous offscreen edges and reserves room for editing handl
   expect(dots.every(({ x }) => x >= -2 && x <= 702)).toBe(true);
   expect(edgeDots({ x: 0, y: 0 }, { x: 30, y: 0 }, 700, 500, 8)).toEqual([{ x: 9, y: 0 }, { x: 18, y: 0 }]);
 });
+
+it('includes offscreen dot centers when a custom wide stroke still reaches the viewport', () => {
+  const start = { x: -100, y: -10 }; const end = { x: 200, y: -10 };
+  expect(edgeDots(start, end, 100, 100)).toEqual([]);
+  const wide = edgeDots(start, end, 100, 100, 0, 16);
+  expect(wide.length).toBeGreaterThan(10);
+  expect(wide.every(({ x, y }) => x >= -16 && x <= 116 && y === -10)).toBe(true);
+});

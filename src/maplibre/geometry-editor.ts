@@ -1,4 +1,5 @@
 import { constrainDrawingPoint, drawingConstraintsOptions } from '../core/drawing-constraints.js';
+import { copyAppearance, resolveAppearance, type EditorAppearance, type EditorAppearanceOptions } from '../core/appearance.js';
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { DrawingSession } from '../core/drawing-session.js';
 import type { Coordinate, DrawingConstraintsOptions, SharedBoundaryPreview, TraceTarget, TraceSide, TracingOptions, ReshapePreview, ReshapeSide, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
@@ -16,6 +17,7 @@ import { GeoJSONImportError } from '../core/geojson-import.js';
 const editors = new WeakSet<MapLibreMap>();
 /** Public drawing API. MapLibre input and rendering stay behind this boundary. */
 export class GeometryEditor {
+  private appearance: EditorAppearance;
   private drawingConstraints: DrawingConstraintsOptions;
   private tracing: TracingOptions;
   private traceAnchor: { target: TraceTarget; coordinate: Coordinate } | null = null;
@@ -52,13 +54,14 @@ export class GeometryEditor {
       throw new Error('GeometryEditor requires HTTPS or localhost for feature IDs.');
     }
     this.view = view;
+    this.appearance = resolveAppearance(options.appearance);
     this.drawingConstraints = drawingConstraintsOptions(options.drawingConstraints);
     this.tracing = this.tracingOptions(options.tracing ?? {});
     this.events = new EditorEvents((error) => { view.queueMicrotask(() => { throw error; }); });
     this.session = new DrawingSession(() => view.crypto.randomUUID(), options.historyLimit);
     this.reshapeSnapping = new ReshapeSnapping(map);
     this.snapping = new MapLibreSnapping(map, options.snapping);
-    this.renderer = new MapLibreRenderer(map, `geo-editor-${view.crypto.randomUUID()}`);
+    this.renderer = new MapLibreRenderer(map, `geo-editor-${view.crypto.randomUUID()}`, this.appearance);
     this.renderer.mount();
     this.vertices = new VertexInteraction(map, {
       state: () => this.session.state, draft: () => this.session.getDraft(),
@@ -145,6 +148,19 @@ export class GeometryEditor {
 
   getState(): EditorState {
     return this.session.state;
+  }
+
+  /** Independent snapshot; changing it never changes the editor. */
+  getAppearance(): EditorAppearance { return copyAppearance(this.appearance); }
+
+  /** Atomically validate a presentation patch. No data upload, draft cancellation or history action. */
+  setAppearance(patch: EditorAppearanceOptions): void {
+    this.assertAlive();
+    const next = resolveAppearance(patch, this.appearance);
+    if (JSON.stringify(next) === JSON.stringify(this.appearance)) return;
+    this.appearance = next;
+    this.renderer.setAppearance(next);
+    this.emitChange();
   }
 
   private tracingOptions(update: Partial<TracingOptions>, previous: TracingOptions = { enabled: false, side: 'shorter' }): TracingOptions {

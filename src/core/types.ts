@@ -1,3 +1,5 @@
+import type { EditorAppearanceOptions } from './appearance.js';
+
 /** GeoJSON position in longitude, latitude order (decimal degrees). */
 export type Coordinate = [longitude: number, latitude: number];
 
@@ -138,6 +140,8 @@ export interface SnapResult {
 }
 
 export interface EditorOptions {
+  /** Partial presentation settings. Omitted values use the built-in appearance. */
+  appearance?: EditorAppearanceOptions;
   /** Opt-in angle constraints for new line, polygon and hole segments. Alt bypasses them. */
   drawingConstraints?: Partial<DrawingConstraintsOptions>;
   /** Maximum retained actions, default 100; 0 disables history. Not a byte limit. */

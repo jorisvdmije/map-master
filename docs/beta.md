@@ -137,10 +137,16 @@ This integration needed no new library APIs. Existing public transactions suppor
 property editing and `dataRevision` supports efficient application dirty-state
 tracking. Worker setup and reliable persistence belong in integration examples.
 
+Milestone 18b now adds [configurable editor appearance](appearance.md). Both examples
+offer a **Map colors** selector. The installed consumer acceptance also changes
+presets during vertex editing and checks that saved geometry and history remain
+unchanged. Appearance is host configuration and is not part of the saved geometry
+document.
+
 The next beta work is deliberately separate and reviewable:
 
-1. **Configurable editor appearance:** a public styling contract for committed,
-   selected, draft and vertex states, with style-reload tests.
+1. **Configurable editor appearance — complete:** a public styling contract for
+   committed, selected, draft and marker states, with style-reload tests.
 2. **Feature edit restrictions:** host-configured operation rules that apply to
    pointer input, keyboard shortcuts and API mutations. Restricted reference
    geometry should remain usable for snapping. This is UI policy; a backend must

@@ -3,6 +3,9 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { GeometryEditor, type DrawGeometryType, type GeometryFeature, type Coordinate, type ReshapeError, type SplitError, type ValidationError } from '@geo/editor';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
+import { bindAppearanceControl } from '../workspace/appearance.js';
+
+let removeAppearanceControl = () => {};
 
 // MapLibre 6 ships a separate worker; let Vite serve and bundle its URL.
 setWorkerUrl(workerUrl);
@@ -136,6 +139,7 @@ map.on('error', () => {
 map.on('load', () => {
   editor = new GeometryEditor(map, { snapping: { enabled: true } });
   const activeEditor = editor;
+  removeAppearanceControl = bindAppearanceControl(activeEditor, element<HTMLSelectElement>('appearance'));
   let exportedRevision = -1;
   partIndex.addEventListener('change', () => { update(); });
   let ringSelectionPart = 0;
@@ -623,4 +627,4 @@ download.addEventListener('click', () => {
   setTimeout(() => { URL.revokeObjectURL(url); }, 1000);
 });
 
-if (import.meta.hot) import.meta.hot.dispose(() => { editor?.destroy(); map.remove(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { removeAppearanceControl(); editor?.destroy(); map.remove(); });

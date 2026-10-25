@@ -1,0 +1,31 @@
+import { expect, it } from 'vitest';
+import { page, userEvent } from 'vitest/browser';
+import html from '../../examples/basic/index.html?raw';
+
+it('changes the playground appearance during drawing, resets it and preserves exported data', async () => {
+  history.replaceState(null, '', `${location.pathname}?basemap=off`);
+  const documentHTML = new DOMParser().parseFromString(html, 'text/html');
+  document.body.innerHTML = documentHTML.body.innerHTML;
+  document.querySelectorAll('script').forEach((script) => { script.remove(); });
+  await import('../../examples/basic/main.js');
+  const colors = page.getByLabelText('Map colors', { exact: true });
+  await expect.element(colors).toBeEnabled();
+  await colors.selectOptions('ocean');
+  await page.getByRole('button', { name: 'Draw a line' }).click();
+  const canvas = document.querySelector('canvas')!;
+  await userEvent.click(canvas, { position: { x: 180, y: 180 } });
+  await userEvent.click(canvas, { position: { x: 350, y: 230 } });
+  const border = () => document.querySelector('[data-geo-draft-border] [data-geo-border]');
+  await expect.poll(() => border()?.getAttribute('stroke')).toBe('#0f766e');
+  const draftPath = border()!.getAttribute('d');
+  await colors.selectOptions('contrast');
+  expect(border()!.getAttribute('stroke')).toBe('#b91c1c');
+  expect(border()!.getAttribute('stroke-width')).toBe('5'); expect(border()!.getAttribute('d')).toBe(draftPath);
+  await page.getByRole('button', { name: 'Finish', exact: true }).click();
+  const output = document.querySelector<HTMLTextAreaElement>('#output')!;
+  const before = output.value;
+  await colors.selectOptions('default'); expect(output.value).toBe(before);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  expect(JSON.parse(output.value)).toMatchObject({ features: [] });
+  await page.getByRole('button', { name: 'Redo', exact: true }).click(); expect(output.value).toBe(before);
+});

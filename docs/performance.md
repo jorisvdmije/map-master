@@ -1,5 +1,16 @@
 # Performance baselines
 
+## Appearance updates
+
+Appearance changes upload no GeoJSON and rebuild no spatial indexes. Browser tests
+assert that committed/draft `setData` is not called, and that color/opacity-only
+updates do not reproject active SVG geometry. Map paint work is bounded by the
+fixed set of editor paint properties. Existing SVG paths are restyled per visible
+geometry part; changing draft dot width also reprojects active preview edges to
+account for the changed clipping margin. No-op patches skip paint calls entirely.
+These are verified work bounds, not measured frame-rate or latency guarantees.
+See the [appearance contract](appearance.md).
+
 ## Polygon validation
 
 Run `npm run benchmark:polygon` to build and measure the core validator. The

@@ -32,6 +32,11 @@ features as one validated batch and one undo action.
 [Multipart geometry](docs/multipart.md) supports imported or transaction-created MultiLineString/MultiPolygon features, with component/ring editing and whole-feature history.
 The API is experimental. Code and contributor documentation use English.
 
+[Editor appearance](docs/appearance.md) configures feature/selection colors,
+outlines, draft fills and editing/snap/pivot markers through constructor options
+or live `setAppearance()` patches. Both demos have a **Map colors** selector.
+Settings survive map style changes and leave GeoJSON and Undo history unchanged.
+
 ## Try the demo
 
 For the smaller **Area workspace** application, run `npm run dev:workspace`

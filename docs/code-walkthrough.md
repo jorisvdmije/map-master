@@ -8,6 +8,7 @@ controller currently support MapLibre only; no general plugin system is implied.
 src/
   index.ts                   Public classes and TypeScript types
   core/
+    appearance.ts            Typed defaults, independent snapshots and atomic appearance validation
     types.ts                 Coordinates, features, modes, validation diagnostics
     drawing-session.ts       Draft, features indexed by ID, selection, create/edit/delete/export
     translation.ts           Translate coordinates from an immutable baseline in degrees
@@ -47,6 +48,7 @@ src/
     vertex-handles.ts        Shared screen-space corner/midpoint definitions
     line-editor.ts           Compatibility facade for the earlier line-only API
 examples/basic/              Consumer UI; calls the same API as another app would
+examples/workspace/          Installed consumer with storage and host-owned appearance presets
 tests/                       Core behavior, boundary checks and packed-package integration
   browser/                   Actual MapLibre/Chromium interaction and demo tests
 ```

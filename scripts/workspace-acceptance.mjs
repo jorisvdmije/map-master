@@ -127,6 +127,23 @@ export async function checkWorkspace(origin, { smoke = false } = {}) {
     assert.equal(await page.locator('#undo').isDisabled(), true);
     passed('cancel discards drafts; applied edits survive save/reload without restoring old history');
 
+    const savedBeforeTheme = await page.evaluate((key) => localStorage.getItem(key), key);
+    await page.locator('#appearance').selectOption('ocean');
+    await text(page, '#save-state', 'All changes saved locally');
+    assert.equal(await page.locator('#save').isDisabled(), true);
+    await page.locator('#features button').click(); await page.locator('#edit').click();
+    const outline = page.locator('[data-geo-draft-border] [data-geo-border]');
+    await outline.waitFor({ state: 'attached' });
+    assert.equal(await outline.getAttribute('stroke'), '#0f766e');
+    await page.locator('#appearance').selectOption('contrast');
+    assert.equal(await outline.getAttribute('stroke'), '#b91c1c');
+    assert.equal(await outline.getAttribute('stroke-width'), '5');
+    await page.locator('#cancel').click(); await page.locator('#appearance').selectOption('default');
+    assert.deepEqual(await exportData(page), edited);
+    assert.equal(await page.evaluate((key) => localStorage.getItem(key), key), savedBeforeTheme);
+    assert.equal(await page.locator('#undo').isDisabled(), true);
+    passed('live appearance presets preserve saved geometry, drafts and history');
+
     await page.locator('#features button').click();
     await page.locator('#delete').click();
     await text(page, '#count', '0');

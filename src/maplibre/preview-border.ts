@@ -1,6 +1,7 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { geometryParts, type Geometry } from '../core/geometry.js';
 import type { Coordinate } from '../core/types.js';
+import type { DraftAppearance } from '../core/appearance.js';
 
 type Point = { x: number; y: number };
 const spacing = 9;
@@ -9,14 +10,14 @@ const spacing = 9;
  * Clip the index range, not the edge origin, so viewport/tile boundaries cannot
  * shift the pattern or make offscreen edges allocate unbounded numbers of dots.
  */
-export function edgeDots(start: Point, end: Point, width: number, height: number, inset = 0): Point[] {
+export function edgeDots(start: Point, end: Point, width: number, height: number, inset = 0, margin = 2): Point[] {
   const dx = end.x - start.x; const dy = end.y - start.y;
   const length = Math.hypot(dx, dy);
   if (!Number.isFinite(length) || length === 0) return [];
   let low = 0; let high = 1;
   for (const [origin, delta, maximum] of [[start.x, dx, width], [start.y, dy, height]] as const) {
-    if (delta === 0) { if (origin < -2 || origin > maximum + 2) return []; continue; }
-    const a = (-2 - origin) / delta; const b = (maximum + 2 - origin) / delta;
+    if (delta === 0) { if (origin < -margin || origin > maximum + margin) return []; continue; }
+    const a = (-margin - origin) / delta; const b = (maximum + margin - origin) / delta;
     low = Math.max(low, Math.min(a, b)); high = Math.min(high, Math.max(a, b));
   }
   const first = Math.max(Math.ceil(low * length / spacing), Math.ceil(inset / spacing));
@@ -37,11 +38,29 @@ export class PreviewBorder {
   private geometries: Geometry[] = [];
   private inset = 0;
 
-  constructor(private readonly map: MapLibreMap, kind: 'draft-border' | 'translation-preview', private readonly filled = false) {
+  constructor(private readonly map: MapLibreMap, kind: 'draft-border' | 'translation-preview', private appearance: DraftAppearance, private readonly filled = false) {
     this.svg = map.getCanvas().ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
     this.svg.setAttribute(`data-geo-${kind}`, '');
     this.svg.setAttribute('aria-hidden', 'true');
     this.svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;';
+  }
+
+  setAppearance(appearance: DraftAppearance): void {
+    const resize = this.appearance.lineWidth !== appearance.lineWidth;
+    this.appearance = appearance;
+    // Only wider/narrower dots require re-clipping. Color/opacity changes keep paths intact.
+    if (resize && this.svg.isConnected) this.render(this.geometries, this.inset);
+    else for (const group of this.svg.children) this.styleGroup(group);
+  }
+
+  private styleGroup(group: Element): void {
+    const border = group.querySelector('[data-geo-border]')!;
+    border.setAttribute('stroke', this.appearance.lineColor);
+    border.setAttribute('stroke-width', String(this.appearance.lineWidth));
+    border.setAttribute('stroke-opacity', String(this.appearance.lineOpacity));
+    const fill = group.querySelector('[data-geo-fill]');
+    fill?.setAttribute('fill', this.appearance.fillColor);
+    fill?.setAttribute('fill-opacity', String(this.appearance.fillOpacity));
   }
 
   render(geometries: Geometry[], inset = 0): void {
@@ -54,19 +73,18 @@ export class PreviewBorder {
         group = this.svg.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'g');
         if (this.filled) {
           const fill = this.path(); fill.setAttribute('data-geo-fill', '');
-          fill.setAttribute('fill', '#df772e'); fill.setAttribute('fill-opacity', '0.22');
           fill.setAttribute('fill-rule', 'evenodd'); group.append(fill);
         }
         const border = this.path(); border.setAttribute('data-geo-border', '');
-        border.setAttribute('fill', 'none'); border.setAttribute('stroke', '#df772e');
-        border.setAttribute('stroke-width', '3'); border.setAttribute('stroke-linecap', 'round');
+        border.setAttribute('fill', 'none'); border.setAttribute('stroke-linecap', 'round');
         group.append(border); this.svg.append(group);
       }
+      this.styleGroup(group);
       const rings = geometry.type === 'Polygon' ? geometry.coordinates : [geometry.coordinates];
       const projected = rings.map((ring) => ring.map((coordinate: Coordinate) => this.map.project(coordinate)));
       const canvas = this.map.getCanvas(); const dots: Point[] = [];
       for (const ring of projected) {
-        for (let i = 1; i < ring.length; i++) dots.push(...edgeDots(ring[i - 1]!, ring[i]!, canvas.clientWidth, canvas.clientHeight, inset));
+        for (let i = 1; i < ring.length; i++) dots.push(...edgeDots(ring[i - 1]!, ring[i]!, canvas.clientWidth, canvas.clientHeight, inset, Math.max(2, this.appearance.lineWidth / 2)));
       }
       group.querySelector('[data-geo-border]')!.setAttribute('d', dots.map(({ x, y }) => `M${x},${y}h0`).join(' '));
       group.querySelector('[data-geo-fill]')?.setAttribute('d', geometry.type === 'Polygon'

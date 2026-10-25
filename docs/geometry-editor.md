@@ -43,6 +43,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | Member | Contract |
 | --- | --- |
 | `new GeometryEditor(map, options?)` | Attach after `style.load` or `load`. One editor per map, including the LineEditor facade. `historyLimit` defaults to 100; `snapping.enabled` defaults to false. |
+| `getAppearance()` / `setAppearance(patch)` | Read an independent complete appearance / atomically patch presentation fields. Also available as constructor `appearance`. Live updates survive style reloads without changing geometry, drafts or history. See [appearance](appearance.md). |
 | `draw('LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
 | `finish()` | Confirm the active tool, returning the resulting feature. Invalid/incomplete previews return `null` and stay active. A valid empty difference/intersection also returns `null`, after deleting the target/all inputs and exiting review. |
 | `cancel()` | Discard the draft or cancel an active selection rectangle or group drag. |

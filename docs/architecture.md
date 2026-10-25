@@ -73,6 +73,12 @@ The core must not import MapLibre, the DOM, or a UI framework. Initially keep th
 renderer boundary narrow; a general plugin system, monorepo, and framework
 wrappers can wait for demonstrated needs.
 
+[Appearance](appearance.md) is per-editor presentation state, outside the drawing
+session and history. Its pure options module validates a common hex/numeric
+contract for MapLibre paint and SVG previews. The adapter applies paint changes
+to its existing layers, preserving sources, drafts and active drag transfers.
+Host applications own any preset selector and persistence of those preferences.
+
 ## Automated boundaries
 
 `npm run check` enforces these rules:

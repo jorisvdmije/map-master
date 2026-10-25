@@ -29,6 +29,8 @@ h1 { font-size: 22px; letter-spacing: -.04em; margin: 0; }
 aside .button-row button { flex: 1; }
 .secondary-row { margin-top: 8px; }
 .secondary-row button { background: #f6f8f5; }
+.appearance-control { display: grid; gap: 7px; margin-top: 16px; font-size: 12px; font-weight: 600; }
+.appearance-control select { font: inherit; background: #f6f8f5; border: 1px solid #cad5cf; border-radius: 6px; padding: 8px; color: #23463e; }
 .feature-section { min-height: 120px; padding: 12px; }
 .empty { padding: 6px 10px; }
 #features { list-style: none; margin: 0; padding: 0; }

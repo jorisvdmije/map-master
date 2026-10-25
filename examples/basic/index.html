@@ -9,7 +9,7 @@
   <body>
     <header class="header">
       <a class="brand" href="/" aria-label="geo home"><span class="brand-mark">g.</span>geo<span class="brand-divider"></span><span class="brand-caption">Drawing playground</span></a>
-      <span class="milestone"><span class="dot"></span> Milestone 17c.4 <span class="milestone-label">/ Line offsets</span></span>
+      <span class="milestone"><span class="dot"></span> Milestone 18b <span class="milestone-label">/ Editor appearance</span></span>
     </header>
     <main class="workspace">
       <aside class="sidebar" aria-label="Drawing tools">
@@ -71,6 +71,11 @@
             <button id="scale-double" class="button secondary" type="button">Double size</button>
           </div>
           <p id="scale-help">1 keeps the original size; 0.5 halves it; 2 doubles it. All selected shapes scale together around the white centre marker. Apply saves the preview; Cancel keeps the originals.</p>
+        </section>
+        <section class="snapping-tools" aria-label="Appearance">
+          <label for="appearance">Map colors</label>
+          <select id="appearance" disabled><option value="default">Original</option><option value="ocean">Ocean</option><option value="contrast">High contrast</option></select>
+          <p>Change colors and handle sizes, including while drawing or editing.</p>
         </section>
         <section class="snapping-tools" aria-label="Drawing constraints">
           <label class="snap-toggle"><input id="drawing-constraints" type="checkbox" disabled /> Fixed drawing angles</label>

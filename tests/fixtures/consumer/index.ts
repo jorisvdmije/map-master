@@ -6,8 +6,20 @@ const publicApi: typeof import('@geo/editor') = editor;
 void publicApi;
 
 export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
-  const options: editor.EditorOptions = { historyLimit: 50, snapping: { enabled: true, distance: 18 } };
+  const appearance: editor.EditorAppearanceOptions = { feature: { lineColor: '#175c4c' }, vertex: { radius: 6 } };
+  const options: editor.EditorOptions = { historyLimit: 50, snapping: { enabled: true, distance: 18 }, appearance };
   const tool = new editor.GeometryEditor(map, options);
+  const currentAppearance: editor.EditorAppearance = tool.getAppearance();
+  tool.setAppearance({ draft: { lineColor: '#f80' }, selected: { fillOpacity: 0.4 } });
+  tool.setAppearance(currentAppearance);
+  const shapeStyle: editor.ShapeAppearance = currentAppearance.feature;
+  const pointStyle: editor.PointAppearance = currentAppearance.midpoint;
+  const vertexStyle: editor.VertexAppearance = currentAppearance.vertex;
+  const snapStyle: editor.SnapAppearance = currentAppearance.snap;
+  const draftStyle: editor.DraftAppearance = currentAppearance.draft;
+  void [shapeStyle, pointStyle, vertexStyle, snapStyle, draftStyle];
+  // @ts-expect-error appearance fields must be known
+  tool.setAppearance({ feature: { stroke: 'red' } });
   const batch: editor.GeometryFeatureCollection = tool.importGeoJSON({ type: 'FeatureCollection', features: [] });
   tool.onImport((collection) => { const count: number = collection.features.length; void count; });
   const properties: editor.FeatureProperties = { nested: { list: [1, true, null] } };

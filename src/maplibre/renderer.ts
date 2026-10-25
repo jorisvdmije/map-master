@@ -1,4 +1,5 @@
 import type { GeometryPart } from '../core/geometry.js';
+import type { EditorAppearance, PointAppearance } from '../core/appearance.js';
 import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
 import { samePosition } from '../core/polygon.js';
 import type { Coordinate, SharedBoundaryPreview, ReshapePreview, UnionPreview, SplitPreview, SnapResult, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
@@ -6,6 +7,10 @@ import { PreviewBorder } from './preview-border.js';
 import { vertexHandles } from './vertex-handles.js';
 
 const emptyCollection = () => ({ type: 'FeatureCollection' as const, features: [] });
+const circlePaint = (point: PointAppearance) => ({
+  'circle-radius': point.radius, 'circle-color': point.color, 'circle-opacity': point.opacity,
+  'circle-stroke-color': point.strokeColor, 'circle-stroke-width': point.strokeWidth,
+});
 // String UUIDs need promoteId to survive MapLibre's numeric vector-tile IDs.
 // This property exists only in render data; the core/export never receives it.
 const renderIdProperty = '__geo_editor_id';
@@ -20,7 +25,7 @@ type PreviewFeature = {
 export class MapLibreRenderer {
   private readonly featuresId: string;
   private readonly draftId: string;
-  private readonly layers: LayerSpecification[];
+  private layers: LayerSpecification[];
   private selectedFeatureIds = new Set<FeatureId>();
   private editingFeatureIds = new Set<FeatureId>();
   private hiddenFeatureIds = new Set<FeatureId>();
@@ -30,40 +35,60 @@ export class MapLibreRenderer {
   private translationVisible = false;
   private revision = 0;
 
-  constructor(private readonly map: MapLibreMap, namespace: string) {
-    this.translationPreview = new PreviewBorder(map, 'translation-preview', true);
-    this.draftBorder = new PreviewBorder(map, 'draft-border');
+  constructor(private readonly map: MapLibreMap, private readonly namespace: string, appearance: EditorAppearance) {
+    this.translationPreview = new PreviewBorder(map, 'translation-preview', appearance.draft, true);
+    this.draftBorder = new PreviewBorder(map, 'draft-border', appearance.draft);
     this.featuresId = `${namespace}-features`;
     this.draftId = `${namespace}-draft`;
+    this.layers = this.makeLayers(appearance);
+  }
+
+  private makeLayers(appearance: EditorAppearance): LayerSpecification[] {
+    const { namespace } = this;
+    const { feature, selected: selection, draft, vertex, midpoint, snap, pivot } = appearance;
     const selected: ExpressionSpecification = ['boolean', ['feature-state', 'selected'], false];
-    const color: ExpressionSpecification = ['case', selected, '#2563eb', '#116b5b'];
     const editing: ExpressionSpecification = ['boolean', ['feature-state', 'editing'], false];
-    this.layers = [
+    return [
       { id: `${namespace}-fill`, type: 'fill', source: this.featuresId,
         filter: ['==', '$type', 'Polygon'],
-        paint: { 'fill-color': color, 'fill-opacity': ['case', editing, 0, selected, 0.3, 0.18], 'fill-opacity-transition': { duration: 0 } } },
+        paint: { 'fill-color': ['case', selected, selection.fillColor, feature.fillColor],
+          'fill-opacity': ['case', editing, 0, selected, selection.fillOpacity, feature.fillOpacity], 'fill-opacity-transition': { duration: 0 } } },
       { id: this.featuresId, type: 'line', source: this.featuresId,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': color, 'line-width': ['case', selected, 6, 4], 'line-opacity': ['case', editing, 0, 1], 'line-opacity-transition': { duration: 0 } } },
+        paint: { 'line-color': ['case', selected, selection.lineColor, feature.lineColor],
+          'line-width': ['case', selected, selection.lineWidth, feature.lineWidth],
+          'line-opacity': ['case', editing, 0, selected, selection.lineOpacity, feature.lineOpacity], 'line-opacity-transition': { duration: 0 } } },
       { id: `${namespace}-draft-fill`, type: 'fill', source: this.draftId,
         filter: ['==', '$type', 'Polygon'],
-        paint: { 'fill-color': ['case', ['==', ['get', 'part'], 1], '#7c3aed', '#df772e'], 'fill-opacity': 0.22 } },
+        paint: { 'fill-color': ['case', ['==', ['get', 'part'], 1], draft.secondaryFillColor, draft.fillColor], 'fill-opacity': draft.fillOpacity } },
       { id: `${namespace}-midpoints`, type: 'circle', source: this.draftId,
         filter: ['==', 'kind', 'midpoint'],
-        paint: { 'circle-radius': 4, 'circle-color': '#fff', 'circle-stroke-color': '#df772e', 'circle-stroke-width': 1 } },
+        paint: circlePaint(midpoint) },
       { id: `${namespace}-vertices`, type: 'circle', source: this.draftId,
         filter: ['==', 'kind', 'vertex'],
-        paint: { 'circle-radius': ['case', ['boolean', ['get', 'active'], false], 7, 5],
-          'circle-color': ['case', ['boolean', ['get', 'locked'], false], '#64748b', ['boolean', ['get', 'active'], false], '#df772e', '#fff'],
-          'circle-stroke-color': '#df772e', 'circle-stroke-width': 2 } },
+        paint: { ...circlePaint(vertex), 'circle-radius': ['case', ['boolean', ['get', 'active'], false], vertex.activeRadius, vertex.radius],
+          'circle-color': ['case', ['boolean', ['get', 'locked'], false], vertex.lockedColor, ['boolean', ['get', 'active'], false], vertex.activeColor, vertex.color] } },
       { id: `${namespace}-transform-pivot`, type: 'circle', source: this.draftId,
         filter: ['==', 'kind', 'transform-pivot'],
-        paint: { 'circle-radius': 6, 'circle-color': '#fff', 'circle-stroke-color': '#1e293b', 'circle-stroke-width': 3 } },
+        paint: circlePaint(pivot) },
       { id: `${namespace}-snap`, type: 'circle', source: this.draftId,
         filter: ['==', 'kind', 'snap'],
-        paint: { 'circle-radius': ['case', ['==', ['get', 'snapKind'], 'vertex'], 8, 6],
-          'circle-color': '#7c3aed', 'circle-opacity': 0.85, 'circle-stroke-color': '#fff', 'circle-stroke-width': 3 } },
+        paint: { ...circlePaint(snap), 'circle-radius': ['case', ['==', ['get', 'snapKind'], 'vertex'], snap.radius, snap.edgeRadius] } },
     ];
+  }
+
+  setAppearance(appearance: EditorAppearance): void {
+    this.layers = this.makeLayers(appearance);
+    for (const layer of this.layers) {
+      if (!this.map.getLayer(layer.id)) continue;
+      for (const [property, value] of Object.entries(layer.paint ?? {})) {
+        // Keys and values originate from our typed LayerSpecifications, never user paint objects.
+        this.map.setPaintProperty(layer.id, property as Parameters<MapLibreMap['setPaintProperty']>[1], value as Parameters<MapLibreMap['setPaintProperty']>[2]);
+      }
+    }
+    // Restyle existing overlays without clearing gestures or the release-to-worker bridge.
+    this.draftBorder.setAppearance(appearance.draft);
+    this.translationPreview.setAppearance(appearance.draft);
   }
 
   mount(): void {

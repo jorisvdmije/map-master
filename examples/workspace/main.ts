@@ -3,6 +3,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { GeoJSONImportError, GeometryEditor } from '@geo/editor';
 import type { EditorState, GeometryFeature, GeometryFeatureCollection, ValidationError } from '@geo/editor';
 import { WorkspaceStore } from './storage.js';
+import { bindAppearanceControl } from './appearance.js';
 import './style.css';
 
 // Let the consumer's bundler locate the separate MapLibre 6 worker in dev and production.
@@ -235,7 +236,9 @@ map.on('error', () => { message('A map resource could not load. Your geometry re
 map.once('load', () => {
   try {
     editor = new GeometryEditor(map, { snapping: { enabled: true }, historyLimit: 100 });
-    unsubscribe = editor.onChange(render);
+    const stopRendering = editor.onChange(render);
+    const stopAppearance = bindAppearanceControl(editor, element<HTMLSelectElement>('#appearance'));
+    unsubscribe = () => { stopRendering(); stopAppearance(); };
     try {
       store = new WorkspaceStore(window.localStorage);
       const restored = store.read();

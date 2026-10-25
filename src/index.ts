@@ -1,5 +1,6 @@
 export { GeometryEditor } from './maplibre/geometry-editor.js';
 export { LineEditor } from './maplibre/line-editor.js';
+export type { EditorAppearance, EditorAppearanceOptions, ShapeAppearance, DraftAppearance, PointAppearance, VertexAppearance, SnapAppearance } from './core/appearance.js';
 export type {
   // Geometry and identity.
   Coordinate, FeatureId, FeatureProperties, JsonValue,

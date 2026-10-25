@@ -1,4 +1,5 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { EditorAppearance, EditorAppearanceOptions } from '../core/appearance.js';
 import type { Coordinate, DrawingConstraintsOptions, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeature, LineCollection, LineFeature } from '../core/types.js';
 import { GeometryEditor } from './geometry-editor.js';
 
@@ -9,6 +10,9 @@ export class LineEditor {
   private readonly editor: GeometryEditor;
 
   constructor(map: MapLibreMap, options: EditorOptions = {}) { this.editor = new GeometryEditor(map, options); }
+
+  getAppearance(): EditorAppearance { return this.editor.getAppearance(); }
+  setAppearance(options: EditorAppearanceOptions): void { this.editor.setAppearance(options); }
 
   getDrawingConstraints(): DrawingConstraintsOptions { return this.editor.getDrawingConstraints(); }
   setDrawingConstraints(options: Partial<DrawingConstraintsOptions>): void { this.editor.setDrawingConstraints(options); }
