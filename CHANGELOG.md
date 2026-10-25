@@ -29,6 +29,11 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 - MIT project license, runtime dependency notices and GitHub maintainer/support
   routes, with a security policy for private vulnerability reporting.
 
+### Fixed
+
+- Keep the rotation handle attached to the selection frame by a fixed-length,
+  visible stem during dragging. Pointer movement changes only the rotation angle.
+
 ### Migration from local snapshots
 
 - The package was renamed from `@geo/editor` to `@jorisvdmije/map-master`. Update

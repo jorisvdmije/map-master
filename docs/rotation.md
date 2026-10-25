@@ -18,10 +18,13 @@ does not save. During a drag, Escape restores the angle at the start of that dra
 and keeps rotation mode open. Escape again cancels the entire session. Enter
 during an active drag is ignored; after release it applies the preview.
 
-The handle has a 44 CSS-pixel target. It remains under the pointer while dragging
-and returns above the screen-aligned frame on release. Near the top viewport
-edge it uses the bottom edge instead; its resting position is clamped to the map
-viewport so small or partially off-screen selections remain accessible. A 10-pixel
+The handle has a 44 CSS-pixel target and stays attached to the midpoint of the
+screen-aligned frame by a **fixed 36-pixel stem**, including during a drag.
+The pointer controls the angle; the handle cannot be pulled away from the frame
+or into the shape. Near the top viewport edge it uses the bottom edge instead
+when there is room. It is never clamped inside the frame, where the connector
+would disappear. If the selection extends beyond the viewport, pan/zoom to bring
+the handle into view or use numeric input. A 10-pixel
 dead zone around the pivot prevents unstable angles when the pointer crosses it.
 Tab to the handle and use arrow keys for 1° adjustments, or Shift + arrows for
 15° adjustments. Enter applies and Escape cancels when the handle is focused.

@@ -60,7 +60,8 @@ export class RotationInteraction {
     this.box.dataset.geoRotationBox = '';
     this.box.setAttribute('fill', 'none'); this.box.setAttribute('stroke-dasharray', '5 5'); this.box.setAttribute('stroke-width', '1');
     this.stem = doc.createElementNS(this.svg.namespaceURI, 'line') as SVGLineElement;
-    this.stem.setAttribute('stroke-width', '1');
+    this.stem.dataset.geoRotationStem = '';
+    this.stem.setAttribute('stroke-width', '2');
     this.cross = doc.createElementNS(this.svg.namespaceURI, 'path') as SVGPathElement;
     this.cross.setAttribute('stroke-width', '1.5');
     this.svg.append(this.ghost, this.box, this.stem, this.cross);
@@ -123,9 +124,12 @@ export class RotationInteraction {
     // Compute bounds from the current projected geometry, never rotate the frame.
     for (const [key, value] of Object.entries({ x: left, y: top, width: right - left, height: bottom - top })) this.box.setAttribute(key, String(value));
     const width = this.canvas.clientWidth; const height = this.canvas.clientHeight;
-    const clamp = (n: number, max: number) => Math.max(24, Math.min(max - 24, n));
-    const anchor = this.gesture?.point ?? { x: clamp((left + right) / 2, width), y: clamp(top >= 60 ? top - 36 : bottom + 36, height) };
-    const edge = { x: Math.max(left, Math.min(right, anchor.x)), y: Math.max(top, Math.min(bottom, anchor.y)) };
+    // The mouse controls the angle, not the handle's location. Keep a rigid
+    // 36px stem outside the frame, including while pointer capture is active.
+    // Never clamp the handle into the frame: that would collapse the connector.
+    const below = top < 60 && bottom <= height - 60;
+    const edge = { x: (left + right) / 2, y: below ? bottom : top };
+    const anchor = { x: edge.x, y: edge.y + (below ? 36 : -36) };
     for (const [key, value] of Object.entries({ x1: edge.x, y1: edge.y, x2: anchor.x, y2: anchor.y })) this.stem.setAttribute(key, String(value));
     Object.assign(this.handle.style, { left: `${anchor.x}px`, top: `${anchor.y}px` });
     Object.assign(this.label.style, { left: `${Math.max(0, Math.min(width - 80, anchor.x + 24))}px`, top: `${Math.max(0, Math.min(height - 26, anchor.y - 12))}px` });

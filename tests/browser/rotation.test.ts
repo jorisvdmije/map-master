@@ -166,6 +166,43 @@ it('snaps with Shift without another pointer move and restores the unsnapped ang
   expect(editor.getState().rotationAngle).toBe(15);
 });
 
+it('keeps a fixed visible stem during inward and outward drags instead of following the pointer', async () => {
+  editor.rotateSelection(); const start = await grip(); const before = editor.exportGeoJSON();
+  const pivot = map.project(editor.getState().rotationPivot!);
+  const attached = () => {
+    const stem = container.querySelector<SVGLineElement>('[data-geo-rotation-stem]')!;
+    const x = Number(box().getAttribute('x')); const y = Number(box().getAttribute('y'));
+    const width = Number(box().getAttribute('width')); const height = Number(box().getAttribute('height'));
+    const hx = parseFloat(handle().style.left); const hy = parseFloat(handle().style.top);
+    const below = y < 60 && y + height <= map.getCanvas().clientHeight - 60;
+    const edgeY = below ? y + height : y;
+    return {
+      handleX: hx - (x + width / 2),
+      handleY: hy - edgeY - (below ? 36 : -36),
+      stemX1: Number(stem.getAttribute('x1')) - hx,
+      stemX2: Number(stem.getAttribute('x2')) - hx,
+      stemY1: Number(stem.getAttribute('y1')) - edgeY,
+      stemY2: Number(stem.getAttribute('y2')) - hy,
+    };
+  };
+  const aligned = Object.fromEntries(['handleX', 'handleY', 'stemX1', 'stemX2', 'stemY1', 'stemY2'].map(key => [key, expect.closeTo(0, 3)]));
+  await expect.poll(attached).toEqual(aligned);
+  await commands.vertexPointer('down', start.x, start.y);
+  for (const radius of [25, 240, 25]) {
+    const pointer = { x: pivot.x + radius, y: pivot.y - radius };
+    await commands.vertexPointer('move', pointer.x, pointer.y);
+    await expect.poll(() => editor.getState().rotationAngle).toBeCloseTo(45, 3);
+    await expect.poll(boundsMatch).toBe(true); await expect.poll(attached).toEqual(aligned);
+    expect(Math.hypot(parseFloat(handle().style.left) - pointer.x, parseFloat(handle().style.top) - pointer.y)).toBeGreaterThan(20);
+  }
+  const final = { x: parseFloat(handle().style.left), y: parseFloat(handle().style.top) };
+  await commands.vertexPointer('up', pivot.x + 25, pivot.y - 25);
+  await expect.poll(attached).toEqual(aligned);
+  expect(parseFloat(handle().style.left)).toBeCloseTo(final.x, 3);
+  expect(parseFloat(handle().style.top)).toBeCloseTo(final.y, 3);
+  expect(editor.exportGeoJSON()).toEqual(before);
+});
+
 it('Escape restores only the current drag, then a second Escape cancels the session without a late release', async () => {
   editor.rotateSelection(); editor.setRotationAngle(20); const before = editor.exportGeoJSON();
   const start = await grip(); const end = rotatedPointer(start, 40);
