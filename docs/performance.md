@@ -1,5 +1,10 @@
 # Performance baselines
 
+Executable installed-browser latency and lifecycle-memory gates are now described
+in [Beta budgets](beta-budgets.md). The dated core microbenchmarks below remain
+historical observations; their lack of thresholds does not describe the new
+browser regression checks.
+
 ## Appearance updates
 
 Appearance changes upload no GeoJSON and rebuild no spatial indexes. Browser tests
@@ -798,4 +803,4 @@ geometry. Prepared commits inspect only changed existing features. A history
 entry is checked against locks at most once per policy version; its cached result
 is reused by pointer-state reads. Replacing policy invalidates that cache and
 does not upload committed geometry or rebuild snapping. These are work bounds,
-not measured browser-latency guarantees; milestone 18d covers beta budgets.
+not measured browser-latency guarantees; see the separate [beta budgets](beta-budgets.md).

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -7,7 +8,7 @@ import { fileURLToPath, URL } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const mode = process.argv[2] ?? 'check';
-if (!['check', 'dev', 'lock'].includes(mode)) throw new Error('Use check, dev or lock.');
+if (!['check', 'budgets', 'dev', 'lock'].includes(mode)) throw new Error('Use check, budgets, dev or lock.');
 const npm = process.env.npm_execpath;
 if (!npm) throw new Error('Run this script through npm run dev:workspace or npm run test:workspace.');
 const workspace = mkdtempSync(join(tmpdir(), 'geo-area-workspace-'));
@@ -49,18 +50,34 @@ try {
       child.once('exit', (code, signal) => code && !signal ? reject(new Error(`App exited with ${code}`)) : resolve());
     });
   } else {
+    // Test-only second entry: same installed package and production bundler as the app.
+    cpSync(join(root, 'tests/fixtures/budgets'), join(workspace, 'budgets'), { recursive: true });
+    const tsconfig = JSON.parse(readFileSync(join(workspace, 'tsconfig.json'), 'utf8'));
+    tsconfig.include.push('budgets/**/*.ts');
+    writeFileSync(join(workspace, 'tsconfig.json'), `${JSON.stringify(tsconfig, null, 2)}\n`);
+    writeFileSync(join(workspace, 'vite.config.ts'), `import { defineConfig } from 'vite';
+export default defineConfig({ build: { rolldownOptions: { input: { workspace: 'index.html', budgets: 'budgets/index.html' } } } });
+`);
     process.stdout.write(run(['run', 'build']));
     const { createServer, preview } = await import('vite');
     server = await preview({ root: workspace, configFile: false, preview: { host: '127.0.0.1', port: 0, open: false } });
     const address = server.httpServer.address();
     if (!address || typeof address === 'string') throw new Error('No preview server address.');
-    const { checkWorkspace } = await import('./workspace-acceptance.mjs');
-    await checkWorkspace(`http://127.0.0.1:${address.port}`);
-    devServer = await createServer({ root: workspace, configFile: false, server: { host: '127.0.0.1', port: 0, open: false } });
-    await devServer.listen();
-    const devAddress = devServer.httpServer.address();
-    if (!devAddress || typeof devAddress === 'string') throw new Error('No development server address.');
-    await checkWorkspace(`http://127.0.0.1:${devAddress.port}`, { smoke: true });
+    const { checkBudgets } = await import('./beta-budgets.mjs');
+    await checkBudgets(`http://127.0.0.1:${address.port}`, join(root, 'artifacts'), {
+      maplibre: JSON.parse(readFileSync(join(workspace, 'node_modules/maplibre-gl/package.json'), 'utf8')).version,
+      playwright: JSON.parse(readFileSync(join(root, 'node_modules/playwright/package.json'), 'utf8')).version,
+      archiveSha256: createHash('sha256').update(readFileSync(join(workspace, 'vendor/geo-editor.tgz'))).digest('hex'),
+    });
+    if (mode === 'check') {
+      const { checkWorkspace } = await import('./workspace-acceptance.mjs');
+      await checkWorkspace(`http://127.0.0.1:${address.port}`);
+      devServer = await createServer({ root: workspace, configFile: false, server: { host: '127.0.0.1', port: 0, open: false } });
+      await devServer.listen();
+      const devAddress = devServer.httpServer.address();
+      if (!devAddress || typeof devAddress === 'string') throw new Error('No development server address.');
+      await checkWorkspace(`http://127.0.0.1:${devAddress.port}`, { smoke: true });
+    }
   }
 } finally {
   child?.kill('SIGTERM');

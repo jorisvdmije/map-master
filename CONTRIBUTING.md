@@ -60,7 +60,10 @@ Run `npm ci` and `npx playwright install chromium` after cloning, then
 `npm run check` before submitting a code change. On Linux, use
 `npx playwright install --with-deps chromium` to include system dependencies.
 The check command includes type checking, linting, core/package/browser tests,
-the production demo build, and standalone installed-consumer acceptance.
+the production demo build, standalone installed-consumer acceptance, and
+[browser latency/lifecycle budgets](docs/beta-budgets.md). Review
+`artifacts/beta-budgets.json` on budget failures; do not raise thresholds or retry
+until green without investigating the recorded conditions.
 Package tests build through the `prepack` hook. See the
 [README](README.md#development) for individual commands and supported Node versions.
 Documentation-only changes need link and diff checks, not application tests.

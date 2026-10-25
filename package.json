@@ -60,7 +60,8 @@
     "benchmark:intersection": "npm run build && node scripts/benchmark-intersection.mjs",
     "benchmark:difference": "npm run build && node scripts/benchmark-difference.mjs",
     "dev:workspace": "node scripts/workspace.mjs dev",
-    "test:workspace": "node scripts/workspace.mjs check",
+    "test:budgets": "node --test scripts/beta-budget-policy.test.mjs && node scripts/workspace.mjs budgets",
+    "test:workspace": "node --test scripts/beta-budget-policy.test.mjs && node scripts/workspace.mjs check",
     "lock:workspace": "node scripts/workspace.mjs lock"
   },
   "devDependencies": {

@@ -1,7 +1,7 @@
 # Area workspace
 
 A small consuming application for the local beta integration milestone: draw and
-edit areas/routes, name them, import/export GeoJSON, and save/reopen a workspace
+edit areas/routes and place markers, name them, import/export GeoJSON, and save/reopen a workspace
 in the browser. Uses only the public `@geo/editor` entry point.
 
 From the repository root:
@@ -22,6 +22,8 @@ worker URL import and stylesheet. The package is not yet published or licensed
 for public distribution; see the root repository's release status.
 
 Run `npm run test:workspace` from the repository root for the isolated package,
-production browser acceptance and development-server smoke check. See the
+production browser acceptance, latency/lifecycle budget gates and development-server
+smoke check. `npm run test:budgets` runs only the installed-browser budget gates
+and writes the raw report to `artifacts/beta-budgets.json`. See the
 [beta integration guide](../../docs/beta.md) for the storage format, recovery,
 integration patterns, limits and remaining release gates.

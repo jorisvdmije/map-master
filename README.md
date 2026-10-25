@@ -8,6 +8,10 @@ A TypeScript library in development for drawing and editing geometry on web maps
 
 ## Status
 
+[Beta compatibility and performance gates](docs/beta-budgets.md) now check a fixed
+1,000-feature installed-consumer workload and repeated map/editor teardown. The
+verified target is desktop Chromium with mouse/keyboard and MapLibre 6.15.0.
+
 Marker placement and line/polygon drawing (including holes), single and multiple feature selection, group movement and duplication, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are implemented:
 preview, validate, finish or cancel, select/deselect, delete, move/insert/remove vertices, and export committed features together
 as GeoJSON through one GeometryEditor API.
@@ -132,6 +136,7 @@ npm run check
 | --- | --- |
 | `npm run dev` | Start the demo with live library source updates. |
 | `npm run dev:workspace` | Pack and install the library in a standalone area-workspace app on port 5174. |
+| `npm run test:budgets` | Run installed-browser latency and lifecycle-memory gates; write `artifacts/beta-budgets.json`. |
 | `npm run test:workspace` | Build an isolated installed consumer; exercise production CRUD/storage/recovery and development rendering in Chromium. |
 | `npm run lock:workspace` | Refresh the example lockfile after dependency/version changes; review before committing. |
 | `npm run typecheck` | Check library, browser-independent core, tests, demo, and configuration. |

@@ -121,6 +121,11 @@ need explicit design and tests before being advertised.
 
 ## Performance approach
 
+The first installed-browser qualification is [milestone 18d](beta-budgets.md):
+a fixed mixed dataset, visible pointer/selection/commit timings and post-teardown
+heap/DOM/listener budgets. Its matrix records the current browser, input and
+MapLibre scope without extending support to untested engines or touch workflows.
+
 Keep committed geometry separate from the active preview so pointer movement
 does not require serializing the entire dataset. Coalesce preview rendering to
 animation frames. Create editing handles only for the active selection.

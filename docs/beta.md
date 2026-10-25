@@ -12,7 +12,7 @@ From the repository root, after `npm ci`:
 npm run dev:workspace
 ```
 
-Open <http://127.0.0.1:5174>. The app supports drawing areas/routes, selecting on
+Open <http://127.0.0.1:5174>. The app supports drawing areas/routes and placing markers, selecting on
 the map or in a list, dragging shapes, editing the outer boundary of a simple
 feature, changing names, deleting, Undo/Redo, GeoJSON import/export, and explicitly
 saving a workspace in this browser. Use `?basemap=off` for no external map requests.
@@ -101,8 +101,10 @@ do not share a saved workspace. A browser may suppress the unsaved-exit warning.
 
 Imports and saved envelopes have a 5 MB UTF-8 limit. This is a file-size guard,
 not a supported geometry-size or interaction-latency budget. Synchronous geometry
-validation, JSON serialization, storage writes, and the unvirtualized feature list
-still require large-dataset profiling. No server persistence or authorization is
+validation and the unvirtualized feature list are exercised by the fixed
+[beta budget profile](beta-budgets.md). Storage writes and export serialization
+are outside those latency measurements; larger or more complex workloads still
+require profiling. No server persistence or authorization is
 implemented here.
 
 ## Acceptance checks
@@ -128,7 +130,9 @@ against the production build, using the visible application controls:
 - Download and explicitly discard corrupt saved bytes; reject invalid restored geometry.
 - Reject a stale tab's save after another tab has saved.
 
-The same installed consumer also gets a development-server draw/render/pick check
+The same installed consumer now also runs [browser latency and lifecycle-memory
+gates](beta-budgets.md), producing a JSON report with raw samples and fail/pass
+limits. It also gets a development-server draw/render/pick check
 to catch worker/bundler issues that production-only tests can miss. Console errors,
 failed HTTP requests, uncaught browser exceptions and external network requests
 fail the tile-free acceptance. Storage edge cases also have focused unit tests.
@@ -154,9 +158,11 @@ The next beta work is deliberately separate and reviewable:
    Protected reference geometry remains usable for snapping and tracing. The
    workspace exposes session locks; persistent policy belongs to the host.
    This is UI policy; a backend must enforce its own authorization.
-3. **Measured compatibility and performance:** explicit dataset/latency budgets,
-   repeated mount/unmount memory checks, browser matrix and touch/accessibility
-   scope. Current acceptance covers desktop Chromium and MapLibre 6.15.0.
+3. **Measured compatibility and performance — complete locally:** [beta budgets](beta-budgets.md)
+   qualify a fixed 1,000-feature installed-consumer workload, visible pointer
+   previews and repeated map/editor teardown. The browser/input matrix explicitly
+   limits evidence to desktop Chromium and MapLibre 6.15.0; hosted CI is configured
+   but has not run without a remote.
 4. **Public prerelease:** choose the package identity and license, configure a
    GitHub remote and required CI checks, add actual maintainer/security contacts,
    versioning and migration notes, and validate the exact release archive before

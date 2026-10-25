@@ -17,7 +17,7 @@ jobs:
   check:
     name: Check (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -33,3 +33,11 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run check
+      - name: Retain beta measurements
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: beta-budgets-node-${{ matrix.node }}
+          path: artifacts/beta-budgets.json
+          if-no-files-found: ignore
+          retention-days: 14
