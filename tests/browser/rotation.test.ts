@@ -1,7 +1,9 @@
 import { Map, setWorkerUrl, type GeoJSONSource, type StyleSpecification } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { userEvent } from 'vitest/browser';
+import { commands, userEvent } from 'vitest/browser';
+import { geometryParts } from '../../src/core/geometry.js';
+import { rotateFeatures } from '../../src/core/rotation.js';
 import { GeometryEditor, type Coordinate, type LineFeature, type TransactionEvent } from '../../src/index.js';
 import 'maplibre-gl/dist/maplibre-gl.css';
 setWorkerUrl(workerUrl);
@@ -25,7 +27,10 @@ beforeEach(async () => {
     { type: 'Feature', id: '0', properties: null, geometry: { type: 'LineString', coordinates: [coordinate(300, 150), coordinate(400, 200)] } },
   ] }); editor.clearHistory(); editor.selectMany([0, '0']);
 });
-afterEach(() => { vi.restoreAllMocks(); editor.destroy(); map.remove(); container.remove(); });
+afterEach(async () => {
+  if (map.getCanvas().isConnected) await commands.vertexPointer('up', 650, 400);
+  vi.restoreAllMocks(); editor.destroy(); map.remove(); container.remove();
+});
 
 it('rotates clockwise in map space, previews without uploads, and saves once with keyboard Undo/Redo', async () => {
   const before = editor.exportGeoJSON(); const revision = editor.getState().dataRevision;
@@ -101,4 +106,156 @@ it('does not intercept text entry outside the map and keeps ordinary vertex edit
     field.focus(); await userEvent.keyboard('10{Backspace}{Enter}{Escape}'); expect(field.value).toBe('1'); expect(editor.getState().mode).toBe('rotate-features');
     editor.cancel(); editor.select(0); editor.editSelected(); expect(() => editor.rotateSelection()).toThrow('Finish or cancel');
   } finally { field.remove(); }
+});
+
+const handle = () => container.querySelector<HTMLButtonElement>('[data-geo-rotation-handle]')!;
+const box = () => container.querySelector<SVGRectElement>('[data-geo-rotation-box]')!;
+async function grip(): Promise<{ x: number; y: number }> {
+  await expect.poll(handle).not.toBeNull();
+  return { x: parseFloat(handle().style.left), y: parseFloat(handle().style.top) };
+}
+function rotatedPointer(start: { x: number; y: number }, degrees: number) {
+  const point = rotateFeatures([{ type: 'Feature', id: 'pointer', properties: null,
+    geometry: { type: 'Point', coordinates: coordinate(start.x, start.y) } }], degrees, editor.getState().rotationPivot!)[0]!;
+  if (point.geometry.type !== 'Point') throw new Error('Expected pointer point');
+  return map.project(point.geometry.coordinates);
+}
+function boundsMatch(): boolean {
+  const preview = editor.getRotationPreview(); if (!preview || !box()) return false;
+  const points = preview.features.flatMap(feature => geometryParts(feature.geometry).flatMap(part =>
+    (part.type === 'Point' ? [part.coordinates] : part.type === 'Polygon' ? part.coordinates.flat() : part.coordinates).map(p => map.project(p))));
+  const xs = points.map(p => p.x); const ys = points.map(p => p.y);
+  const expected = { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
+  return Object.entries(expected).every(([key, value]) => Math.abs(Number(box().getAttribute(key)) - value) < 0.001)
+    && !box().hasAttribute('transform');
+}
+
+it.each([{ bearing: 0, pitch: 0 }, { bearing: 35, pitch: 40 }])('drags in Mercator space at camera %j with an axis-aligned frame and a single explicit commit', async camera => {
+  map.jumpTo(camera);
+  const before = editor.exportGeoJSON(); const transaction = vi.fn(); editor.onTransaction(transaction);
+  const upload = vi.spyOn(source('-features'), 'setData');
+  const cameraBefore = { center: map.getCenter().toArray(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
+  editor.rotateSelection(); editor.setRotationAngle(45); const expected = editor.getRotationPreview(); editor.setRotationAngle(0);
+  const start = await grip(); const end = rotatedPointer(start, 45);
+  await commands.vertexPointer('down', start.x, start.y);
+  expect(map.dragPan.isEnabled()).toBe(false); expect(map.scrollZoom.isEnabled()).toBe(false);
+  await commands.vertexPointer('move', end.x, end.y);
+  await expect.poll(() => editor.getState().rotationAngle).toBeCloseTo(45, 3);
+  await expect.poll(boundsMatch).toBe(true);
+  expect(editor.exportGeoJSON()).toEqual(before); expect(upload).not.toHaveBeenCalled();
+  await userEvent.keyboard('{Enter}'); expect(editor.getState().mode).toBe('rotate-features');
+  await commands.vertexPointer('up', end.x, end.y);
+  expect(editor.getState().rotationAngle).toBeCloseTo(45, 3);
+  expect(editor.getState().mode).toBe('rotate-features'); expect(editor.getState().canUndo).toBe(false);
+  expect(map.dragPan.isEnabled()).toBe(true); expect(map.scrollZoom.isEnabled()).toBe(true);
+  expect({ center: map.getCenter().toArray(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() }).toEqual(cameraBefore);
+  // Use exact numeric 45° to compare coordinate snapshots, avoiding mouse subpixel roundoff.
+  editor.setRotationAngle(45); expect(editor.getRotationPreview()).toEqual(expected);
+  await userEvent.keyboard('{Enter}'); expect(editor.exportGeoJSON()).toEqual(expected);
+  expect(transaction).toHaveBeenCalledOnce(); expect(upload).toHaveBeenCalledOnce();
+  expect(handle()).toBeNull(); editor.undo(); expect(editor.exportGeoJSON()).toEqual(before);
+});
+
+it('snaps with Shift without another pointer move and restores the unsnapped angle on keyup', async () => {
+  editor.rotateSelection(); const start = await grip(); const end = rotatedPointer(start, 22);
+  await commands.vertexPointer('down', start.x, start.y); await commands.vertexPointer('move', end.x, end.y);
+  await expect.poll(() => editor.getState().rotationAngle).toBeCloseTo(22, 3);
+  await userEvent.keyboard('{Shift>}'); expect(editor.getState().rotationAngle).toBe(15);
+  await userEvent.keyboard('{/Shift}'); expect(editor.getState().rotationAngle).toBeCloseTo(22, 3);
+  await userEvent.keyboard('{Shift>}'); await commands.vertexPointer('up', end.x, end.y); await userEvent.keyboard('{/Shift}');
+  expect(editor.getState().rotationAngle).toBe(15);
+});
+
+it('Escape restores only the current drag, then a second Escape cancels the session without a late release', async () => {
+  editor.rotateSelection(); editor.setRotationAngle(20); const before = editor.exportGeoJSON();
+  const start = await grip(); const end = rotatedPointer(start, 40);
+  await commands.vertexPointer('down', start.x, start.y); await commands.vertexPointer('move', end.x, end.y);
+  await expect.poll(() => editor.getState().rotationAngle).toBeCloseTo(60, 3);
+  await userEvent.keyboard('{Escape}');
+  expect(editor.getState()).toMatchObject({ mode: 'rotate-features', rotationAngle: 20, canUndo: false });
+  await commands.vertexPointer('up', end.x, end.y); expect(editor.getState().rotationAngle).toBe(20);
+  await userEvent.keyboard('{Escape}'); expect(editor.getState().mode).toBe('idle');
+  expect(editor.exportGeoJSON()).toEqual(before); expect(handle()).toBeNull();
+});
+
+it.each(['blur', 'pointercancel', 'lostcapture', 'camera', 'style'])('rolls back an interrupted drag on %s and restores disabled map settings', async interruption => {
+  map.dragPan.disable(); map.scrollZoom.disable(); map.dragRotate.disable();
+  editor.rotateSelection(); editor.setRotationAngle(10); const start = await grip(); const end = rotatedPointer(start, 25);
+  await commands.vertexPointer('down', start.x, start.y); await commands.vertexPointer('move', end.x, end.y);
+  await expect.poll(() => editor.getState().rotationAngle).toBeCloseTo(35, 3);
+  if (interruption === 'blur') window.dispatchEvent(new Event('blur'));
+  if (interruption === 'pointercancel' || interruption === 'lostcapture') {
+    // Chromium mouse pointer ID is 1; use the actual capture owner to verify it.
+    expect(handle().hasPointerCapture(1)).toBe(true);
+    if (interruption === 'lostcapture') handle().releasePointerCapture(1);
+    else window.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 1 }));
+  }
+  if (interruption === 'camera') map.jumpTo({ bearing: 20 });
+  if (interruption === 'style') {
+    const loaded = new Promise<void>(resolve => { map.once('style.load', () => { resolve(); }); });
+    map.setStyle(style(), { diff: false }); await loaded;
+  }
+  await expect.poll(() => editor.getState().rotationAngle).toBe(10);
+  await commands.vertexPointer('up', end.x, end.y);
+  expect(map.dragPan.isEnabled()).toBe(false); expect(map.scrollZoom.isEnabled()).toBe(false); expect(map.dragRotate.isEnabled()).toBe(false);
+  expect(map.keyboard.isEnabled()).toBe(true); expect(editor.getState().canUndo).toBe(false);
+});
+
+it('rebuilds bounds after camera/resize and follows appearance without changing geometry', async () => {
+  editor.rotateSelection(); editor.setRotationAngle(37); await grip(); await expect.poll(boundsMatch).toBe(true);
+  const preview = editor.getRotationPreview(); const pivot = editor.getState().rotationPivot;
+  map.jumpTo({ bearing: 70, pitch: 45, zoom: 14 }); container.style.width = '600px'; map.resize();
+  editor.setAppearance({ selected: { lineColor: '#ff00ff' } });
+  await expect.poll(boundsMatch).toBe(true); await expect.poll(() => box().getAttribute('stroke')).toBe('#ff00ff');
+  expect(editor.getRotationPreview()).toEqual(preview); expect(editor.getState().rotationPivot).toEqual(pivot);
+});
+
+it('provides keyboard angle control on the handle and preserves numeric API edits during a drag', async () => {
+  editor.rotateSelection(); await grip(); handle().focus();
+  await userEvent.keyboard('{ArrowRight}{Shift>}{ArrowLeft}{/Shift}'); expect(editor.getState().rotationAngle).toBe(-14);
+  const start = await grip(); const end = rotatedPointer(start, 35);
+  await commands.vertexPointer('down', start.x, start.y); await commands.vertexPointer('move', end.x, end.y);
+  editor.setRotationAngle(80); await commands.vertexPointer('up', end.x, end.y);
+  expect(editor.getState().rotationAngle).toBe(80);
+  handle().focus(); await userEvent.keyboard('{Enter}'); expect(editor.getState()).toMatchObject({ mode: 'idle', canUndo: true });
+});
+
+it.each(['lock', 'destroy', 'remove'])('cleans up an active rotation gesture on %s', async reason => {
+  const before = editor.exportGeoJSON(); editor.rotateSelection(); const start = await grip(); const end = rotatedPointer(start, 30);
+  await commands.vertexPointer('down', start.x, start.y); await commands.vertexPointer('move', end.x, end.y);
+  if (reason === 'lock') editor.setLockedFeatureIds([0]);
+  if (reason === 'destroy') editor.destroy();
+  if (reason === 'remove') map.remove();
+  expect(container.querySelector('[data-geo-rotation]')).toBeNull();
+  expect(editor.exportGeoJSON()).toEqual(before); expect(editor.getState()).toMatchObject({ mode: 'idle', canUndo: false });
+  if (reason !== 'remove') { expect(map.dragPan.isEnabled()).toBe(true); expect(map.keyboard.isEnabled()).toBe(true); }
+});
+
+it('keeps click-only gestures unchanged and captures exact release outside the canvas', async () => {
+  editor.rotateSelection(); editor.setRotationAngle(23); const start = await grip();
+  await userEvent.keyboard('{Shift>}'); await commands.vertexPointer('down', start.x, start.y);
+  await commands.vertexPointer('up', start.x, start.y); await userEvent.keyboard('{/Shift}');
+  expect(editor.getState().rotationAngle).toBe(23);
+  const next = await grip(); const pivot = map.project(editor.getState().rotationPivot!);
+  const end = { x: 745, y: 310 };
+  const expected = 23 + (Math.atan2(end.y - pivot.y, end.x - pivot.x) - Math.atan2(next.y - pivot.y, next.x - pivot.x)) * 180 / Math.PI;
+  await commands.vertexPointer('down', next.x, next.y);
+  await commands.vertexPointer('up', end.x, end.y);
+  const normalized = ((expected + 180) % 360 + 360) % 360 - 180;
+  expect(editor.getState().rotationAngle).toBeCloseTo(normalized, 3);
+  expect(editor.getState()).toMatchObject({ mode: 'rotate-features', canUndo: false });
+});
+
+it('keeps the handle usable for a point and crosses the signed-angle boundary without jumping', async () => {
+  editor.importGeoJSON({ type: 'Feature', id: 'point', properties: null, geometry: { type: 'Point', coordinates: coordinate(350, 250) } });
+  editor.clearHistory(); editor.select('point'); const before = editor.exportGeoJSON();
+  editor.rotateSelection(); const start = await grip();
+  expect(parseFloat(handle().style.top)).toBeLessThan(250);
+  await commands.vertexPointer('down', start.x, start.y);
+  for (const angle of [80, 170, 190, 270]) {
+    const end = rotatedPointer(start, angle); await commands.vertexPointer('move', end.x, end.y);
+    await expect.poll(() => editor.getState().rotationAngle).toBeCloseTo(angle > 180 ? angle - 360 : angle, 3);
+  }
+  const end = rotatedPointer(start, 270); await commands.vertexPointer('up', end.x, end.y);
+  editor.finishRotation(); expect(editor.exportGeoJSON()).toEqual(before); expect(editor.getState().canUndo).toBe(false);
 });

@@ -11,6 +11,7 @@ import type { ScreenPoint } from '../core/snapping.js';
 import { VertexInteraction } from './vertex-interaction.js';
 import { SelectionInteraction } from './selection-interaction.js';
 import { TranslationInteraction } from './translation-interaction.js';
+import { RotationInteraction } from './rotation-interaction.js';
 import { EditorEvents } from './editor-events.js';
 import { KeyboardInteraction } from './keyboard-interaction.js';
 import { GeoJSONImportError } from '../core/geojson-import.js';
@@ -35,6 +36,7 @@ export class GeometryEditor {
   private readonly vertices: VertexInteraction;
   private readonly selection: SelectionInteraction;
   private readonly translation: TranslationInteraction;
+  private readonly rotation: RotationInteraction;
   private readonly canvas: HTMLCanvasElement;
   private readonly view: Window;
   private cursor: Coordinate | undefined;
@@ -120,6 +122,12 @@ export class GeometryEditor {
         }
       },
     });
+    this.rotation = new RotationInteraction(map, {
+      state: () => this.session.state,
+      angle: (degrees) => { this.draftChanged(this.session.setRotationAngle(degrees)); },
+      finish: () => { this.finishRotation(); },
+      cancel: () => { this.cancel(); },
+    });
     editors.add(map);
     map.on('click', this.handleClick);
     map.on('mousemove', this.handleMove);
@@ -161,6 +169,7 @@ export class GeometryEditor {
     if (sameLocks(new Set(this.session.getLockedFeatureIds()), next)) return;
     this.cancelIdleGestures();
     this.vertices.stop(true);
+    this.rotation.stop();
     const wasDrawing = this.session.state.mode !== 'idle';
     this.session.setLockedFeatureIds([...next]);
     if (wasDrawing && this.session.state.mode === 'idle') this.leaveDrawing();
@@ -177,6 +186,7 @@ export class GeometryEditor {
     if (JSON.stringify(next) === JSON.stringify(this.appearance)) return;
     this.appearance = next;
     this.renderer.setAppearance(next);
+    if (this.session.state.mode === 'rotate-features') this.schedulePreview();
     this.emitChange();
   }
 
@@ -431,6 +441,7 @@ export class GeometryEditor {
 
   setRotationAngle(degrees: number): boolean {
     this.assertAlive();
+    this.rotation.stop();
     const changed = this.session.setRotationAngle(degrees);
     this.draftChanged(changed); return changed;
   }
@@ -439,6 +450,7 @@ export class GeometryEditor {
 
   finishRotation(): TransactionEvent | null {
     this.assertAlive();
+    this.rotation.stop();
     if (this.session.state.mode !== 'rotate-features' || !this.session.state.canFinish) return null;
     const event = this.session.finishRotation();
     this.leaveDrawing();
@@ -896,6 +908,7 @@ export class GeometryEditor {
   };
 
   private readonly handleStyleLoad = (): void => {
+    this.rotation.stop(true);
     this.cancelIdleGestures();
     this.vertices.stop(true);
     this.renderer.mount();
@@ -1048,6 +1061,8 @@ export class GeometryEditor {
         const preview = this.session.getRotationPreview();
         this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
         this.renderer.renderTransform(preview, this.session.state.rotationPivot!);
+        const originals = this.session.getSelection();
+        this.rotation.render(preview?.features ?? originals, originals, this.appearance);
         return;
       }
       if (this.session.state.mode === 'intersection-polygons') {
@@ -1080,6 +1095,7 @@ export class GeometryEditor {
   }
 
   private leaveDrawing(): void {
+    this.rotation.clear();
     this.traceAnchor = null; this.traceCache = null;
     this.reshapeSnapping.clear();
     this.pointer = undefined;
@@ -1106,6 +1122,7 @@ export class GeometryEditor {
     this.reshapeSnapping.clear();
     this.selection.destroy(removeResources);
     this.translation.destroy(removeResources);
+    this.rotation.destroy(removeResources);
     this.vertices.destroy(removeResources);
     const wasDrawing = this.session.cancel();
     this.session.clearHistory();

@@ -381,7 +381,7 @@ map.on('load', () => {
         : preview?.geometry === null ? 'No target area remains. Apply subtraction deletes the target; cutting shapes are kept. Undo restores it.'
         : 'Remaining target area is orange; cutting shapes stay blue. Apply subtraction or Enter saves; Cancel keeps the original.';
     }
-    element('map-hint').textContent = offsetting ? 'Positive left · Negative right · Enter applies · Esc cancels' : buffering ? 'Set a distance · Review the zone · Enter applies · Esc cancels' : simplifying ? 'Set a tolerance · Review remaining vertices · Enter applies · Esc cancels' : scaling ? 'Set a factor · White marker is the centre · Enter applies · Esc cancels' : rotating ? 'Set an angle · White marker is the centre · Enter applies · Esc cancels' : shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
+    element('map-hint').textContent = offsetting ? 'Positive left · Negative right · Enter applies · Esc cancels' : buffering ? 'Set a distance · Review the zone · Enter applies · Esc cancels' : simplifying ? 'Set a tolerance · Review remaining vertices · Enter applies · Esc cancels' : scaling ? 'Set a factor · White marker is the centre · Enter applies · Esc cancels' : rotating ? 'Drag ↻ to rotate · Shift: 15° · Release to review · Enter applies · Esc cancels' : shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
       : drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
@@ -461,7 +461,7 @@ rotateSelected.addEventListener('click', () => {
   if (!editor.rotateSelection()) {
     status.classList.add('is-invalid');
     status.textContent = 'Select shapes within the Mercator map area, without date-line crossings or a span over 180°.';
-  } else rotationAngle.focus();
+  } else element('rotation-tools').scrollIntoView({ block: 'center' });
 });
 rotationAngle.addEventListener('input', () => {
   const angle = rotationAngle.valueAsNumber;

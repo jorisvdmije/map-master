@@ -412,6 +412,10 @@ pivot and cached result, using transaction preparation for preview validation an
 again before committing. `GeometryEditor` exposes the review lifecycle; the renderer
 shows selected result geometry and a pivot marker without committed-source uploads.
 The host demo owns numeric/step controls; map shortcuts reuse Enter/Escape handling.
+`maplibre/rotation-interaction.ts` owns the mouse/keyboard handle, screen-aligned
+SVG frame and ghost outline. It measures pointer directions in the same Mercator
+plane after unprojecting the camera, coalesces previews, restores interrupted
+drags and releases its DOM/listeners with the editor. It does not commit on release.
 See [rotation](rotation.md) for coordinate conventions, limits and event semantics.
 
 ## Selection scaling

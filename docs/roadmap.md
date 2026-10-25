@@ -34,6 +34,7 @@ each branch from updated `main` after its dependencies have merged.
 | 16b | `feat/trace-boundaries` | Implemented: trace one existing line/ring while drawing, exact source corners, partial-edge attachments, shorter/longer preview, Alt bypass, whole-section correction, unchanged sources, normal drawing history, demo, tests and benchmark. See [tracing](tracing.md). |
 | 16c | `feat/shared-boundaries` | Implemented: edit one exactly matching shared chain of two single-ring polygons, fixed junctions, two-result preview, validation, snapping exclusions, atomic save/Undo, demo, tests and benchmark. See [shared boundaries](shared-boundaries.md). |
 | 17a | `feat/rotate-features` | Implemented: clockwise Mercator rotation of mixed selections, fixed/default or explicit pivot, numeric preview, validity checks, atomic save/Undo, demo, tests and benchmark. See [rotation](rotation.md). |
+| 17a.1 | `feat/rotation-handle` | Implemented: mouse rotation handle, screen-aligned bounds around the current geometry, original outline, live angle, Shift 15° steps, keyboard handle control, interrupted-drag rollback and camera/lifecycle cleanup. Explicit Apply retains one Undo for the session; interactive pivot movement remains a follow-up. |
 | 17b | `feat/scale-features` | Implemented: uniform positive Mercator scaling of mixed selections, fixed/default or explicit pivot, numeric preview, validation, atomic save/Undo, demo, tests and benchmark. See [scaling](scaling.md). |
 | 17c.1 | `feat/drawing-constraints` | Implemented: optional 45°/90° Mercator drawing directions, exact snapping/tracing/closure precedence, Alt bypass, live controls, tests and benchmark. See [drawing constraints](drawing-constraints.md). |
 | 17c.2 | `feat/simplify-features` | Implemented: mixed-selection simplification with Mercator-meter tolerance, frozen originals, validated preview, exact retained coordinates, atomic Undo, demo, tests and benchmark. See [simplification](simplification.md). |
@@ -49,7 +50,7 @@ each branch from updated `main` after its dependencies have merged.
 
 Steps 2–7 produce the first small CRUD editor. Step 8 adds recovery from user
 mistakes. Step 9 adds precise placement against existing shapes. Later candidates include touch interactions,
-interactive multipart construction, rotation handles, broader cutting/splitting support, and framework wrappers.
+interactive multipart construction, movable rotation pivots, broader cutting/splitting support, and framework wrappers.
 Prioritize those using actual application requirements. The next sequence is the
 beta gates above; specialized geometry tools no longer automatically take priority.
 

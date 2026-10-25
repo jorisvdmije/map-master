@@ -902,6 +902,10 @@ in the Mercator plane around a fixed pivot. The default is the projected bounds
 centre. `getRotationPreview()` provides a cached, validated result; `finishRotation()`
 saves it as one transaction and one Undo action. See [rotation](rotation.md) for
 angle normalization, geographic limits, cancellation and lifecycle contracts.
+The map displays a draggable rotation handle and a frame that stays horizontal
+and vertical around the projected preview. Hold Shift for 15° steps. Release
+keeps the preview open; Enter/Apply confirms. Numeric controls and mouse input
+share the same angle and validation path.
 
 ## Selection scaling
 

@@ -1,6 +1,6 @@
 import { Map } from 'maplibre-gl';
 import { expect, it, vi } from 'vitest';
-import { page, userEvent } from 'vitest/browser';
+import { commands, page, userEvent } from 'vitest/browser';
 import type { Coordinate, GeometryFeatureCollection } from '../../src/index.js';
 import html from '../../examples/basic/index.html?raw';
 import fixture from '../../examples/basic/public/shared-boundary.geojson?raw';
@@ -31,6 +31,13 @@ it('rotates a pair with numeric and step controls, cancels, confirms and restore
     await page.getByRole('button', { name: '−15°', exact: true }).click(); await expect.element(angle).toHaveValue(30);
     await page.getByRole('button', { name: 'Cancel', exact: true }).click(); expect(output()).toEqual(original);
     await rotate.click(); await expect.element(angle).toHaveValue(0);
+    const handle = () => document.querySelector<HTMLButtonElement>('[data-geo-rotation-handle]')!;
+    await expect.poll(handle).not.toBeNull();
+    const x = parseFloat(handle().style.left); const y = parseFloat(handle().style.top);
+    await commands.vertexPointer('down', x, y); await commands.vertexPointer('move', x + 45, y + 20);
+    await expect.poll(() => document.querySelector<HTMLInputElement>('#rotation-angle')!.valueAsNumber).not.toBe(0);
+    await commands.vertexPointer('up', x + 45, y + 20);
+    expect(output()).toEqual(original); await expect.element(apply).toBeEnabled();
     await angle.fill('-45'); await apply.click(); const after = output();
     expect(after.features.map((f) => f.id)).toEqual(original.features.map((f) => f.id));
     for (let i = 0; i < 2; i++) { expect(after.features[i]!.geometry).not.toEqual(original.features[i]!.geometry); expect(after.features[i]!.properties).toEqual(original.features[i]!.properties); }

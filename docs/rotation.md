@@ -1,14 +1,36 @@
 # Rotate selected shapes
 
 Select one shape, or several with Shift+click, and choose **Rotate selection**.
-Enter an angle in degrees or use the −15° / +15° buttons. Positive angles turn
-clockwise around the white pivot marker. **Apply rotation** saves the whole
+Drag the **↻ handle** outside the selection, enter an angle in degrees or use the
+−15° / +15° buttons. Positive angles turn clockwise around the white pivot marker.
+The dashed selection frame stays **horizontal and vertical on the screen**:
+its bounds follow the current projected geometry, including on a rotated or
+pitched map. It never rotates with the shape. A faint dashed outline shows the
+original geometry. **Apply rotation** saves the whole
 selection; Cancel discards it. With the map focused, Enter applies and Escape
 cancels. One Undo restores the complete selection. The demo's adjoining-parcels
 or multipart fixture can be imported to try this workflow.
 
-This first version uses numeric controls and a public API. Dragging a rotation
-handle or moving the pivot interactively is not implemented. The demo restores
+Hold **Shift** while dragging for 15° angle steps; releasing Shift restores free
+rotation even without another mouse movement. The angle label and demo input
+follow the current preview. Release the mouse to review or drag again; releasing
+does not save. During a drag, Escape restores the angle at the start of that drag
+and keeps rotation mode open. Escape again cancels the entire session. Enter
+during an active drag is ignored; after release it applies the preview.
+
+The handle has a 44 CSS-pixel target. It remains under the pointer while dragging
+and returns above the screen-aligned frame on release. Near the top viewport
+edge it uses the bottom edge instead; its resting position is clamped to the map
+viewport so small or partially off-screen selections remain accessible. A 10-pixel
+dead zone around the pivot prevents unstable angles when the pointer crosses it.
+Tab to the handle and use arrow keys for 1° adjustments, or Shift + arrows for
+15° adjustments. Enter applies and Escape cancels when the handle is focused.
+The existing angle field remains available for exact keyboard entry.
+
+The pivot stays fixed throughout the session. Moving it interactively is a
+separate follow-up; the API already accepts an explicit pivot on entry. Pointer
+rotation is currently qualified for desktop mouse input, not touch.
+The demo restores
 the last preview angle when an incomplete/cleared angle input loses focus; while
 that input is incomplete, Apply is disabled. Map shortcuts do not intercept typing
 in the input field.
@@ -107,10 +129,20 @@ such as stored area are not recalculated. No IDs are allocated.
 
 A valid preview hides the selected originals and displays rotated geometry plus a
 pivot marker. An invalid result shows the originals and marker. No committed-source
-upload occurs while changing angles. Map panning, zoom and style replacement keep
+upload occurs while changing angles. Outside a handle drag, map panning, zoom and style replacement keep
 the fixed pivot/geometry and reconstruct the preview. Feature dragging, selection,
 vertex editing and competing data/history operations are blocked until finish/cancel.
-Snapping and tracing settings have no effect on rotation.
+Vertex/edge snapping and tracing settings have no effect on rotation; Shift's
+15° angle steps are independent of those settings.
+
+During a handle drag the editor stops camera inertia and temporarily disables
+camera gestures, including scroll zoom and keyboard navigation. It restores each
+handler's prior enabled/disabled state on release or interruption. Blur, pointer
+cancellation, lost pointer capture, or programmatic camera/style changes restore
+the angle at the start of the drag. Captured mouse input may finish outside the
+map. Explicit angle API calls stop the drag and use the requested value; later
+pointer releases cannot overwrite it. Lock revocation, cancellation, destruction
+and map removal release the capture and remove the overlay.
 
 A changed confirmation increments dataRevision once and emits one `onTransaction`
 followed by `onChange`; no individual create/update/delete events. Undo/Redo emits
@@ -120,5 +152,6 @@ unchanged confirmation preserve available Redo history and add no history entry.
 
 Cancel, destruction and map removal discard the rotation. The prior cursor and
 double-click zoom settings are restored when the map remains alive. Angle changes
-validate synchronously and rendering is scheduled per animation frame. Large complex
+validate synchronously; pointer previews are coalesced per animation frame and
+the exact release position is applied before ending the gesture. Large complex
 polygons can still block the UI; see the [benchmark](performance.md#selection-rotation).
