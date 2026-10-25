@@ -19,6 +19,10 @@ export class EditHistory {
   get canUndo(): boolean { return this.past.length > 0; }
   get canRedo(): boolean { return this.future.length > 0; }
 
+  peek(direction: 'undo' | 'redo'): HistoryEntry | undefined {
+    return (direction === 'undo' ? this.past : this.future).at(-1);
+  }
+
   record(entry: HistoryEntry): void {
     this.future = [];
     if (this.limit === 0) return;

@@ -144,6 +144,23 @@ export async function checkWorkspace(origin, { smoke = false } = {}) {
     assert.equal(await page.locator('#undo').isDisabled(), true);
     passed('live appearance presets preserve saved geometry, drafts and history');
 
+    await page.locator('#lock').click();
+    assert.equal(await page.locator('#lock').textContent(), 'Unlock feature');
+    for (const selector of ['#edit', '#delete', '#rename', '#name']) assert.equal(await page.locator(selector).isDisabled(), true);
+    assert.match(await page.locator('#features').textContent(), /Locked/u);
+    await canvas.focus(); await page.keyboard.press('Delete');
+    await text(page, '#count', '1');
+    assert.deepEqual(await exportData(page), edited);
+    assert.equal(await page.evaluate((key) => localStorage.getItem(key), key), savedBeforeTheme);
+    await text(page, '#save-state', 'All changes saved locally');
+    await page.locator('#lock').click();
+    assert.equal(await page.locator('#edit').isDisabled(), false);
+    await page.locator('#lock').click(); await page.reload();
+    await page.locator('#features button').click();
+    assert.equal(await page.locator('#edit').isDisabled(), false);
+    assert.equal(await page.locator('#lock').textContent(), 'Lock for this session');
+    passed('session locks protect editing, names and keyboard deletion without changing saved data');
+
     await page.locator('#features button').click();
     await page.locator('#delete').click();
     await text(page, '#count', '0');

@@ -1,3 +1,4 @@
+import { lockedFeatureIds, sameLocks } from '../core/feature-locks.js';
 import { constrainDrawingPoint, drawingConstraintsOptions } from '../core/drawing-constraints.js';
 import { copyAppearance, resolveAppearance, type EditorAppearance, type EditorAppearanceOptions } from '../core/appearance.js';
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
@@ -58,7 +59,7 @@ export class GeometryEditor {
     this.drawingConstraints = drawingConstraintsOptions(options.drawingConstraints);
     this.tracing = this.tracingOptions(options.tracing ?? {});
     this.events = new EditorEvents((error) => { view.queueMicrotask(() => { throw error; }); });
-    this.session = new DrawingSession(() => view.crypto.randomUUID(), options.historyLimit);
+    this.session = new DrawingSession(() => view.crypto.randomUUID(), options.historyLimit, options.lockedFeatureIds);
     this.reshapeSnapping = new ReshapeSnapping(map);
     this.snapping = new MapLibreSnapping(map, options.snapping);
     this.renderer = new MapLibreRenderer(map, `geo-editor-${view.crypto.randomUUID()}`, this.appearance);
@@ -94,7 +95,7 @@ export class GeometryEditor {
     this.translation = new TranslationInteraction(map, {
       targets: (point) => {
         const state = this.session.state;
-        if (this.destroyed || this.renderer.transferringTranslation || state.mode !== 'idle' || state.selectedFeatureIds.length === 0) return [];
+        if (this.destroyed || this.renderer.transferringTranslation || state.mode !== 'idle' || state.selectedFeatureIds.length === 0 || state.selectedFeatureIds.some((id) => this.session.isFeatureLocked(id))) return [];
         const id = this.renderer.pick(point);
         return id !== null && state.selectedFeatureIds.includes(id) ? this.session.getSelection() : [];
       },
@@ -148,6 +149,22 @@ export class GeometryEditor {
 
   getState(): EditorState {
     return this.session.state;
+  }
+
+  getLockedFeatureIds(): FeatureId[] { return this.session.getLockedFeatureIds(); }
+  isFeatureLocked(id: FeatureId): boolean { return this.session.isFeatureLocked(id); }
+
+  /** Replace host locks atomically. Policy is separate from GeoJSON and history. */
+  setLockedFeatureIds(ids: readonly FeatureId[]): void {
+    this.assertAlive();
+    const next = lockedFeatureIds(ids);
+    if (sameLocks(new Set(this.session.getLockedFeatureIds()), next)) return;
+    this.cancelIdleGestures();
+    this.vertices.stop(true);
+    const wasDrawing = this.session.state.mode !== 'idle';
+    this.session.setLockedFeatureIds([...next]);
+    if (wasDrawing && this.session.state.mode === 'idle') this.leaveDrawing();
+    this.emitChange();
   }
 
   /** Independent snapshot; changing it never changes the editor. */
@@ -611,7 +628,8 @@ export class GeometryEditor {
   /** Delete all selected features as one transaction, including a single selection. */
   deleteSelection(): TransactionEvent | null {
     this.assertAlive();
-    return this.applyTransaction({ delete: this.session.state.selectedFeatureIds });
+    this.cancelIdleGestures();
+    return this.publishTransaction(this.session.deleteSelection());
   }
 
   /** Translate the current selection in longitude/latitude degrees, atomically. */

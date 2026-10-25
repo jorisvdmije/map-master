@@ -147,3 +147,12 @@ matrix, performance results, changelogs, a license, and a security reporting
 process. Keep dependencies small and releases reproducible. Applications should
 be able to choose their own map services; the editor must not require an account
 or a hosted persistence service.
+
+## Feature policy
+
+Host-owned [feature locks](feature-locks.md) are typed ID sets in `DrawingSession`,
+separate from properties and history. Tool entry and the prepared-commit boundary
+protect existing features. History peeks before consuming a blocked entry, with
+per-entry policy caching. The adapter cancels gestures when policy changes and
+restores the committed view if an active mutation draft is revoked. Reference
+snapping/tracing and read-only subtraction inputs stay available.

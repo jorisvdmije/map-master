@@ -9,7 +9,7 @@
   <body>
     <header class="header">
       <a class="brand" href="/" aria-label="geo home"><span class="brand-mark">g.</span>geo<span class="brand-divider"></span><span class="brand-caption">Drawing playground</span></a>
-      <span class="milestone"><span class="dot"></span> Milestone 18b <span class="milestone-label">/ Editor appearance</span></span>
+      <span class="milestone"><span class="dot"></span> Milestone 18c <span class="milestone-label">/ Feature locks</span></span>
     </header>
     <main class="workspace">
       <aside class="sidebar" aria-label="Drawing tools">
@@ -115,6 +115,8 @@
           <button id="draw-hole" class="button secondary" disabled>Draw a hole</button>
           <button id="delete-hole" class="button danger" hidden disabled>Delete hole</button>
           <button id="edit-selected" class="button secondary" disabled>Edit vertices</button>
+          <button id="lock-selected" class="button secondary" disabled>Lock selection</button>
+          <p id="lock-status">Locks last until this page is reloaded.</p>
           <button id="duplicate-selected" class="button secondary" aria-label="Duplicate selected shape" disabled>Duplicate</button>
           <div class="selection-actions">
             <button id="deselect" class="button secondary" disabled>Deselect</button>

@@ -36,6 +36,7 @@ const output = element<HTMLTextAreaElement>('output');
 const status = element('status');
 const selection = element('selection');
 const deselect = element<HTMLButtonElement>('deselect');
+const lockSelected = element<HTMLButtonElement>('lock-selected');
 const deleteSelected = element<HTMLButtonElement>('delete-selected');
 const duplicateSelected = element<HTMLButtonElement>('duplicate-selected');
 const reshapeSelected = element<HTMLButtonElement>('reshape-selected');
@@ -238,6 +239,18 @@ map.on('load', () => {
       feature.geometry.type !== 'Polygon' && feature.geometry.type !== 'MultiPolygon');
     differenceSelected.disabled = unionSelected.disabled;
     intersectionSelected.disabled = unionSelected.disabled;
+    const anyLocked = state.selectedFeatureIds.some((id) => activeEditor.isFeatureLocked(id));
+    const allLocked = selectedCount > 0 && state.selectedFeatureIds.every((id) => activeEditor.isFeatureLocked(id));
+    lockSelected.disabled = drawing || selectedCount === 0;
+    lockSelected.textContent = allLocked ? 'Unlock selection' : 'Lock selection';
+    element('lock-status').textContent = anyLocked
+      ? 'Selection contains locked shapes. Selection, copying and snapping remain available. Locks reset on reload.'
+      : 'Locks last until this page is reloaded.';
+    if (state.selectedFeatureIds[0] !== undefined && activeEditor.isFeatureLocked(state.selectedFeatureIds[0])) differenceSelected.disabled = true;
+    if (anyLocked) {
+      for (const button of [deleteSelected, editSelected, drawHole, deleteHole, reshapeSelected, splitSelected,
+        unionSelected, intersectionSelected, editSharedBoundary, offsetSelected, bufferSelected, simplifySelected, scaleSelected, rotateSelected]) button.disabled = true;
+    }
     element('editing-tools').hidden = !editing;
     element('finish-label').textContent = offsetting ? 'Apply offset' : buffering ? 'Apply buffer' : simplifying ? 'Apply simplification' : scaling ? 'Apply scale' : rotating ? 'Apply rotation' : shared ? 'Save both polygons' : reshaping ? 'Apply reshape' : intersecting ? 'Apply intersection' : subtracting ? 'Apply subtraction' : merging ? 'Apply merge' : splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
     element('drawing-instructions').hidden = offsetting || buffering || simplifying || scaling || rotating || editing || reshaping || splitting || merging || subtracting || intersecting || state.mode === 'draw-hole';
@@ -571,10 +584,17 @@ deleteHole.addEventListener('click', () => {
     status.textContent = error instanceof Error ? error.message : 'Could not delete this hole.';
   }
 });
-ringIndex.addEventListener('change', () => { deleteHole.disabled = Number(ringIndex.value) < 1 || editor?.getState().mode !== 'idle'; });
+ringIndex.addEventListener('change', () => { deleteHole.disabled = Number(ringIndex.value) < 1 || editor?.getState().mode !== 'idle' || editor.getState().selectedFeatureIds.some((id) => editor!.isFeatureLocked(id)); });
 removeVertex.addEventListener('click', () => {
   const index = editor?.getState().selectedVertexIndex;
   if (index !== undefined && index !== null) editor?.removeVertex(index);
+});
+lockSelected.addEventListener('click', () => {
+  if (!editor) return;
+  const selected = editor.getState().selectedFeatureIds;
+  const locks = editor.getLockedFeatureIds();
+  const allLocked = selected.every((id) => editor!.isFeatureLocked(id));
+  editor.setLockedFeatureIds(allLocked ? locks.filter((id) => !selected.includes(id)) : [...locks, ...selected]);
 });
 deleteSelected.addEventListener('click', () => {
   if (!editor) return;

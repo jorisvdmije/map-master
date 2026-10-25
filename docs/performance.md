@@ -790,3 +790,12 @@ can still cause quadratic work even for valid paths. The synchronous calculation
 can block the UI on large or unfavorable inputs. This benchmark establishes no
 supported maximum size, frame-rate guarantee or CI timing budget. Workers and
 interactive dragging of the offset are not implemented in this version.
+
+## Feature-lock work bounds
+
+Lock membership is an ID-set lookup. Tool entry checks selected IDs before copying
+geometry. Prepared commits inspect only changed existing features. A history
+entry is checked against locks at most once per policy version; its cached result
+is reused by pointer-state reads. Replacing policy invalidates that cache and
+does not upload committed geometry or rebuild snapping. These are work bounds,
+not measured browser-latency guarantees; milestone 18d covers beta budgets.

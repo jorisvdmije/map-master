@@ -1,3 +1,4 @@
+import { FeatureLockedError, lockedFeatureIds, sameLocks } from './feature-locks.js';
 import { canOffsetFeatures, offsetFeatures, validateOffsetDistance } from './offset.js';
 import { bufferFeatures, validateBufferDistance } from './buffer.js';
 import { simplifyFeatures, validateSimplificationTolerance } from './simplification.js';
@@ -72,9 +73,46 @@ export class DrawingSession {
   private dataRevision = 0;
 
   private readonly history: EditHistory;
+  private locks = new Set<FeatureId>();
+  private historyLocks = new WeakMap<HistoryEntry, boolean>();
 
-  constructor(private readonly createId: () => string, historyLimit = 100) {
+  constructor(private readonly createId: () => string, historyLimit = 100, lockedIds: readonly FeatureId[] = []) {
     this.history = new EditHistory(historyLimit);
+    this.locks = lockedFeatureIds(lockedIds);
+  }
+
+  getLockedFeatureIds(): FeatureId[] { return [...this.locks]; }
+  isFeatureLocked(id: FeatureId): boolean { return this.locks.has(id); }
+
+  /** Replace host policy; cancel a draft only when one of its mutation targets is locked. */
+  setLockedFeatureIds(ids: readonly FeatureId[]): boolean {
+    const next = lockedFeatureIds(ids);
+    if (sameLocks(this.locks, next)) return false;
+    this.locks = next;
+    this.historyLocks = new WeakMap();
+    if (this.kind !== null && this.selectionLocked(this.differenceActive)) this.cancel();
+    return true;
+  }
+
+  private selectionLocked(firstOnly = false): boolean {
+    if (!this.locks.size) return false;
+    for (const id of this.selectedFeatureIds) {
+      if (this.locks.has(id)) return true;
+      if (firstOnly) break;
+    }
+    return false;
+  }
+
+  private canReplay(direction: HistoryEvent['direction']): boolean {
+    const entry = this.history.peek(direction);
+    if (!entry) return false;
+    if (!this.locks.size) return true;
+    let blocked = this.historyLocks.get(entry);
+    if (blocked === undefined) {
+      blocked = entry.changes.some(({ before, after }) => this.locks.has((before ?? after)!.id));
+      this.historyLocks.set(entry, blocked);
+    }
+    return !blocked;
   }
 
   private get selectedFeatureId(): FeatureId | null {
@@ -95,8 +133,8 @@ export class DrawingSession {
       activePartIndex: this.activePartIndex,
       dataRevision: this.dataRevision,
       canFinish: this.offsetting ? this.offsetting.preview !== null : this.buffering ? this.buffering.preview !== null : this.simplification ? this.simplification.preview !== null : this.scaling ? this.scaling.preview !== null : this.rotation ? this.rotation.preview !== null : this.sharedBoundary ? this.sharedBoundaryPreview !== null : this.reshapeId !== null ? this.reshapePreview !== null : this.intersectionActive ? this.intersectionPreview !== null : this.differenceActive ? this.differencePreview !== null : this.unionActive ? this.unionPreview !== null : this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
-      canUndo: this.kind === null && this.history.canUndo,
-      canRedo: this.kind === null && this.history.canRedo,
+      canUndo: this.kind === null && this.canReplay('undo'),
+      canRedo: this.kind === null && this.canReplay('redo'),
       validationError: this.validationError,
       splitError: this.splitError,
       sharedBoundaryError: this.sharedBoundaryError,
@@ -243,6 +281,7 @@ export class DrawingSession {
   unionSelection(): boolean {
     if (this.unionActive) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before merging.');
+    if (this.selectionLocked()) return false;
     const selected = this.getSelection();
     if (selected.length < 2) return false;
     const geometries: UnionPreview[] = [];
@@ -279,6 +318,7 @@ export class DrawingSession {
   differenceSelection(): boolean {
     if (this.differenceActive) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before subtracting.');
+    if (this.selectionLocked(true)) return false;
     const selected = this.getSelection();
     if (selected.length < 2) return false;
     const geometries: UnionPreview[] = [];
@@ -316,6 +356,7 @@ export class DrawingSession {
   intersectionSelection(): boolean {
     if (this.intersectionActive) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before intersecting.');
+    if (this.selectionLocked()) return false;
     const selected = this.getSelection();
     if (selected.length < 2) return false;
     const geometries: UnionPreview[] = [];
@@ -353,6 +394,7 @@ export class DrawingSession {
   reshapeSelected(): boolean {
     if (this.reshapeId !== null) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before reshaping.');
+    if (this.selectionLocked()) return false;
     const feature = this.getSelected();
     if (!feature || feature.geometry.type !== 'Polygon' || feature.geometry.coordinates.length !== 1) return false;
     this.reshapeId = feature.id; this.kind = 'LineString'; this.draft = [];
@@ -406,6 +448,7 @@ export class DrawingSession {
   splitSelected(): boolean {
     if (this.splitId !== null) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before splitting.');
+    if (this.selectionLocked()) return false;
     const feature = this.getSelected();
     if (!feature || feature.geometry.type !== 'Polygon') return false;
     this.splitId = feature.id; this.kind = 'LineString'; this.draft = [];
@@ -474,6 +517,9 @@ export class DrawingSession {
   /** The only entry point for recording and applying prepared committed mutations. */
   private commit(action: HistoryAction, changes: FeatureChange[]): boolean {
     if (changes.length === 0) return false;
+    for (const { before } of changes) {
+      if (before && this.locks.has(before.id)) throw new FeatureLockedError(before.id);
+    }
     const deletions = changes.filter((change) => change.after === null);
     // Only deletion needs original positions. Ordinary creation/editing stays indexed.
     const positions = deletions.length > 0 ? new Map(Array.from(this.features.keys(), (id, index) => [id, index])) : null;
@@ -500,6 +546,7 @@ export class DrawingSession {
 
   private replay(direction: HistoryEvent['direction']): HistoryEvent | null {
     this.assertIdleHistory();
+    if (!this.canReplay(direction)) return null;
     const entry = this.history[direction]();
     if (!entry) return null;
     this.applyChanges(entry.changes.map((change) => direction === 'undo'
@@ -597,6 +644,7 @@ export class DrawingSession {
   deleteSelected(): GeometryFeature | null {
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before deleting.');
     if (this.selectedFeatureIds.size > 1) throw new RangeError('Use deleteSelection() to delete multiple selected features.');
+    if (this.selectionLocked()) return null;
     const feature = this.getSelected();
     if (!feature) return null;
     this.commit('delete', [{ before: this.features.get(feature.id)!, after: null }]);
@@ -605,12 +653,15 @@ export class DrawingSession {
 
   /** Delete the complete selection through one transaction/history action. */
   deleteSelection(): TransactionEvent | null {
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before deleting.');
+    if (this.selectionLocked()) return null;
     return this.applyTransaction({ delete: [...this.selectedFeatureIds] });
   }
 
   /** Apply the same degree offset to every selected vertex as one validated transaction. */
   translateSelection(delta: Coordinate): TransactionEvent | null {
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before translating.');
+    if (this.selectionLocked()) return null;
     return this.applyTransaction({ update: translateFeatures(this.getSelection(), delta) });
   }
 
@@ -634,6 +685,7 @@ export class DrawingSession {
   rotateSelection(pivot?: Coordinate): boolean {
     if (this.rotation) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before rotating.');
+    if (this.selectionLocked()) return false;
     if (pivot !== undefined) validateRotationPivot(pivot);
     const originals = this.getSelection();
     const center = rotationPivot(originals);
@@ -682,6 +734,7 @@ export class DrawingSession {
   scaleSelection(pivot?: Coordinate): boolean {
     if (this.scaling) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before scaling.');
+    if (this.selectionLocked()) return false;
     if (pivot !== undefined) validateTransformPivot(pivot);
     const originals = this.getSelection();
     const center = transformPivot(originals);
@@ -730,6 +783,7 @@ export class DrawingSession {
   simplifySelection(): boolean {
     if (this.simplification) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before simplification.');
+    if (this.selectionLocked()) return false;
     const originals = this.getSelection();
     const center = transformPivot(originals);
     if (!center) return false;
@@ -775,6 +829,7 @@ export class DrawingSession {
   offsetSelection(): boolean {
     if (this.offsetting) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before offsetting.');
+    if (this.selectionLocked()) return false;
     const originals = this.getSelection();
     if (!canOffsetFeatures(originals)) return false;
     this.offsetting = { originals, distance: 0, preview: originals, error: null };
@@ -825,6 +880,7 @@ export class DrawingSession {
     validateBufferDistance(distance);
     if (this.buffering) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before buffering.');
+    if (this.selectionLocked()) return false;
     const originals = this.getSelection();
     const center = transformPivot(originals);
     if (!center) return false;
@@ -876,6 +932,7 @@ export class DrawingSession {
   editSharedBoundary(): boolean {
     if (this.sharedBoundary) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before editing a shared boundary.');
+    if (this.selectionLocked()) return false;
     const selected = this.getSelection();
     if (selected.length !== 2) return false;
     const first = selected[0]!; const second = selected[1]!;
@@ -916,6 +973,7 @@ export class DrawingSession {
   editSelected(ringIndex = 0, partIndex = 0): boolean {
     if (this.editingId !== null) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before editing.');
+    if (this.selectionLocked()) return false;
     const feature = this.getSelected();
     if (!feature) return false;
     const part = this.partAt(feature.geometry, partIndex);
@@ -981,6 +1039,7 @@ export class DrawingSession {
   drawHole(partIndex = 0): boolean {
     if (this.holeId !== null) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before drawing a hole.');
+    if (this.selectionLocked()) return false;
     const feature = this.getSelected();
     if (!feature || feature.geometry.type !== 'Polygon' && feature.geometry.type !== 'MultiPolygon') return false;
     const part = this.partAt(feature.geometry, partIndex);
@@ -995,6 +1054,7 @@ export class DrawingSession {
   /** Remove an interior ring as one atomic update. The exterior cannot be removed. */
   deleteHole(ringIndex: number, partIndex = 0): TransactionEvent | null {
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before deleting a hole.');
+    if (this.selectionLocked()) return null;
     const feature = this.getSelected();
     if (!feature || feature.geometry.type !== 'Polygon' && feature.geometry.type !== 'MultiPolygon') return null;
     const part = this.partAt(feature.geometry, partIndex);

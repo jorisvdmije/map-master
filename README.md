@@ -37,6 +37,10 @@ outlines, draft fills and editing/snap/pivot markers through constructor options
 or live `setAppearance()` patches. Both demos have a **Map colors** selector.
 Settings survive map style changes and leave GeoJSON and Undo history unchanged.
 
+[Feature locks](docs/feature-locks.md) protect reference geometry across editing,
+transactions, pointer/keyboard actions and Undo/Redo while retaining snapping.
+Both demos offer session lock/unlock controls.
+
 ## Try the demo
 
 For the smaller **Area workspace** application, run `npm run dev:workspace`

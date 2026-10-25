@@ -11,6 +11,10 @@ export class LineEditor {
 
   constructor(map: MapLibreMap, options: EditorOptions = {}) { this.editor = new GeometryEditor(map, options); }
 
+  getLockedFeatureIds(): FeatureId[] { return this.editor.getLockedFeatureIds(); }
+  isFeatureLocked(id: FeatureId): boolean { return this.editor.isFeatureLocked(id); }
+  setLockedFeatureIds(ids: readonly FeatureId[]): void { this.editor.setLockedFeatureIds(ids); }
+
   getAppearance(): EditorAppearance { return this.editor.getAppearance(); }
   setAppearance(options: EditorAppearanceOptions): void { this.editor.setAppearance(options); }
 

@@ -140,6 +140,8 @@ export interface SnapResult {
 }
 
 export interface EditorOptions {
+  /** Host-owned read-only IDs. Initial imports are allowed; existing features cannot change. */
+  lockedFeatureIds?: readonly FeatureId[];
   /** Partial presentation settings. Omitted values use the built-in appearance. */
   appearance?: EditorAppearanceOptions;
   /** Opt-in angle constraints for new line, polygon and hole segments. Alt bypasses them. */

@@ -460,3 +460,12 @@ bounds reduce intersection comparisons. DrawingSession freezes the selection,
 caches distance/preview/diagnostic and commits through the transaction boundary.
 GeometryEditor reuses collection-preview rendering and existing history/events.
 See [line offsets](offset.md) for the supported subset and numeric limits.
+
+## Feature locks
+
+`core/feature-locks.ts` validates and copies typed ID sets and defines the public
+`FeatureLockedError`. `DrawingSession` checks tool entry, prepared mutations and
+history replay; `EditHistory.peek` lets it inspect the next entry without moving
+either stack. The MapLibre controller coordinates gesture cancellation and draft
+cleanup on a policy change. See [feature locks](feature-locks.md) for the API and
+the distinction between loading a locked reference and mutating one.

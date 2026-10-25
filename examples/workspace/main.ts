@@ -16,7 +16,7 @@ function element<T extends HTMLElement>(selector: string): T {
 }
 
 const buttons = Object.fromEntries([
-  'save', 'polygon', 'line', 'undo', 'redo', 'edit', 'delete', 'export', 'finish', 'cancel', 'rename',
+  'save', 'polygon', 'line', 'undo', 'redo', 'edit', 'delete', 'export', 'finish', 'cancel', 'rename', 'lock',
 ].map((id) => [id, element<HTMLButtonElement>(`#${id}`)])) as Record<string, HTMLButtonElement>;
 const nameInput = element<HTMLInputElement>('#name');
 const importInput = element<HTMLInputElement>('#import');
@@ -102,11 +102,15 @@ function render(state: EditorState): void {
   const single = selected.length === 1 ? selected[0] : undefined;
   const simple = single?.geometry.type === 'LineString' || single?.geometry.type === 'Polygon';
   element('#selection').hidden = !single;
-  nameInput.disabled = !idle;
-  buttons.rename!.disabled = !idle || !nameChanged;
-  buttons.edit!.disabled = !idle || !simple;
-  buttons.delete!.disabled = !idle || !single;
-  element('#edit-scope').textContent = simple
+  const locked = single !== undefined && editor.isFeatureLocked(single.id);
+  buttons.lock!.disabled = !idle || !single;
+  buttons.lock!.textContent = locked ? 'Unlock feature' : 'Lock for this session';
+  buttons.lock!.setAttribute('aria-pressed', String(locked));
+  nameInput.disabled = !idle || locked;
+  buttons.rename!.disabled = !idle || !nameChanged || locked;
+  buttons.edit!.disabled = !idle || !simple || locked;
+  buttons.delete!.disabled = !idle || !single || locked;
+  element('#edit-scope').textContent = locked ? 'Locked until unlocked or this page is reloaded. You can still select this shape and snap to its edges.' : simple
     ? 'Drag the selected shape to move it. Vertex editing changes its outer boundary.'
     : 'Multipart geometry is preserved. Use the full editor demo to edit individual parts.';
   buttons.polygon!.disabled = !idle;
@@ -132,8 +136,9 @@ function render(state: EditorState): void {
     : state.mode.startsWith('draw-') ? 'Click to add points. Enter finishes; Escape cancels; Backspace removes the last point.'
     : state.mode.startsWith('edit-') ? 'Drag corners or click a midpoint to add one. Apply changes when ready.'
     : 'Select a shape to edit it, or draw a new area or route.';
-  // Rebuild on committed data/selection changes only; never on pointer previews.
-  if (changed || list.dataset.selection !== key || list.dataset.idle !== String(idle)) {
+  const locksKey = JSON.stringify(editor.getLockedFeatureIds());
+  // Rebuild on committed data/selection/policy changes only; never on pointer previews.
+  if (changed || list.dataset.selection !== key || list.dataset.idle !== String(idle) || list.dataset.locks !== locksKey) {
     list.replaceChildren(...data.features.map((feature) => {
       const item = document.createElement('li');
       const button = document.createElement('button');
@@ -144,12 +149,14 @@ function render(state: EditorState): void {
       kind.textContent = feature.geometry.type === 'Polygon' ? 'Area'
         : feature.geometry.type === 'LineString' ? 'Route'
         : feature.geometry.type === 'MultiPolygon' ? 'Area with multiple parts' : 'Route with multiple parts';
+      if (editor?.isFeatureLocked(feature.id)) kind.textContent += ' · Locked';
       button.append(kind);
       button.addEventListener('click', () => { editor?.select(feature.id); });
       item.append(button); return item;
     }));
     list.dataset.selection = key;
     list.dataset.idle = String(idle);
+    list.dataset.locks = locksKey;
   }
 }
 
@@ -166,6 +173,12 @@ buttons.finish!.onclick = () => { run((current) => { current.finish(); }); };
 buttons.cancel!.onclick = () => { run((current) => { current.cancel(); }); };
 buttons.undo!.onclick = () => { run((current) => { current.undo(); }); };
 buttons.redo!.onclick = () => { run((current) => { current.redo(); }); };
+buttons.lock!.onclick = () => { run((current) => {
+  const feature = current.getSelected();
+  if (!feature) return;
+  const ids = current.getLockedFeatureIds();
+  current.setLockedFeatureIds(current.isFeatureLocked(feature.id) ? ids.filter((id) => id !== feature.id) : [...ids, feature.id]);
+}); };
 buttons.edit!.onclick = () => { run((current) => { current.editSelected(); }); };
 buttons.delete!.onclick = () => { run((current) => { current.deleteSelection(); }); };
 snapping.onchange = () => { run((current) => { current.setSnapping({ enabled: snapping.checked }); }); };

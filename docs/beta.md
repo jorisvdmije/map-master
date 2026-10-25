@@ -82,7 +82,7 @@ versioned envelope:
 }
 ```
 
-Save is explicit. Drafts, selection, camera and Undo history are not persisted.
+Save is explicit. Drafts, selection, camera, feature locks and Undo history are not persisted.
 Saving zero features writes an empty workspace, so deleted features stay deleted
 after reload. Ordinary GeoJSON export contains only the FeatureCollection.
 
@@ -119,6 +119,8 @@ against the production build, using the visible application controls:
 - Draw, render, select an actual polygon on the map, and download exported GeoJSON.
 - Rename safely, retain IDs/properties, and Undo/Redo the property transaction.
 - Cancel drawing/editing, apply a real vertex drag, save, reload and clear old history.
+- Change appearance during vertex editing without dirtying saved data.
+- Lock/unlock a feature, prevent editing/name/deletion, and reset session locks on reload.
 - Delete, Undo/Redo, and persist an empty workspace.
 - Import atomically, distinguish numeric/string IDs, preserve nested properties,
   and reject duplicate IDs, broken JSON and a batch containing unsupported geometry.
@@ -147,10 +149,11 @@ The next beta work is deliberately separate and reviewable:
 
 1. **Configurable editor appearance — complete:** a public styling contract for
    committed, selected, draft and marker states, with style-reload tests.
-2. **Feature edit restrictions:** host-configured operation rules that apply to
-   pointer input, keyboard shortcuts and API mutations. Restricted reference
-   geometry should remain usable for snapping. This is UI policy; a backend must
-   enforce its own authorization.
+2. **Feature edit restrictions — complete:** [feature locks](feature-locks.md)
+   cover pointer input, keyboard shortcuts, API mutations and applicable history.
+   Protected reference geometry remains usable for snapping and tracing. The
+   workspace exposes session locks; persistent policy belongs to the host.
+   This is UI policy; a backend must enforce its own authorization.
 3. **Measured compatibility and performance:** explicit dataset/latency budgets,
    repeated mount/unmount memory checks, browser matrix and touch/accessibility
    scope. Current acceptance covers desktop Chromium and MapLibre 6.15.0.

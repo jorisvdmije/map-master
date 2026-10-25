@@ -7,7 +7,7 @@ void publicApi;
 
 export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const appearance: editor.EditorAppearanceOptions = { feature: { lineColor: '#175c4c' }, vertex: { radius: 6 } };
-  const options: editor.EditorOptions = { historyLimit: 50, snapping: { enabled: true, distance: 18 }, appearance };
+  const options: editor.EditorOptions = { historyLimit: 50, lockedFeatureIds: ['reference', 0], snapping: { enabled: true, distance: 18 }, appearance };
   const tool = new editor.GeometryEditor(map, options);
   const currentAppearance: editor.EditorAppearance = tool.getAppearance();
   tool.setAppearance({ draft: { lineColor: '#f80' }, selected: { fillOpacity: 0.4 } });
@@ -31,6 +31,14 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const snap: editor.SnapResult | null = tool.getSnap();
   tool.onSnap((result) => { const id: editor.FeatureId | null | undefined = result?.featureId; void id; });
   void [snapping, snap];
+  tool.setLockedFeatureIds(['reference', 0]);
+  const locks: editor.FeatureId[] = tool.getLockedFeatureIds();
+  const locked: boolean = tool.isFeatureLocked('reference');
+  const lockError = new editor.FeatureLockedError('reference');
+  void [locks, locked, lockError.featureId];
+  tool.setLockedFeatureIds([]);
+  // @ts-expect-error IDs cannot be booleans
+  tool.setLockedFeatureIds([false]);
   const transaction: editor.FeatureTransaction = { create: [], update: [], delete: [] };
   const committed: editor.TransactionEvent | null = tool.applyTransaction(transaction);
   tool.onTransaction((event: editor.TransactionEvent) => { const changes: editor.FeatureChange[] = event.changes; void changes; });

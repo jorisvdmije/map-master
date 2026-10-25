@@ -6,6 +6,7 @@ separately so consumers can integrate without depending on internal modules.
 | Goal | Guide |
 | --- | --- |
 | Run a standalone installed-package app with saving and recovery | [Beta integration milestone](beta.md) |
+| Protect reference geometry from editing while retaining snapping | [Feature locks](feature-locks.md) |
 | Customize colors, outlines, previews and editing markers | [Editor appearance](appearance.md) |
 | Set up a MapLibre host and use the editor | [GeometryEditor API](geometry-editor.md), [integration setup](line-editor.md#integrate) |
 | Apply atomic create/update/delete batches | [Transactions and event semantics](transactions.md) |
