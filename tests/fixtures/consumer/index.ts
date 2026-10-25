@@ -210,6 +210,10 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   void [rotating, rotationPreview, rotationError, rotationPivot, rotationAngle, rotated];
   const scaling: boolean = tool.scaleSelection([4.895, 52.372]);
   tool.setScaleFactor(2);
+  tool.setScaleFactors(2, 0.5);
+  const horizontalScale: number | null = tool.getState().scaleFactorX;
+  const verticalScale: number | null = tool.getState().scaleFactorY;
+  void [horizontalScale, verticalScale];
   const scalePreview: editor.GeometryFeatureCollection | null = tool.getScalePreview();
   const scaleError: editor.ScaleError | null = tool.getState().scaleError;
   const scalePivot: editor.Coordinate | null = tool.getState().scalePivot;

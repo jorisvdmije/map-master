@@ -55,6 +55,10 @@ const simplifySelected = element<HTMLButtonElement>('simplify-selected');
 const simplificationTolerance = element<HTMLInputElement>('simplification-tolerance');
 const scaleSelected = element<HTMLButtonElement>('scale-selected');
 const scaleFactor = element<HTMLInputElement>('scale-factor');
+const scaleX = element<HTMLInputElement>('scale-x');
+const scaleY = element<HTMLInputElement>('scale-y');
+const scaleFields = [scaleFactor, scaleX, scaleY];
+const formatScaleFactor = (value: number) => String(Number(value.toPrecision(6)));
 const scaleHalf = element<HTMLButtonElement>('scale-half');
 const scaleDouble = element<HTMLButtonElement>('scale-double');
 const rotateSelected = element<HTMLButtonElement>('rotate-selected');
@@ -200,8 +204,11 @@ map.on('load', () => {
     if (document.activeElement !== simplificationTolerance) simplificationTolerance.value = String(state.simplificationTolerance ?? 0);
     scaleSelected.disabled = selectedCount === 0 || drawing;
     element('scale-tools').hidden = !scaling;
-    if (!scaling) scaleFactor.setCustomValidity('');
-    if (document.activeElement !== scaleFactor) scaleFactor.value = String(state.scaleFactor ?? 1);
+    if (!scaling) for (const field of scaleFields) field.setCustomValidity('');
+    if (document.activeElement !== scaleFactor) scaleFactor.value = state.scaleFactor === null && scaling ? '' : formatScaleFactor(state.scaleFactor ?? 1);
+    scaleFactor.placeholder = scaling && state.scaleFactor === null ? 'Mixed axes' : '';
+    if (document.activeElement !== scaleX) scaleX.value = formatScaleFactor(state.scaleFactorX ?? 1);
+    if (document.activeElement !== scaleY) scaleY.value = formatScaleFactor(state.scaleFactorY ?? 1);
     rotateSelected.disabled = selectedCount === 0 || drawing;
     element('rotation-tools').hidden = !rotating;
     if (!rotating) rotationAngle.setCustomValidity('');
@@ -285,7 +292,7 @@ map.on('load', () => {
     lineTool.disabled = drawing;
     polygonTool.disabled = drawing;
     markerTool.disabled = drawing;
-    finish.disabled = !state.canFinish || offsetting && !offsetDistance.validity.valid || buffering && !bufferDistance.validity.valid || simplifying && !simplificationTolerance.validity.valid || scaling && !scaleFactor.validity.valid || rotating && !rotationAngle.validity.valid;
+    finish.disabled = !state.canFinish || offsetting && !offsetDistance.validity.valid || buffering && !bufferDistance.validity.valid || simplifying && !simplificationTolerance.validity.valid || scaling && scaleFields.some(field => !field.validity.valid) || rotating && !rotationAngle.validity.valid;
     cancel.disabled = !drawing;
     undo.disabled = !state.canUndo;
     redo.disabled = !state.canRedo;
@@ -332,7 +339,7 @@ map.on('load', () => {
       status.textContent = state.scaleError === 'scale-out-of-bounds'
         ? 'This factor moves shapes outside the supported map area. Reduce the factor or Cancel.'
         : state.scaleError ? 'The scaled geometry is invalid. Change the factor or Cancel.'
-        : `Preview: ${state.scaleFactor}× original size. Apply scale saves the whole selection; Undo restores it.`;
+        : `Preview: ${formatScaleFactor(state.scaleFactorX!)}× width, ${formatScaleFactor(state.scaleFactorY!)}× height. Apply scale saves the whole selection; Undo restores it.`;
     }
     if (rotating) {
       status.classList.toggle('is-invalid', state.rotationError !== null);
@@ -381,7 +388,7 @@ map.on('load', () => {
         : preview?.geometry === null ? 'No target area remains. Apply subtraction deletes the target; cutting shapes are kept. Undo restores it.'
         : 'Remaining target area is orange; cutting shapes stay blue. Apply subtraction or Enter saves; Cancel keeps the original.';
     }
-    element('map-hint').textContent = offsetting ? 'Positive left · Negative right · Enter applies · Esc cancels' : buffering ? 'Set a distance · Review the zone · Enter applies · Esc cancels' : simplifying ? 'Set a tolerance · Review remaining vertices · Enter applies · Esc cancels' : scaling ? 'Set a factor · White marker is the centre · Enter applies · Esc cancels' : rotating ? 'Drag ↻ to rotate · Shift: 15° · Release to review · Enter applies · Esc cancels' : shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
+    element('map-hint').textContent = offsetting ? 'Positive left · Negative right · Enter applies · Esc cancels' : buffering ? 'Set a distance · Review the zone · Enter applies · Esc cancels' : simplifying ? 'Set a tolerance · Review remaining vertices · Enter applies · Esc cancels' : scaling ? 'Corners: proportional · Sides: width or height · Release to review · Enter applies · Esc cancels' : rotating ? 'Drag ↻ to rotate · Shift: 15° · Release to review · Enter applies · Esc cancels' : shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
       : drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
@@ -547,26 +554,31 @@ scaleSelected.addEventListener('click', () => {
   if (!editor.scaleSelection()) {
     status.classList.add('is-invalid');
     status.textContent = 'Select shapes within the Mercator map area, without date-line crossings or a span over 180°.';
-  } else scaleFactor.focus();
+  } else { element('scale-tools').scrollIntoView({ block: 'nearest' }); }
 });
-scaleFactor.addEventListener('input', () => {
-  const factor = scaleFactor.valueAsNumber;
-  const valid = Number.isFinite(factor) && factor > 0;
-  scaleFactor.setCustomValidity(valid ? '' : 'Enter a factor greater than zero.');
-  if (valid) editor?.setScaleFactor(factor);
-  finish.disabled = !valid || !editor?.getState().canFinish;
-});
-scaleFactor.addEventListener('blur', () => {
-  // A cleared/incomplete number is only a text-entry draft. Restore the last preview factor on exit.
-  scaleFactor.setCustomValidity('');
-  scaleFactor.value = String(editor?.getState().scaleFactor ?? 1);
-  finish.disabled = !editor?.getState().canFinish;
-});
+for (const field of scaleFields) {
+  field.addEventListener('input', () => {
+    const factor = field.valueAsNumber;
+    const valid = Number.isFinite(factor) && factor > 0;
+    field.setCustomValidity(valid ? '' : 'Enter a factor greater than zero.');
+    if (valid && editor) {
+      if (field === scaleFactor) editor.setScaleFactor(factor);
+      else editor.setScaleFactors(field === scaleX ? factor : editor.getState().scaleFactorX!, field === scaleY ? factor : editor.getState().scaleFactorY!);
+    }
+    finish.disabled = scaleFields.some(input => !input.validity.valid) || !editor?.getState().canFinish;
+  });
+  field.addEventListener('blur', () => {
+    field.setCustomValidity('');
+    const state = editor?.getState();
+    const value = field === scaleX ? state?.scaleFactorX : field === scaleY ? state?.scaleFactorY : state?.scaleFactor;
+    field.value = value === null ? '' : formatScaleFactor(value ?? 1);
+    finish.disabled = scaleFields.some(input => !input.validity.valid) || !state?.canFinish;
+  });
+}
 for (const [button, multiplier] of [[scaleHalf, 0.5], [scaleDouble, 2]] as const) {
   button.addEventListener('click', () => {
-    scaleFactor.setCustomValidity('');
-    scaleFactor.value = String((editor?.getState().scaleFactor ?? 1) * multiplier);
-    scaleFactor.dispatchEvent(new Event('input'));
+    for (const field of scaleFields) field.setCustomValidity('');
+    if (editor) editor.setScaleFactors(editor.getState().scaleFactorX! * multiplier, editor.getState().scaleFactorY! * multiplier);
   });
 }
 editSharedBoundary.addEventListener('click', () => {

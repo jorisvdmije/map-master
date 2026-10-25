@@ -50,3 +50,11 @@ independent of the package version, and this release preparation makes no storag
 format change. Browser data belongs to an origin, including its port; moving a
 demo to another origin requires export/import, not just upgrading the package.
 Host applications own their storage schema, migrations and rollback strategy.
+
+## Independent scale axes
+
+Scaling now exposes `scaleFactorX` and `scaleFactorY`. Use those values to display
+the preview dimensions, and use `state.mode === 'scale-features'` to detect the
+mode. `scaleFactor` remains the common factor for uniform scaling, but is also
+null during scaling when the axes differ. `setScaleFactor(f)` still sets both
+axes to `f`; use `setScaleFactors(x, y)` for independent values.

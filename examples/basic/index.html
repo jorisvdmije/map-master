@@ -71,11 +71,15 @@
           <h2>SCALE YOUR SELECTION</h2>
           <label for="scale-factor">Scale factor</label>
           <input id="scale-factor" type="number" min="0" step="any" value="1" aria-describedby="scale-help" />
+          <label for="scale-x">Horizontal scale factor</label>
+          <input id="scale-x" type="number" min="0" step="any" value="1" aria-describedby="scale-help" />
+          <label for="scale-y">Vertical scale factor</label>
+          <input id="scale-y" type="number" min="0" step="any" value="1" aria-describedby="scale-help" />
           <div class="action-row">
             <button id="scale-half" class="button secondary" type="button">Half size</button>
             <button id="scale-double" class="button secondary" type="button">Double size</button>
           </div>
-          <p id="scale-help">1 keeps the original size; 0.5 halves it; 2 doubles it. All selected shapes scale together around the white centre marker. Apply saves the preview; Cancel keeps the originals.</p>
+          <p id="scale-help">Drag a corner to scale proportionally, or a side to change only width or height. Scaling stays centred on the white marker. Factors: 1 = original, 0.5 = half, 2 = double. Release to review; Apply saves; Escape during dragging restores the starting size.</p>
         </section>
         <section class="snapping-tools" aria-label="Appearance">
           <label for="appearance">Map colors</label>

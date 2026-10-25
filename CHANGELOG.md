@@ -8,6 +8,12 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 
 ### Added
 
+- Mouse scaling with eight attached frame handles: proportional corners and
+  independent horizontal/vertical side handles, keyboard resizing, drag rollback
+  and a single explicit Undo transaction. Added `setScaleFactors(x, y)`,
+  `scaleFactorX` / `scaleFactorY` state and separate demo axis inputs.
+  `scaleFactor` is null when the two axis factors differ.
+
 - Mouse rotation handle with a horizontal/vertical screen-aligned selection
   frame, original outline, live angle, Shift 15° steps and keyboard adjustment.
   Pointer release keeps the preview; explicit confirmation remains one Undo step.

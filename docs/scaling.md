@@ -1,36 +1,59 @@
 # Scale selected shapes
 
 Select one shape, or several with Shift+click, and choose **Scale selection**.
-Enter a positive **Scale factor**: 1 keeps the original size, 0.5 halves it, and
-2 doubles it. The Half size / Double size buttons multiply the current factor.
-All selected lines and polygons scale together around the white pivot marker.
-**Apply scale** saves the preview; Cancel discards it. With the map focused,
-Enter applies and Escape cancels. One Undo restores the entire selection.
+The frame has eight mouse handles, all scaling around the fixed white centre:
 
-The demo restores the last preview factor when invalid or incomplete input loses
-focus. Apply is disabled while that input is invalid. Map shortcuts do not
-intercept typing in the field. Numeric controls and the API are available;
-drag handles, interactive pivot movement, separate axis factors and reflection
-are outside this first version.
+- Drag a **corner** to scale both axes proportionally, preserving the current aspect ratio.
+- Drag the **left or right side** to change only the horizontal size.
+- Drag the **top or bottom side** to change only the vertical size.
+- Release to review. **Apply scale** or Enter saves the entire selection in one Undo step.
+- Escape during dragging restores the factors at the start of that drag. Escape again cancels the session.
+
+The frame and handles stay attached to the preview. The faint outline shows the
+original geometry. Factor labels show horizontal × vertical percentages. Dragging
+past the pivot keeps the last positive preview; it never reflects the geometry.
+Camera gestures are suspended while dragging and restored on release. Blur,
+capture loss, pointer cancellation and camera/style changes roll back only the
+active drag. Enter during a drag is ignored.
+
+Tab to a handle and use arrows to enlarge (Up/Right) or shrink (Down/Left) its
+axis by a factor of 1.01; Shift uses 1.1. Enter applies, Escape cancels. Handles
+have 28 CSS-pixel targets. Handles for collapsed dimensions, or within 10 screen
+pixels of the pivot, are disabled. For very small or off-screen shapes, zoom/pan
+or use the numeric inputs. Mouse dragging is supported; touch dragging is not.
+
+**Scale factor** sets both axes to the same positive value: 1 keeps the original
+size, 0.5 halves it, and 2 doubles it. **Horizontal scale factor** and **Vertical
+scale factor** change each axis independently. The uniform field shows “Mixed axes”
+when the factors differ. Half size / Double size multiply both current factors,
+keeping their ratio. Invalid/incomplete input blocks Apply until corrected or
+restored on blur. Shortcuts do not intercept text entry.
+
+The pivot remains fixed for the whole session. Opposite-corner anchoring,
+interactive pivot movement and reflection are not supported.
 
 ## Coordinate and factor policy
 
-Scaling is uniform in the spherical Web Mercator plane, using x = λ and
+Scaling follows the horizontal (east/west) and vertical (north/south) axes of the
+spherical Web Mercator plane, using x = λ and
 y = asinh(tan(φ)) for longitude/latitude in radians. For pivot (cx, cy) and
-factor f, x′ = cx + f(x − cx), y′ = cy + f(y − cy). The inverse uses λ = x
+factors fx and fy, x′ = cx + fx(x − cx), y′ = cy + fy(y − cy). The inverse uses λ = x
 and φ = atan(sinh(y)). The default pivot is the centre of the combined projected
 bounding box, calculated once on entry. An explicit longitude/latitude pivot
-may lie outside the selection. Camera changes do not affect the result.
+may lie outside the selection. Camera changes do not affect the result. The scale frame follows these map axes;
+with bearing or pitch it is projected with the map, rather than redefining the
+transformation along screen axes. With a north-up, unpitched map it is horizontal
+and vertical.
 
 The factor is absolute relative to frozen entry geometry. Repeated changes do
-not compound transformations or drift. Factor 1 copies the originals exactly,
-without a projection round trip. The pivot itself remains exact. Every factor
+not compound transformations or drift. Both factors at 1 copy the originals exactly,
+without a projection round trip. An unchanged axis retains its original coordinate exactly. The pivot itself remains exact. Every factor
 must be finite and greater than zero; zero and negative values throw before
 changing the preview. Very small positive factors may collapse vertices through
 floating-point rounding; very large factors may overflow. These results cannot
 be saved. There is no clamping, geometry repair, snapping or world wrapping.
 
-This scales distances uniformly in the projected plane, not ground distances
+Equal factors scale distances uniformly in the projected plane, not ground distances
 or geographic area. It transforms stored vertices without inserting intermediate
 points. Straight-edge interpretations in longitude/latitude and Mercator can
 differ; polygon topology is checked with the editor's ordinary planar validator.
@@ -45,7 +68,8 @@ Terrain, globe, polar and geodesic scaling are outside this contract.
 ```ts
 editor.selectMany(['parcel', 'route']);
 if (editor.scaleSelection()) { // Optional explicit pivot: [4.895, 52.372].
-  editor.setScaleFactor(1.5);
+  editor.setScaleFactors(1.5, 0.75); // Width ×1.5, height ×0.75.
+  // editor.setScaleFactor(1.5) sets both axes to 1.5.
   const preview = editor.getScalePreview();
   if (editor.getState().canFinish) {
     const transaction = editor.finishScale();
@@ -67,12 +91,17 @@ if (editor.scaleSelection()) { // Optional explicit pivot: [4.895, 52.372].
   factors throw TypeError; nonpositive factors throw RangeError, including when
   inactive. A valid factor with an invalid geometric result becomes the active
   factor, with a diagnostic and no preview. A subsequent factor can correct it.
+- `setScaleFactors(horizontal: number, vertical: number): boolean` sets independent
+  absolute factors with the same validation and return policy. Both arguments
+  are validated before any state changes. Invalid geometry can be corrected by
+  another factor update; it cannot be committed.
 - `getScalePreview(): GeometryFeatureCollection | null` returns an independent
   snapshot in selection order, or null when inactive/invalid. Preview geometry
   matches the validated commit geometry. Reads do not recalculate the result.
-- State exposes `scaleFactor`, `scalePivot` (an independent coordinate snapshot)
-  and `scaleError`; all are null outside scaling. `canFinish` reports validity.
-  `getDraft()` stays empty; there are no vertex handles.
+- State exposes `scaleFactorX`, `scaleFactorY`, `scalePivot` (an independent
+  coordinate snapshot) and `scaleError`; all are null outside scaling.
+  `scaleFactor` is the common factor when both axes are equal, otherwise null. `canFinish` reports validity.
+  `getDraft()` stays empty; scale handles are separate from vertex editing.
 - `finishScale(): TransactionEvent | null` revalidates and commits the whole
   selection atomically. Inactive/invalid calls return null; invalid review stays
   active. Unchanged confirmation exits without a history entry and returns null.

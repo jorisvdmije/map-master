@@ -1,7 +1,8 @@
 import { Map, setWorkerUrl, type GeoJSONSource, type StyleSpecification } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { userEvent } from 'vitest/browser';
+import { commands, userEvent } from 'vitest/browser';
+import { project, unproject } from '../../src/core/mercator-transform.js';
 import { GeometryEditor, type Coordinate, type LineFeature, type TransactionEvent } from '../../src/index.js';
 import 'maplibre-gl/dist/maplibre-gl.css';
 setWorkerUrl(workerUrl);
@@ -25,7 +26,7 @@ beforeEach(async () => {
     { type: 'Feature', id: '0', properties: null, geometry: { type: 'LineString', coordinates: [coordinate(300, 150), coordinate(400, 200)] } },
   ] }); editor.clearHistory(); editor.selectMany([0, '0']);
 });
-afterEach(() => { vi.restoreAllMocks(); editor.destroy(); map.remove(); container.remove(); });
+afterEach(async () => { if (map.getCanvas().isConnected) await commands.vertexPointer('up', 650, 400); vi.restoreAllMocks(); editor.destroy(); map.remove(); container.remove(); });
 
 it('scales uniformly in map space, previews without uploads, and saves once with keyboard Undo/Redo', async () => {
   const before = editor.exportGeoJSON(); const revision = editor.getState().dataRevision;
@@ -101,4 +102,92 @@ it('does not intercept text entry outside the map and keeps ordinary vertex edit
     field.focus(); await userEvent.keyboard('10{Backspace}{Enter}{Escape}'); expect(field.value).toBe('1'); expect(editor.getState().mode).toBe('scale-features');
     editor.cancel(); editor.select(0); editor.editSelected(); expect(() => editor.scaleSelection()).toThrow('Finish or cancel');
   } finally { field.remove(); }
+});
+
+const handle = (name = 'se') => container.querySelector<HTMLButtonElement>(`[data-geo-scale-handle="${name}"]`)!;
+async function grip(name = 'se') {
+  await expect.poll(() => handle(name)).not.toBeNull();
+  return { x: parseFloat(handle(name).style.left), y: parseFloat(handle(name).style.top) };
+}
+function scaledPointer(start: { x: number; y: number }, x: number, y = x) {
+  const p = project(map.unproject([start.x, start.y]).toArray()); const pivot = project(editor.getState().scalePivot!);
+  return map.project(unproject([pivot[0] + (p[0] - pivot[0]) * x, pivot[1] + (p[1] - pivot[1]) * y]));
+}
+it.each([
+  { name: 'se', x: 1.5, y: 1.5, bearing: 0, pitch: 0 },
+  { name: 'e', x: 1.5, y: 1, bearing: 0, pitch: 0 },
+  { name: 'n', x: 1, y: 0.5, bearing: 0, pitch: 0 },
+  { name: 'nw', x: 1.5, y: 1.5, bearing: 35, pitch: 40 },
+  { name: 'w', x: 1.5, y: 1, bearing: 35, pitch: 40 },
+  { name: 's', x: 1, y: 0.5, bearing: 35, pitch: 40 },
+])('drags $name at bearing $bearing and pitch $pitch, then commits one undoable selection change', async ({ name, x, y, bearing, pitch }) => {
+  map.jumpTo({ bearing, pitch });
+  const before = editor.exportGeoJSON(); const upload = vi.spyOn(source('-features'), 'setData'); const transaction = vi.fn(); editor.onTransaction(transaction);
+  editor.scaleSelection(); const start = await grip(name); const end = scaledPointer(start, x, y);
+  const camera = { center: map.getCenter().toArray(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
+  await commands.vertexPointer('down', start.x, start.y); expect(map.dragPan.isEnabled()).toBe(false);
+  await commands.vertexPointer('move', end.x, end.y);
+  await expect.poll(() => editor.getState().scaleFactorX).toBeCloseTo(x, 3);
+  await expect.poll(() => editor.getState().scaleFactorY).toBeCloseTo(y, 3);
+  expect(editor.exportGeoJSON()).toEqual(before); expect(upload).not.toHaveBeenCalled();
+  await userEvent.keyboard('{Enter}'); expect(editor.getState().mode).toBe('scale-features');
+  await commands.vertexPointer('up', end.x, end.y);
+  expect(map.dragPan.isEnabled()).toBe(true); expect(editor.getState().canUndo).toBe(false);
+  expect({ center: map.getCenter().toArray(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() }).toEqual(camera);
+  const expected = editor.getScalePreview(); await userEvent.keyboard('{Enter}'); expect(editor.exportGeoJSON()).toEqual(expected);
+  expect(transaction).toHaveBeenCalledOnce(); expect(upload).toHaveBeenCalledOnce(); expect(handle()).toBeNull();
+  editor.undo(); expect(editor.exportGeoJSON()).toEqual(before); editor.redo(); expect(editor.exportGeoJSON()).toEqual(expected);
+});
+it('preserves the current proportions in a corner drag after independent axis scaling', async () => {
+  editor.scaleSelection(); editor.setScaleFactors(2, 0.5); const start = await grip(); const end = scaledPointer(start, 1.25);
+  await commands.vertexPointer('down', start.x, start.y); await commands.vertexPointer('up', end.x, end.y);
+  expect(editor.getState().scaleFactorX).toBeCloseTo(2.5, 3); expect(editor.getState().scaleFactorY).toBeCloseTo(0.625, 3);
+});
+it('captures outside the map and ignores crossing the pivot without mirroring or collapsing', async () => {
+  editor.scaleSelection(); const start = await grip('e'); const far = scaledPointer(start, 4, 1);
+  await commands.vertexPointer('down', start.x, start.y); await commands.vertexPointer('move', far.x, far.y);
+  await expect.poll(() => editor.getState().scaleFactorX).toBeCloseTo(4, 3);
+  const pivot = map.project(editor.getState().scalePivot!);
+  await commands.vertexPointer('move', pivot.x - 50, pivot.y);
+  expect(editor.getState().scaleFactorX).toBeCloseTo(4, 3);
+  const end = scaledPointer(start, 0.5, 1); await commands.vertexPointer('up', end.x, end.y);
+  expect(editor.getState().scaleFactorX).toBeCloseTo(0.5, 3); expect(editor.getState().scaleFactorY).toBe(1);
+});
+it.each(['Escape', 'blur', 'pointercancel', 'capture', 'camera', 'style'] as const)('rolls back only the active drag on %s and ignores late release', async reason => {
+  editor.scaleSelection(); editor.setScaleFactors(1.2, 0.8); const original = editor.getScalePreview();
+  const start = await grip(); const end = scaledPointer(start, 1.3);
+  map.scrollZoom.disable();
+  await commands.vertexPointer('down', start.x, start.y); await commands.vertexPointer('move', end.x, end.y);
+  await expect.poll(() => editor.getState().scaleFactorX).toBeCloseTo(1.56, 3);
+  if (reason === 'Escape') await userEvent.keyboard('{Escape}');
+  if (reason === 'blur') window.dispatchEvent(new Event('blur'));
+  if (reason === 'pointercancel' || reason === 'capture') {
+    const type = reason === 'capture' ? 'lostpointercapture' : 'pointercancel';
+    const event = new PointerEvent(type, { pointerId: 1, bubbles: true });
+    handle().dispatchEvent(event);
+  }
+  if (reason === 'camera') map.jumpTo({ zoom: 14 });
+  if (reason === 'style') {
+    const loaded = new Promise<void>(resolve => { map.once('style.load', () => { resolve(); }); }); map.setStyle(style(), { diff: false }); await loaded;
+  }
+  expect(editor.getState()).toMatchObject({ mode: 'scale-features', scaleFactorX: 1.2, scaleFactorY: 0.8 });
+  expect(editor.getScalePreview()).toEqual(original); expect(map.dragPan.isEnabled()).toBe(true); expect(map.scrollZoom.isEnabled()).toBe(false);
+  await commands.vertexPointer('up', end.x, end.y); expect(editor.getScalePreview()).toEqual(original);
+  await userEvent.keyboard('{Escape}'); expect(editor.getState().mode).toBe('idle'); expect(handle()).toBeNull();
+});
+it('supports axis-specific keyboard controls, then numeric override and teardown during capture', async () => {
+  editor.scaleSelection(); await grip('e'); handle('e').focus();
+  await userEvent.keyboard('{ArrowRight}'); expect(editor.getState()).toMatchObject({ scaleFactorX: 1.01, scaleFactorY: 1 });
+  handle('n').focus(); await userEvent.keyboard('{Shift>}{ArrowUp}{/Shift}'); expect(editor.getState().scaleFactorY).toBe(1.1);
+  const start = await grip(); const end = scaledPointer(start, 1.5);
+  await commands.vertexPointer('down', start.x, start.y); editor.setScaleFactors(2, 3);
+  await commands.vertexPointer('up', end.x, end.y); expect(editor.getState()).toMatchObject({ scaleFactorX: 2, scaleFactorY: 3 });
+  const next = await grip('n'); await commands.vertexPointer('down', next.x, next.y); editor.destroy();
+  expect(handle()).toBeNull(); expect(map.dragPan.isEnabled()).toBe(true);
+});
+it('disables collapsed-axis handles and keeps numeric scaling available for a straight line', async () => {
+  editor.importGeoJSON({ type: 'Feature', id: 'flat', properties: null, geometry: { type: 'LineString', coordinates: [coordinate(100, 150), coordinate(300, 150)] } });
+  editor.select('flat'); editor.scaleSelection(); await grip();
+  expect(handle('n').disabled).toBe(true); expect(handle('s').disabled).toBe(true); expect(handle('e').disabled).toBe(false);
+  editor.setScaleFactors(1.5, 2); expect(editor.getState().canFinish).toBe(true);
 });

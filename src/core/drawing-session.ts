@@ -38,7 +38,7 @@ export class DrawingSession {
   private offsetting: { originals: GeometryFeature[]; distance: number; preview: GeometryFeature[] | null; error: OffsetError | null } | null = null;
   private buffering: { originals: GeometryFeature[]; distance: number; preview: GeometryFeature[] | null; error: BufferError | null } | null = null;
   private simplification: { originals: GeometryFeature[]; tolerance: number; preview: GeometryFeature[] | null; error: SimplificationError | null } | null = null;
-  private scaling: { originals: GeometryFeature[]; pivot: Coordinate; factor: number; preview: GeometryFeature[] | null; error: ScaleError | null } | null = null;
+  private scaling: { originals: GeometryFeature[]; pivot: Coordinate; factorX: number; factorY: number; preview: GeometryFeature[] | null; error: ScaleError | null } | null = null;
   private rotation: { originals: GeometryFeature[]; pivot: Coordinate; angle: number; preview: GeometryFeature[] | null; error: RotationError | null } | null = null;
   private sharedBoundary: SharedBoundary | null = null;
   private sharedBoundaryPreview: SharedBoundaryPreview | null = null;
@@ -144,7 +144,9 @@ export class DrawingSession {
       bufferError: this.buffering?.error ?? null,
       simplificationTolerance: this.simplification?.tolerance ?? null,
       simplificationError: this.simplification?.error ?? null,
-      scaleFactor: this.scaling?.factor ?? null,
+      scaleFactor: this.scaling && this.scaling.factorX === this.scaling.factorY ? this.scaling.factorX : null,
+      scaleFactorX: this.scaling?.factorX ?? null,
+      scaleFactorY: this.scaling?.factorY ?? null,
       scalePivot: this.scaling ? [...this.scaling.pivot] : null,
       scaleError: this.scaling?.error ?? null,
       rotationAngle: this.rotation?.angle ?? null,
@@ -740,20 +742,25 @@ export class DrawingSession {
     const originals = this.getSelection();
     const center = transformPivot(originals);
     if (!center) return false;
-    this.scaling = { originals, pivot: [...(pivot ?? center)], factor: 1, preview: originals, error: null };
+    this.scaling = { originals, pivot: [...(pivot ?? center)], factorX: 1, factorY: 1, preview: originals, error: null };
     this.kind = 'LineString';
     return true;
   }
 
   /** Absolute factor from the entry baseline, never an incremental transformation. */
   setScaleFactor(factor: number): boolean {
-    validateScaleFactor(factor);
-    if (!this.scaling || this.scaling.factor === factor) return false;
+    return this.setScaleFactors(factor, factor);
+  }
+
+  /** Absolute positive factors for the horizontal and vertical Mercator axes. */
+  setScaleFactors(horizontal: number, vertical: number): boolean {
+    validateScaleFactor(horizontal); validateScaleFactor(vertical);
+    if (!this.scaling || this.scaling.factorX === horizontal && this.scaling.factorY === vertical) return false;
     const scaling = this.scaling;
     let preview: GeometryFeature[] | null = null;
     let error: ScaleError | null = null;
     try {
-      const candidates = scaleFeatures(scaling.originals, factor, scaling.pivot);
+      const candidates = scaleFeatures(scaling.originals, horizontal, scaling.pivot, vertical);
       if (!transformPivot(candidates)) throw new RangeError('Scaling creates an unsupported world-spanning selection.');
       // Use the same validation/normalization as commit; previews contain exact commit geometry.
       const changes = prepareTransaction({ update: candidates }, this.features);
@@ -764,7 +771,7 @@ export class DrawingSession {
       else if (cause instanceof RangeError) error = 'scale-out-of-bounds';
       else throw cause;
     }
-    scaling.factor = factor; scaling.preview = preview; scaling.error = error;
+    scaling.factorX = horizontal; scaling.factorY = vertical; scaling.preview = preview; scaling.error = error;
     return true;
   }
 

@@ -40,5 +40,16 @@ it('scales a pair with numeric and step controls, cancels, confirms and restores
     await page.getByRole('button', { name: 'Redo', exact: true }).click(); expect(output()).toEqual(after);
     await scale.click(); await factor.fill('1'); await apply.click(); expect(output()).toEqual(after);
     await page.getByRole('button', { name: 'Undo', exact: true }).click(); expect(output()).toEqual(original); // Identity scale added no history entry.
+    await scale.click();
+    const horizontal = page.getByLabelText('Horizontal scale factor'); const vertical = page.getByLabelText('Vertical scale factor');
+    await horizontal.fill('2'); await vertical.fill('0.5'); await expect.element(factor).toHaveValue(null);
+    await expect.element(apply).toBeEnabled();
+    await page.getByRole('button', { name: 'Double size', exact: true }).click();
+    await expect.element(horizontal).toHaveValue(4); await expect.element(vertical).toHaveValue(1);
+    await vertical.fill('0'); await expect.element(apply).toBeDisabled();
+    await vertical.fill('0.5'); await apply.click(); const stretched = output();
+    for (let i = 0; i < 2; i++) expect(stretched.features[i]!.geometry).not.toEqual(original.features[i]!.geometry);
+    await page.getByRole('button', { name: 'Undo', exact: true }).click(); expect(output()).toEqual(original);
+
   } finally { map?.remove(); spy.mockRestore(); }
 });

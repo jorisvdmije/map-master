@@ -214,8 +214,11 @@ export interface EditorState {
   /** Fixed geographic pivot; an independent snapshot, null outside rotation. */
   rotationPivot: Coordinate | null;
   rotationError: RotationError | null;
-  /** Positive uniform factor from entry geometry; null outside scaling. */
+  /** Uniform factor; null outside scaling or when the axis factors differ. */
   scaleFactor: number | null;
+  /** Positive Mercator axis factors from entry geometry; null outside scaling. */
+  scaleFactorX: number | null;
+  scaleFactorY: number | null;
   /** Fixed geographic pivot; an independent snapshot, null outside scaling. */
   scalePivot: Coordinate | null;
   scaleError: ScaleError | null;

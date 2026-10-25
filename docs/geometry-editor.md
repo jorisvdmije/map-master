@@ -56,7 +56,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `removeLastDrawStep()` | Remove one drawing click, including a complete traced section. |
 | `getDrawingConstraints()` | Independent options snapshot: enabled and angleStep (45 or 90). |
 | `setDrawingConstraints(options)` | Update the opt-in direction grid for free drawing placement; exact snaps, tracing and closure take priority. |
-| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`, `differenceError`, `intersectionError`, `reshapeError`, `reshapeSide`, `sharedBoundaryError`, `rotationAngle`, `rotationPivot`, `rotationError`, `scaleFactor`, `scalePivot`, `scaleError`, `simplificationTolerance`, `simplificationError`, `bufferDistance`, `bufferError`, `offsetDistance`, `offsetError`. |
+| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`, `differenceError`, `intersectionError`, `reshapeError`, `reshapeSide`, `sharedBoundaryError`, `rotationAngle`, `rotationPivot`, `rotationError`, `scaleFactor`, `scaleFactorX`, `scaleFactorY`, `scalePivot`, `scaleError`, `simplificationTolerance`, `simplificationError`, `bufferDistance`, `bufferError`, `offsetDistance`, `offsetError`. |
 | `offsetSelection()` | Begin a signed Mercator offset of simple open lines at distance zero. |
 | `setOffsetDistance(meters)` | Set a finite signed distance from frozen originals; positive left, negative right. |
 | `getOffsetPreview()` | Independent validated line collection; null when inactive/invalid. |
@@ -69,8 +69,9 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `setSimplificationTolerance(meters)` | Set nonnegative tolerance in Mercator meters; recalculate from entry geometry. |
 | `getSimplificationPreview()` | Independent validated selected-result collection, or null when inactive/invalid. |
 | `finishSimplification()` | Confirm changes as one transaction; null when inactive/invalid/unchanged. |
-| `scaleSelection(pivot?)` | Start a uniform scale review around a fixed Mercator pivot. |
-| `setScaleFactor(factor)` | Set an absolute positive factor from entry geometry; validate the whole preview. |
+| `scaleSelection(pivot?)` | Start a scale review with mouse handles around a fixed Mercator pivot. |
+| `setScaleFactor(factor)` | Set both axes to an absolute positive factor from entry geometry. |
+| `setScaleFactors(horizontal, vertical)` | Set independent positive Mercator axis factors; validate the whole preview. |
 | `getScalePreview()` | Independent selected-result FeatureCollection, or null when inactive/invalid. |
 | `finishScale()` | Confirm as one transaction; null for inactive/invalid/unchanged results. |
 | `rotateSelection(pivot?)` | Start a selection-wide rotation review around a fixed Mercator pivot. |
@@ -910,7 +911,9 @@ share the same angle and validation path.
 ## Selection scaling
 
 `scaleSelection(pivot?)` freezes the selected lines and polygons, including holes
-and multipart geometry. `setScaleFactor(factor)` applies a positive uniform factor
+and multipart geometry. Drag a corner to scale proportionally, or a side for one axis.
+`setScaleFactors(horizontal, vertical)` supports independent axes;
+`setScaleFactor(factor)` applies a positive uniform factor
 from the entry baseline around a fixed projected bounds centre or explicit pivot.
 `getScalePreview()` returns the validated output; `finishScale()` saves the group
 as one transaction and one Undo. See [scaling](scaling.md) for the full contract.

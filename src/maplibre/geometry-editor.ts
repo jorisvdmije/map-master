@@ -12,6 +12,7 @@ import { VertexInteraction } from './vertex-interaction.js';
 import { SelectionInteraction } from './selection-interaction.js';
 import { TranslationInteraction } from './translation-interaction.js';
 import { RotationInteraction } from './rotation-interaction.js';
+import { ScalingInteraction } from './scaling-interaction.js';
 import { EditorEvents } from './editor-events.js';
 import { KeyboardInteraction } from './keyboard-interaction.js';
 import { GeoJSONImportError } from '../core/geojson-import.js';
@@ -37,6 +38,7 @@ export class GeometryEditor {
   private readonly selection: SelectionInteraction;
   private readonly translation: TranslationInteraction;
   private readonly rotation: RotationInteraction;
+  private readonly scaling: ScalingInteraction;
   private readonly canvas: HTMLCanvasElement;
   private readonly view: Window;
   private cursor: Coordinate | undefined;
@@ -128,6 +130,12 @@ export class GeometryEditor {
       finish: () => { this.finishRotation(); },
       cancel: () => { this.cancel(); },
     });
+    this.scaling = new ScalingInteraction(map, {
+      state: () => this.session.state,
+      factors: (x, y) => { this.draftChanged(this.session.setScaleFactors(x, y)); },
+      finish: () => { this.finishScale(); },
+      cancel: () => { this.cancel(); },
+    });
     editors.add(map);
     map.on('click', this.handleClick);
     map.on('mousemove', this.handleMove);
@@ -170,6 +178,7 @@ export class GeometryEditor {
     this.cancelIdleGestures();
     this.vertices.stop(true);
     this.rotation.stop();
+    this.scaling.stop();
     const wasDrawing = this.session.state.mode !== 'idle';
     this.session.setLockedFeatureIds([...next]);
     if (wasDrawing && this.session.state.mode === 'idle') this.leaveDrawing();
@@ -186,7 +195,7 @@ export class GeometryEditor {
     if (JSON.stringify(next) === JSON.stringify(this.appearance)) return;
     this.appearance = next;
     this.renderer.setAppearance(next);
-    if (this.session.state.mode === 'rotate-features') this.schedulePreview();
+    if (this.session.state.mode === 'rotate-features' || this.session.state.mode === 'scale-features') this.schedulePreview();
     this.emitChange();
   }
 
@@ -467,14 +476,22 @@ export class GeometryEditor {
 
   setScaleFactor(factor: number): boolean {
     this.assertAlive();
+    this.scaling.stop();
     const changed = this.session.setScaleFactor(factor);
+    this.draftChanged(changed); return changed;
+  }
+
+  /** Set independent horizontal and vertical Mercator scale factors. */
+  setScaleFactors(horizontal: number, vertical: number): boolean {
+    this.assertAlive(); this.scaling.stop();
+    const changed = this.session.setScaleFactors(horizontal, vertical);
     this.draftChanged(changed); return changed;
   }
 
   getScalePreview(): GeometryFeatureCollection | null { return this.session.getScalePreview(); }
 
   finishScale(): TransactionEvent | null {
-    this.assertAlive();
+    this.assertAlive(); this.scaling.stop();
     if (this.session.state.mode !== 'scale-features' || !this.session.state.canFinish) return null;
     const event = this.session.finishScale();
     this.leaveDrawing();
@@ -909,6 +926,7 @@ export class GeometryEditor {
 
   private readonly handleStyleLoad = (): void => {
     this.rotation.stop(true);
+    this.scaling.stop(true);
     this.cancelIdleGestures();
     this.vertices.stop(true);
     this.renderer.mount();
@@ -1055,6 +1073,8 @@ export class GeometryEditor {
         const preview = this.session.getScalePreview();
         this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
         this.renderer.renderTransform(preview, this.session.state.scalePivot!);
+        const originals = this.session.getSelection();
+        this.scaling.render(preview?.features ?? originals, originals, this.appearance);
         return;
       }
       if (this.session.state.mode === 'rotate-features') {
@@ -1096,6 +1116,7 @@ export class GeometryEditor {
 
   private leaveDrawing(): void {
     this.rotation.clear();
+    this.scaling.clear();
     this.traceAnchor = null; this.traceCache = null;
     this.reshapeSnapping.clear();
     this.pointer = undefined;
@@ -1123,6 +1144,7 @@ export class GeometryEditor {
     this.selection.destroy(removeResources);
     this.translation.destroy(removeResources);
     this.rotation.destroy(removeResources);
+    this.scaling.destroy(removeResources);
     this.vertices.destroy(removeResources);
     const wasDrawing = this.session.cancel();
     this.session.clearHistory();

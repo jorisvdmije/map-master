@@ -160,3 +160,36 @@ it('rejects enormous and numerically collapsed factors, then recovers without hi
   expect(session.finishScale()).toBeNull(); expect(session.exportGeoJSON()).toEqual(before);
   session.setScaleFactor(1); expect(session.finishScale()).toBeNull(); expect(session.state.canUndo).toBe(false);
 });
+
+it('scales axes independently, keeps the untouched coordinate exact and restores identity without drift', () => {
+  const input = [line([[10, 30], [20, 45]])];
+  const horizontal = scaleFeatures(input, 2, [10, 30], 1)[0] as LineFeature;
+  const vertical = scaleFeatures(input, 1, [10, 30], 0.5)[0] as LineFeature;
+  expect(horizontal.geometry.coordinates.map(p => p[1])).toEqual([30, 45]);
+  expect(horizontal.geometry.coordinates[1]![0]).toBeCloseTo(30, 12);
+  expect(vertical.geometry.coordinates.map(p => p[0])).toEqual([10, 20]);
+  const projectY = (lat: number) => Math.asinh(Math.tan(lat * Math.PI / 180));
+  expect(projectY(vertical.geometry.coordinates[1]![1]) - projectY(30)).toBeCloseTo(0.5 * (projectY(45) - projectY(30)), 12);
+  const session = setup(); const before = session.exportGeoJSON(); session.scaleSelection();
+  session.setScaleFactors(2, 0.5); const expected = session.getScalePreview();
+  expect(session.state).toMatchObject({ scaleFactor: null, scaleFactorX: 2, scaleFactorY: 0.5 });
+  session.setScaleFactors(0.3, 3); session.setScaleFactors(2, 0.5); expect(session.getScalePreview()).toEqual(expected);
+  expect(session.setScaleFactors(2, 0.5)).toBe(false);
+  session.finishScale(); session.undo(); expect(session.exportGeoJSON()).toEqual(before);
+  session.redo(); expect(session.exportGeoJSON().features.filter(f => f.id !== 'untouched')).toEqual(before.features.filter(f => f.id !== 'untouched').map(f => expected!.features.find(p => p.id === f.id)));
+  expect(session.state).toMatchObject({ scaleFactorX: null, scaleFactorY: null });
+  session.scaleSelection(); session.setScaleFactors(1.5, 0.5); session.setScaleFactor(1);
+  expect(session.state).toMatchObject({ scaleFactor: 1, scaleFactorX: 1, scaleFactorY: 1 });
+  expect(session.finishScale()).toBeNull();
+});
+it.each([[0, 1], [1, -1], [NaN, 1], [1, Infinity]])('rejects invalid axis factors %j atomically', (x, y) => {
+  const session = setup(); session.scaleSelection(); session.setScaleFactors(2, 0.5);
+  const state = session.state; const preview = session.getScalePreview();
+  expect(() => session.setScaleFactors(x, y)).toThrow(); expect(session.state).toEqual(state); expect(session.getScalePreview()).toEqual(preview);
+});
+it('diagnoses a rejected single-axis result and recovers without committing', () => {
+  const session = new DrawingSession(() => 'unused');
+  session.importGeoJSON(line([[179, 0], [180, 1]])); session.select('line'); session.scaleSelection([179, 0]);
+  session.setScaleFactors(2, 1); expect(session.state.scaleError).toBe('scale-out-of-bounds'); expect(session.finishScale()).toBeNull();
+  session.setScaleFactors(0.5, 1); expect(session.state.scaleError).toBeNull(); expect(session.finishScale()).not.toBeNull();
+});

@@ -420,12 +420,15 @@ See [rotation](rotation.md) for coordinate conventions, limits and event semanti
 
 ## Selection scaling
 
-`core/scaling.ts` scales each stored vertex uniformly in the Mercator plane,
+`core/scaling.ts` scales each stored vertex along two positive Mercator axes,
 sharing projection and pivot rules with rotation. DrawingSession freezes selected
 originals and the pivot, validates candidates through prepareTransaction, and
 caches the preview/error until the next factor change. Confirmation revalidates
 and records one transaction. The MapLibre adapter shares the transform renderer
 with rotation, hides valid-preview originals and restores them on cancellation.
+`maplibre/scaling-interaction.ts` owns the eight frame handles, pointer capture,
+axis-specific keyboard resizing and drag rollback. It updates the same factors
+as numeric input; release keeps the preview open.
 See [scaling](scaling.md) for factor, coordinate and lifecycle contracts.
 
 ## Drawing constraints
