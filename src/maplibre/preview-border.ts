@@ -1,7 +1,7 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { geometryParts, type Geometry } from '../core/geometry.js';
 import type { Coordinate } from '../core/types.js';
-import type { DraftAppearance } from '../core/appearance.js';
+import { resolveAppearance, type PointAppearance, type DraftAppearance } from '../core/appearance.js';
 
 type Point = { x: number; y: number };
 const spacing = 9;
@@ -38,14 +38,15 @@ export class PreviewBorder {
   private geometries: Geometry[] = [];
   private inset = 0;
 
-  constructor(private readonly map: MapLibreMap, kind: 'draft-border' | 'translation-preview', private appearance: DraftAppearance, private readonly filled = false) {
+  constructor(private readonly map: MapLibreMap, kind: 'draft-border' | 'translation-preview', private appearance: DraftAppearance, private readonly filled = false, private marker: PointAppearance = resolveAppearance().draftMarker) {
     this.svg = map.getCanvas().ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
     this.svg.setAttribute(`data-geo-${kind}`, '');
     this.svg.setAttribute('aria-hidden', 'true');
     this.svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;';
   }
 
-  setAppearance(appearance: DraftAppearance): void {
+  setAppearance(appearance: DraftAppearance, marker: PointAppearance = this.marker): void {
+    this.marker = marker;
     const resize = this.appearance.lineWidth !== appearance.lineWidth;
     this.appearance = appearance;
     // Only wider/narrower dots require re-clipping. Color/opacity changes keep paths intact.
@@ -54,6 +55,13 @@ export class PreviewBorder {
   }
 
   private styleGroup(group: Element): void {
+    const marker = group.querySelector('[data-geo-marker]');
+    marker?.setAttribute('r', String(this.marker.radius));
+    marker?.setAttribute('fill', this.marker.color);
+    marker?.setAttribute('fill-opacity', String(this.marker.opacity));
+    marker?.setAttribute('stroke', this.marker.strokeColor);
+    marker?.setAttribute('stroke-width', String(this.marker.strokeWidth));
+    marker?.setAttribute('stroke-opacity', String(this.marker.opacity));
     const border = group.querySelector('[data-geo-border]')!;
     border.setAttribute('stroke', this.appearance.lineColor);
     border.setAttribute('stroke-width', String(this.appearance.lineWidth));
@@ -75,11 +83,22 @@ export class PreviewBorder {
           const fill = this.path(); fill.setAttribute('data-geo-fill', '');
           fill.setAttribute('fill-rule', 'evenodd'); group.append(fill);
         }
+        const marker = this.svg.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        marker.setAttribute('data-geo-marker', ''); group.append(marker);
         const border = this.path(); border.setAttribute('data-geo-border', '');
         border.setAttribute('fill', 'none'); border.setAttribute('stroke-linecap', 'round');
         group.append(border); this.svg.append(group);
       }
       this.styleGroup(group);
+      const marker = group.querySelector('[data-geo-marker]')!;
+      marker.setAttribute('display', geometry.type === 'Point' ? 'inline' : 'none');
+      if (geometry.type === 'Point') {
+        const point = this.map.project(geometry.coordinates);
+        marker.setAttribute('cx', String(point.x)); marker.setAttribute('cy', String(point.y));
+        group.querySelector('[data-geo-border]')!.setAttribute('d', '');
+        group.querySelector('[data-geo-fill]')?.setAttribute('d', '');
+        continue;
+      }
       const rings = geometry.type === 'Polygon' ? geometry.coordinates : [geometry.coordinates];
       const projected = rings.map((ring) => ring.map((coordinate: Coordinate) => this.map.project(coordinate)));
       const canvas = this.map.getCanvas(); const dots: Point[] = [];

@@ -9,17 +9,22 @@
   <body>
     <header class="header">
       <a class="brand" href="/" aria-label="geo home"><span class="brand-mark">g.</span>geo<span class="brand-divider"></span><span class="brand-caption">Drawing playground</span></a>
-      <span class="milestone"><span class="dot"></span> Milestone 18c <span class="milestone-label">/ Feature locks</span></span>
+      <span class="milestone"><span class="dot"></span> Milestone 18c.1 <span class="milestone-label">/ Point markers</span></span>
     </header>
     <main class="workspace">
       <aside class="sidebar" aria-label="Drawing tools">
-        <div class="section-heading"><span class="eyebrow">THE PLAYGROUND</span><span class="step">02 TOOLS</span></div>
+        <div class="section-heading"><span class="eyebrow">THE PLAYGROUND</span><span class="step">03 TOOLS</span></div>
         <h1>A shape starts<br />with a point.</h1>
         <p class="intro">Draw directly on the map.<br />Take your geometry anywhere.</p>
         <div class="tool-selector" role="group" aria-label="Geometry type">
           <button id="tool-line" class="tool-card" aria-label="Line drawing" aria-pressed="true" disabled>
             <span class="tool-icon" aria-hidden="true"><svg width="27" height="27" viewBox="0 0 28 28" fill="none"><path d="M6 21L13 7L22 15" stroke="currentColor" stroke-width="2"/><circle cx="6" cy="21" r="2.5" fill="white" stroke="currentColor" stroke-width="2"/><circle cx="13" cy="7" r="2.5" fill="white" stroke="currentColor" stroke-width="2"/><circle cx="22" cy="15" r="2.5" fill="white" stroke="currentColor" stroke-width="2"/></svg></span>
             <span class="tool-label"><strong>Line</strong><span>2+ points</span></span>
+            <span class="tool-selected" aria-hidden="true">✓</span>
+          </button>
+          <button id="tool-marker" class="tool-card" aria-label="Marker placement" aria-pressed="false" disabled>
+            <span class="tool-icon" aria-hidden="true"><svg width="27" height="27" viewBox="0 0 28 28"><circle cx="14" cy="14" r="7" fill="currentColor" /></svg></span>
+            <span class="tool-label"><strong>Marker</strong><span>1 point</span></span>
             <span class="tool-selected" aria-hidden="true">✓</span>
           </button>
           <button id="tool-polygon" class="tool-card" aria-label="Polygon drawing" aria-pressed="false" disabled>

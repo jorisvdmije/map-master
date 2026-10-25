@@ -75,7 +75,7 @@ anchored to each edge). Width changes the dot diameter; it does not select a
 different dash pattern. Large widths can make neighboring dots overlap.
 Editing corner insets retain their existing spacing.
 
-**PointAppearance** (`midpoint` and `pivot`, also the basis for `vertex`/`snap`):
+**PointAppearance** (`marker`, `selectedMarker`, `draftMarker`, `midpoint` and `pivot`, also the basis for `vertex`/`snap`):
 
 - `color`: circle interior color.
 - `radius`: circle radius in CSS pixels.

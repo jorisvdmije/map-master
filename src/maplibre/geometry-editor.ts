@@ -851,6 +851,7 @@ export class GeometryEditor {
     if (resolved.close) { this.finish(); return; }
     if (state.mode === 'reshape-polygon' && state.vertexCount === 0 && resolved.snap?.featureId !== state.selectedFeatureId) return;
     if (resolved.blocked || !this.session.add(resolved.coordinate)) return;
+    if (state.mode === 'draw-point') { this.finish(); return; }
     this.traceAnchor = this.canTracePointer() && resolved.snap?.featureId !== null && resolved.snap && !this.altPressed
       ? { target: { featureId: resolved.snap.featureId, ...(resolved.snap.partIndex === undefined ? {} : { partIndex: resolved.snap.partIndex }),
         ...(resolved.snap.ringIndex === undefined ? {} : { ringIndex: resolved.snap.ringIndex }) }, coordinate: [...resolved.coordinate] } : null;

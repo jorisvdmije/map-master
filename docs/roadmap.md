@@ -1,6 +1,6 @@
 # Incremental roadmap
 
-Steps 0–17c.4 and beta milestones 18a–18b have been implemented locally;
+Steps 0–17c.4 and beta milestones 18a–18c have been implemented locally;
 trim/extend is deferred and remaining beta gates are planned. The
 workflow still needs a GitHub remote to run in hosted CI. Each row describes
 a reviewable change or a milestone that can be split further when needed. Create
@@ -42,6 +42,7 @@ each branch from updated `main` after its dependencies have merged.
 | 18a | `feat/beta-workspace` | Implemented: standalone area-workspace app installed from a fresh npm archive outside the repo; CRUD, names via transactions, local save/restore, dirty state, recovery, conflict detection, independent dependency lockfile, production browser acceptance and dev rendering smoke. See [beta integration](beta.md). No public release yet. |
 | 18b | `feat/editor-appearance` | Implemented: typed constructor/live appearance patches for committed/selected features, draft/translation previews, vertices/midpoints and snap/pivot markers; atomic validation, unchanged data/history, style-reload restoration, presets in both demos and installed-consumer acceptance. See [appearance](appearance.md). |
 | 18c | `feat/feature-restrictions` | Implemented: host-owned feature locks across tool entry, atomic transactions, pointer/keyboard actions and Undo/Redo; active-draft revocation, reference snapping/tracing, locked subtraction cutters, demo controls and installed-consumer acceptance. See [feature locks](feature-locks.md). |
+| 18c.1 | `feat/draw-markers` | Implemented: GeoJSON Point placement, rendering, selection, movement/editing, snapping, typed import/export, locks, atomic history, both demos and installed workspace acceptance. See [markers](markers.md). |
 | 18d | `test/beta-budgets` | Planned: measurable browser interaction/memory budgets and supported dataset, browser, input and MapLibre scope; validate in the installed consumer. |
 | 18e | `chore/public-beta` | Planned: agreed package identity/license, real security contacts, remote CI and required checks, prerelease version/migration notes and validated release archive. |
 

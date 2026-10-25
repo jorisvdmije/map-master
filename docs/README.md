@@ -10,6 +10,7 @@ separately so consumers can integrate without depending on internal modules.
 | Customize colors, outlines, previews and editing markers | [Editor appearance](appearance.md) |
 | Set up a MapLibre host and use the editor | [GeometryEditor API](geometry-editor.md), [integration setup](line-editor.md#integrate) |
 | Apply atomic create/update/delete batches | [Transactions and event semantics](transactions.md) |
+| Place, move and save point markers | [Point markers](markers.md) |
 | Import and edit multipart lines/polygons | [Multipart geometry](multipart.md) |
 | Draw with fixed 45°/90° directions | [Drawing constraints](drawing-constraints.md) |
 | Offset open lines left or right | [Line offsets](offset.md) |

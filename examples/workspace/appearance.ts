@@ -7,6 +7,9 @@ export function bindAppearanceControl(editor: GeometryEditor, control: HTMLSelec
     default: original,
     ocean: {
       ...original,
+      marker: { ...original.marker, color: '#0369a1' },
+      selectedMarker: { ...original.selectedMarker, color: '#6d28d9' },
+      draftMarker: { ...original.draftMarker, color: '#0f766e' },
       feature: { ...original.feature, lineColor: '#0369a1', fillColor: '#38bdf8', fillOpacity: 0.25 },
       selected: { ...original.selected, lineColor: '#6d28d9', fillColor: '#a78bfa' },
       draft: { ...original.draft, lineColor: '#0f766e', fillColor: '#2dd4bf', secondaryFillColor: '#f59e0b' },
@@ -16,6 +19,9 @@ export function bindAppearanceControl(editor: GeometryEditor, control: HTMLSelec
     },
     contrast: {
       ...original,
+      marker: { ...original.marker, color: '#171717' },
+      selectedMarker: { ...original.selectedMarker, color: '#7e22ce' },
+      draftMarker: { ...original.draftMarker, color: '#b91c1c' },
       feature: { ...original.feature, lineColor: '#171717', lineWidth: 5, fillColor: '#facc15', fillOpacity: 0.3 },
       selected: { ...original.selected, lineColor: '#7e22ce', lineWidth: 8, fillColor: '#c084fc', fillOpacity: 0.4 },
       draft: { ...original.draft, lineColor: '#b91c1c', lineWidth: 5, fillColor: '#fca5a5', secondaryFillColor: '#38bdf8' },

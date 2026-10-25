@@ -22,7 +22,7 @@ export function transformPivot(features: readonly GeometryFeature[]): Coordinate
   let minX = Infinity; let minY = Infinity; let maxX = -Infinity; let maxY = -Infinity;
   for (const feature of features) {
     for (const part of geometryParts(feature.geometry)) {
-      const paths = part.type === 'Polygon' ? part.coordinates : [part.coordinates];
+      const paths = part.type === 'Polygon' ? part.coordinates : part.type === 'Point' ? [[part.coordinates]] : [part.coordinates];
       for (const path of paths) {
         for (let i = 0; i < path.length; i++) {
           const point = path[i]!;

@@ -15,7 +15,7 @@ const circlePaint = (point: PointAppearance) => ({
 // This property exists only in render data; the core/export never receives it.
 const renderIdProperty = '__geo_editor_id';
 type PreviewFeature = {
-  type: 'Feature'; properties: { kind?: 'vertex' | 'midpoint' | 'snap' | 'split-part' | 'reshape' | 'shared-boundary-part'; part?: number; active?: boolean; locked?: boolean; snapKind?: 'vertex' | 'edge' };
+  type: 'Feature'; properties: { kind?: 'marker' | 'vertex' | 'midpoint' | 'snap' | 'split-part' | 'reshape' | 'shared-boundary-part'; part?: number; active?: boolean; locked?: boolean; snapKind?: 'vertex' | 'edge' };
   geometry: { type: 'Point'; coordinates: Coordinate }
     | { type: 'LineString'; coordinates: Coordinate[] }
     | { type: 'Polygon'; coordinates: Coordinate[][] };
@@ -36,8 +36,8 @@ export class MapLibreRenderer {
   private revision = 0;
 
   constructor(private readonly map: MapLibreMap, private readonly namespace: string, appearance: EditorAppearance) {
-    this.translationPreview = new PreviewBorder(map, 'translation-preview', appearance.draft, true);
-    this.draftBorder = new PreviewBorder(map, 'draft-border', appearance.draft);
+    this.translationPreview = new PreviewBorder(map, 'translation-preview', appearance.draft, true, appearance.draftMarker);
+    this.draftBorder = new PreviewBorder(map, 'draft-border', appearance.draft, false, appearance.draftMarker);
     this.featuresId = `${namespace}-features`;
     this.draftId = `${namespace}-draft`;
     this.layers = this.makeLayers(appearance);
@@ -45,7 +45,7 @@ export class MapLibreRenderer {
 
   private makeLayers(appearance: EditorAppearance): LayerSpecification[] {
     const { namespace } = this;
-    const { feature, selected: selection, draft, vertex, midpoint, snap, pivot } = appearance;
+    const { feature, selected: selection, draft, vertex, midpoint, snap, pivot, marker, selectedMarker, draftMarker } = appearance;
     const selected: ExpressionSpecification = ['boolean', ['feature-state', 'selected'], false];
     const editing: ExpressionSpecification = ['boolean', ['feature-state', 'editing'], false];
     return [
@@ -58,6 +58,17 @@ export class MapLibreRenderer {
         paint: { 'line-color': ['case', selected, selection.lineColor, feature.lineColor],
           'line-width': ['case', selected, selection.lineWidth, feature.lineWidth],
           'line-opacity': ['case', editing, 0, selected, selection.lineOpacity, feature.lineOpacity], 'line-opacity-transition': { duration: 0 } } },
+      { id: `${namespace}-markers`, type: 'circle', source: this.featuresId,
+        filter: ['==', '$type', 'Point'],
+        paint: { 'circle-radius': ['case', selected, selectedMarker.radius, marker.radius],
+          'circle-color': ['case', selected, selectedMarker.color, marker.color],
+          'circle-stroke-color': ['case', selected, selectedMarker.strokeColor, marker.strokeColor],
+          'circle-stroke-width': ['case', selected, selectedMarker.strokeWidth, marker.strokeWidth],
+          'circle-opacity': ['case', editing, 0, selected, selectedMarker.opacity, marker.opacity],
+          'circle-stroke-opacity': ['case', editing, 0, selected, selectedMarker.opacity, marker.opacity],
+          'circle-opacity-transition': { duration: 0 }, 'circle-stroke-opacity-transition': { duration: 0 } } },
+      { id: `${namespace}-draft-marker`, type: 'circle', source: this.draftId,
+        filter: ['==', 'kind', 'marker'], paint: circlePaint(draftMarker) },
       { id: `${namespace}-draft-fill`, type: 'fill', source: this.draftId,
         filter: ['==', '$type', 'Polygon'],
         paint: { 'fill-color': ['case', ['==', ['get', 'part'], 1], draft.secondaryFillColor, draft.fillColor], 'fill-opacity': draft.fillOpacity } },
@@ -87,8 +98,8 @@ export class MapLibreRenderer {
       }
     }
     // Restyle existing overlays without clearing gestures or the release-to-worker bridge.
-    this.draftBorder.setAppearance(appearance.draft);
-    this.translationPreview.setAppearance(appearance.draft);
+    this.draftBorder.setAppearance(appearance.draft, appearance.draftMarker);
+    this.translationPreview.setAppearance(appearance.draft, appearance.draftMarker);
   }
 
   mount(): void {
@@ -225,7 +236,7 @@ export class MapLibreRenderer {
     const fillId = this.layers[0]!.id;
     if (!this.map.getLayer(this.featuresId) || !this.map.getLayer(fillId)) return null;
     const outlines = this.map.queryRenderedFeatures([[x - 6, y - 6], [x + 6, y + 6]], {
-      layers: [this.featuresId],
+      layers: [`${this.namespace}-markers`, this.featuresId],
     });
     const hit = outlines[0] ?? this.map.queryRenderedFeatures([x, y], { layers: [fillId] })[0];
     if (typeof hit?.id !== 'string') return null;
@@ -242,7 +253,7 @@ export class MapLibreRenderer {
     if (!this.map.getLayer(this.featuresId) || !this.map.getLayer(fillId)) return [];
     const hits = this.map.queryRenderedFeatures([
       [Math.min(a.x, b.x), Math.min(a.y, b.y)], [Math.max(a.x, b.x), Math.max(a.y, b.y)],
-    ], { layers: [this.featuresId, fillId] });
+    ], { layers: [`${this.namespace}-markers`, this.featuresId, fillId] });
     const ids = new Set<FeatureId>();
     for (const hit of hits) {
       if (typeof hit.id !== 'string') continue;
@@ -254,6 +265,14 @@ export class MapLibreRenderer {
 
   renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null, rings: Coordinate[][] | null = null, inactiveParts: GeometryPart[] = [], reshape: ReshapePreview | null = null, trace: Coordinate[] | null = null, shared: SharedBoundaryPreview | null = null): void {
     if (state.mode !== 'idle') { this.translationVisible = false; this.translationPreview.clear(); }
+    if (state.mode === 'draw-point') {
+      this.draftBorder.clear();
+      const point = cursor ?? coordinates[0];
+      const features: PreviewFeature[] = point ? [{ type: 'Feature', properties: { kind: 'marker' }, geometry: { type: 'Point', coordinates: point } }] : [];
+      if (snap) features.push({ type: 'Feature', properties: { kind: 'snap', snapKind: snap.kind }, geometry: { type: 'Point', coordinates: snap.coordinate } });
+      void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection', features });
+      return;
+    }
     const editing = state.mode.startsWith('edit-');
     const polygon = state.mode === 'draw-polygon' || state.mode === 'edit-polygon' || state.mode === 'draw-hole';
     const handles = editing ? vertexHandles(this.map, coordinates, polygon)

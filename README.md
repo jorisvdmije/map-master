@@ -2,11 +2,13 @@
 
 # geo
 
+[Point markers](docs/markers.md) support one-click placement, selection, movement, import/export, locks and Undo/Redo. Choose **Marker** in the playground or **+ Marker** in the workspace.
+
 A TypeScript library in development for drawing and editing geometry on web maps.
 
 ## Status
 
-Line and polygon drawing (including holes), single and multiple feature selection, group movement and duplication, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are implemented:
+Marker placement and line/polygon drawing (including holes), single and multiple feature selection, group movement and duplication, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are implemented:
 preview, validate, finish or cancel, select/deselect, delete, move/insert/remove vertices, and export committed features together
 as GeoJSON through one GeometryEditor API.
 [Atomic transactions](docs/transactions.md) can create, update, and delete multiple
@@ -65,7 +67,7 @@ For multipart examples, download the sample in the data panel and import it. Sel
 Select a polygon and choose **Draw a hole** to create an interior ring; choose a ring to edit or delete it.
 Choose **Duplicate** to copy the selection with a small offset; the copies become selected.
 Drag any selected shape to move the selection together; release saves, Escape cancels, and Undo restores the whole group.
-**Export GeoJSON** downloads committed lines and polygons only.
+**Export GeoJSON** downloads committed markers, lines and polygons.
 The map can still be dragged and zoomed while drawing.
 **Snap to vertices & edges** is enabled in the demo: drawing within 18 CSS pixels
 of an existing corner or edge shows a purple indicator and places the point there.
@@ -74,7 +76,7 @@ midpoints in **Edit vertices**. The edited shape is excluded as a target. Hold
 **Alt** to place freely or turn off the checkbox.
 Library integrations opt in with `{ snapping: { enabled: true } }`; see the
 [snapping API](docs/geometry-editor.md#snapping-while-drawing).
-When idle, click a line or polygon to select it in blue. Click empty space, press
+When idle, click a marker, line or polygon to select it in blue. Click empty space, press
 Escape with map focus, or choose **Deselect** to clear selection. Selection never
 changes the exported geometry. **Shift+click** toggles a shape; **Shift+drag**
 adds shapes intersecting the blue rectangle. The Delete button removes a group

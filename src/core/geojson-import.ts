@@ -88,13 +88,14 @@ function polygonCoordinates(value: unknown, path: string): Coordinate[][] {
 }
 
 function geometry(value: unknown, path: string): GeometryFeature['geometry'] {
-  if (!record(value)) return fail('unsupported-geometry', path, 'Expected a line or polygon geometry.');
+  if (!record(value)) return fail('unsupported-geometry', path, 'Expected a point, line or polygon geometry.');
   if ('crs' in value) fail('unsupported-crs', path, 'Use WGS84 longitude/latitude; legacy CRS declarations are not supported.');
   const coordinatesPath = `${path}.coordinates`;
+  if (value.type === 'Point') return { type: value.type, coordinates: position(value.coordinates, coordinatesPath) };
   if (value.type === 'LineString') return { type: value.type, coordinates: lineCoordinates(value.coordinates, coordinatesPath) };
   if (value.type === 'Polygon') return { type: value.type, coordinates: polygonCoordinates(value.coordinates, coordinatesPath) };
   if (value.type !== 'MultiLineString' && value.type !== 'MultiPolygon') {
-    return fail('unsupported-geometry', path, 'Only LineString, Polygon, MultiLineString and MultiPolygon are supported.');
+    return fail('unsupported-geometry', path, 'Only Point, LineString, Polygon, MultiLineString and MultiPolygon are supported.');
   }
   const parts = array(value.coordinates, coordinatesPath);
   if (parts.length === 0) fail('too-few-vertices', coordinatesPath, 'Expected at least one component.');

@@ -16,7 +16,7 @@ function element<T extends HTMLElement>(selector: string): T {
 }
 
 const buttons = Object.fromEntries([
-  'save', 'polygon', 'line', 'undo', 'redo', 'edit', 'delete', 'export', 'finish', 'cancel', 'rename', 'lock',
+  'save', 'polygon', 'line', 'marker', 'undo', 'redo', 'edit', 'delete', 'export', 'finish', 'cancel', 'rename', 'lock',
 ].map((id) => [id, element<HTMLButtonElement>(`#${id}`)])) as Record<string, HTMLButtonElement>;
 const nameInput = element<HTMLInputElement>('#name');
 const importInput = element<HTMLInputElement>('#import');
@@ -45,7 +45,7 @@ function errorText(error: unknown): string {
 }
 function title(feature: GeometryFeature): string {
   return typeof feature.properties?.name === 'string' && feature.properties.name.trim()
-    ? feature.properties.name : feature.geometry.type.includes('Polygon') ? 'Untitled area' : 'Untitled route';
+    ? feature.properties.name : feature.geometry.type === 'Point' ? 'Untitled marker' : feature.geometry.type.includes('Polygon') ? 'Untitled area' : 'Untitled route';
 }
 function download(text: string, filename: string, type = 'application/geo+json'): void {
   const url = URL.createObjectURL(new Blob([text], { type }));
@@ -56,6 +56,7 @@ function download(text: string, filename: string, type = 'application/geo+json')
 function fit(features: GeometryFeatureCollection): void {
   const positions = features.features.flatMap((feature) => {
     switch (feature.geometry.type) {
+      case 'Point': return [feature.geometry.coordinates];
       case 'LineString': return feature.geometry.coordinates;
       case 'Polygon': case 'MultiLineString': return feature.geometry.coordinates.flat();
       case 'MultiPolygon': return feature.geometry.coordinates.flat(2);
@@ -100,7 +101,7 @@ function render(state: EditorState): void {
   }
   selectionKey = key;
   const single = selected.length === 1 ? selected[0] : undefined;
-  const simple = single?.geometry.type === 'LineString' || single?.geometry.type === 'Polygon';
+  const simple = single?.geometry.type === 'Point' || single?.geometry.type === 'LineString' || single?.geometry.type === 'Polygon';
   element('#selection').hidden = !single;
   const locked = single !== undefined && editor.isFeatureLocked(single.id);
   buttons.lock!.disabled = !idle || !single;
@@ -110,11 +111,12 @@ function render(state: EditorState): void {
   buttons.rename!.disabled = !idle || !nameChanged || locked;
   buttons.edit!.disabled = !idle || !simple || locked;
   buttons.delete!.disabled = !idle || !single || locked;
-  element('#edit-scope').textContent = locked ? 'Locked until unlocked or this page is reloaded. You can still select this shape and snap to its edges.' : simple
+  element('#edit-scope').textContent = locked ? 'Locked until unlocked or this page is reloaded. You can still select this shape and snap to its edges.' : single?.geometry.type === 'Point' ? 'Drag the selected marker to move it, or edit its position.' : simple
     ? 'Drag the selected shape to move it. Vertex editing changes its outer boundary.'
     : 'Multipart geometry is preserved. Use the full editor demo to edit individual parts.';
   buttons.polygon!.disabled = !idle;
   buttons.line!.disabled = !idle;
+  buttons.marker!.disabled = !idle;
   buttons.undo!.disabled = !idle || !state.canUndo;
   buttons.redo!.disabled = !idle || !state.canRedo;
   buttons.save!.disabled = !idle || nameChanged || !store?.canSave || serialized === saved && !storageFailed;
@@ -132,10 +134,12 @@ function render(state: EditorState): void {
     : nameChanged ? 'Name not applied' : state.mode !== 'idle' ? 'Draft in progress'
     : serialized === saved ? 'All changes saved locally' : 'Unsaved changes';
   element('#instruction').textContent = importing ? 'Importing file…'
+    : state.mode === 'draw-point' ? 'Click once to place a marker. Escape cancels.'
+    : state.mode === 'edit-point' ? 'Drag the point to move the marker, then apply changes. Escape cancels.'
     : state.validationError ? validation[state.validationError]
     : state.mode.startsWith('draw-') ? 'Click to add points. Enter finishes; Escape cancels; Backspace removes the last point.'
     : state.mode.startsWith('edit-') ? 'Drag corners or click a midpoint to add one. Apply changes when ready.'
-    : 'Select a shape to edit it, or draw a new area or route.';
+    : 'Select a shape to edit it, or add an area, route or marker.';
   const locksKey = JSON.stringify(editor.getLockedFeatureIds());
   // Rebuild on committed data/selection/policy changes only; never on pointer previews.
   if (changed || list.dataset.selection !== key || list.dataset.idle !== String(idle) || list.dataset.locks !== locksKey) {
@@ -146,7 +150,7 @@ function render(state: EditorState): void {
       button.setAttribute('aria-pressed', String(state.selectedFeatureIds.includes(feature.id)));
       button.disabled = !idle;
       const kind = document.createElement('small');
-      kind.textContent = feature.geometry.type === 'Polygon' ? 'Area'
+      kind.textContent = feature.geometry.type === 'Point' ? 'Marker' : feature.geometry.type === 'Polygon' ? 'Area'
         : feature.geometry.type === 'LineString' ? 'Route'
         : feature.geometry.type === 'MultiPolygon' ? 'Area with multiple parts' : 'Route with multiple parts';
       if (editor?.isFeatureLocked(feature.id)) kind.textContent += ' · Locked';
@@ -168,6 +172,7 @@ function run(action: (current: GeometryEditor) => void): void {
 }
 
 buttons.polygon!.onclick = () => { run((current) => { current.draw('Polygon'); }); };
+buttons.marker!.onclick = () => { run((current) => { current.draw('Point'); }); };
 buttons.line!.onclick = () => { run((current) => { current.draw('LineString'); }); };
 buttons.finish!.onclick = () => { run((current) => { current.finish(); }); };
 buttons.cancel!.onclick = () => { run((current) => { current.cancel(); }); };

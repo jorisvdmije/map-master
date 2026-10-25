@@ -18,6 +18,7 @@ function element<T extends HTMLElement>(id: string): T {
 
 const start = element<HTMLButtonElement>('start');
 const lineTool = element<HTMLButtonElement>('tool-line');
+const markerTool = element<HTMLButtonElement>('tool-marker');
 const polygonTool = element<HTMLButtonElement>('tool-polygon');
 const finish = element<HTMLButtonElement>('finish');
 const cancel = element<HTMLButtonElement>('cancel');
@@ -103,17 +104,18 @@ const splitMessages: Record<SplitError, string> = {
 
 function selectTool(kind: DrawGeometryType): void {
   selected = kind;
+  markerTool.setAttribute('aria-pressed', String(kind === 'Point'));
   lineTool.setAttribute('aria-pressed', String(kind === 'LineString'));
   polygonTool.setAttribute('aria-pressed', String(kind === 'Polygon'));
-  element('start-label').textContent = kind === 'Polygon' ? 'Draw a polygon' : 'Draw a line';
-  element('finish-instruction').textContent = kind === 'Polygon'
+  element('start-label').textContent = kind === 'Point' ? 'Place a marker' : kind === 'Polygon' ? 'Draw a polygon' : 'Draw a line';
+  element('finish-instruction').textContent = kind === 'Point' ? 'Click once to place a marker. Escape cancels.' : kind === 'Polygon'
     ? 'Press Enter or click your first corner to close the polygon.' : 'Press Enter to save your line.';
 }
 
 // Presentation helper; the demo consumes only the public package API.
-function partsOf(geometry: GeometryFeature['geometry']): Array<{ type: 'LineString'; coordinates: Coordinate[] } | { type: 'Polygon'; coordinates: Coordinate[][] }> {
+function partsOf(geometry: GeometryFeature['geometry']): Array<{ type: 'Point'; coordinates: Coordinate } | { type: 'LineString'; coordinates: Coordinate[] } | { type: 'Polygon'; coordinates: Coordinate[][] }> {
   switch (geometry.type) {
-    case 'LineString': case 'Polygon': return [geometry];
+    case 'Point': case 'LineString': case 'Polygon': return [geometry];
     case 'MultiLineString': return geometry.coordinates.map((coordinates) => ({ type: 'LineString', coordinates }));
     case 'MultiPolygon': return geometry.coordinates.map((coordinates) => ({ type: 'Polygon', coordinates }));
   }
@@ -265,7 +267,7 @@ map.on('load', () => {
     if (selectedFeature) {
       element('selection-type').textContent = selectedFeature.geometry.type;
       const count = editing ? state.vertexCount : part?.type === 'Polygon'
-        ? (part.coordinates[Number(ringIndex.value)]?.length ?? 1) - 1 : part?.coordinates.length ?? 0;
+        ? (part.coordinates[Number(ringIndex.value)]?.length ?? 1) - 1 : part?.type === 'Point' ? 1 : part?.coordinates.length ?? 0;
       const details = [`${count} ${ringCount > 0 ? 'corners' : 'points'}`];
       if (parts.length > 1) details.push(`part ${chosenPart + 1} of ${parts.length}`);
       if (ringCount > 1) details.push(`${ringCount - 1} ${ringCount === 2 ? 'hole' : 'holes'}`);
@@ -282,6 +284,7 @@ map.on('load', () => {
     start.disabled = drawing;
     lineTool.disabled = drawing;
     polygonTool.disabled = drawing;
+    markerTool.disabled = drawing;
     finish.disabled = !state.canFinish || offsetting && !offsetDistance.validity.valid || buffering && !bufferDistance.validity.valid || simplifying && !simplificationTolerance.validity.valid || scaling && !scaleFactor.validity.valid || rotating && !rotationAngle.validity.valid;
     cancel.disabled = !drawing;
     undo.disabled = !state.canUndo;
@@ -297,6 +300,8 @@ map.on('load', () => {
       : selectedCount > 1 ? `${selectedCount} shapes selected. Drag a selected shape to move the group. Undo restores the previous position.`
         : selectedFeature ? 'Drag to move this shape, or edit its corners. Escape cancels a drag.'
         : state.featureCount > 0 ? 'Click a shape to select it, or draw another.' : 'Ready when you are.';
+    if (state.mode === 'draw-point') status.textContent = 'Click once to place a marker. Escape cancels.';
+    if (state.mode === 'edit-point') element('editing-help').textContent = 'Drag the point to move the marker, then Save. Cancel restores its position.';
     if (state.mode === 'draw-hole' && !invalid) status.textContent = `${state.vertexCount} corners. Draw inside the polygon; Enter saves the hole, Escape cancels.`;
     if (offsetting) {
       status.classList.toggle('is-invalid', state.offsetError !== null);
@@ -316,7 +321,7 @@ map.on('load', () => {
     if (simplifying) {
       const preview = activeEditor.getSimplificationPreview();
       const count = (features: GeometryFeature[]): number => features.reduce((sum, feature) => sum + partsOf(feature.geometry).reduce((total, part) =>
-        total + (part.type === 'Polygon' ? part.coordinates.reduce((n, ring) => n + ring.length - 1, 0) : part.coordinates.length), 0), 0);
+        total + (part.type === 'Polygon' ? part.coordinates.reduce((n, ring) => n + ring.length - 1, 0) : part.type === 'Point' ? 1 : part.coordinates.length), 0), 0);
       status.classList.toggle('is-invalid', state.simplificationError !== null);
       status.textContent = preview
         ? `${count(activeEditor.getSelection())} → ${count(preview.features)} vertices at ${state.simplificationTolerance} Mercator m. Apply saves the selection; Undo restores it.`
@@ -425,6 +430,7 @@ angleStep.addEventListener('change', () => { editor?.setDrawingConstraints({ ang
 snapping.addEventListener('change', () => {
   editor?.setSnapping({ enabled: snapping.checked });
 });
+markerTool.addEventListener('click', () => { selectTool('Point'); });
 lineTool.addEventListener('click', () => { selectTool('LineString'); });
 polygonTool.addEventListener('click', () => { selectTool('Polygon'); });
 start.addEventListener('click', () => { editor?.draw(selected); });
@@ -620,7 +626,7 @@ importFile.addEventListener('change', () => {
       const bounds = new LngLatBounds();
       for (const feature of imported.features) {
         for (const part of partsOf(feature.geometry)) {
-          const points = part.type === 'Polygon' ? part.coordinates[0]! : part.coordinates;
+          const points = part.type === 'Polygon' ? part.coordinates[0]! : part.type === 'Point' ? [part.coordinates] : part.coordinates;
           for (const point of points) bounds.extend(point);
         }
       }

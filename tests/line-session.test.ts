@@ -69,7 +69,7 @@ describe('line drawing state', () => {
     feature?.geometry.coordinates.splice(0);
     const output = tool.exportGeoJSON();
     const first = output.features[0];
-    if (first) { first.id = 'changed'; first.geometry.coordinates[0]?.splice(0); }
+    if (first) { first.id = 'changed'; if (first.geometry.type === 'LineString') first.geometry.coordinates[0]?.splice(0); }
     expect(tool.exportGeoJSON().features[0]).toMatchObject({
       id: 'feature-1', geometry: { coordinates: [[4, 52], [5, 53]] },
     });

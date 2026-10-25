@@ -104,7 +104,7 @@ describe('atomic GeoJSON import', () => {
     ['Date property', (): unknown => ({ ...line(), properties: { date: new Date() } }), 'invalid-properties'],
     ['null ID', (): unknown => ({ ...line(), id: null }), 'invalid-id'],
     ['nonfinite ID', (): unknown => line(NaN), 'invalid-id'],
-    ['point', (): unknown => ({ ...line(), geometry: { type: 'Point', coordinates: [0, 0] } }), 'unsupported-geometry'],
+    ['multipoint', (): unknown => ({ ...line(), geometry: { type: 'MultiPoint', coordinates: [[0, 0]] } }), 'unsupported-geometry'],
     ['null geometry', (): unknown => ({ ...line(), geometry: null }), 'unsupported-geometry'],
     ['coincident rings', (): unknown => { const p = polygon(); p.geometry.coordinates.push(p.geometry.coordinates[0]!); return p; }, 'ring-intersection'],
     ['missing exterior in sparse rings', (): unknown => ({ ...polygon(), geometry: { type: 'Polygon', coordinates: new Array<unknown>(1) } }), 'invalid-geojson'],

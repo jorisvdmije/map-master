@@ -57,6 +57,7 @@ export function simplifyFeatures(features: readonly GeometryFeature[], tolerance
   const simplify = (geometry: Geometry): Geometry => {
     if (tolerance === 0) return mapGeometry(geometry, point => [...point]);
     switch (geometry.type) {
+      case 'Point': return { type: geometry.type, coordinates: [...geometry.coordinates] };
       case 'LineString': return { type: geometry.type, coordinates: simplifyPath(geometry.coordinates, tolerance, false) };
       case 'MultiLineString': return { type: geometry.type, coordinates: geometry.coordinates.map(path => simplifyPath(path, tolerance, false)) };
       case 'Polygon': return { type: geometry.type, coordinates: geometry.coordinates.map(path => simplifyPath(path, tolerance, true)) };

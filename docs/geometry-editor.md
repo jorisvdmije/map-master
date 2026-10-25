@@ -1,9 +1,11 @@
-# GeometryEditor: lines and polygons
+# GeometryEditor: markers, lines and polygons
 
-Status: experimental. Supports 2D LineString, Polygon (including holes), MultiLineString and MultiPolygon
+Status: experimental. Supports 2D Point, LineString, Polygon (including holes), MultiLineString and MultiPolygon
 features on a flat Mercator MapLibre GL JS 6.15 map. Desktop mouse and keyboard
 input, selection, group translation/duplication, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are tested in Chromium.
 See the [multipart guide](multipart.md) for component editing and topology constraints.
+
+For one-click marker placement and point editing, see [Point markers](markers.md).
 
 ## One editor API
 
@@ -45,7 +47,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `new GeometryEditor(map, options?)` | Attach after `style.load` or `load`. One editor per map, including the LineEditor facade. `historyLimit` defaults to 100; `snapping.enabled` defaults to false. |
 | `getLockedFeatureIds()` / `setLockedFeatureIds(ids)` / `isFeatureLocked(id)` | Read/replace the host-owned set of read-only IDs; also constructor `lockedFeatureIds`. Locked targets reject mutations, block applicable history and remain snap references. See [feature locks](feature-locks.md). |
 | `getAppearance()` / `setAppearance(patch)` | Read an independent complete appearance / atomically patch presentation fields. Also available as constructor `appearance`. Live updates survive style reloads without changing geometry, drafts or history. See [appearance](appearance.md). |
-| `draw('LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
+| `draw('Point' \| 'LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
 | `finish()` | Confirm the active tool, returning the resulting feature. Invalid/incomplete previews return `null` and stay active. A valid empty difference/intersection also returns `null`, after deleting the target/all inputs and exiting review. |
 | `cancel()` | Discard the draft or cancel an active selection rectangle or group drag. |
 | `getTracing()` / `setTracing(options)` | Read/update opt-in tracing settings (`enabled`, `side`). |
@@ -109,7 +111,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `translateSelection([deltaLng, deltaLat])` | Translate selected features in degrees as one transaction; returns `TransactionEvent` or null. Idle only. |
 | `deleteSelection()` | Delete all selected features as one transaction; returns `TransactionEvent` or null. |
 | `deleteSelected()` | Delete the selected committed feature and clear selection. Return its independent snapshot, or `null` with no selection. Throws for multiple selections; idle only. |
-| `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed lines and polygons. |
+| `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed markers, lines and polygons. |
 | `importGeoJSON(input)` | Append a parsed Feature/FeatureCollection atomically; return an independent collection of imported features. Idle only. |
 | `applyTransaction({ create?, update?, delete? })` | Validate and commit a mixed batch atomically. Full features with explicit IDs; idle only. Return a TransactionEvent or null for no change. |
 | `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed offsetting/buffering/simplification/scaling/rotation/shared-boundary edit/split/union/intersection/reshape or changed difference, deleteSelection, group translation, duplication or hole deletion. Returns an unsubscribe function. |
@@ -133,7 +135,7 @@ is a GeoJSON FeatureCollection containing all four geometry types. New drawings 
 string or numeric IDs and JSON properties (including null). Coordinates are
 `[longitude, latitude]`. Properties can be imported but there is no property-editing API yet.
 
-Modes are `idle`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, `union-polygons`, `difference-polygons`, `intersection-polygons`, `reshape-polygon`, `edit-shared-boundary`, `rotate-features`, `scale-features`, `simplify-features`, `buffer-features`, and `offset-lines`. `validationError` is `null`
+Modes are `idle`, `draw-point`, `edit-point`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, `union-polygons`, `difference-polygons`, `intersection-polygons`, `reshape-polygon`, `edit-shared-boundary`, `rotate-features`, `scale-features`, `simplify-features`, `buffer-features`, and `offset-lines`. `validationError` is `null`
 when idle or when the current draft is valid. Check `canFinish` to enable Finish;
 an idle editor cannot finish even though it has no validation error.
 
@@ -533,9 +535,9 @@ Import is available only while idle. It does not replace or merge features.
 
 Supported data and identity policy:
 
-- Two-dimensional LineString, Polygon, MultiLineString and MultiPolygon. Every polygon
+- Two-dimensional Point, LineString, Polygon, MultiLineString and MultiPolygon. Every polygon
   component has one closed exterior and optional closed interior rings. See [multipart validation](multipart.md#validation-and-history).
-  Points, geometry collections, null geometries,
+  MultiPoint, geometry collections, null geometries,
   and altitude coordinates are rejected explicitly.
 - Finite longitude/latitude in world bounds. Lines need two points and no
   consecutive duplicates. Polygons use the same topology rules as drawing;
@@ -727,7 +729,7 @@ The implementation is independent; it does not depend on Geoman or copy Pro code
   an eligible vertex, the nearest point on an edge wins. `vertices` and `edges`
   can be disabled independently. An exact distance tie chooses the later feature
   in collection order, then the lower vertex/edge index within that feature.
-- Candidates are all committed lines and polygons owned by this editor, including
+- Candidates are all committed points, lines and polygons owned by this editor, including
   imported geometry and polygon closing edges. Host map layers and ordinary
   draft vertices/edges are excluded. During vertex editing, the entire edited
   feature is also excluded (including its saved geometry).
@@ -766,7 +768,7 @@ LineEditor exposes the same snapping options, getters, setter, and event.
 
 ### Snapping during vertex editing
 
-The same `snapping` options apply to mouse drags in `edit-line` and `edit-polygon`.
+The same `snapping` options apply to mouse drags in `edit-point`, `edit-line` and `edit-polygon`.
 Drag a corner, or drag a midpoint to insert and position a new corner. Once moved,
 the draft and purple indicator follow the resolved point on another committed
 feature. An ordinary click still selects a corner or inserts the exact midpoint.

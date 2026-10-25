@@ -1,12 +1,12 @@
-import type { Coordinate, GeometryFeature, LineFeature, PolygonFeature } from './types.js';
+import type { Coordinate, GeometryFeature, PointFeature, LineFeature, PolygonFeature } from './types.js';
 
 export type Geometry = GeometryFeature['geometry'];
-export type GeometryPart = LineFeature['geometry'] | PolygonFeature['geometry'];
+export type GeometryPart = PointFeature['geometry'] | LineFeature['geometry'] | PolygonFeature['geometry'];
 
 /** Component views share coordinates; mutate them only when the input is an isolated snapshot. */
 export function geometryParts(geometry: Geometry): GeometryPart[] {
   switch (geometry.type) {
-    case 'LineString': case 'Polygon': return [geometry];
+    case 'Point': case 'LineString': case 'Polygon': return [geometry];
     case 'MultiLineString': return geometry.coordinates.map((coordinates) => ({ type: 'LineString', coordinates }));
     case 'MultiPolygon': return geometry.coordinates.map((coordinates) => ({ type: 'Polygon', coordinates }));
   }
@@ -15,6 +15,7 @@ export function geometryParts(geometry: Geometry): GeometryPart[] {
 /** Map every position without changing geometry type, component/ring order or cardinality. */
 export function mapGeometry(geometry: Geometry, map: (point: Coordinate) => Coordinate): Geometry {
   switch (geometry.type) {
+    case 'Point': return { type: geometry.type, coordinates: map(geometry.coordinates) };
     case 'LineString': return { type: geometry.type, coordinates: geometry.coordinates.map(map) };
     case 'Polygon': case 'MultiLineString':
       return { type: geometry.type, coordinates: geometry.coordinates.map((ring) => ring.map(map)) };
@@ -26,6 +27,7 @@ export function mapGeometry(geometry: Geometry, map: (point: Coordinate) => Coor
 export function withGeometry(feature: Pick<GeometryFeature, 'id' | 'properties'>, geometry: Geometry): GeometryFeature {
   const common = { type: 'Feature' as const, id: feature.id, properties: feature.properties };
   switch (geometry.type) {
+    case 'Point': return { ...common, geometry };
     case 'LineString': return { ...common, geometry };
     case 'Polygon': return { ...common, geometry };
     case 'MultiLineString': return { ...common, geometry };

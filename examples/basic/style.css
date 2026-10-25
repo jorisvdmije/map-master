@@ -20,7 +20,7 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 3px soli
 .step { font-family: monospace; font-size: 10px; color: #9ca69b; }
 h1 { font-size: 34px; font-weight: 500; letter-spacing: -1.5px; line-height: 1.13; margin: 24px 0 12px; }
 .intro { color: #7c877d; font-size: 13px; line-height: 1.7; margin: 0 0 25px; }
-.tool-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 16px; }
+.tool-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-bottom: 16px; }
 .tool-card { color: inherit; text-align: left; border: 1px solid #bacdbd; background: #eef3e9; border-radius: 9px; padding: 11px; display: flex; gap: 8px; flex-direction: column; position: relative; }
 .tool-card[aria-pressed="false"] { background: transparent; border-color: #dce2d7; }
 .tool-card[aria-pressed="false"] .tool-selected { visibility: hidden; }

@@ -67,7 +67,7 @@ export class SnapIndex {
       const multipart = feature.geometry.type === 'MultiPolygon' || feature.geometry.type === 'MultiLineString';
       for (const [partIndex, part] of geometryParts(feature.geometry).entries()) {
         const polygon = part.type === 'Polygon';
-        const rings = part.type === 'Polygon' ? part.coordinates.map((ring) => ring.slice(0, -1)) : [part.coordinates];
+        const rings = part.type === 'Polygon' ? part.coordinates.map((ring) => ring.slice(0, -1)) : part.type === 'Point' ? [[part.coordinates]] : [part.coordinates];
         for (const [ringIndex, coordinates] of rings.entries()) {
           const address = { ...(multipart ? { partIndex } : {}), ...(polygon ? { ringIndex } : {}) };
           const points = coordinates.map(project);

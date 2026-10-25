@@ -175,6 +175,31 @@ export async function checkWorkspace(origin, { smoke = false } = {}) {
     assert.deepEqual((await exportData(page)).features, []);
     passed('delete/Undo/Redo and saving an empty workspace');
 
+    await page.locator('#marker').click();
+    await page.keyboard.press('Escape');
+    await text(page, '#count', '0');
+    await page.locator('#marker').click();
+    await canvas.click({ position: { x: 260, y: 220 } });
+    await text(page, '#count', '1');
+    const marker = await exportData(page);
+    assert.equal(marker.features[0].geometry.type, 'Point');
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await canvas.click({ position: { x: 260, y: 220 } });
+      try { await page.locator('#selection').waitFor({ state: 'visible', timeout: 250 }); break; }
+      catch { if (attempt === 19) throw new Error('The rendered marker could not be selected on the map.'); }
+    }
+    await page.locator('#name').fill('Meeting point'); await page.locator('#rename').click();
+    await page.locator('#save').click(); const namedMarker = await exportData(page);
+    await page.reload(); await text(page, '#count', '1');
+    assert.deepEqual(await exportData(page), namedMarker);
+    await page.locator('#features button').click();
+    await page.locator('#edit').click(); await page.locator('#cancel').click();
+    assert.deepEqual(await exportData(page), namedMarker);
+    await page.locator('#delete').click(); await text(page, '#count', '0');
+    await page.locator('#undo').click(); assert.deepEqual(await exportData(page), namedMarker);
+    await page.locator('#redo').click(); await page.locator('#save').click();
+    passed('markers: single-click placement, map picking, naming, save/reload, cancel and delete/Undo/Redo');
+
     await upload(page, sample);
     await text(page, '#count', '2');
     assert.deepEqual(await exportData(page), sample);
@@ -192,7 +217,7 @@ export async function checkWorkspace(origin, { smoke = false } = {}) {
     assert.deepEqual(await exportData(page), sample);
     await upload(page, { type: 'FeatureCollection', features: [
       { ...sample.features[0], id: 'new' },
-      { type: 'Feature', id: 'bad', properties: null, geometry: { type: 'Point', coordinates: [4, 52] } },
+      { type: 'Feature', id: 'bad', properties: null, geometry: { type: 'MultiPoint', coordinates: [[4, 52]] } },
     ] });
     assert.match(await page.locator('#notice').innerText(), /Could not import/u);
     assert.deepEqual(await exportData(page), sample);

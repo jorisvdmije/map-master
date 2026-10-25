@@ -6,7 +6,7 @@ export type {
   // Geometry and identity.
   Coordinate, FeatureId, FeatureProperties, JsonValue,
   GeometryFeature, GeometryFeatureCollection, GeometryType, DrawGeometryType,
-  LineCollection, LineFeature, PolygonFeature, MultiLineFeature, MultiPolygonFeature,
+  PointFeature, LineCollection, LineFeature, PolygonFeature, MultiLineFeature, MultiPolygonFeature,
   // Editor state and configuration.
   DrawingConstraintsOptions, EditorOptions, EditorState, ValidationError,
   OffsetError, BufferError, SimplificationError, ScaleError, RotationError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, TracingOptions, SnappingOptions, SnapResult, ReshapePreview, ReshapeError, ReshapeSide, SplitPreview, SplitError, UnionPreview, UnionError, DifferencePreview, DifferenceError, IntersectionPreview, IntersectionError,

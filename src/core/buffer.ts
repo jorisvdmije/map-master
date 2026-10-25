@@ -68,7 +68,7 @@ export function bufferFeatures(features: readonly GeometryFeature[], distance: n
     const origin = project(pivot).map(n => n * radius) as Coordinate;
     const pieces: Coordinate[][][] = [];
     for (const part of geometryParts(feature.geometry)) {
-      const paths = (part.type === 'Polygon' ? part.coordinates : [part.coordinates])
+      const paths = (part.type === 'Polygon' ? part.coordinates : part.type === 'Point' ? [[part.coordinates]] : [part.coordinates])
         .map(path => path.map(point => {
           const [x, y] = project(point); return [x * radius - origin[0], y * radius - origin[1]] as Coordinate;
         }));
@@ -76,6 +76,11 @@ export function bufferFeatures(features: readonly GeometryFeature[], distance: n
       if (paths.some(path => path.some(([x, y]) => Math.abs(x + origin[0]) + distance > worldLimit
         || Math.abs(y + origin[1]) + distance > worldLimit))) return { preview: null, error: 'buffer-out-of-bounds' };
       if (part.type === 'Polygon') pieces.push(paths);
+      if (part.type === 'Point') {
+        const ring = capsule(paths[0]![0]!, paths[0]![0]!, distance);
+        if (!ring) return { preview: null, error: 'buffer-invalid-result' };
+        pieces.push([ring]);
+      }
       for (const path of paths) {
         for (let i = 1; i < path.length; i++) {
           const ring = capsule(path[i - 1]!, path[i]!, distance);

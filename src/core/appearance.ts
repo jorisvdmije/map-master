@@ -32,6 +32,9 @@ export interface SnapAppearance extends PointAppearance {
 
 /** Presentation only: no geometry, properties, selection or history. */
 export interface EditorAppearance {
+  marker: PointAppearance;
+  selectedMarker: PointAppearance;
+  draftMarker: PointAppearance;
   feature: ShapeAppearance;
   selected: ShapeAppearance;
   draft: DraftAppearance;
@@ -45,6 +48,9 @@ export interface EditorAppearance {
 export type EditorAppearanceOptions = { [Key in keyof EditorAppearance]?: Partial<EditorAppearance[Key]> };
 
 const defaults: EditorAppearance = {
+  marker: { color: '#116b5b', radius: 8, opacity: 1, strokeColor: '#fff', strokeWidth: 2 },
+  selectedMarker: { color: '#2563eb', radius: 10, opacity: 1, strokeColor: '#fff', strokeWidth: 3 },
+  draftMarker: { color: '#df772e', radius: 8, opacity: 0.85, strokeColor: '#fff', strokeWidth: 2 },
   feature: { lineColor: '#116b5b', lineWidth: 4, lineOpacity: 1, fillColor: '#116b5b', fillOpacity: 0.18 },
   selected: { lineColor: '#2563eb', lineWidth: 6, lineOpacity: 1, fillColor: '#2563eb', fillOpacity: 0.3 },
   draft: { lineColor: '#df772e', lineWidth: 3, lineOpacity: 1, fillColor: '#df772e', fillOpacity: 0.22, secondaryFillColor: '#7c3aed' },
@@ -55,7 +61,7 @@ const defaults: EditorAppearance = {
 };
 
 export function copyAppearance(value: EditorAppearance): EditorAppearance {
-  return { feature: { ...value.feature }, selected: { ...value.selected }, draft: { ...value.draft },
+  return { marker: { ...value.marker }, selectedMarker: { ...value.selectedMarker }, draftMarker: { ...value.draftMarker }, feature: { ...value.feature }, selected: { ...value.selected }, draft: { ...value.draft },
     vertex: { ...value.vertex }, midpoint: { ...value.midpoint }, snap: { ...value.snap }, pivot: { ...value.pivot } };
 }
 

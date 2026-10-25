@@ -10,7 +10,7 @@ export function traceSource(feature: GeometryFeature, target: TraceTarget): { po
   const part = geometry.type === 'MultiPolygon' ? geometry.coordinates[partIndex] && { type: 'Polygon' as const, coordinates: geometry.coordinates[partIndex] }
     : geometry.type === 'MultiLineString' ? geometry.coordinates[partIndex] && { type: 'LineString' as const, coordinates: geometry.coordinates[partIndex] }
     : partIndex === 0 ? geometry : undefined;
-  if (!part || part.type === 'LineString' && ringIndex !== 0) return null;
+  if (!part || part.type === 'Point' || part.type === 'LineString' && ringIndex !== 0) return null;
   const points = part.type === 'Polygon' ? part.coordinates[ringIndex] : part.coordinates;
   return points ? { points, closed: part.type === 'Polygon' } : null;
 }

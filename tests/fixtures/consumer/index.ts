@@ -6,6 +6,8 @@ const publicApi: typeof import('@geo/editor') = editor;
 void publicApi;
 
 export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
+  const marker: editor.PointFeature = { type: 'Feature', id: 'marker', properties: {}, geometry: { type: 'Point', coordinates: [4, 52] } };
+  void marker;
   const appearance: editor.EditorAppearanceOptions = { feature: { lineColor: '#175c4c' }, vertex: { radius: 6 } };
   const options: editor.EditorOptions = { historyLimit: 50, lockedFeatureIds: ['reference', 0], snapping: { enabled: true, distance: 18 }, appearance };
   const tool = new editor.GeometryEditor(map, options);
@@ -48,6 +50,8 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   tool.setTracing({ enabled: true, side });
   const tracing: editor.TracingOptions = tool.getTracing();
   const trace: editor.Coordinate[] | null = tool.getTracePreview();
+  tool.draw('Point'); tool.cancel();
+  tool.setAppearance({ marker: { radius: 9 }, selectedMarker: { color: '#00f' }, draftMarker: { opacity: 0.7 } });
   tool.draw('Polygon');
   const traced: boolean = tool.traceBoundary(target, [0, 0], [1, 1]);
   const corrected: boolean = tool.removeLastDrawStep();

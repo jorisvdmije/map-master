@@ -11,7 +11,7 @@ the [code walkthrough](code-walkthrough.md) for the implemented structure.
 
 Build a browser geometry editor inspired by the drawing and editing capabilities
 of products such as Geoman. Implement our own behavior and API. The initial
-scope is 2D lines and polygons on one MapLibre map, including MultiLineString
+scope is 2D points, lines and polygons on one MapLibre map, including MultiLineString
 and MultiPolygon through the documented multipart contract.
 
 CRUD means creating, reading, updating, and deleting features in the editor.

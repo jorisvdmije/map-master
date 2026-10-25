@@ -122,8 +122,8 @@ export class DrawingSession {
   get state(): EditorState {
     return {
       mode: this.offsetting ? 'offset-lines' : this.buffering ? 'buffer-features' : this.simplification ? 'simplify-features' : this.scaling ? 'scale-features' : this.rotation ? 'rotate-features' : this.sharedBoundary ? 'edit-shared-boundary' : this.reshapeId !== null ? 'reshape-polygon' : this.intersectionActive ? 'intersection-polygons' : this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.kind === null ? 'idle' : this.editingId !== null
-        ? this.kind === 'LineString' ? 'edit-line' : 'edit-polygon'
-        : this.kind === 'LineString' ? 'draw-line' : 'draw-polygon',
+        ? this.kind === 'Point' ? 'edit-point' : this.kind === 'LineString' ? 'edit-line' : 'edit-polygon'
+        : this.kind === 'Point' ? 'draw-point' : this.kind === 'LineString' ? 'draw-line' : 'draw-polygon',
       vertexCount: this.draft.length,
       featureCount: this.features.size,
       selectedFeatureId: this.selectedFeatureId,
@@ -159,7 +159,7 @@ export class DrawingSession {
   }
 
   start(kind: DrawGeometryType): boolean {
-    if (kind !== 'LineString' && kind !== 'Polygon') throw new TypeError('Unsupported geometry type.');
+    if (kind !== 'Point' && kind !== 'LineString' && kind !== 'Polygon') throw new TypeError('Unsupported geometry type.');
     if (!this.offsetting && !this.buffering && !this.simplification && !this.scaling && !this.rotation && !this.sharedBoundary && this.kind === kind && this.editingId === null && this.splitId === null && this.reshapeId === null && this.holeId === null && !this.unionActive && !this.differenceActive && !this.intersectionActive) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before changing tools.');
     this.kind = kind;
@@ -174,12 +174,13 @@ export class DrawingSession {
     const last = this.draft.at(-1);
     if (last && samePosition(last, [lng, lat])) return false;
     if (this.canTrace()) this.drawingSteps.push(this.draft.length);
-    this.draft.push([lng, lat]);
+    if (this.kind === 'Point') this.draft = [[lng, lat]];
+    else this.draft.push([lng, lat]);
     if (this.splitId !== null) { this.validateSplit(); return true; }
     if (this.reshapeId !== null) { this.validateReshape(); return true; }
     // Cache validity on clicks. Pointer movement and state reads never run topology checks.
     this.validationError = this.kind === 'Polygon' ? this.validateDraftPolygon()
-      : this.draft.length < 2 ? 'too-few-vertices' : null;
+      : this.draft.length < (this.kind === 'Point' ? 1 : 2) ? 'too-few-vertices' : null;
     return true;
   }
 
@@ -208,7 +209,7 @@ export class DrawingSession {
     if (!addition.length) return false;
     this.drawingSteps.push(this.draft.length);
     this.draft = this.draft.concat(addition);
-    this.validationError = this.kind === 'Polygon' ? this.validateDraftPolygon() : this.draft.length < 2 ? 'too-few-vertices' : null;
+    this.validationError = this.kind === 'Polygon' ? this.validateDraftPolygon() : this.draft.length < (this.kind === 'Point' ? 1 : 2) ? 'too-few-vertices' : null;
     return true;
   }
 
@@ -216,7 +217,7 @@ export class DrawingSession {
   removeLastDrawStep(): boolean {
     if (!this.canTrace() || !this.drawingSteps.length) return false;
     this.draft.length = this.drawingSteps.pop()!;
-    this.validationError = this.kind === 'Polygon' ? this.validateDraftPolygon() : this.draft.length < 2 ? 'too-few-vertices' : null;
+    this.validationError = this.kind === 'Polygon' ? this.validateDraftPolygon() : this.draft.length < (this.kind === 'Point' ? 1 : 2) ? 'too-few-vertices' : null;
     return true;
   }
 
@@ -983,7 +984,7 @@ export class DrawingSession {
     this.activePartIndex = partIndex;
     this.editingId = feature.id;
     this.kind = part.type;
-    this.draft = part.type === 'Polygon' ? openRing(part.coordinates[ringIndex]!) : part.coordinates;
+    this.draft = part.type === 'Polygon' ? openRing(part.coordinates[ringIndex]!) : part.type === 'Point' ? [part.coordinates] : part.coordinates;
     this.selectedVertexIndex = null;
     this.validateEdit();
     return true;
@@ -1014,14 +1015,14 @@ export class DrawingSession {
     if (id === null) return [];
     return geometryParts(this.features.get(id)!.geometry)
       .filter((_, index) => index !== this.activePartIndex)
-      .map((part): GeometryPart => part.type === 'LineString'
+      .map((part): GeometryPart => part.type === 'Point' ? { type: part.type, coordinates: [...part.coordinates] } : part.type === 'LineString'
         ? { type: part.type, coordinates: part.coordinates.map((point) => [...point]) }
         : { type: part.type, coordinates: part.coordinates.map((ring) => ring.map((point) => [...point])) });
   }
 
   private draftGeometry(normalize = false): Geometry {
     const rings = this.getDraftRings();
-    const part: GeometryPart = rings
+    const part: GeometryPart = this.kind === 'Point' ? { type: 'Point', coordinates: [...this.draft[0]!] } : rings
       ? { type: 'Polygon', coordinates: normalize ? rings.map((ring, index) => closePolygon(ring, index > 0)) : rings }
       : { type: 'LineString', coordinates: this.getDraft() };
     const id = this.editingId ?? this.holeId;
@@ -1090,6 +1091,7 @@ export class DrawingSession {
   insertVertex(index: number, coordinate: Coordinate): boolean {
     this.assertEditing(); this.assertIndex(index, true); this.validatePosition(coordinate);
     if (this.sharedBoundary && (index === 0 || index === this.draft.length)) throw new RangeError('Insert between the fixed boundary endpoints.');
+    if (this.kind === 'Point') return false;
     this.draft.splice(index, 0, [...coordinate]);
     this.selectedVertexIndex = index;
     this.validateEdit();

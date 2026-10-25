@@ -8,6 +8,13 @@ export type FeatureId = string | number;
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 export type FeatureProperties = { [key: string]: JsonValue } | null;
 
+export interface PointFeature {
+  type: 'Feature';
+  id: FeatureId;
+  geometry: { type: 'Point'; coordinates: Coordinate };
+  properties: FeatureProperties;
+}
+
 export interface LineFeature {
   type: 'Feature';
   id: FeatureId;
@@ -41,9 +48,9 @@ export interface MultiPolygonFeature {
   properties: FeatureProperties;
 }
 
-export type DrawGeometryType = 'LineString' | 'Polygon';
+export type DrawGeometryType = 'Point' | 'LineString' | 'Polygon';
 export type GeometryType = DrawGeometryType | 'MultiLineString' | 'MultiPolygon';
-export type GeometryFeature = LineFeature | PolygonFeature | MultiLineFeature | MultiPolygonFeature;
+export type GeometryFeature = PointFeature | LineFeature | PolygonFeature | MultiLineFeature | MultiPolygonFeature;
 
 export interface GeometryFeatureCollection {
   type: 'FeatureCollection';
@@ -178,7 +185,7 @@ export interface HistoryEvent {
 }
 
 export interface EditorState {
-  mode: 'idle' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon' | 'edit-shared-boundary' | 'rotate-features' | 'scale-features' | 'simplify-features' | 'buffer-features' | 'offset-lines';
+  mode: 'idle' | 'draw-point' | 'edit-point' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon' | 'edit-shared-boundary' | 'rotate-features' | 'scale-features' | 'simplify-features' | 'buffer-features' | 'offset-lines';
   vertexCount: number;
   featureCount: number;
   /** The sole selected ID, or null for zero/multiple selections. */
