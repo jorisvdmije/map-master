@@ -2,8 +2,8 @@
 
 Steps 0–17c.4 and beta milestones 18a–18d have been implemented locally;
 trim/extend is deferred and milestone 18e has local release preparation, with
-public-release decisions and hosted checks pending. The
-workflow still needs a GitHub remote to run in hosted CI. Each row describes
+repository setup, hosted checks and public distribution pending. The remote URL
+is configured; the GitHub repository still needs to be established. Each row describes
 a reviewable change or a milestone that can be split further when needed. Create
 each branch from updated `main` after its dependencies have merged.
 
@@ -44,8 +44,8 @@ each branch from updated `main` after its dependencies have merged.
 | 18b | `feat/editor-appearance` | Implemented: typed constructor/live appearance patches for committed/selected features, draft/translation previews, vertices/midpoints and snap/pivot markers; atomic validation, unchanged data/history, style-reload restoration, presets in both demos and installed-consumer acceptance. See [appearance](appearance.md). |
 | 18c | `feat/feature-restrictions` | Implemented: host-owned feature locks across tool entry, atomic transactions, pointer/keyboard actions and Undo/Redo; active-draft revocation, reference snapping/tracing, locked subtraction cutters, demo controls and installed-consumer acceptance. See [feature locks](feature-locks.md). |
 | 18c.1 | `feat/draw-markers` | Implemented: GeoJSON Point placement, rendering, selection, movement/editing, snapping, typed import/export, locks, atomic history, both demos and installed workspace acceptance. See [markers](markers.md). |
-| 18d | `test/beta-budgets` | Implemented locally: fixed 1,000-feature installed-consumer workload, explicit latency and lifecycle heap/DOM/listener gates, raw reports, CI artifact retention and a bounded Chromium/mouse/keyboard/MapLibre compatibility matrix. Hosted CI awaits a remote. See [beta budgets](beta-budgets.md). |
-| 18e | `chore/public-beta` | Local preparation implemented: one candidate archive used by package/workspace checks, checksum and report retention, changelog, migration policy and [release procedure](releases.md). Pending: final package identity/license, maintainer/security contacts, prerelease version, remote CI and required checks, and public distribution. |
+| 18d | `test/beta-budgets` | Implemented locally: fixed 1,000-feature installed-consumer workload, explicit latency and lifecycle heap/DOM/listener gates, raw reports, CI artifact retention and a bounded Chromium/mouse/keyboard/MapLibre compatibility matrix. Hosted CI awaits repository setup. See [beta budgets](beta-budgets.md). |
+| 18e | `chore/public-beta` | Local preparation implemented: one verified archive, checksum/report retention, changelog, migration policy and [release procedure](releases.md). Identity set to `@jorisvdmije/map-master@0.1.0-beta.0`, MIT license, maintainer @jorisvdmije and GitHub reporting policy. Pending: operational repository/private reporting, hosted CI and required checks, npm access and public distribution. |
 
 Steps 2–7 produce the first small CRUD editor. Step 8 adds recovery from user
 mistakes. Step 9 adds precise placement against existing shapes. Later candidates include touch interactions,
@@ -80,7 +80,7 @@ After the first line demo, establish the performance baseline described in the
 Before beta, agree on numerical performance budgets and supported browsers,
 input methods, and MapLibre versions; record measured results against them.
 
-Before public distribution, choose the package name and open-source license and
-configure the repository's contribution and release checks. Before 1.0, complete
+The package identity and MIT license are established. Before public distribution,
+activate the repository's reporting channels, contribution and release checks. Before 1.0, complete
 the documented compatibility policy, migration guidance, security reporting
 process, and validation in real consuming applications.

@@ -1,4 +1,4 @@
-import type { GeometryFeatureCollection } from '@geo/editor';
+import type { GeometryFeatureCollection } from '@jorisvdmije/map-master';
 
 export const STORAGE_KEY = 'geo-area-workspace:v1';
 const MAX_BYTES = 5 * 1024 * 1024;

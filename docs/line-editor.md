@@ -14,7 +14,7 @@ The package is not published. Use the local demo or install an archive created
 with `npm pack` into your application alongside a compatible `maplibre-gl`.
 
 ```ts
-import { LineEditor } from '@geo/editor';
+import { LineEditor } from '@jorisvdmije/map-master';
 
 // `map` is a MapLibre map owned by your application.
 map.once('style.load', () => {

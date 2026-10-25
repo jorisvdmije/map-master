@@ -1,12 +1,13 @@
 # Beta versioning and migration
 
-There are no published versions to migrate between yet. `@geo/editor` and `0.0.0`
-identify local development snapshots, not a released compatibility contract.
+There are no published versions to migrate between yet. Earlier local snapshots
+used `@geo/editor@0.0.0`; the prepared candidate is now
+`@jorisvdmije/map-master@0.1.0-beta.0`. Neither is a stable compatibility contract.
 Keep the archive checksum or Git commit of any local version you integrate.
 
 ## Version policy
 
-The proposed first public version is `0.1.0-beta.0`, published under npm's `beta`
+The prepared first public version is `0.1.0-beta.0`, to be published under npm's `beta`
 tag after the [release prerequisites](releases.md) are met. Subsequent candidates
 increment the prerelease number. Pin an exact candidate version in applications
 and commit the application lockfile so adopting a new candidate is deliberate.
@@ -22,9 +23,11 @@ If a candidate has no required migration, say so in its release notes. A stable
 
 1. Back up committed geometry using GeoJSON export. Finish or cancel drafts first.
    Record the old archive/commit and retain it for rollback.
-2. Replace the local tarball dependency with the final package name and exact
-   beta version once published. Update imports if the working `@geo/editor`
-   identity changes. Use only the public package entry point; imports from
+2. Rename the dependency key and all imports from `@geo/editor` to
+   `@jorisvdmije/map-master`, including host TypeScript/Vite aliases. Until npm
+   publication, install a new local archive under that dependency key. After
+   publication, use the exact `0.1.0-beta.0` version and refresh the application
+   lockfile. Use only the public package entry point; imports from
    `src/`, `dist/` or internal modules are unsupported.
 3. Install host-owned MapLibre. The declared peer range is `^6.15.0`, but only
    6.15.0 has been measured. Start from that version and the

@@ -15,7 +15,7 @@ validation, feature storage, and its overlay sources/layers. Application toolbar
 buttons call the editor; they do not create or update MapLibre geometry sources.
 
 ```ts
-import { GeometryEditor } from '@geo/editor';
+import { GeometryEditor } from '@jorisvdmije/map-master';
 
 // `map` is an application-owned MapLibre map. Attach once its style is ready.
 map.once('style.load', () => {
@@ -505,7 +505,7 @@ mouse input is supported; touch editing is deferred.
 ## GeoJSON import
 
 ```ts
-import { GeoJSONImportError } from '@geo/editor';
+import { GeoJSONImportError } from '@jorisvdmije/map-master';
 
 try {
   const input: unknown = JSON.parse(fileText);

@@ -1,6 +1,6 @@
 import { Map, LngLatBounds, NavigationControl, setWorkerUrl } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-import { GeometryEditor, type DrawGeometryType, type GeometryFeature, type Coordinate, type ReshapeError, type SplitError, type ValidationError } from '@geo/editor';
+import { GeometryEditor, type DrawGeometryType, type GeometryFeature, type Coordinate, type ReshapeError, type SplitError, type ValidationError } from '@jorisvdmije/map-master';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
 import { bindAppearanceControl } from '../workspace/appearance.js';

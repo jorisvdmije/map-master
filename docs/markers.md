@@ -5,7 +5,7 @@ Markers are circular map symbols, rendered in one shared MapLibre circle layer;
 the editor does not create a DOM element for each committed marker.
 
 ```ts
-import { GeometryEditor, type PointFeature } from '@geo/editor';
+import { GeometryEditor, type PointFeature } from '@jorisvdmije/map-master';
 
 const editor = new GeometryEditor(map, { snapping: { enabled: true } });
 editor.draw('Point'); // Preview follows the pointer; one click commits and exits.

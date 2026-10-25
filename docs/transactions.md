@@ -6,7 +6,7 @@ split, reshape, union, difference, intersection, and other operations affecting 
 ## Public API
 
 ```ts
-import type { FeatureTransaction, GeometryFeature } from '@geo/editor';
+import type { FeatureTransaction, GeometryFeature } from '@jorisvdmije/map-master';
 
 // Supply complete GeoJSON features with explicit IDs; the editor validates them.
 declare const updatedFeature: GeometryFeature;

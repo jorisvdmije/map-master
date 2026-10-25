@@ -2,7 +2,7 @@
 
 A small consuming application for the local beta integration milestone: draw and
 edit areas/routes and place markers, name them, import/export GeoJSON, and save/reopen a workspace
-in the browser. Uses only the public `@geo/editor` entry point.
+in the browser. Uses only the public `@jorisvdmije/map-master` entry point.
 
 From the repository root:
 
@@ -17,9 +17,9 @@ this app. Restart it after changing the example. The local tarball is generated,
 so running `npm ci` directly in this folder before preparing it will fail.
 
 To copy this application into another project, put an `npm pack` archive at
-`vendor/geo-editor.tgz`, then run `npm ci` and `npm run dev`. Keep the supplied
-worker URL import and stylesheet. The package is not yet published or licensed
-for public distribution; see the root repository's release status.
+`vendor/map-master.tgz`, then run `npm ci` and `npm run dev`. Keep the supplied
+worker URL import and stylesheet. The package is MIT-licensed and not yet
+published to npm; see the root repository's release status.
 
 Run `npm run test:workspace` from the repository root for the isolated package,
 production browser acceptance, latency/lifecycle budget gates and development-server

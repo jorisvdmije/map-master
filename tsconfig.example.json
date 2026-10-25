@@ -5,7 +5,7 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "types": ["vite/client", "geojson"],
-    "paths": { "@geo/editor": ["./src/index.ts"] }
+    "paths": { "@jorisvdmije/map-master": ["./src/index.ts"] }
   },
   "include": ["examples/**/*.ts"]
 }

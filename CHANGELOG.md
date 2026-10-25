@@ -1,8 +1,8 @@
 # Changelog
 
 User-visible changes are recorded here. There has been no public npm release.
-The working package version remains `0.0.0`; the first proposed public version
-is `0.1.0-beta.0`, pending the [release prerequisites](docs/releases.md).
+The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
+[release prerequisites](docs/releases.md).
 
 ## Unreleased — initial beta candidate
 
@@ -23,6 +23,15 @@ is `0.1.0-beta.0`, pending the [release prerequisites](docs/releases.md).
   Chromium interaction tests, and fixed-workload latency/lifecycle budgets.
 - Candidate archive verification and retained checksums, package inventories and
   test reports. This prepares local artifacts and does not publish a package.
+- MIT project license, runtime dependency notices and GitHub maintainer/support
+  routes, with a security policy for private vulnerability reporting.
+
+### Migration from local snapshots
+
+- The package was renamed from `@geo/editor` to `@jorisvdmije/map-master`. Update
+  dependencies, import specifiers and any host aliases; see the
+  [migration guide](docs/migration.md). Public exports and geometry behavior are
+  unchanged by the rename. The example storage format remains version 1.
 
 ### Compatibility and limitations
 
@@ -37,5 +46,6 @@ is `0.1.0-beta.0`, pending the [release prerequisites](docs/releases.md).
 - Browser storage is an example persistence mechanism, not a backend or backup.
   Collaboration, server authorization, framework wrappers, trim/extend and
   interactive multipart construction are outside this candidate.
-- Package identity, license, actual maintainer/security contacts and hosted CI
-  still need to be established before public distribution.
+- The GitHub repository, Issues/private security reporting, required hosted CI
+  checks and npm publishing access still need to be operational before public
+  distribution. `private: true` remains in place pending those release gates.

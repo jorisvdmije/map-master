@@ -1,7 +1,7 @@
 import { Map, NavigationControl, setWorkerUrl } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-import { GeoJSONImportError, GeometryEditor } from '@geo/editor';
-import type { EditorState, GeometryFeature, GeometryFeatureCollection, ValidationError } from '@geo/editor';
+import { GeoJSONImportError, GeometryEditor } from '@jorisvdmije/map-master';
+import type { EditorState, GeometryFeature, GeometryFeatureCollection, ValidationError } from '@jorisvdmije/map-master';
 import { WorkspaceStore } from './storage.js';
 import { bindAppearanceControl } from './appearance.js';
 import './style.css';

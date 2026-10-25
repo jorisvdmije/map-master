@@ -1,37 +1,47 @@
 # Preparing a public beta
 
-Milestone 18e has local release preparation in place. Public release is pending:
-the package is still private, `UNLICENSED`, version `0.0.0`, and there is no
-GitHub remote. A successful local check does not establish permission to publish,
-registry access, a license, support coverage or hosted CI success.
+Milestone 18e prepares **Map Master**, package `@jorisvdmije/map-master`, version
+`0.1.0-beta.0`, for its first public beta. The identity and licensing decisions
+are complete; public distribution and hosted verification remain pending.
 
-## Decisions required before public distribution
+## Agreed project identity
 
-- **Identity:** agree on the final npm name and GitHub owner/repository; verify
-  publishing access to that name/scope. Update package metadata, import paths,
-  example dependencies, fixtures, configuration and documentation together.
-  Set `repository`, `homepage` and `bugs` to real project locations.
-- **License:** select the project license, add its complete text and correct
-  copyright holder, and set the matching package metadata. Review runtime
-  dependency notices and include any required attribution in the archive.
-- **Ownership:** name the actual maintainer(s) and a public support route. Add
-  `SECURITY.md` with an operational private vulnerability reporting channel,
-  supported versions and an achievable response policy. Do not publish placeholder
-  contacts or promise response times before an owner accepts them.
-- **Repository checks:** configure the remote, run CI on the final commit, then
-  require `Check (Node 22)` and `Check (Node 24)` on `main`. Require PR review and
-  resolved conversations as appropriate for the maintainer team. These controls
-  are repository settings, not enabled merely by committing a workflow file.
-- **Release metadata:** set the first agreed prerelease version (proposed
-  `0.1.0-beta.0`), finalize the dated changelog entry and migration notes, and add
-  `publishConfig` with the intended registry, public access and `beta` tag. Remove
-  `private: true` only when the public-release decisions have been completed.
+- Package: `@jorisvdmije/map-master`; intended registry `https://registry.npmjs.org/`
+  with public access and the `beta` tag.
+- Repository: [jorisvdmije/map-master](https://github.com/jorisvdmije/map-master),
+  configured locally as `origin`.
+- License: [MIT](../LICENSE), copyright 2026 jorisvdmije. Runtime dependency
+  notices are included in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+- Maintainer: [@jorisvdmije](https://github.com/jorisvdmije). Non-sensitive bug
+  reports and feature requests belong in
+  [GitHub Issues](https://github.com/jorisvdmije/map-master/issues).
+- Security: [SECURITY.md](../SECURITY.md) designates GitHub Private Vulnerability
+  Reporting. A Markdown file alone does not enable that GitHub setting.
 
-For a rename, search all tracked files for `@geo/editor`, including package
-self-imports and TypeScript/Vite aliases. Regenerate the root lockfile and run
-`npm run lock:workspace` after metadata/dependency changes; review both lockfiles.
-Add final license/contact files to the package allowlist when necessary and
-extend the package-content test to require them.
+## Remaining gates before public distribution
+
+The authenticated GitHub lookup returned HTTP 404 on 2026-10-25. The remote URL
+is configured, but the repository, Issues, private reporting and branch checks
+have not been verified as operational. A registry lookup also returned 404;
+this does not reserve the npm name or prove permission to publish to its scope.
+
+1. Create/configure the intended repository with Issues enabled. Enable GitHub
+   Private Vulnerability Reporting, verify its form, and update the setup status
+   in `SECURITY.md`. Verify that the maintainer receives security notifications.
+2. Push the reviewed source and run CI on the release commit. Require
+   `Check (Node 22)` and `Check (Node 24)` on `main`, with PR review and resolved
+   conversations appropriate to the maintainer team. These are repository
+   settings; committing the workflow does not activate branch protection.
+3. Confirm npm scope access and the release version's availability. The metadata
+   already selects the registry, public access and `beta` tag. The package keeps
+   `private: true` until the remaining release gates are complete.
+4. Remove the private publishing guard in a reviewed release change, finalize the
+   dated changelog entry and verify a fresh archive from that exact clean commit.
+   Record the rename migration and retain the archive and evidence for publication.
+
+After changes to metadata or dependencies, regenerate the root lockfile and run
+`npm run lock:workspace`; review both lockfiles. The package-content tests require
+the project license, security policy, dependency notices and release documentation.
 
 ## Build and verify one archive
 

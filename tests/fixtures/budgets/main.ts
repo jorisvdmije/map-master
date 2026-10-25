@@ -1,6 +1,6 @@
 import { Map, setWorkerUrl } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-import { GeometryEditor, type Coordinate } from '@geo/editor';
+import { GeometryEditor, type Coordinate } from '@jorisvdmije/map-master';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 setWorkerUrl(workerUrl);

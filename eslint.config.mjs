@@ -48,8 +48,8 @@ export default defineConfig(
     rules: {
       'no-restricted-imports': ['error', {
         patterns: [{
-          group: ['**/src/**', '../**/dist/**', './dist/**', '@geo/editor/*'],
-          message: 'Examples consume the public @geo/editor entry point, just like an installed application.',
+          group: ['**/src/**', '../**/dist/**', './dist/**', '@jorisvdmije/map-master/*'],
+          message: 'Examples consume the public @jorisvdmije/map-master entry point, just like an installed application.',
         }],
       }],
     },

@@ -18,8 +18,12 @@ Create branches as work starts; do not create all roadmap branches in advance.
 For a solo maintainer, use the same PR checklist and review the diff before merging.
 
 This follows [GitHub flow](https://docs.github.com/en/get-started/using-github/github-flow).
-The repository currently has no remote or automated branch protection configured.
+The configured remote is `https://github.com/jorisvdmije/map-master.git`.
+The repository and automated branch protection still need to be established.
 When hosted, configure required checks and review rules appropriate to the team.
+Maintainer: [@jorisvdmije](https://github.com/jorisvdmije). Use
+[Issues](https://github.com/jorisvdmije/map-master/issues) for non-sensitive bugs
+and feature requests; follow [SECURITY.md](SECURITY.md) for vulnerabilities.
 
 ## Finding the right place to change
 
@@ -116,13 +120,14 @@ Start with prereleases and explicitly document that the API is experimental.
 Record user-visible changes and migration steps. Define a compatibility policy
 before 1.0, including supported browsers, MapLibre versions, and deprecation rules.
 
-Before publishing, add a license, security reporting instructions, maintainer
-contacts, and a reproducible release workflow. A completed milestone is not
-automatically a production-readiness claim.
+The MIT license, maintainer routes, security policy and archive verification
+workflow are included. Before publishing, activate the GitHub reporting channels
+and hosted checks. A completed milestone is not automatically a
+production-readiness claim.
 
 Use `npm run release:prepare` to verify one candidate archive through the full
 checks and retain its checksum and reports. CI runs this on Node 22 and 24.
 Follow the [release checklist](docs/releases.md), record user-visible changes in
 the [changelog](CHANGELOG.md), and document upgrades in the
 [migration guide](docs/migration.md). Preparation does not publish the package;
-the final identity, license, contacts and hosted checks are still pending.
+hosted checks, operational reporting channels and registry access are still pending.

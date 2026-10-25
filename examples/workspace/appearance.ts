@@ -1,4 +1,4 @@
-import type { EditorAppearance, GeometryEditor } from '@geo/editor';
+import type { EditorAppearance, GeometryEditor } from '@jorisvdmije/map-master';
 
 /** Host-owned presets: the library exposes settings, not a theme registry or toolbar. */
 export function bindAppearanceControl(editor: GeometryEditor, control: HTMLSelectElement): () => void {

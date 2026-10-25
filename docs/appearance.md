@@ -5,7 +5,7 @@ layers or modifying GeoJSON. Defaults preserve the existing green features, blue
 selection, orange dotted drafts and white editing handles.
 
 ```ts
-import { GeometryEditor, type EditorAppearanceOptions } from '@geo/editor';
+import { GeometryEditor, type EditorAppearanceOptions } from '@jorisvdmije/map-master';
 
 const appearance: EditorAppearanceOptions = {
   feature: { lineColor: '#0369a1', fillColor: '#38bdf8', lineWidth: 4 },

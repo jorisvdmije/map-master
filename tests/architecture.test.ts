@@ -22,7 +22,7 @@ it.each([
 it.each([
   ['src/core/types.ts', "export { validatePolygon } from './polygon.js';"],
   ['src/maplibre/renderer.ts', "export type { EditorState } from '../core/types.js';"],
-  ['examples/basic/main.ts', "export { GeometryEditor } from '@geo/editor'; import 'maplibre-gl/dist/maplibre-gl.css';"],
+  ['examples/basic/main.ts', "export { GeometryEditor } from '@jorisvdmije/map-master'; import 'maplibre-gl/dist/maplibre-gl.css';"],
 ])('allows supported dependencies: %s, %s', async (filePath, source) => {
   const [result] = await eslint.lintText(source, { filePath });
   expect(result?.messages).toEqual([]);

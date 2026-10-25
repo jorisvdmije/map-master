@@ -28,7 +28,7 @@ Try this workflow:
    duplicate IDs or any invalid feature reject the entire import.
 
 This is a separate, framework-free TypeScript/Vite application in
-[`examples/workspace`](../examples/workspace/). It imports only `@geo/editor` and
+[`examples/workspace`](../examples/workspace/). It imports only `@jorisvdmije/map-master` and
 host-owned MapLibre. No source aliases, library internals, workspace symlinks, or
 global editor test hooks are used. MapLibre's worker URL is explicitly imported
 through Vite and passed to `setWorkerUrl`, for both development and production.
@@ -41,7 +41,7 @@ consumer's temporary path. Stop the command to clean up the temporary copy.
 Edit the checked-in example and restart the launcher to try changes.
 
 The application has its own dependency lockfile. Only the entry for the local
-`vendor/geo-editor.tgz` omits integrity, because that is the artifact rebuilt on
+`vendor/map-master.tgz` omits integrity, because that is the artifact rebuilt on
 every run; third-party integrity hashes remain pinned. After changing library
 dependencies/version or the application's dependencies, run `npm run lock:workspace`
 and review the lockfile. Keep shared tooling versions aligned with the root
@@ -162,14 +162,15 @@ The next beta work is deliberately separate and reviewable:
    qualify a fixed 1,000-feature installed-consumer workload, visible pointer
    previews and repeated map/editor teardown. The browser/input matrix explicitly
    limits evidence to desktop Chromium and MapLibre 6.15.0; hosted CI is configured
-   but has not run without a remote.
+   but has not run on GitHub yet.
 4. **Public prerelease — locally prepared, publication pending:**
    [release preparation](releases.md) verifies one archive through package and
    workspace checks and retains its checksum and reports. A changelog and
-   migration policy are included. Still choose the package identity and license, configure a
-   GitHub remote and required CI checks, add actual maintainer/security contacts,
-   versioning and migration notes, and validate the exact release archive before
-   publishing under a prerelease tag. No registry publication is performed here.
+   migration policy are included. The package is now
+   `@jorisvdmije/map-master@0.1.0-beta.0`, licensed under MIT, with @jorisvdmije
+   as maintainer and a GitHub private-reporting policy. The repository, reporting
+   channels, required hosted checks and npm scope access still need to be
+   operational before publication. No registry publication is performed here.
 
 Trim/extend is deferred until a consuming application needs it. The full playground
 continues to demonstrate advanced geometry tools; this smaller workspace focuses

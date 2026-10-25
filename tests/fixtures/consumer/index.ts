@@ -1,8 +1,8 @@
-import * as editor from '@geo/editor';
+import * as editor from '@jorisvdmije/map-master';
 import type { Map } from 'maplibre-gl';
 
 // A strict consumer must resolve the shipped declarations, with no source alias.
-const publicApi: typeof import('@geo/editor') = editor;
+const publicApi: typeof import('@jorisvdmije/map-master') = editor;
 void publicApi;
 
 export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {

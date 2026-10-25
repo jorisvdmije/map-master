@@ -33,18 +33,25 @@ try {
     archive = resolve(root, archive);
     process.stdout.write(`Installing prepared archive: ${archive}\n`);
   } else {
-    process.stdout.write('Building and packing @geo/editor for a separate application…\n');
+    process.stdout.write('Building and packing @jorisvdmije/map-master for a separate application…\n');
     const packed = JSON.parse(run(['pack', '--json', '--pack-destination', workspace], root))[0];
     archive = join(workspace, packed.filename);
   }
-  cpSync(archive, join(workspace, 'vendor/geo-editor.tgz'));
+  cpSync(archive, join(workspace, 'vendor/map-master.tgz'));
+  if (mode === 'lock') {
+    // npm install otherwise reuses stale version/license metadata for a local
+    // file dependency whose path stays the same while its archive changes.
+    const lock = JSON.parse(readFileSync(join(workspace, 'package-lock.json'), 'utf8'));
+    delete lock.packages['node_modules/@jorisvdmije/map-master'];
+    writeFileSync(join(workspace, 'package-lock.json'), `${JSON.stringify(lock, null, 2)}\n`);
+  }
   // All third-party versions come from the example lockfile; only the local tarball changes.
   // npm ci in the repository has already cached the same pinned tooling and MapLibre versions.
   process.stdout.write(run([mode === 'lock' ? 'install' : 'ci', '--offline', '--ignore-scripts', '--no-audit', '--no-fund']));
   if (mode === 'lock') {
     const lock = JSON.parse(readFileSync(join(workspace, 'package-lock.json'), 'utf8'));
     // This is the artifact under test, rebuilt from the current checkout on every run.
-    delete lock.packages['node_modules/@geo/editor'].integrity;
+    delete lock.packages['node_modules/@jorisvdmije/map-master'].integrity;
     writeFileSync(join(root, 'examples/workspace/package-lock.json'), `${JSON.stringify(lock, null, 2)}\n`);
     process.stdout.write('Updated standalone application lockfile.\n');
   } else if (mode === 'dev') {
@@ -75,7 +82,7 @@ export default defineConfig({ build: { rolldownOptions: { input: { workspace: 'i
       ? resolve(root, process.env.GEO_BETA_REPORT_DIR) : join(root, 'artifacts'), {
       maplibre: JSON.parse(readFileSync(join(workspace, 'node_modules/maplibre-gl/package.json'), 'utf8')).version,
       playwright: JSON.parse(readFileSync(join(root, 'node_modules/playwright/package.json'), 'utf8')).version,
-      archiveSha256: createHash('sha256').update(readFileSync(join(workspace, 'vendor/geo-editor.tgz'))).digest('hex'),
+      archiveSha256: createHash('sha256').update(readFileSync(join(workspace, 'vendor/map-master.tgz'))).digest('hex'),
     });
     if (mode === 'check') {
       const { checkWorkspace } = await import('./workspace-acceptance.mjs');

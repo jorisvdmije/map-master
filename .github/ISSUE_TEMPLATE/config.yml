@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/jorisvdmije/map-master/security/advisories/new
+    about: Use GitHub Private Vulnerability Reporting; follow SECURITY.md if the channel is unavailable.

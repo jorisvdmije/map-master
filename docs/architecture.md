@@ -60,7 +60,7 @@ command shortcuts; the vertex, selection and translation handlers own their
 respective pointer gestures. All pointer handlers share CSS-coordinate conversion.
 `MapLibreRenderer` owns only visual sources/layers; it is never a second data store.
 
-The example imports only `@geo/editor`, just like an external application. Map
+The example imports only `@jorisvdmije/map-master`, just like an external application. Map
 creation, basemap configuration, toolbar elements, file dialogs and downloads
 belong there. Internal helpers are not exported from the package entry point.
 

@@ -9,7 +9,7 @@ components and polygon holes.
 ## Public API
 
 ```ts
-import { FeatureLockedError, GeometryEditor } from '@geo/editor';
+import { FeatureLockedError, GeometryEditor } from '@jorisvdmije/map-master';
 
 const editor = new GeometryEditor(map, { lockedFeatureIds: ['reference', 0] });
 editor.importGeoJSON(referenceData); // Initial loading of locked IDs is allowed.

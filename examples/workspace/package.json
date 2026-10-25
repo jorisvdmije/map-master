@@ -9,7 +9,7 @@
     "preview": "vite preview --host 127.0.0.1 --port 5174 --strictPort"
   },
   "dependencies": {
-    "@geo/editor": "file:vendor/geo-editor.tgz",
+    "@jorisvdmije/map-master": "file:vendor/map-master.tgz",
     "maplibre-gl": "6.15.0"
   },
   "devDependencies": {

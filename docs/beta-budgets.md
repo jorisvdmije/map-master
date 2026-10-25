@@ -11,7 +11,7 @@ claim that every dataset of this size has the same cost.
 | --- | --- |
 | Browser engine | Playwright 1.64.1 bundled Chromium 156.0.8078.4; real desktop browser interactions and budget checks pass locally. The report records the browser actually launched. |
 | Local platform | macOS arm64, Apple M2 Pro, Node 22.23.1. See the committed raw baseline for exact measurements. |
-| Hosted CI | Ubuntu with Node 22 and 24 is configured to run `npm run release:prepare`, including `npm run check`, and retain the candidate archive and reports. No remote is configured yet; no hosted performance result is claimed. |
+| Hosted CI | Ubuntu with Node 22 and 24 is configured to run `npm run release:prepare`, including `npm run check`, and retain the candidate archive and reports. The remote URL is configured, but the repository and hosted checks remain pending; no hosted performance result is claimed. |
 | MapLibre | 6.15.0 is tested. The peer range remains `^6.15.0`; that installation range is broader than the verified-version list. Rerun checks before qualifying an upgrade. |
 | Chrome / Edge releases | Not separately qualified. Sharing an engine does not establish that a shipping browser version passes. |
 | Firefox / Safari / WebKit | Not qualified in this milestone. Add real interaction/installed-consumer runs before expanding the support matrix. Chromium CDP memory measurements cannot be reused as cross-engine evidence. |
@@ -112,7 +112,7 @@ npm run check              # full repository checks, including the above
 The existing workspace launcher packs the library, installs its archive outside
 the repository using the consumer lockfile, and builds the real workspace plus a
 **test-only** second HTML entry. The lifecycle fixture imports only the public
-`@geo/editor` entry point and the consumer's MapLibre dependency. It adds no globals
+`@jorisvdmije/map-master` entry point and the consumer's MapLibre dependency. It adds no globals
 or test controls to the normal application or library. The test build shares
 bundler chunks between the two entries; initial bundle-loading time is excluded.
 
@@ -127,7 +127,7 @@ Release preparation writes the same report alongside its candidate archive in
 `artifacts/releases/candidate-*`. CI retains that directory for 14 days per Node version using GitHub's
 [upload-artifact action](https://github.com/actions/upload-artifact), also when a
 budget fails. The workflow is configured locally; hosted qualification remains a
-release prerequisite once the repository has a remote.
+release prerequisite once the repository is hosted with Actions enabled.
 
 The local reference report is [beta-budgets-baseline.json](beta-budgets-baseline.json).
 Update that reference only after reviewing the measurement conditions and any

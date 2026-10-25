@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -58,10 +58,28 @@ describe('packed package', () => {
   it('ships JavaScript and declarations without development files', () => {
     expect(packedFiles).toEqual(expect.arrayContaining([
       'package.json', 'README.md', 'CHANGELOG.md', 'docs/migration.md',
+      'LICENSE', 'SECURITY.md', 'THIRD_PARTY_NOTICES.md',
       'dist/index.js', 'dist/index.d.ts',
     ]));
     expect(packedFiles.some((file) => /^(src|tests|node_modules|\.github)\//u.test(file)))
       .toBe(false);
+  });
+
+  it('ships the agreed package identity, license and support routes', () => {
+    const manifest = JSON.parse(readFileSync(
+      join(consumer, 'node_modules/@jorisvdmije/map-master/package.json'), 'utf8',
+    )) as { name: string; version: string; license: string; author: { url: string };
+      repository: { url: string }; bugs: { url: string }; publishConfig: { tag: string; access: string } };
+    expect(manifest.name).toBe('@jorisvdmije/map-master');
+    const source = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { version: string };
+    expect(manifest.version).toBe(source.version);
+    expect(manifest.license).toBe('MIT');
+    expect(manifest.author.url).toBe('https://github.com/jorisvdmije');
+    expect(manifest.repository.url).toBe('git+https://github.com/jorisvdmije/map-master.git');
+    expect(manifest.bugs.url).toBe('https://github.com/jorisvdmije/map-master/issues');
+    expect(manifest.publishConfig).toMatchObject({ tag: 'beta', access: 'public' });
+    const security = readFileSync(join(consumer, 'node_modules/@jorisvdmije/map-master/SECURITY.md'), 'utf8');
+    expect(security).toContain('https://github.com/jorisvdmije/map-master/security/advisories/new');
   });
 
   it('imports through the public ESM entry point without browser globals', () => {

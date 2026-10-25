@@ -1,6 +1,6 @@
 <img src="assets/icon.svg" width="64" height="64" alt="">
 
-# geo
+# Map Master
 
 [Point markers](docs/markers.md) support one-click placement, selection, movement, import/export, locks and Undo/Redo. Choose **Marker** in the playground or **+ Marker** in the workspace.
 
@@ -180,9 +180,9 @@ Build output lives in `dist/`. MapLibre GL JS is a host-supplied peer dependency
 not bundled into the editor. Version 6.15.0 is tested; the peer range is `^6.15.0`.
 The editor requires a modern browser with WebGL and a secure context (HTTPS or
 localhost) for feature UUIDs. Desktop mouse and keyboard input in Chromium is
-tested; touch and other browser engines are not yet validated. The working
-package name is `@geo/editor`; it is private and unpublished while the name,
-license, and public API are being established.
+tested; touch and other browser engines are not yet validated. The package is
+`@jorisvdmije/map-master`, licensed under MIT. Candidate `0.1.0-beta.0` remains
+private and unpublished pending the [release gates](docs/releases.md).
 
 The tests install an actual npm archive into a temporary directory, import it in
 Node.js, and compile a consumer in both NodeNext and Bundler resolution modes.
@@ -226,5 +226,13 @@ and [contribution workflow](CONTRIBUTING.md).
 
 ## License
 
-An open-source license must be selected and added before the first public release.
-No project license has been added yet.
+Map Master is licensed under the [MIT License](LICENSE), copyright 2026
+jorisvdmije. See [third-party notices](THIRD_PARTY_NOTICES.md) for runtime dependencies.
+
+## Maintainer and support
+
+Maintained by [@jorisvdmije](https://github.com/jorisvdmije). Use
+[GitHub Issues](https://github.com/jorisvdmije/map-master/issues) for ordinary bug
+reports and feature requests. Report vulnerabilities confidentially through the
+channel and setup status in [SECURITY.md](SECURITY.md). The repository and its
+reporting channels must still be activated before public distribution.

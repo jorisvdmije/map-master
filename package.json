@@ -1,9 +1,9 @@
 {
-  "name": "@geo/editor",
-  "version": "0.0.0",
+  "name": "@jorisvdmije/map-master",
+  "version": "0.1.0-beta.0",
   "private": true,
-  "description": "A TypeScript geometry editor for web maps (early development).",
-  "license": "UNLICENSED",
+  "description": "Map Master: a TypeScript geometry editor for MapLibre web maps.",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -18,7 +18,10 @@
     "assets/icon.svg",
     "docs",
     "CONTRIBUTING.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "LICENSE",
+    "SECURITY.md",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "engines": {
     "node": "^22.13.0 || ^24.0.0"
@@ -85,5 +88,22 @@
   "dependencies": {
     "polygon-clipping": "0.15.7",
     "robust-predicates": "3.0.3"
+  },
+  "author": {
+    "name": "jorisvdmije",
+    "url": "https://github.com/jorisvdmije"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jorisvdmije/map-master.git"
+  },
+  "homepage": "https://github.com/jorisvdmije/map-master#readme",
+  "bugs": {
+    "url": "https://github.com/jorisvdmije/map-master/issues"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public",
+    "tag": "beta"
   }
 }
