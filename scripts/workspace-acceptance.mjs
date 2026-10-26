@@ -127,6 +127,23 @@ export async function checkWorkspace(origin, { smoke = false } = {}) {
     assert.equal(await page.locator('#undo').isDisabled(), true);
     passed('cancel discards drafts; applied edits survive save/reload without restoring old history');
 
+    await page.locator('#features button').click(); await page.locator('#edit').click();
+    await page.keyboard.press('Home');
+    assert.equal(await page.locator('[data-geo-vertex-focus]').count(), 1);
+    await page.keyboard.press('ArrowRight'); await page.keyboard.press('Escape');
+    assert.deepEqual(await exportData(page), edited);
+    await page.locator('#edit').click(); await page.keyboard.press('Home');
+    await page.keyboard.press('Space'); await page.keyboard.press('PageDown'); await page.keyboard.press('Shift+Space');
+    await page.keyboard.press('Shift+ArrowRight'); await page.keyboard.press('Enter');
+    const keyboardEdited = await exportData(page);
+    assert.notDeepEqual(keyboardEdited.features[0].geometry, edited.features[0].geometry);
+    assert.equal(await page.locator('[data-geo-vertex-focus]').count(), 0);
+    await page.locator('#undo').click(); assert.deepEqual(await exportData(page), edited);
+    assert.equal(await page.locator('#undo').isDisabled(), true);
+    await page.locator('#redo').click(); assert.deepEqual(await exportData(page), keyboardEdited);
+    await page.locator('#undo').click();
+    passed('keyboard vertex focus, group movement, cancellation and one-step Undo/Redo');
+
     const savedBeforeTheme = await page.evaluate((key) => localStorage.getItem(key), key);
     await page.locator('#appearance').selectOption('ocean');
     await text(page, '#save-state', 'All changes saved locally');

@@ -1,3 +1,4 @@
+import { VertexKeyboard } from './vertex-keyboard.js';
 import { resolveStyling, type EditorStylingOptions, type StylingIssue } from '../core/feature-styling.js';
 import { lockedFeatureIds, sameLocks } from '../core/feature-locks.js';
 import { constrainDrawingPoint, drawingConstraintsOptions } from '../core/drawing-constraints.js';
@@ -39,6 +40,7 @@ export class GeometryEditor {
   private readonly session: DrawingSession;
   private readonly renderer: MapLibreRenderer;
   private readonly vertices: VertexInteraction;
+  private readonly vertexKeyboard: VertexKeyboard;
   private readonly selection: SelectionInteraction;
   private readonly translation: TranslationInteraction;
   private readonly rotation: RotationInteraction;
@@ -171,6 +173,14 @@ export class GeometryEditor {
       pivot: (kind, coordinate) => { this.draftChanged(kind === 'rotation' ? this.session.setRotationPivot(coordinate) : this.session.setScalePivot(coordinate)); },
       finish: kind => { if (kind === 'rotation') this.finishRotation(); else this.finishScale(); },
       cancel: () => { this.cancel(); },
+    });
+    this.vertexKeyboard = new VertexKeyboard(map, {
+      state: () => this.session.state, draft: () => this.session.getDraft(),
+      start: () => { this.selection.cancel(); this.vertices.stop(true); this.setSnap(null); },
+      select: indices => { this.draftChanged(this.session.selectVertices(indices)); },
+      move: updates => { this.draftChanged(this.session.moveVertices(updates)); },
+      remove: () => { const changed = this.session.removeSelectedVertices(); this.draftChanged(changed); return changed; },
+      finish: () => { this.finish(); }, cancel: () => { this.cancel(); },
     });
     editors.add(map);
     map.on('click', this.handleClick);
@@ -673,7 +683,7 @@ export class GeometryEditor {
     this.assertAlive();
     const initial = this.session.state;
     if (initial.mode !== 'edit-shared-boundary') return null;
-    this.selection.cancel(); this.vertices.stop();
+    this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     const state = this.session.state;
     if (state.mode !== 'edit-shared-boundary' || !state.canFinish) return null;
     const event = this.session.finishSharedBoundary();
@@ -708,42 +718,42 @@ export class GeometryEditor {
   }
 
   selectVertex(index: number | null): void {
-    this.assertAlive(); this.selection.cancel(); this.vertices.stop();
+    this.assertAlive(); this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.selectVertex(index));
   }
 
   selectVertices(indices: readonly number[]): void {
-    this.assertAlive(); this.selection.cancel(); this.vertices.stop();
+    this.assertAlive(); this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.selectVertices(indices));
   }
 
   moveVertices(updates: readonly VertexUpdate[]): void {
-    this.assertAlive(); this.selection.cancel(); this.vertices.stop();
+    this.assertAlive(); this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.moveVertices(updates));
   }
 
   translateSelectedVertices(delta: Coordinate): void {
-    this.assertAlive(); this.selection.cancel(); this.vertices.stop();
+    this.assertAlive(); this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.translateSelectedVertices(delta));
   }
 
   removeSelectedVertices(): boolean {
-    this.assertAlive(); this.selection.cancel(); this.vertices.stop();
+    this.assertAlive(); this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     const changed = this.session.removeSelectedVertices(); this.draftChanged(changed); return changed;
   }
 
   moveVertex(index: number, coordinate: Coordinate): void {
-    this.assertAlive(); this.selection.cancel(); this.vertices.stop();
+    this.assertAlive(); this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.moveVertex(index, coordinate));
   }
 
   insertVertex(index: number, coordinate: Coordinate): void {
-    this.assertAlive(); this.selection.cancel(); this.vertices.stop();
+    this.assertAlive(); this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.insertVertex(index, coordinate));
   }
 
   removeVertex(index: number): boolean {
-    this.assertAlive(); this.selection.cancel(); this.vertices.stop();
+    this.assertAlive(); this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     const changed = this.session.removeVertex(index);
     this.draftChanged(changed);
     return changed;
@@ -826,7 +836,7 @@ export class GeometryEditor {
       return preview.features[0]!;
     }
     if (this.session.state.mode === 'edit-shared-boundary') {
-      this.selection.cancel(); this.vertices.stop();
+      this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
       if (!this.session.state.canFinish) return null;
       const original = this.session.getSelection()[0]!;
       return this.finishSharedBoundary()?.changes.find((change) => change.after?.id === original.id)?.after ?? original;
@@ -858,7 +868,7 @@ export class GeometryEditor {
       return this.finishReshape()?.changes[0]?.after ?? original;
     }
     if (this.session.state.mode === 'split-polygon') return this.finishSplit()?.changes[0]?.after ?? null;
-    this.selection.cancel(); this.vertices.stop();
+    this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     const before = this.session.state;
     const feature = this.session.finish();
     if (!feature) return null;
@@ -1134,6 +1144,7 @@ export class GeometryEditor {
 
   /** Stop transient selection/movement before a command changes their baseline. */
   private cancelIdleGestures(): void {
+    this.vertexKeyboard.stop();
     this.selection.cancel();
     this.translation.cancel();
   }
@@ -1143,6 +1154,7 @@ export class GeometryEditor {
   }
 
   private emitChange(): void {
+    this.vertexKeyboard.render();
     this.events.emit('change', () => this.getState());
   }
 
@@ -1234,6 +1246,7 @@ export class GeometryEditor {
   }
 
   private leaveDrawing(): void {
+    this.vertexKeyboard.clear();
     this.rotation.clear();
     this.scaling.clear();
     this.distance.clear();
@@ -1262,6 +1275,7 @@ export class GeometryEditor {
     this.snap = null;
     this.snapping.clear();
     this.boundarySnapping.clear();
+    this.vertexKeyboard.destroy();
     this.selection.destroy(removeResources);
     this.translation.destroy(removeResources);
     this.rotation.destroy(removeResources);

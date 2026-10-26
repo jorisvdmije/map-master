@@ -564,6 +564,10 @@ coordinates throw without changing the draft. Vertex commands require editing.
 `removeVertex(index)` returns false at the minimum of two line points or three
 polygon corners; otherwise it removes the corner and clears vertex selection.
 
+For [keyboard vertex editing](keyboard-vertices.md), press Home on the focused map
+or Tab to the vertex control. Page Up/Down navigates, Space selects, arrows move
+(Shift: ten pixels), and Enter saves the session as one Undo step.
+
 Drag a large handle to move a corner, or click/drag a small midpoint to insert
 one. **Shift+click** toggles a corner in `selectedVertexIndices`. A plain press on
 an already-selected corner preserves the group; a press on an unselected corner

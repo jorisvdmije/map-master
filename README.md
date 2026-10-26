@@ -131,6 +131,9 @@ available as a compatibility facade.
 See [Object colors and overlap stripes](docs/feature-styling.md) for per-feature styling,
 selection overrides, drawing order and automatic/custom striped overlap.
 
+Existing points and corners support [keyboard editing](docs/keyboard-vertices.md):
+Home on the map focuses a vertex; Page Up/Down chooses, arrows move, and Enter saves.
+
 ## Development
 
 Use Node.js 22.13+ within the 22.x series, or Node.js 24.x, with npm. If you use
@@ -177,6 +180,7 @@ npm run check
 | `npm run benchmark:selection` | Measure core ID lookup and selected snapshots on fixed datasets. |
 | `npm run benchmark:deletion` | Measure one core deletion plus export of all surviving features. |
 | `npm run benchmark:editing` | Measure atomic movement of corner groups in fixed polygon drafts. |
+| `npm run benchmark:vertex-keyboard` | Measure keyboard vertex navigation and nudge coordination for large drafts. |
 | `npm run benchmark:vertex-selection` | Measure draft rectangle picking and selection with a deterministic projection. |
 | `npm run benchmark:import` | Measure atomic imports of fixed line and polygon datasets. |
 | `npm run benchmark:history` | Measure undoing a middle deletion, with and without export. |

@@ -135,10 +135,10 @@ function render(state: EditorState): void {
     : serialized === saved ? 'All changes saved locally' : 'Unsaved changes';
   element('#instruction').textContent = importing ? 'Importing file…'
     : state.mode === 'draw-point' ? 'Click once to place a marker. Escape cancels.'
-    : state.mode === 'edit-point' ? 'Drag the point to move the marker, then apply changes. Escape cancels.'
+    : state.mode === 'edit-point' ? 'Drag the point, or press Home on the map then use arrows to move it. Enter applies; Escape cancels.'
     : state.validationError ? validation[state.validationError]
     : state.mode.startsWith('draw-') ? 'Click to add points. Enter finishes; Escape cancels; Backspace removes the last point.'
-    : state.mode.startsWith('edit-') ? 'Drag corners or click a midpoint to add one. Apply changes when ready.'
+    : state.mode.startsWith('edit-') ? 'Drag corners or click a midpoint to add one. Keyboard: Home focuses a vertex, Page Up/Down chooses, arrows move (Shift: 10 pixels). Enter applies; Escape cancels.'
     : 'Select a shape to edit it, or add an area, route or marker.';
   const locksKey = JSON.stringify(editor.getLockedFeatureIds());
   // Rebuild on committed data/selection/policy changes only; never on pointer previews.

@@ -8,6 +8,10 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 
 ### Added
 
+- Keyboard vertex navigation with one focusable control, point/group pixel nudges,
+  selection toggles, held-key cancellation, accessible status and visible focus.
+  Editing, locks, validation and atomic Save/Undo retain their existing contracts.
+
 - Optional per-feature styles, partial selection overrides and drawing order via
   `styling`, `setStyling`, `refreshStyling` and diagnostic snapshots.
 - Diagonal overlap stripes with stable automatic colors or explicit/callback

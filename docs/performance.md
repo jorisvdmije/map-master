@@ -930,3 +930,10 @@ See the [styling cost, limits and local baseline](feature-styling.md#cost-limits
 for `npm run benchmark:styling`. The optional overlay uses cached Mercator cells
 and bounded synchronous work; unchanged defaults are covered by installed-consumer
 latency and lifecycle gates.
+
+## Keyboard vertex controls
+
+`npm run benchmark:vertex-keyboard` measures synchronous navigation and nudge
+coordination for 100, 1,000 and 10,000 line vertices. See the
+[keyboard baseline and limits](keyboard-vertices.md#verification). It asserts one
+focusable control at every size and checks DOM cleanup on destruction.

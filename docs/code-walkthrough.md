@@ -52,6 +52,7 @@ src/
     distance-interaction.ts  Buffer/offset distance handle, ruler and drag rollback
     preview-border.ts        Explicit dots per edge for every preview; optional drag fill
     vertex-interaction.ts    Multi-vertex/edge gestures, pointer capture and rollback
+    vertex-keyboard.ts       Single-tab-stop vertex navigation, group nudges and movement rollback
     vertex-handles.ts        Shared screen-space corner/midpoint definitions and edge picking
     line-editor.ts           Compatibility facade for the earlier line-only API
 examples/basic/              Consumer UI; calls the same API as another app would

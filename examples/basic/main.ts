@@ -300,8 +300,9 @@ map.on('load', () => {
     element('editing-help').textContent = shared
       ? 'Shift+click adds corners; Shift+drag a box selects several. Drag a selected corner to move them together. Drag an edge between handles to move both ends. Small points add a corner. Grey endpoints stay fixed. Both polygons change together.'
       : 'Shift+click adds corners; Shift+drag a box selects several. Drag a selected corner to move them together. Drag an edge between handles to move both ends. Small points add a corner. Escape during dragging restores that drag; Save applies all edits.';
+    element('editing-help').textContent += ' Keyboard: press Home on the map or Tab to the vertex control. Page Up/Down chooses a corner; arrows move it (Shift: 10 pixels). Space selects; Shift+Space toggles a group. Enter saves.';
     element('vertex-status').textContent = state.selectedVertexIndex === null
-      ? 'Click a corner to select it.' : state.selectedVertexIndices.length > 1 ? `${state.selectedVertexIndices.length} of ${state.vertexCount} corners selected.` : `Corner ${state.selectedVertexIndex + 1} of ${state.vertexCount} selected.`;
+      ? 'Click a corner or use the keyboard vertex control to select it.' : state.selectedVertexIndices.length > 1 ? `${state.selectedVertexIndices.length} of ${state.vertexCount} corners selected.` : `Corner ${state.selectedVertexIndex + 1} of ${state.vertexCount} selected.`;
     if (selectedFeature) {
       element('selection-type').textContent = selectedFeature.geometry.type;
       const count = editing ? state.vertexCount : part?.type === 'Polygon'
