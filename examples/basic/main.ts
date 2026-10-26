@@ -4,6 +4,7 @@ import { GeometryEditor, type DrawGeometryType, type GeometryFeature, type Coord
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
 import { bindAppearanceControl } from '../workspace/appearance.js';
+import { SimplificationControls } from './simplification-controls.js';
 
 let removeAppearanceControl = () => {};
 
@@ -163,6 +164,8 @@ map.on('load', () => {
   editor = new GeometryEditor(map, { snapping: { enabled: true } });
   const activeEditor = editor;
   removeAppearanceControl = bindAppearanceControl(activeEditor, element<HTMLSelectElement>('appearance'));
+  const simplificationControls = new SimplificationControls(activeEditor, element('simplification-tools'), valid => { finish.disabled = !valid; });
+  map.once('remove', () => { simplificationControls.destroy(); });
   let exportedRevision = -1;
   partIndex.addEventListener('change', () => { update(); });
   let ringSelectionPart = 0;
@@ -215,9 +218,6 @@ map.on('load', () => {
     if (!buffering) bufferDistance.setCustomValidity('');
     if (document.activeElement !== bufferDistance) bufferDistance.value = formatDistance(state.bufferDistance ?? 10);
     simplifySelected.disabled = selectedCount === 0 || drawing;
-    element('simplification-tools').hidden = !simplifying;
-    if (!simplifying) simplificationTolerance.setCustomValidity('');
-    if (document.activeElement !== simplificationTolerance) simplificationTolerance.value = String(state.simplificationTolerance ?? 0);
     scaleSelected.disabled = selectedCount === 0 || drawing;
     element('scale-tools').hidden = !scaling;
     if (!scaling) { for (const field of scaleFields) field.setCustomValidity(''); scaleCenter = null; scaleAnchors = {}; }
@@ -348,11 +348,9 @@ map.on('load', () => {
     }
     if (simplifying) {
       const preview = activeEditor.getSimplificationPreview();
-      const count = (features: GeometryFeature[]): number => features.reduce((sum, feature) => sum + partsOf(feature.geometry).reduce((total, part) =>
-        total + (part.type === 'Polygon' ? part.coordinates.reduce((n, ring) => n + ring.length - 1, 0) : part.type === 'Point' ? 1 : part.coordinates.length), 0), 0);
       status.classList.toggle('is-invalid', state.simplificationError !== null);
       status.textContent = preview
-        ? `${count(activeEditor.getSelection())} → ${count(preview.features)} vertices at ${state.simplificationTolerance} Mercator m. Apply saves the selection; Undo restores it.`
+        ? 'Compare the dotted preview with the faint original outline. Apply saves the selection; Undo restores it.'
         : 'This tolerance creates invalid geometry. Reduce the tolerance or Cancel.';
     }
     if (scaling) {
@@ -409,12 +407,13 @@ map.on('load', () => {
         : preview?.geometry === null ? 'No target area remains. Apply subtraction deletes the target; cutting shapes are kept. Undo restores it.'
         : 'Remaining target area is orange; cutting shapes stay blue. Apply subtraction or Enter saves; Cancel keeps the original.';
     }
-    element('map-hint').textContent = offsetting ? 'Drag ↔ for distance · Positive left · Negative right · Release to review · Enter applies' : buffering ? 'Drag ↔ to widen the buffer · Release to review · Enter applies · Esc cancels' : simplifying ? 'Set a tolerance · Review remaining vertices · Enter applies · Esc cancels' : scaling ? 'Drag ⊕ to set pivot · Corners: proportional · Sides: width or height · Enter applies · Esc cancels' : rotating ? 'Drag ⊕ to set pivot · Drag ↻ to rotate · Shift: 15° · Enter applies · Esc cancels' : shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
+    element('map-hint').textContent = offsetting ? 'Drag ↔ for distance · Positive left · Negative right · Release to review · Enter applies' : buffering ? 'Drag ↔ to widen the buffer · Release to review · Enter applies · Esc cancels' : simplifying ? 'Adjust tolerance · Compare with the original · Enter applies · Esc cancels' : scaling ? 'Drag ⊕ to set pivot · Corners: proportional · Sides: width or height · Enter applies · Esc cancels' : rotating ? 'Drag ⊕ to set pivot · Drag ↻ to rotate · Shift: 15° · Enter applies · Esc cancels' : shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
       : drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
       : selectedCount > 0 ? 'Drag selection to move · Release to save · Esc to cancel · Shift+click to toggle'
         : state.featureCount > 0 ? 'Click to select · Shift+drag to select several shapes' : 'Your next idea, on the map.';
+    simplificationControls.update();
     element('mode-dot').classList.toggle('drawing', drawing);
     element('mode-dot').classList.toggle('selected', selectedCount > 0);
     if (exportedRevision !== state.dataRevision) {
@@ -556,19 +555,6 @@ simplifySelected.addEventListener('click', () => {
     status.classList.add('is-invalid');
     status.textContent = 'Select shapes within the Mercator map area, without date-line crossings or a span over 180°.';
   } else simplificationTolerance.focus();
-});
-simplificationTolerance.addEventListener('input', () => {
-  const tolerance = simplificationTolerance.valueAsNumber;
-  const valid = Number.isFinite(tolerance) && tolerance >= 0;
-  simplificationTolerance.setCustomValidity(valid ? '' : 'Enter a nonnegative tolerance.');
-  if (valid) editor?.setSimplificationTolerance(tolerance);
-  finish.disabled = !valid || !editor?.getState().canFinish;
-});
-simplificationTolerance.addEventListener('blur', () => {
-  // A cleared/incomplete number is only a text-entry draft. Restore the last preview tolerance on exit.
-  simplificationTolerance.setCustomValidity('');
-  simplificationTolerance.value = String(editor?.getState().simplificationTolerance ?? 0);
-  finish.disabled = !editor?.getState().canFinish;
 });
 scaleSelected.addEventListener('click', () => {
   if (!editor) return;

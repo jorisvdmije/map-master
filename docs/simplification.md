@@ -1,16 +1,45 @@
 # Simplify selected geometry
 
-Select one or more lines/polygons and choose **Simplify selection**. Enter a
-nonnegative **Tolerance (Mercator meters)**. Zero preserves every vertex; a
-larger tolerance removes small details. The demo reports the original and preview
-vertex counts (excluding polygon closure copies). Try the detailed polygon/line
-fixture with tolerance 5.
+Select one or more lines/polygons and choose **Simplify selection**. Drag the
+**Adjust tolerance** slider or enter a nonnegative **Tolerance (Mercator meters)**.
+Zero preserves every vertex; a larger tolerance removes small details. A summary
+such as **10 → 4 vertices · 60% fewer vertices** counts all selected components and
+holes, excluding polygon closure copies. The faint solid contour is the original;
+the dotted contour and fill show the result. Try the detailed polygon/line fixture
+with tolerance 5.
 
 **Apply simplification** saves the complete selection; Cancel discards the preview.
 With the map focused, Enter applies and Escape cancels. One Undo restores every
 original coordinate. Invalid or incomplete numeric input disables Apply; leaving
 the field restores the last accepted tolerance. Typing is not intercepted by map
 shortcuts.
+
+## Slider and comparison controls
+
+The demo's slider starts at 0 and uses 10% of the selection's Mercator bounding-box
+diagonal as its maximum (at least 1 meter). Its range stays fixed while dragging;
+typing a larger value expands it. Lowering the value does not shrink the range.
+A new session resets the range from its selected originals. This range is a
+navigation aid, not a guarantee that every value produces valid geometry. Exact
+numeric input has no slider-imposed cap or rounding; the native thumb may round
+at floating-point precision. Display labels use six significant digits.
+
+With the slider focused, arrows adjust by 1/1,000 of its range, Shift+arrows by
+1/100, PageUp/PageDown by 1/10, and Home/End go to zero/the maximum. Its accessible
+value text announces the tolerance in Mercator meters. Enter applies the latest
+value; Escape cancels the session. Number-field typing keeps its normal behavior.
+
+Slider input is coalesced to one calculation per animation frame, with the final
+change flushed on release. Apply stays disabled while an update is pending.
+Direct numeric input and editor state changes supersede queued input; cancelled/revoked sessions
+and teardown discard it. Intermediate updates never create history entries.
+
+An invalid result shows **original count → —**, **No valid preview**, and recovery
+instructions. The saved originals remain visible and Apply is disabled. Lowering
+the tolerance restores the preview. Incomplete/negative numeric input retains
+the last accepted preview with an explicit message and disables Apply until the
+input is corrected or blurred. Percentages describe vertex reduction, not accuracy
+or area preservation.
 
 ## Units and algorithm
 
@@ -103,8 +132,13 @@ LineEditor compatibility facade does not expose simplification.
 
 ## Rendering, history and lifecycle
 
-Valid preview geometry hides the selected originals; an invalid result displays
-originals. There is no pivot marker. Changing tolerance never uploads the committed
+Valid preview geometry hides the ordinary selected rendering and displays its
+original outlines at 30% of the configured feature line opacity underneath the
+preview. Color and width follow the feature appearance (minimum width 1 pixel).
+This comparison reuses the committed source and preserves holes/components; it
+is available to library consumers as well as the demo. An invalid result displays
+the ordinary originals without a duplicate comparison outline. There is no pivot
+marker. Changing tolerance never uploads the committed
 feature source. Camera changes and style replacement retain/reconstruct the same
 preview. Selection, drawing, editing and competing data/history operations are
 blocked until finish/cancel.
@@ -114,6 +148,10 @@ followed by `onChange`. No individual create/update/delete events are emitted.
 Undo/Redo emits `onHistory` with action `transaction`, restoring exact coordinates,
 properties and order. Cancel and unchanged saves preserve Redo and add no history.
 Preview, state and event snapshots are independent.
+
+Comparison state is cleared on confirmation/cancellation and reconstructed after
+style replacement. Appearance changes restyle it without changing coordinates.
+No new public methods, options or state fields are required for these controls.
 
 Cancel, destruction and map removal discard the preview. Existing gesture/cursor
 settings are restored when the map remains alive. Tolerance changes validate

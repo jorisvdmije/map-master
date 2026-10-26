@@ -96,3 +96,12 @@ still toggles that corner. This takes precedence over MapLibre box zoom during
 editing; its enabled setting is restored on release/cancellation. It operates on
 the active ring/component only and does not change the feature selection. No
 new public methods, state fields, GeoJSON or history formats are introduced.
+
+## Simplification controls and comparison
+
+Valid simplification previews now show a faint original outline beneath the result.
+It uses the existing feature appearance and committed source; it does not alter
+GeoJSON, exports, history or public state. The demo adds a tolerance slider and
+vertex reduction summary alongside exact numeric input. The public simplification
+API remains unchanged. See [simplification](simplification.md) for keyboard steps,
+range behavior and invalid-result feedback.

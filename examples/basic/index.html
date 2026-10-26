@@ -66,7 +66,15 @@
           <h2>SIMPLIFY YOUR SELECTION</h2>
           <label for="simplification-tolerance">Tolerance (Mercator meters)</label>
           <input id="simplification-tolerance" type="number" min="0" step="any" value="0" aria-describedby="simplification-help" />
-          <p id="simplification-help">0 keeps every vertex. Increase to remove small details. These are map-plane meters, not ground meters. Invalid results cannot be saved. Neighbouring boundaries are not linked.</p>
+          <label for="simplification-slider">Adjust tolerance</label>
+          <input id="simplification-slider" type="range" min="0" max="100" step="any" value="0" aria-describedby="simplification-help simplification-range" />
+          <p id="simplification-range" class="simplification-range"></p>
+          <div class="simplification-summary" aria-live="polite" aria-atomic="true">
+            <strong id="simplification-count"></strong>
+            <span id="simplification-reduction"></span>
+          </div>
+          <p id="simplification-feedback" role="status"></p>
+          <p id="simplification-help">Drag the slider or enter an exact tolerance. 0 keeps every vertex. Arrow keys make small adjustments; Home resets to 0. The faint solid outline shows the original; the dotted outline shows the preview. These are Mercator map-plane meters, not ground meters. Neighbouring boundaries are not linked.</p>
         </section>
         <section id="scale-tools" class="editing-tools" aria-label="Scaling" hidden>
           <h2>SCALE YOUR SELECTION</h2>

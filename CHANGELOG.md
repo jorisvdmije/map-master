@@ -8,6 +8,10 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 
 ### Added
 
+- Simplification slider with exact numeric input, keyboard adjustments, vertex
+  reduction summary and invalid-result feedback. A faint original outline reuses
+  committed map data beneath the preview; Apply remains one transaction/Undo.
+
 - Shift+drag rectangle selection of corners within the active edit ring/component,
   preserving previous selections and fixed shared-boundary junctions. Captured
   gestures support cancellation, camera/style cleanup and API interruption.

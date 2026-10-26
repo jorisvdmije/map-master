@@ -21,7 +21,7 @@ features as one validated batch and one undo action.
 [Fixed drawing angles](docs/drawing-constraints.md) optionally constrain free pointer placement to 45° or 90° map directions, with Alt bypass and exact snapping priority.
 [Line offsets](docs/offset.md) move open lines left/right with a signed Mercator-meter distance, limited miter joins, validated preview and atomic Undo.
 [Selection buffers](docs/buffer.md) turn selected lines/polygons into outward zones with a positive Mercator-meter distance, validated preview and atomic Undo.
-[Selection simplification](docs/simplification.md) removes detail with a Mercator-meter tolerance, validated preview and atomic Undo.
+[Selection simplification](docs/simplification.md) removes detail with a tolerance slider or exact Mercator-meter input, vertex reduction counts, an original-outline comparison and atomic Undo.
 [Selection scaling](docs/scaling.md) resizes mixed selections around a movable pivot, with proportional corner handles, independent horizontal/vertical side handles, numeric preview and atomic Undo.
 [Selection rotation](docs/rotation.md) rotates mixed selections by dragging a handle or entering an angle, with a screen-aligned selection frame, movable snapping pivot, Shift angle steps and atomic Undo.
 

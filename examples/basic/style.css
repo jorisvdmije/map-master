@@ -115,6 +115,13 @@ textarea { width: 100%; height: 140px; margin-top: 12px; resize: vertical; borde
 
 #scale-anchor, #rotation-angle, #scale-factor, #scale-x, #scale-y, #simplification-tolerance, #buffer-distance, #offset-distance { width: 100%; box-sizing: border-box; margin: 8px 0; padding: 9px 10px; border: 1px solid #b9c9c4; border-radius: 6px; font: inherit; background: white; }
 #rotation-angle:invalid, #scale-factor:invalid, #scale-x:invalid, #scale-y:invalid, #simplification-tolerance:invalid, #buffer-distance:invalid, #offset-distance:invalid { border-color: #b42318; }
+#simplification-slider { display: block; width: 100%; margin: 12px 0 6px; accent-color: #176b55; }
+#simplification-slider:focus-visible { outline: 3px solid #e5a465; outline-offset: 4px; }
+.simplification-range { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.simplification-summary { display: grid; gap: 4px; margin: 14px 0 8px; padding: 12px; border: 1px solid #c6d7d0; border-radius: 8px; background: #fff; font-variant-numeric: tabular-nums; }
+.simplification-summary strong { font-size: 20px; }
+.simplification-summary span { font-size: 13px; color: #176b55; }
+#simplification-feedback.is-invalid { color: #b42318; }
 #rotation-tools .action-row, #scale-tools .action-row { display: flex; gap: 8px; }
 #rotation-tools .action-row button, #scale-tools .action-row button { flex: 1; }
 

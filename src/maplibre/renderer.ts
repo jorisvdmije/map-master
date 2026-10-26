@@ -29,6 +29,7 @@ export class MapLibreRenderer {
   private selectedFeatureIds = new Set<FeatureId>();
   private editingFeatureIds = new Set<FeatureId>();
   private hiddenFeatureIds = new Set<FeatureId>();
+  private comparisonIds = new Set<FeatureId>();
   private readonly translationPreview: PreviewBorder;
   private readonly draftBorder: PreviewBorder;
   private transfer: { ids: Set<FeatureId>; revision: number; ready: boolean; revealed: boolean } | undefined;
@@ -67,6 +68,12 @@ export class MapLibreRenderer {
           'circle-opacity': ['case', editing, 0, selected, selectedMarker.opacity, marker.opacity],
           'circle-stroke-opacity': ['case', editing, 0, selected, selectedMarker.opacity, marker.opacity],
           'circle-opacity-transition': { duration: 0 }, 'circle-stroke-opacity-transition': { duration: 0 } } },
+      { id: `${namespace}-simplification-original`, type: 'line', source: this.featuresId,
+        filter: ['!=', '$type', 'Point'],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': feature.lineColor, 'line-width': Math.max(1, feature.lineWidth),
+          'line-opacity': ['case', ['boolean', ['feature-state', 'comparison'], false], feature.lineOpacity * 0.3, 0],
+          'line-opacity-transition': { duration: 0 } } },
       { id: `${namespace}-draft-marker`, type: 'circle', source: this.draftId,
         filter: ['==', 'kind', 'marker'], paint: circlePaint(draftMarker) },
       { id: `${namespace}-draft-fill`, type: 'fill', source: this.draftId,
@@ -103,6 +110,7 @@ export class MapLibreRenderer {
   }
 
   mount(): void {
+    this.renderComparison([]);
     this.stopTransfer();
     this.draftBorder.clear();
     this.renderEditingMany([]);
@@ -203,6 +211,20 @@ export class MapLibreRenderer {
       }
     }
     this.hiddenFeatureIds = next;
+  }
+
+  /** Reveal a faint original outline from existing tiles, below the result preview. */
+  renderComparison(ids: readonly FeatureId[]): void {
+    const next = new Set(ids);
+    if (this.map.getSource(this.featuresId)) {
+      for (const id of this.comparisonIds) {
+        if (!next.has(id)) this.map.removeFeatureState({ source: this.featuresId, id: JSON.stringify(id) }, 'comparison');
+      }
+      for (const id of next) {
+        if (!this.comparisonIds.has(id)) this.map.setFeatureState({ source: this.featuresId, id: JSON.stringify(id) }, { comparison: true });
+      }
+    }
+    this.comparisonIds = next;
   }
 
   /** Synchronous selected-only overlay: no worker/tile lag or tile-local dash phase. */
@@ -318,12 +340,14 @@ export class MapLibreRenderer {
   }
 
   clearPreview(): void {
+    this.renderComparison([]);
     this.draftBorder.clear();
     this.translationVisible = false; this.translationPreview.clear();
     void this.map.getSource<GeoJSONSource>(this.draftId)?.setData(emptyCollection());
   }
 
   destroy(removeResources = true): void {
+    this.renderComparison([]);
     this.draftBorder.clear();
     this.stopTransfer();
     if (!removeResources) return;

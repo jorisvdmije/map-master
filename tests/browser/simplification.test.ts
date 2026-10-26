@@ -36,6 +36,8 @@ it('simplifies selected geometry, previews without uploads, and saves once with 
     (before.features[1] as LineFeature).geometry.coordinates[0], (before.features[1] as LineFeature).geometry.coordinates[2],
   ]);
   await expect.poll(draft).toHaveLength(2);
+  await expect.poll((): unknown => map.getFeatureState({ source: sourceId('-features'), id: '0' })).toMatchObject({ comparison: true });
+  await expect.poll(() => map.queryRenderedFeatures({ layers: [sourceId('-features').replace(/-features$/, '-simplification-original')] }).length).toBeGreaterThan(0);
   expect((await draft()).map((f) => f.geometry)).toEqual(preview.features.map((f) => f.geometry));
   expect((await draft()).every((f) => f.geometry.type !== 'Point')).toBe(true);
   for (const id of ['0', '"0"']) expect(map.getFeatureState({ source: sourceId('-features'), id })).toMatchObject({ editing: true, selected: true });
@@ -45,6 +47,7 @@ it('simplifies selected geometry, previews without uploads, and saves once with 
   await userEvent.keyboard('{Enter}'); const after = editor.exportGeoJSON(); expect(after).toEqual(preview);
   expect(uploaded).toHaveBeenCalledOnce(); expect(transaction).toHaveBeenCalledOnce(); expect(individual).not.toHaveBeenCalled();
   expect(editor.getState()).toMatchObject({ mode: 'idle', dataRevision: revision + 1 }); await expect.poll(draft).toHaveLength(0);
+  for (const id of ['0', '"0"']) expect(map.getFeatureState({ source: sourceId('-features'), id })).not.toHaveProperty('comparison');
   await userEvent.keyboard('{Control>}z{/Control}'); expect(editor.exportGeoJSON()).toEqual(before);
   await userEvent.keyboard('{Control>}y{/Control}'); expect(editor.exportGeoJSON()).toEqual(after);
   expect(history.mock.calls[0]![0]).toMatchObject({ action: 'transaction', direction: 'undo' });
@@ -56,10 +59,17 @@ it('keeps preview stable through pan, bearing and style changes, then cancels ex
   const loaded = new Promise<void>((resolve) => { map.once('style.load', () => { resolve(); }); }); map.setStyle(style(), { diff: false }); await loaded;
   await expect.poll(async () => (await draft()).filter((f) => f.geometry.type !== 'Point').map((f) => f.geometry)).toEqual(expected!.features.map((f) => f.geometry));
   expect(editor.getSimplificationPreview()).toEqual(expected);
-  for (const id of ['0', '"0"']) expect(map.getFeatureState({ source: sourceId('-features'), id })).toMatchObject({ editing: true });
+  for (const id of ['0', '"0"']) expect(map.getFeatureState({ source: sourceId('-features'), id })).toMatchObject({ editing: true, comparison: true });
+  editor.setAppearance({feature:{lineColor:'#112233',lineOpacity:0.5}});
+  const ghostId = sourceId('-features').replace(/-features$/, '-simplification-original');
+  expect(map.getPaintProperty(ghostId, 'line-color')).toBe('#112233');
+  expect(map.getPaintProperty(ghostId, 'line-opacity')).toEqual(['case', ['boolean', ['feature-state', 'comparison'], false], 0.15, 0]);
   map.getCanvas().focus(); await userEvent.keyboard('{Escape}'); expect(editor.exportGeoJSON()).toEqual(before);
   expect(editor.getState()).toMatchObject({ canUndo: false, simplificationTolerance: null });
-  for (const id of ['0', '"0"']) expect(map.getFeatureState({ source: sourceId('-features'), id })).not.toHaveProperty('editing');
+  for (const id of ['0', '"0"']) {
+    expect(map.getFeatureState({ source: sourceId('-features'), id })).not.toHaveProperty('editing');
+    expect(map.getFeatureState({ source: sourceId('-features'), id })).not.toHaveProperty('comparison');
+  }
   await expect.poll(draft).toHaveLength(0);
 });
 it('shows original geometry for rejected results, blocks Enter, and allows correction', async () => {
@@ -67,6 +77,7 @@ it('shows original geometry for rejected results, blocks Enter, and allows corre
   expect(editor.getState()).toMatchObject({ simplificationError: 'simplification-invalid-result', canFinish: false });
   await expect.poll(draft).toHaveLength(0);
   for (const id of ['0', '"0"']) expect(map.getFeatureState({ source: sourceId('-features'), id })).not.toHaveProperty('editing');
+  for (const id of ['0', '"0"']) expect(map.getFeatureState({ source: sourceId('-features'), id })).not.toHaveProperty('comparison');
   await userEvent.keyboard('{Enter}'); expect(editor.getState().mode).toBe('simplify-features'); expect(editor.exportGeoJSON()).toEqual(before);
   editor.setSimplificationTolerance(5); await userEvent.keyboard('{Enter}'); expect(editor.getState()).toMatchObject({ mode: 'idle', canUndo: true });
 });

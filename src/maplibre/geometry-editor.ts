@@ -1141,6 +1141,7 @@ export class GeometryEditor {
       if (this.session.state.mode === 'simplify-features') {
         const preview = this.session.getSimplificationPreview();
         this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
+        this.renderer.renderComparison(preview ? this.session.state.selectedFeatureIds : []);
         this.renderer.renderTransform(preview);
         return;
       }

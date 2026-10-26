@@ -472,6 +472,12 @@ retained source indices. Rings are processed as two anchored arcs. DrawingSessio
 freezes selected originals, validates candidates with prepareTransaction, and
 caches the result/error. The adapter uses the shared collection-preview renderer
 without a pivot. Confirmation uses the existing transaction/history boundary.
+The renderer marks selected originals with private comparison feature state; a
+faint line layer below the preview reuses their committed tiles, including holes
+and multipart components. No geometry upload is needed when tolerance changes.
+`examples/basic/simplification-controls.ts` owns the demo's numeric/slider binding,
+session range, vertex counts and pending animation-frame input. Geometry
+validation and history remain in the existing public API.
 See [simplification](simplification.md) for units, topology limits and no-op behavior.
 
 ## Selection buffers

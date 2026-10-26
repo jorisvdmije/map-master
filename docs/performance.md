@@ -773,6 +773,17 @@ local baselines, not CI timing budgets.
 
 ## Selection simplification
 
+The demo slider coalesces input to one tolerance calculation per animation frame
+and flushes the final value on release. Original comparison outlines reuse the
+committed source through feature state, with no per-tolerance upload or original
+coordinate copy for rendering. Summary counts scan the preview; original counts
+and slider bounds are computed once per session. The core benchmark below remains
+the algorithm baseline and excludes the demo controls and MapLibre rendering.
+A repeat on 2026-10-26 on the same Node/macOS/M2 Pro setup measured preview
+median/p95 of 0.021/0.097 ms (1 × 10 corners), 0.058/0.113 ms (1 × 100),
+0.302/0.453 ms (1 × 1,000) and 0.763/1.148 ms (100 × 10). The core algorithm
+is unchanged; these observations are not a UI latency guarantee.
+
 Run `npm run benchmark:simplification`. Regular polygons near `[4.895, 52.372]`
 have 10, 100 or 1,000 corners at radius 0.002°. A fourth case selects 100 ten-corner
 polygons on a 0.01° grid. Each iteration enters the tool, previews tolerance 100
