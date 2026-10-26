@@ -43,6 +43,7 @@ src/
     snapping.ts              Map projection and camera/data-revision cache
     selection-interaction.ts Shift+click/rectangle selection and cancellation
     translation-interaction.ts Group drag preview, release and cancellation
+    pivot-interaction.ts     Shared rotation/scale pivot input, original-target snapping and rollback
     distance-interaction.ts  Buffer/offset distance handle, ruler and drag rollback
     preview-border.ts        Explicit dots per edge for every preview; optional drag fill
     vertex-interaction.ts    Pointer capture, vertex gestures, cancellation
@@ -431,6 +432,12 @@ with rotation, hides valid-preview originals and restores them on cancellation.
 axis-specific keyboard resizing and drag rollback. It updates the same factors
 as numeric input; release keeps the preview open.
 See [scaling](scaling.md) for factor, coordinate and lifecycle contracts.
+
+`maplibre/pivot-interaction.ts` owns the shared pivot handle and a camera-dependent
+SnapIndex built from the selected originals. It adds the original projected
+centre as a target. Pivot setters reuse the same session transformation and
+validation paths as angle/factor changes, retaining the frozen baseline. Camera
+changes invalidate the snap index; teardown releases captures, handlers and DOM.
 
 ## Drawing constraints
 

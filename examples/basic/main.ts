@@ -59,7 +59,22 @@ const scaleFactor = element<HTMLInputElement>('scale-factor');
 const scaleX = element<HTMLInputElement>('scale-x');
 const scaleY = element<HTMLInputElement>('scale-y');
 const scaleFields = [scaleFactor, scaleX, scaleY];
+const scaleAnchor = element<HTMLSelectElement>('scale-anchor');
 const formatScaleFactor = (value: number) => String(Number(value.toPrecision(6)));
+function scaleCorners(features: GeometryFeature[]): Record<string, Coordinate> {
+  const bounds = new LngLatBounds();
+  const extend = (coordinates: unknown): void => {
+    if (!Array.isArray(coordinates)) return;
+    if (typeof coordinates[0] === 'number') bounds.extend(coordinates as Coordinate);
+    else for (const part of coordinates) extend(part);
+  };
+  for (const feature of features) extend(feature.geometry.coordinates);
+  return { nw: bounds.getNorthWest().toArray(), ne: bounds.getNorthEast().toArray(),
+    se: bounds.getSouthEast().toArray(), sw: bounds.getSouthWest().toArray() };
+}
+let scaleCenter: Coordinate | null = null;
+let scaleAnchors: Record<string, Coordinate> = {};
+
 const scaleHalf = element<HTMLButtonElement>('scale-half');
 const scaleDouble = element<HTMLButtonElement>('scale-double');
 const rotateSelected = element<HTMLButtonElement>('rotate-selected');
@@ -205,7 +220,11 @@ map.on('load', () => {
     if (document.activeElement !== simplificationTolerance) simplificationTolerance.value = String(state.simplificationTolerance ?? 0);
     scaleSelected.disabled = selectedCount === 0 || drawing;
     element('scale-tools').hidden = !scaling;
-    if (!scaling) for (const field of scaleFields) field.setCustomValidity('');
+    if (!scaling) { for (const field of scaleFields) field.setCustomValidity(''); scaleCenter = null; scaleAnchors = {}; }
+    if (scaling) {
+      if (!scaleCenter) { scaleCenter = state.scalePivot; scaleAnchors = scaleCorners(activeEditor.getSelection()); }
+      scaleAnchor.value = Object.entries({ center: scaleCenter, ...scaleAnchors }).find(([, p]) => p && p[0] === state.scalePivot![0] && p[1] === state.scalePivot![1])?.[0] ?? 'custom';
+    }
     if (document.activeElement !== scaleFactor) scaleFactor.value = state.scaleFactor === null && scaling ? '' : formatScaleFactor(state.scaleFactor ?? 1);
     scaleFactor.placeholder = scaling && state.scaleFactor === null ? 'Mixed axes' : '';
     if (document.activeElement !== scaleX) scaleX.value = formatScaleFactor(state.scaleFactorX ?? 1);
@@ -389,7 +408,7 @@ map.on('load', () => {
         : preview?.geometry === null ? 'No target area remains. Apply subtraction deletes the target; cutting shapes are kept. Undo restores it.'
         : 'Remaining target area is orange; cutting shapes stay blue. Apply subtraction or Enter saves; Cancel keeps the original.';
     }
-    element('map-hint').textContent = offsetting ? 'Drag ↔ for distance · Positive left · Negative right · Release to review · Enter applies' : buffering ? 'Drag ↔ to widen the buffer · Release to review · Enter applies · Esc cancels' : simplifying ? 'Set a tolerance · Review remaining vertices · Enter applies · Esc cancels' : scaling ? 'Corners: proportional · Sides: width or height · Release to review · Enter applies · Esc cancels' : rotating ? 'Drag ↻ to rotate · Shift: 15° · Release to review · Enter applies · Esc cancels' : shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
+    element('map-hint').textContent = offsetting ? 'Drag ↔ for distance · Positive left · Negative right · Release to review · Enter applies' : buffering ? 'Drag ↔ to widen the buffer · Release to review · Enter applies · Esc cancels' : simplifying ? 'Set a tolerance · Review remaining vertices · Enter applies · Esc cancels' : scaling ? 'Drag ⊕ to set pivot · Corners: proportional · Sides: width or height · Enter applies · Esc cancels' : rotating ? 'Drag ⊕ to set pivot · Drag ↻ to rotate · Shift: 15° · Enter applies · Esc cancels' : shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
       : drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
@@ -556,6 +575,10 @@ scaleSelected.addEventListener('click', () => {
     status.classList.add('is-invalid');
     status.textContent = 'Select shapes within the Mercator map area, without date-line crossings or a span over 180°.';
   } else { element('scale-tools').scrollIntoView({ block: 'nearest' }); }
+});
+element('rotation-center').addEventListener('click', () => { editor?.setRotationPivot(); });
+scaleAnchor.addEventListener('change', () => {
+  if (scaleAnchor.value !== 'custom') editor?.setScalePivot(scaleAnchor.value === 'center' ? undefined : scaleAnchors[scaleAnchor.value]);
 });
 for (const field of scaleFields) {
   field.addEventListener('input', () => {

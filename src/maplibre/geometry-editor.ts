@@ -14,6 +14,7 @@ import { TranslationInteraction } from './translation-interaction.js';
 import { RotationInteraction } from './rotation-interaction.js';
 import { ScalingInteraction } from './scaling-interaction.js';
 import { DistanceInteraction } from './distance-interaction.js';
+import { PivotInteraction } from './pivot-interaction.js';
 import { EditorEvents } from './editor-events.js';
 import { KeyboardInteraction } from './keyboard-interaction.js';
 import { GeoJSONImportError } from '../core/geojson-import.js';
@@ -41,6 +42,7 @@ export class GeometryEditor {
   private readonly rotation: RotationInteraction;
   private readonly scaling: ScalingInteraction;
   private readonly distance: DistanceInteraction;
+  private readonly pivot: PivotInteraction;
   private readonly canvas: HTMLCanvasElement;
   private readonly view: Window;
   private cursor: Coordinate | undefined;
@@ -128,13 +130,13 @@ export class GeometryEditor {
     });
     this.rotation = new RotationInteraction(map, {
       state: () => this.session.state,
-      angle: (degrees) => { this.draftChanged(this.session.setRotationAngle(degrees)); },
+      angle: (degrees) => { this.pivot.stop(); this.draftChanged(this.session.setRotationAngle(degrees)); },
       finish: () => { this.finishRotation(); },
       cancel: () => { this.cancel(); },
     });
     this.scaling = new ScalingInteraction(map, {
       state: () => this.session.state,
-      factors: (x, y) => { this.draftChanged(this.session.setScaleFactors(x, y)); },
+      factors: (x, y) => { this.pivot.stop(); this.draftChanged(this.session.setScaleFactors(x, y)); },
       finish: () => { this.finishScale(); },
       cancel: () => { this.cancel(); },
     });
@@ -142,6 +144,14 @@ export class GeometryEditor {
       state: () => this.session.state,
       distance: (kind, meters) => { this.draftChanged(kind === 'buffer' ? this.session.setBufferDistance(meters) : this.session.setOffsetDistance(meters)); },
       finish: kind => { if (kind === 'buffer') this.finishBuffer(); else this.finishOffset(); },
+      cancel: () => { this.cancel(); },
+    });
+    this.pivot = new PivotInteraction(map, {
+      state: () => this.session.state,
+      snapping: () => this.snapping.getOptions(),
+      start: () => { this.rotation.stop(); this.scaling.stop(); },
+      pivot: (kind, coordinate) => { this.draftChanged(kind === 'rotation' ? this.session.setRotationPivot(coordinate) : this.session.setScalePivot(coordinate)); },
+      finish: kind => { if (kind === 'rotation') this.finishRotation(); else this.finishScale(); },
       cancel: () => { this.cancel(); },
     });
     editors.add(map);
@@ -186,7 +196,7 @@ export class GeometryEditor {
     this.cancelIdleGestures();
     this.vertices.stop(true);
     this.rotation.stop();
-    this.scaling.stop();
+    this.scaling.stop(); this.pivot.stop();
     this.distance.stop();
     const wasDrawing = this.session.state.mode !== 'idle';
     this.session.setLockedFeatureIds([...next]);
@@ -283,6 +293,7 @@ export class GeometryEditor {
     if (!this.snapping.setOptions(options)) return;
     if (!this.snapping.getOptions().enabled) { this.traceAnchor = null; this.traceCache = null; }
     this.vertices.refresh();
+    this.pivot.refresh();
     if (this.pointer && this.isDrawing()) {
       const resolved = this.resolvePointer(this.pointer);
       this.cursor = resolved.blocked ? undefined : resolved.coordinate;
@@ -450,7 +461,7 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
-  /** Begin a cancellable rotation of the selection around a fixed Mercator pivot. */
+  /** Begin a cancellable rotation of the selection around a Mercator pivot. */
   rotateSelection(pivot?: Coordinate): boolean {
     this.assertAlive(); this.cancelIdleGestures();
     if (!this.session.rotateSelection(pivot)) return false;
@@ -459,8 +470,15 @@ export class GeometryEditor {
 
   setRotationAngle(degrees: number): boolean {
     this.assertAlive();
-    this.rotation.stop();
+    this.rotation.stop(); this.pivot.stop();
     const changed = this.session.setRotationAngle(degrees);
+    this.draftChanged(changed); return changed;
+  }
+
+  /** Change the pivot while retaining the current absolute angle; omit to reset to centre. */
+  setRotationPivot(pivot?: Coordinate): boolean {
+    this.assertAlive(); this.rotation.stop(); this.pivot.stop();
+    const changed = this.session.setRotationPivot(pivot);
     this.draftChanged(changed); return changed;
   }
 
@@ -468,7 +486,7 @@ export class GeometryEditor {
 
   finishRotation(): TransactionEvent | null {
     this.assertAlive();
-    this.rotation.stop();
+    this.rotation.stop(); this.pivot.stop();
     if (this.session.state.mode !== 'rotate-features' || !this.session.state.canFinish) return null;
     const event = this.session.finishRotation();
     this.leaveDrawing();
@@ -476,7 +494,7 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
-  /** Begin a cancellable scaling of the selection around a fixed Mercator pivot. */
+  /** Begin a cancellable scaling of the selection around a Mercator pivot. */
   scaleSelection(pivot?: Coordinate): boolean {
     this.assertAlive(); this.cancelIdleGestures();
     if (!this.session.scaleSelection(pivot)) return false;
@@ -485,22 +503,29 @@ export class GeometryEditor {
 
   setScaleFactor(factor: number): boolean {
     this.assertAlive();
-    this.scaling.stop();
+    this.scaling.stop(); this.pivot.stop();
     const changed = this.session.setScaleFactor(factor);
     this.draftChanged(changed); return changed;
   }
 
   /** Set independent horizontal and vertical Mercator scale factors. */
   setScaleFactors(horizontal: number, vertical: number): boolean {
-    this.assertAlive(); this.scaling.stop();
+    this.assertAlive(); this.scaling.stop(); this.pivot.stop();
     const changed = this.session.setScaleFactors(horizontal, vertical);
+    this.draftChanged(changed); return changed;
+  }
+
+  /** Change the pivot while retaining absolute factors; omit to reset to centre. */
+  setScalePivot(pivot?: Coordinate): boolean {
+    this.assertAlive(); this.scaling.stop(); this.pivot.stop();
+    const changed = this.session.setScalePivot(pivot);
     this.draftChanged(changed); return changed;
   }
 
   getScalePreview(): GeometryFeatureCollection | null { return this.session.getScalePreview(); }
 
   finishScale(): TransactionEvent | null {
-    this.assertAlive(); this.scaling.stop();
+    this.assertAlive(); this.scaling.stop(); this.pivot.stop();
     if (this.session.state.mode !== 'scale-features' || !this.session.state.canFinish) return null;
     const event = this.session.finishScale();
     this.leaveDrawing();
@@ -937,6 +962,7 @@ export class GeometryEditor {
     this.rotation.stop(true);
     this.scaling.stop(true);
     this.distance.stop(true);
+    this.pivot.stop(true);
     this.cancelIdleGestures();
     this.vertices.stop(true);
     this.renderer.mount();
@@ -953,6 +979,7 @@ export class GeometryEditor {
     this.snapping.invalidateCamera();
     this.reshapeSnapping.invalidateCamera();
     this.vertices.refresh();
+    this.pivot.refresh();
     if (this.session.state.mode !== 'idle') this.schedulePreview();
   };
 
@@ -1087,6 +1114,7 @@ export class GeometryEditor {
         this.renderer.renderTransform(preview, this.session.state.scalePivot!);
         const originals = this.session.getSelection();
         this.scaling.render(preview?.features ?? originals, originals, this.appearance);
+        this.pivot.render(originals, this.appearance);
         return;
       }
       if (this.session.state.mode === 'rotate-features') {
@@ -1095,6 +1123,7 @@ export class GeometryEditor {
         this.renderer.renderTransform(preview, this.session.state.rotationPivot!);
         const originals = this.session.getSelection();
         this.rotation.render(preview?.features ?? originals, originals, this.appearance);
+        this.pivot.render(originals, this.appearance);
         return;
       }
       if (this.session.state.mode === 'intersection-polygons') {
@@ -1130,6 +1159,7 @@ export class GeometryEditor {
     this.rotation.clear();
     this.scaling.clear();
     this.distance.clear();
+    this.pivot.clear();
     this.traceAnchor = null; this.traceCache = null;
     this.reshapeSnapping.clear();
     this.pointer = undefined;
@@ -1159,6 +1189,7 @@ export class GeometryEditor {
     this.rotation.destroy(removeResources);
     this.scaling.destroy(removeResources);
     this.distance.destroy(removeResources);
+    this.pivot.destroy(removeResources);
     this.vertices.destroy(removeResources);
     const wasDrawing = this.session.cancel();
     this.session.clearHistory();

@@ -94,8 +94,9 @@ Editing corner insets retain their existing spacing.
 `activeRadius`. `snap` uses **SnapAppearance**: `radius` is for vertex snaps,
 `edgeRadius` for edge snaps. `pivot` styles the rotation/scale center.
 The rotation handle and screen-aligned frame use `selected.lineColor`; the pivot
-cross uses `pivot.strokeColor`. The handle's 44px input target is fixed independently
-of marker radii. Invalid rotation feedback uses red and blocks confirmation.
+cross uses `pivot.strokeColor`. The movable pivot button uses `pivot.color` and
+`pivot.strokeColor`, with `snap.color` on a snap target; its 28px input target is
+fixed. The rotation handle's 44px input target is fixed independently of marker radii. Invalid rotation feedback uses red and blocks confirmation.
 
 ## Validation and scope
 

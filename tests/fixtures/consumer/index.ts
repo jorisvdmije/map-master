@@ -202,6 +202,8 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   void [simplifying, simplifiedPreview, simplifiedError, tolerance, simplified];
   const rotating: boolean = tool.rotateSelection([4.895, 52.372]);
   tool.setRotationAngle(30);
+  tool.setRotationPivot([4.9, 52.37]);
+  tool.setRotationPivot();
   const rotationPreview: editor.GeometryFeatureCollection | null = tool.getRotationPreview();
   const rotationError: editor.RotationError | null = tool.getState().rotationError;
   const rotationPivot: editor.Coordinate | null = tool.getState().rotationPivot;
@@ -211,6 +213,8 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const scaling: boolean = tool.scaleSelection([4.895, 52.372]);
   tool.setScaleFactor(2);
   tool.setScaleFactors(2, 0.5);
+  tool.setScalePivot([4.9, 52.37]);
+  tool.setScalePivot();
   const horizontalScale: number | null = tool.getState().scaleFactorX;
   const verticalScale: number | null = tool.getState().scaleFactorY;
   void [horizontalScale, verticalScale];

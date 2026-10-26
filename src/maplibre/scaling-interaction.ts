@@ -100,7 +100,7 @@ export class ScalingInteraction {
     if (!points.length) return;
     let left = Infinity; let right = -Infinity; let bottom = Infinity; let top = -Infinity;
     for (const [x, y] of points) { left = Math.min(left, x); right = Math.max(right, x); bottom = Math.min(bottom, y); top = Math.max(top, y); }
-    const pivot = this.map.project(state.scalePivot);
+    const pivot = this.map.project(state.scalePivot); const worldPivot = project(state.scalePivot);
     const corners: ScreenPoint[] = [];
     for (let i = 0; i < handles.length; i++) {
       const [, x, y] = handles[i]!; const grip = this.grips[i]!;
@@ -111,8 +111,10 @@ export class ScalingInteraction {
       const dx = p.x - pivot.x; const dy = p.y - pivot.y;
       const cursors = ['ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize'];
       grip.button.style.cursor = cursors[(Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) + 8) % 4]!;
-      // A collapsed dimension cannot be expanded by multiplication; use numeric input.
-      grip.button.disabled = Math.hypot(dx, dy) < 10 || grip.axis === 'x' && right - left < 1e-14 || grip.axis === 'y' && top - bottom < 1e-14;
+      // A collapsed dimension or a side on the pivot axis cannot be dragged by multiplication.
+      grip.button.disabled = Math.hypot(dx, dy) < 10
+        || grip.axis === 'x' && (right - left < 1e-14 || Math.abs(grip.point[0] - worldPivot[0]) < 1e-14)
+        || grip.axis === 'y' && (top - bottom < 1e-14 || Math.abs(grip.point[1] - worldPivot[1]) < 1e-14);
     }
     this.box.setAttribute('d', corners.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join('') + 'Z');
     this.cross.setAttribute('d', `M${pivot.x - 10},${pivot.y}h20M${pivot.x},${pivot.y - 10}v20`);

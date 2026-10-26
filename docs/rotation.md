@@ -30,20 +30,49 @@ Tab to the handle and use arrow keys for 1° adjustments, or Shift + arrows for
 15° adjustments. Enter applies and Escape cancels when the handle is focused.
 The existing angle field remains available for exact keyboard entry.
 
-The pivot stays fixed throughout the session. Moving it interactively is a
-separate follow-up; the API already accepts an explicit pivot on entry. Pointer
-rotation is currently qualified for desktop mouse input, not touch.
+The **⊕ pivot** can be dragged or changed through `setRotationPivot`. Pointer
+rotation and pivot dragging currently support desktop mouse input, not touch/pen.
 The demo restores
 the last preview angle when an incomplete/cleared angle input loses focus; while
 that input is incomplete, Apply is disabled. Map shortcuts do not intercept typing
 in the input field.
+
+## Moving the pivot
+
+Drag **⊕** to choose a new geographic pivot, or Tab to it and use arrow keys for
+1 screen-pixel steps (Shift: 10 pixels). **Home** restores the original bounds
+centre. Keyboard nudges bypass snapping for precise placement. The pivot may lie
+outside the selection; off-screen pivots can be recovered with the demo's centre
+control or the API.
+
+Moving the pivot retains the current angle and recomputes the preview from
+the frozen originals. The preview can move as a result: this does not rebase or
+reset the transformation. At the identity transformation, moving only the pivot
+leaves geometry exactly unchanged and creates no Undo entry.
+With snapping enabled, pivot dragging snaps to the nearest original selected
+vertex or the original projected bounds centre within `snapping.distance` CSS
+pixels. Original vertices include holes and multipart components. Vertices win
+exact ties with the centre. `snapping.vertices: false` disables vertex targets;
+the centre remains available. Edge snapping, unselected features and transformed
+preview vertices are not pivot targets. **Alt** bypasses snapping; changing Alt
+or snapping options refreshes an active drag without another pointer move. The
+pivot label identifies the current target. These local pivot targets do not
+emit the drawing/vertex `onSnap` event.
+
+Release keeps the preview open. Enter/Apply commits the entire session in one
+Undo step. Escape during a pivot drag restores its starting pivot and preview;
+Escape again cancels the session. Enter during dragging is ignored. Blur, lost
+capture, pointer cancellation and camera/style changes roll back only that drag.
+Camera gestures and the cursor are restored. API pivot/angle changes stop
+active input so a late release cannot replace the new value. Feature locks,
+cancellation, destruction and map removal release the pivot handle and capture.
 
 ## Coordinate and angle policy
 
 All selected features rotate together in the spherical Web Mercator plane. The
 default pivot is the centre of their combined **projected bounding box**, not a
 centroid or average of vertices. It is calculated once on tool entry and remains
-fixed as angles and map camera settings change. The API can instead supply a
+fixed as angles and map camera settings change, until explicitly moved. The API can instead supply a
 longitude/latitude pivot; it need not lie inside the selection.
 
 For longitude λ and latitude φ in radians, the calculation uses x = λ and
@@ -77,6 +106,7 @@ same limits. Globe, terrain, geodesic and polar rotations are outside this contr
 ```ts
 editor.selectMany(['parcel', 'route']);
 if (editor.rotateSelection()) { // Optional explicit pivot: [4.895, 52.372].
+  editor.setRotationPivot([4.895, 52.372]); // Or omit the argument to reset the centre.
   editor.setRotationAngle(30);  // Absolute clockwise angle, not another 30° per call.
   const preview = editor.getRotationPreview();
   if (editor.getState().canFinish) {
@@ -99,6 +129,13 @@ if (editor.rotateSelection()) { // Optional explicit pivot: [4.895, 52.372].
   angles throw without changing the current preview. A well-formed angle whose
   result is invalid remains the active angle, with a diagnostic and no preview;
   a subsequent angle can correct it.
+- `setRotationPivot(pivot?: Coordinate): boolean` retains the current angle and
+  recalculates the preview from the original selection. Omit the argument to
+  restore the original projected bounds centre. Returns false when inactive or
+  unchanged. Malformed coordinates throw TypeError; coordinates outside the
+  supported world throw RangeError, even when inactive. Arguments and state
+  snapshots are copied. A valid pivot producing invalid geometry remains active
+  with a diagnostic; moving/resetting the pivot can recover it.
 - `getRotationPreview(): GeometryFeatureCollection | null` returns an independent
   snapshot of selected output features in selection order, or null for an invalid
   result/inactive tool. Preview geometry is normalized through the same validation
@@ -133,9 +170,10 @@ such as stored area are not recalculated. No IDs are allocated.
 A valid preview hides the selected originals and displays rotated geometry plus a
 pivot marker. An invalid result shows the originals and marker. No committed-source
 upload occurs while changing angles. Outside a handle drag, map panning, zoom and style replacement keep
-the fixed pivot/geometry and reconstruct the preview. Feature dragging, selection,
+the chosen pivot/geometry and reconstruct the preview. Feature dragging, selection,
 vertex editing and competing data/history operations are blocked until finish/cancel.
-Vertex/edge snapping and tracing settings have no effect on rotation; Shift's
+Vertex/edge snapping and tracing do not alter rotation angles; pivot snapping
+is described above. Shift's
 15° angle steps are independent of those settings.
 
 During a handle drag the editor stops camera inertia and temporarily disables

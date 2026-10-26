@@ -47,7 +47,8 @@
             <button id="rotate-left" class="button secondary" type="button">−15°</button>
             <button id="rotate-right" class="button secondary" type="button">+15°</button>
           </div>
-          <p id="rotation-help">Drag the ↻ handle to rotate around the white centre marker. Hold Shift for 15° steps, or enter an exact angle. The dashed frame stays horizontal and vertical. Release to review; Apply saves the preview. Escape during a drag restores that drag; Cancel discards the whole rotation.</p>
+          <button id="rotation-center" class="button secondary" type="button">Reset rotation centre</button>
+          <p id="rotation-help">Drag the ↻ handle to rotate around the white pivot. Drag ⊕ to move the pivot; it snaps to original vertices and the centre (Alt bypasses snapping). Moving the pivot recalculates the current angle from the original shapes. Hold Shift for 15° steps, or enter an exact angle. The dashed frame stays horizontal and vertical. Release to review; Apply saves the preview. Escape during a drag restores that drag; Cancel discards the whole rotation.</p>
         </section>
         <section id="offset-tools" class="editing-tools" aria-label="Line offset" hidden>
           <h2>OFFSET YOUR LINES</h2>
@@ -79,7 +80,14 @@
             <button id="scale-half" class="button secondary" type="button">Half size</button>
             <button id="scale-double" class="button secondary" type="button">Double size</button>
           </div>
-          <p id="scale-help">Drag a corner to scale proportionally, or a side to change only width or height. Scaling stays centred on the white marker. Factors: 1 = original, 0.5 = half, 2 = double. Release to review; Apply saves; Escape during dragging restores the starting size.</p>
+          <label for="scale-anchor">Fixed scale anchor</label>
+          <select id="scale-anchor" aria-describedby="scale-help">
+            <option value="center">Original centre</option>
+            <option value="nw">Northwest corner</option><option value="ne">Northeast corner</option>
+            <option value="se">Southeast corner</option><option value="sw">Southwest corner</option>
+            <option value="custom" disabled>Custom pivot</option>
+          </select>
+          <p id="scale-help">Drag a corner to scale proportionally, or a side to change only width or height. Drag ⊕ to move the pivot, or fix a corner of the original bounds and drag the opposite handle. Moving the pivot recalculates the current factors from the originals. Alt bypasses pivot snapping. Factors: 1 = original, 0.5 = half, 2 = double. Release to review; Apply saves; Escape during dragging restores the starting size.</p>
         </section>
         <section class="snapping-tools" aria-label="Appearance">
           <label for="appearance">Map colors</label>

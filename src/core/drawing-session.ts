@@ -702,11 +702,24 @@ export class DrawingSession {
   setRotationAngle(degrees: number): boolean {
     const angle = normalizeRotationAngle(degrees);
     if (!this.rotation || this.rotation.angle === angle) return false;
-    const rotation = this.rotation;
+    return this.updateRotation(angle, this.rotation.pivot);
+  }
+
+  /** Recompute the absolute transform around a new pivot; omitted means original bounds centre. */
+  setRotationPivot(pivot?: Coordinate): boolean {
+    if (pivot !== undefined) validateRotationPivot(pivot);
+    if (!this.rotation) return false;
+    const next = pivot ?? rotationPivot(this.rotation.originals)!;
+    if (next[0] === this.rotation.pivot[0] && next[1] === this.rotation.pivot[1]) return false;
+    return this.updateRotation(this.rotation.angle, next);
+  }
+
+  private updateRotation(angle: number, pivot: Coordinate): boolean {
+    const rotation = this.rotation!;
     let preview: GeometryFeature[] | null = null;
     let error: RotationError | null = null;
     try {
-      const candidates = rotateFeatures(rotation.originals, angle, rotation.pivot);
+      const candidates = rotateFeatures(rotation.originals, angle, pivot);
       if (!rotationPivot(candidates)) throw new RangeError('Rotation creates an unsupported world-spanning selection.');
       // Use the same validation/normalization as commit; previews contain exact commit geometry.
       const changes = prepareTransaction({ update: candidates }, this.features);
@@ -717,7 +730,7 @@ export class DrawingSession {
       else if (cause instanceof RangeError) error = 'rotation-out-of-bounds';
       else throw cause;
     }
-    rotation.angle = angle; rotation.preview = preview; rotation.error = error;
+    rotation.pivot = [...pivot]; rotation.angle = angle; rotation.preview = preview; rotation.error = error;
     return true;
   }
 
@@ -756,11 +769,24 @@ export class DrawingSession {
   setScaleFactors(horizontal: number, vertical: number): boolean {
     validateScaleFactor(horizontal); validateScaleFactor(vertical);
     if (!this.scaling || this.scaling.factorX === horizontal && this.scaling.factorY === vertical) return false;
-    const scaling = this.scaling;
+    return this.updateScale(horizontal, vertical, this.scaling.pivot);
+  }
+
+  /** Recompute absolute factors around a new pivot; omitted means original bounds centre. */
+  setScalePivot(pivot?: Coordinate): boolean {
+    if (pivot !== undefined) validateTransformPivot(pivot);
+    if (!this.scaling) return false;
+    const next = pivot ?? transformPivot(this.scaling.originals)!;
+    if (next[0] === this.scaling.pivot[0] && next[1] === this.scaling.pivot[1]) return false;
+    return this.updateScale(this.scaling.factorX, this.scaling.factorY, next);
+  }
+
+  private updateScale(horizontal: number, vertical: number, pivot: Coordinate): boolean {
+    const scaling = this.scaling!;
     let preview: GeometryFeature[] | null = null;
     let error: ScaleError | null = null;
     try {
-      const candidates = scaleFeatures(scaling.originals, horizontal, scaling.pivot, vertical);
+      const candidates = scaleFeatures(scaling.originals, horizontal, pivot, vertical);
       if (!transformPivot(candidates)) throw new RangeError('Scaling creates an unsupported world-spanning selection.');
       // Use the same validation/normalization as commit; previews contain exact commit geometry.
       const changes = prepareTransaction({ update: candidates }, this.features);
@@ -771,7 +797,7 @@ export class DrawingSession {
       else if (cause instanceof RangeError) error = 'scale-out-of-bounds';
       else throw cause;
     }
-    scaling.factorX = horizontal; scaling.factorY = vertical; scaling.preview = preview; scaling.error = error;
+    scaling.pivot = [...pivot]; scaling.factorX = horizontal; scaling.factorY = vertical; scaling.preview = preview; scaling.error = error;
     return true;
   }
 

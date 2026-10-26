@@ -25,6 +25,18 @@ it('scales a pair with numeric and step controls, cancels, confirms and restores
     const factor = page.getByLabelText('Scale factor'); await expect.element(factor).toBeVisible();
     const apply = page.getByRole('button', { name: 'Apply scale', exact: true });
     await factor.fill('1.5'); await expect.element(apply).toBeEnabled(); expect(output()).toEqual(original);
+    const anchor = page.getByLabelText('Fixed scale anchor');
+    await anchor.selectOptions('nw');
+    const pivot = () => document.querySelector<HTMLButtonElement>('[data-geo-pivot-handle]')!;
+    const corner = instance.project([4.886, 52.375]);
+    // CSS serializes pixel positions with fewer decimals than map.project.
+    await expect.poll(() => parseFloat(pivot().style.left)).toBeCloseTo(corner.x, 3);
+    await expect.poll(() => parseFloat(pivot().style.top)).toBeCloseTo(corner.y, 3);
+    await expect.element(factor).toHaveValue(1.5); expect(output()).toEqual(original);
+    pivot().focus(); await userEvent.keyboard('{ArrowRight}');
+    await expect.element(anchor).toHaveValue('custom');
+    await anchor.selectOptions('center'); await expect.element(anchor).toHaveValue('center');
+
     await expect.element(input).toBeDisabled(); await expect.element(scale).toBeDisabled();
     await factor.fill('0'); await expect.element(apply).toBeDisabled();
     await factor.fill('-1'); await expect.element(apply).toBeDisabled();

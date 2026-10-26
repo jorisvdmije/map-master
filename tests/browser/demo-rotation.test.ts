@@ -25,6 +25,14 @@ it('rotates a pair with numeric and step controls, cancels, confirms and restore
     const angle = page.getByLabelText('Angle (degrees clockwise)'); await expect.element(angle).toBeVisible();
     const apply = page.getByRole('button', { name: 'Apply rotation', exact: true });
     await angle.fill('30'); await expect.element(apply).toBeEnabled(); expect(output()).toEqual(original);
+    const pivot = () => document.querySelector<HTMLButtonElement>('[data-geo-pivot-handle]')!;
+    await expect.poll(pivot).not.toBeNull(); const center = pivot().style.left;
+    pivot().focus(); await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}');
+    await expect.poll(() => pivot().style.left).not.toBe(center);
+    await page.getByRole('button', { name: 'Reset rotation centre' }).click();
+    await expect.poll(() => pivot().style.left).toBe(center); await expect.element(angle).toHaveValue(30);
+    expect(output()).toEqual(original);
+
     await expect.element(input).toBeDisabled(); await expect.element(rotate).toBeDisabled();
     await angle.fill(''); await expect.element(apply).toBeDisabled();
     await page.getByRole('button', { name: '+15°', exact: true }).click(); await expect.element(angle).toHaveValue(45);

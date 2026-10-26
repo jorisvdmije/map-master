@@ -1,7 +1,7 @@
 # Scale selected shapes
 
 Select one shape, or several with Shift+click, and choose **Scale selection**.
-The frame has eight mouse handles, all scaling around the fixed white centre:
+The frame has eight mouse handles, all scaling around the chosen white pivot:
 
 - Drag a **corner** to scale both axes proportionally, preserving the current aspect ratio.
 - Drag the **left or right side** to change only the horizontal size.
@@ -19,7 +19,8 @@ active drag. Enter during a drag is ignored.
 Tab to a handle and use arrows to enlarge (Up/Right) or shrink (Down/Left) its
 axis by a factor of 1.01; Shift uses 1.1. Enter applies, Escape cancels. Handles
 have 28 CSS-pixel targets. Handles for collapsed dimensions, or within 10 screen
-pixels of the pivot, are disabled. For very small or off-screen shapes, zoom/pan
+pixels of the pivot, are disabled. A side handle aligned with the pivot on its
+scaling axis is also disabled; use the opposite side or numeric input. For very small or off-screen shapes, zoom/pan
 or use the numeric inputs. Mouse dragging is supported; touch dragging is not.
 
 **Scale factor** sets both axes to the same positive value: 1 keeps the original
@@ -29,8 +30,42 @@ when the factors differ. Half size / Double size multiply both current factors,
 keeping their ratio. Invalid/incomplete input blocks Apply until corrected or
 restored on blur. Shortcuts do not intercept text entry.
 
-The pivot remains fixed for the whole session. Opposite-corner anchoring,
-interactive pivot movement and reflection are not supported.
+Drag **⊕** to move the pivot. The demo's **Fixed scale anchor** selector can fix
+a corner of the original Mercator bounding box: drag the opposite handle to
+resize around it. North/south/east/west refer to map axes even with bearing/pitch.
+The anchor stays fixed until explicitly changed. Reflection remains unsupported.
+
+## Moving the pivot
+
+Drag **⊕** to choose a new geographic pivot, or Tab to it and use arrow keys for
+1 screen-pixel steps (Shift: 10 pixels). **Home** restores the original bounds
+centre. Keyboard nudges bypass snapping for precise placement. The pivot may lie
+outside the selection; off-screen pivots can be recovered with the demo's centre
+control or the API.
+
+Moving the pivot retains the current factors and recomputes the preview from
+the frozen originals. The preview can move as a result: this does not rebase or
+reset the transformation. At the identity transformation, moving only the pivot
+leaves geometry exactly unchanged and creates no Undo entry. A selected scale
+corner is a corner of the original bounds, not a moving corner of the preview.
+
+With snapping enabled, pivot dragging snaps to the nearest original selected
+vertex or the original projected bounds centre within `snapping.distance` CSS
+pixels. Original vertices include holes and multipart components. Vertices win
+exact ties with the centre. `snapping.vertices: false` disables vertex targets;
+the centre remains available. Edge snapping, unselected features and transformed
+preview vertices are not pivot targets. **Alt** bypasses snapping; changing Alt
+or snapping options refreshes an active drag without another pointer move. The
+pivot label identifies the current target. These local pivot targets do not
+emit the drawing/vertex `onSnap` event.
+
+Release keeps the preview open. Enter/Apply commits the entire session in one
+Undo step. Escape during a pivot drag restores its starting pivot and preview;
+Escape again cancels the session. Enter during dragging is ignored. Blur, lost
+capture, pointer cancellation and camera/style changes roll back only that drag.
+Camera gestures and the cursor are restored. API pivot/factors changes stop
+active input so a late release cannot replace the new value. Feature locks,
+cancellation, destruction and map removal release the pivot handle and capture.
 
 ## Coordinate and factor policy
 
@@ -68,6 +103,7 @@ Terrain, globe, polar and geodesic scaling are outside this contract.
 ```ts
 editor.selectMany(['parcel', 'route']);
 if (editor.scaleSelection()) { // Optional explicit pivot: [4.895, 52.372].
+  editor.setScalePivot([4.895, 52.372]); // Or omit the argument to reset the centre.
   editor.setScaleFactors(1.5, 0.75); // Width ×1.5, height ×0.75.
   // editor.setScaleFactor(1.5) sets both axes to 1.5.
   const preview = editor.getScalePreview();
@@ -95,6 +131,13 @@ if (editor.scaleSelection()) { // Optional explicit pivot: [4.895, 52.372].
   absolute factors with the same validation and return policy. Both arguments
   are validated before any state changes. Invalid geometry can be corrected by
   another factor update; it cannot be committed.
+- `setScalePivot(pivot?: Coordinate): boolean` retains the current factors and
+  recalculates the preview from the original selection. Omit the argument to
+  restore the original projected bounds centre. Returns false when inactive or
+  unchanged. Malformed coordinates throw TypeError; coordinates outside the
+  supported world throw RangeError, even when inactive. Arguments and state
+  snapshots are copied. A valid pivot producing invalid geometry remains active
+  with a diagnostic; moving/resetting the pivot can recover it.
 - `getScalePreview(): GeometryFeatureCollection | null` returns an independent
   snapshot in selection order, or null when inactive/invalid. Preview geometry
   matches the validated commit geometry. Reads do not recalculate the result.
@@ -131,7 +174,7 @@ An invalid result shows originals and pivot. Changing factors never uploads the
 committed feature source. Style replacement reconstructs the preview; pan, zoom
 and bearing keep the fixed geographic result. Selection, dragging, vertex editing
 and competing data/history operations are blocked until finish/cancel. Snapping
-and tracing settings do not affect scaling.
+and tracing do not change scale factors; pivot snapping is described above.
 
 Changed confirmation increments dataRevision once and emits one `onTransaction`
 followed by `onChange`, without individual create/update/delete events. Undo/Redo

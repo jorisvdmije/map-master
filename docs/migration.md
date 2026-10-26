@@ -58,3 +58,12 @@ the preview dimensions, and use `state.mode === 'scale-features'` to detect the
 mode. `scaleFactor` remains the common factor for uniform scaling, but is also
 null during scaling when the axes differ. `setScaleFactor(f)` still sets both
 axes to `f`; use `setScaleFactors(x, y)` for independent values.
+
+## Editable transformation pivots
+
+`setRotationPivot(pivot?)` and `setScalePivot(pivot?)` change the pivot during an
+active session; omitting the argument restores the original bounds centre.
+The current angle/factors remain absolute from the original geometry, so moving
+the pivot may reposition the preview. Existing entry-pivot and numeric APIs keep
+their behavior. The new ⊕ handle supports mouse dragging and keyboard placement;
+its snapping targets are selected original vertices and the original centre.

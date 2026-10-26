@@ -71,10 +71,12 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `finishSimplification()` | Confirm changes as one transaction; null when inactive/invalid/unchanged. |
 | `scaleSelection(pivot?)` | Start a scale review with mouse handles around a fixed Mercator pivot. |
 | `setScaleFactor(factor)` | Set both axes to an absolute positive factor from entry geometry. |
+| `setScalePivot(pivot?)` | Recompute around a new pivot, retaining factors; omit to reset the original centre. |
 | `setScaleFactors(horizontal, vertical)` | Set independent positive Mercator axis factors; validate the whole preview. |
 | `getScalePreview()` | Independent selected-result FeatureCollection, or null when inactive/invalid. |
 | `finishScale()` | Confirm as one transaction; null for inactive/invalid/unchanged results. |
 | `rotateSelection(pivot?)` | Start a selection-wide rotation review around a fixed Mercator pivot. |
+| `setRotationPivot(pivot?)` | Recompute around a new pivot, retaining the angle; omit to reset the original centre. |
 | `setRotationAngle(degrees)` | Set an absolute clockwise angle from the entry baseline; validate the whole preview. |
 | `getRotationPreview()` | Independent selected-result FeatureCollection, or null for inactive/invalid rotation. |
 | `finishRotation()` | Confirm the rotation as one transaction; null for inactive/invalid/unchanged results. |
@@ -899,7 +901,8 @@ events and performance limits.
 
 `rotateSelection(pivot?)` freezes the selected lines/polygons, including holes and
 multipart geometry. `setRotationAngle(degrees)` rotates the complete group clockwise
-in the Mercator plane around a fixed pivot. The default is the projected bounds
+in the Mercator plane around the chosen pivot. Drag ⊕ or call `setRotationPivot`
+to change it while retaining the angle. The default is the projected bounds
 centre. `getRotationPreview()` provides a cached, validated result; `finishRotation()`
 saves it as one transaction and one Undo action. See [rotation](rotation.md) for
 angle normalization, geographic limits, cancellation and lifecycle contracts.
@@ -914,7 +917,9 @@ share the same angle and validation path.
 and multipart geometry. Drag a corner to scale proportionally, or a side for one axis.
 `setScaleFactors(horizontal, vertical)` supports independent axes;
 `setScaleFactor(factor)` applies a positive uniform factor
-from the entry baseline around a fixed projected bounds centre or explicit pivot.
+from the entry baseline around the projected bounds centre or chosen pivot.
+Drag ⊕ or call `setScalePivot` to change the pivot while retaining both factors.
+Omitting the pivot argument resets it to the original centre.
 `getScalePreview()` returns the validated output; `finishScale()` saves the group
 as one transaction and one Undo. See [scaling](scaling.md) for the full contract.
 

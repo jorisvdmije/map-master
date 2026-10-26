@@ -8,6 +8,11 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 
 ### Added
 
+- Movable rotation/scale pivots with original-vertex/centre snapping, Alt bypass,
+  keyboard positioning, reset controls and interrupted-drag rollback. Added
+  `setRotationPivot` and `setScalePivot`; the demo supports fixed scale corners.
+  Pivot changes retain absolute angles/factors and the session's single Apply/Undo.
+
 - Direct buffer/offset distance dragging with an attached handle, measured ruler,
   original outline and signed Mercator-meter label. Keyboard distance steps and
   interrupted-drag rollback share numeric validation and explicit Apply/Undo.
