@@ -1,5 +1,5 @@
 import { traceSource } from '../core/trace-boundary.js';
-import { projectToEdge } from '../core/reshape-polygon.js';
+import { projectToEdge } from '../core/boundary-anchor.js';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { SnapIndex, snappingOptions, type ScreenPoint } from '../core/snapping.js';
 import type { FeatureId, GeometryFeature, GeometryFeatureCollection, SnapResult, SnappingOptions } from '../core/types.js';

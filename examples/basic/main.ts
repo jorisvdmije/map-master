@@ -114,12 +114,12 @@ const reshapeMessages: Record<ReshapeError, string> = {
 
 const splitMessages: Record<SplitError, string> = {
   'split-hole-crossing': 'The cutting line must avoid holes and their boundaries.',
-  'split-too-few-points': 'Start outside the polygon, draw across it, and end outside. Add at least two points.',
+  'split-too-few-points': 'Start on an edge or corner (or outside), draw through the selected polygon, and end on its boundary or outside.',
   'split-self-intersection': 'The cutting line cannot cross, touch, or double back on itself. Backspace removes the last point.',
   'split-antimeridian': 'Cutting across the date line is not supported.',
-  'split-boundary-touch': 'Cross the edges between corners. Do not place points on the boundary or follow an edge. Hold Alt to bypass snapping.',
-  'split-endpoints-inside': 'Start and end the cutting line outside the polygon.',
-  'split-crossing-count': 'The cutting line must cross the polygon boundary exactly twice.',
+  'split-boundary-touch': 'Only the first and last points may attach to the boundary. Do not follow an edge or touch the boundary midway.',
+  'split-endpoints-inside': 'Move the first and last points onto the selected boundary or outside the polygon.',
+  'split-crossing-count': 'The cutting line needs exactly two boundary contacts, counting attached endpoints.',
   'split-invalid-result': 'This cut could not produce two valid polygons. Adjust the line or cancel.',
 };
 
@@ -407,7 +407,7 @@ map.on('load', () => {
         : preview?.geometry === null ? 'No target area remains. Apply subtraction deletes the target; cutting shapes are kept. Undo restores it.'
         : 'Remaining target area is orange; cutting shapes stay blue. Apply subtraction or Enter saves; Cancel keeps the original.';
     }
-    element('map-hint').textContent = offsetting ? 'Drag ↔ for distance · Positive left · Negative right · Release to review · Enter applies' : buffering ? 'Drag ↔ to widen the buffer · Release to review · Enter applies · Esc cancels' : simplifying ? 'Adjust tolerance · Compare with the original · Enter applies · Esc cancels' : scaling ? 'Drag ⊕ to set pivot · Corners: proportional · Sides: width or height · Enter applies · Esc cancels' : rotating ? 'Drag ⊕ to set pivot · Drag ↻ to rotate · Shift: 15° · Enter applies · Esc cancels' : shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
+    element('map-hint').textContent = offsetting ? 'Drag ↔ for distance · Positive left · Negative right · Release to review · Enter applies' : buffering ? 'Drag ↔ to widen the buffer · Release to review · Enter applies · Esc cancels' : simplifying ? 'Adjust tolerance · Compare with the original · Enter applies · Esc cancels' : scaling ? 'Drag ⊕ to set pivot · Corners: proportional · Sides: width or height · Enter applies · Esc cancels' : rotating ? 'Drag ⊕ to set pivot · Drag ↻ to rotate · Shift: 15° · Enter applies · Esc cancels' : shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Start and end on the boundary or outside · Backspace to correct · Enter applies' : editing ? 'Drag corners · Click small points to add · Enter to save'
       : drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'

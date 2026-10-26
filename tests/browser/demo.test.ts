@@ -66,8 +66,9 @@ it('runs the demo with its real controls and a built package, without a tile ser
   expect(output?.value).toBe(saved);
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await split.click();
-  await userEvent.click(canvas, { position: { x: 100, y: 200 } });
-  await userEvent.click(canvas, { position: { x: 400, y: 200 } });
+  // Attach to the two sloping edges of the triangle; only this polygon splits.
+  await userEvent.click(canvas, { position: { x: 175, y: 200 } });
+  await userEvent.click(canvas, { position: { x: 325, y: 200 } });
   await page.getByRole('button', { name: 'Apply split', exact: true }).click();
   expect((JSON.parse(output?.value ?? '{}') as GeometryFeatureCollection).features).toHaveLength(3);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();

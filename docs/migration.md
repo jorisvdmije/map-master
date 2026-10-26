@@ -105,3 +105,12 @@ GeoJSON, exports, history or public state. The demo adds a tolerance slider and
 vertex reduction summary alongside exact numeric input. The public simplification
 API remains unchanged. See [simplification](simplification.md) for keyboard steps,
 range behavior and invalid-result feedback.
+
+## Split boundary endpoints
+
+Split cuts can now start/end on the selected outer edges or corners, as well as
+outside. `split-boundary-touch` still rejects intermediate boundary contacts,
+corner crossings and edge overlaps. In the interactive split tool, target boundary
+attachment takes priority within 18 CSS pixels even with general snapping disabled;
+Alt bypasses it. The API, transaction events and history format are unchanged.
+Adjacent features are not modified. See [splitting](splitting.md).

@@ -1,5 +1,5 @@
 import { samePosition } from './polygon.js';
-import { projectToEdge } from './reshape-polygon.js';
+import { projectToEdge } from './boundary-anchor.js';
 import type { Coordinate, GeometryFeature, TraceTarget, TraceSide } from './types.js';
 
 /** Read one explicit source path. No transitions between rings, parts or features. */

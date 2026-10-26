@@ -7,7 +7,8 @@ feature. Line splitting, cuts through holes and multipart splitting remain futur
 ## Interaction
 
 1. Select a polygon and choose **Split polygon**.
-2. Click outside it, draw across its interior, and click outside on the other side.
+2. Click its outer edge or a corner, draw through its interior, and finish on
+   another outer edge or corner. Either endpoint may also lie outside.
    Two points form a straight cut; additional points can form a bent cut.
 3. Once the placed cutting line is valid, the two proposed parts appear in orange
    and purple. The original is temporarily hidden; exports still contain it.
@@ -16,10 +17,15 @@ feature. Line splitting, cuts through holes and multipart splitting remain futur
 
 The preview is calculated from placed points, not the unclicked cursor. Hover
 only extends the cutting-line guide; Enter never includes the cursor position.
-The original stays visible when the cut is incomplete or invalid. Snapping and
-Alt bypass work while placing cut points. Snapping a point onto the target boundary
-produces a diagnostic under this first version's strict crossing policy: place
-the endpoints outside or hold Alt to place freely. Panning/zooming stays available.
+The original stays visible when the cut is incomplete or invalid. Within 18 CSS
+pixels, the selected polygon's outer boundary takes priority over nearby features,
+even when general snapping is disabled. This attachment works at edges and corners;
+Alt bypasses it for free placement. Elsewhere, general snapping still follows its
+settings. Panning/zooming stays available.
+
+Only the selected polygon splits. Neighbouring polygons, including those sharing
+the chosen edges, keep their geometry, properties and IDs. New attachment vertices
+are not inserted into neighbouring features; this is not a shared-topology edit.
 
 ## Public API
 
@@ -62,11 +68,13 @@ The new mode and field are additive changes to the experimental EditorState API.
 ## Supported geometry and numerical policy
 
 The source is an already validated Polygon with a simple exterior and optional disjoint holes. The cutting line
-must be simple and start/end strictly outside the polygon. It must have exactly
-two **proper crossings through edge interiors**. Crossing at an existing polygon
-vertex, placing a cutting-line vertex on the boundary, tangential contact, following
-an edge, self-touching, backtracking, and cuts creating more than two pieces are
-explicitly rejected. A simple bent cut can enter and exit the same polygon edge.
+must be simple and start/end on the outer boundary or outside the polygon.
+It must have exactly two boundary contacts: attached endpoints or proper crossings
+through edge interiors. The path between these contacts must lie inside the polygon.
+Endpoints may attach to existing corners. Crossing through a corner elsewhere,
+intermediate boundary touches, following an edge, self-touching, backtracking,
+and cuts creating more than two pieces are rejected. A simple bent cut can attach
+to or cross the same polygon edge twice.
 
 This deliberately restricted algorithm reuses the existing robust-predicates
 orientation checks. It walks the two boundary arcs and joins each to the interior
@@ -78,7 +86,10 @@ vertex; preserved holes keep their closed clockwise rings and starting vertices.
 
 Calculations use planar longitude/latitude segments, consistent with current
 polygon validation. Intersection construction uses floating-point arithmetic;
-nonfinite/degenerate results fail closed. The sum of output planar areas must
+nonfinite/degenerate results fail closed. Endpoint attachment accommodates only
+construction roundoff (64 × machine epsilon × maximum of 1 and endpoint coordinate
+magnitudes). It does not extend the cut or use a geographic snapping radius. The
+same boundary-projection helper is used for reshaping. The sum of output planar areas must
 match the original within relative 1e-10; this is a conservation check, not a
 physical-area accuracy claim or a snapping tolerance. Extremely small or poorly
 conditioned cuts can be rejected instead of approximated silently.
@@ -96,9 +107,9 @@ Diagnostics:
 | `split-too-few-points` | Place at least two cutting-line points. |
 | `split-self-intersection` | The line crosses/touches itself, repeats points, or backtracks. |
 | `split-antimeridian` | A cutting segment spans more than 180 degrees longitude. |
-| `split-boundary-touch` | The cut touches a vertex/boundary or overlaps an edge. |
+| `split-boundary-touch` | The cut touches the boundary away from its endpoints, crosses a corner, or follows an edge. |
 | `split-endpoints-inside` | An endpoint is inside the target polygon. |
-| `split-crossing-count` | There are not exactly two proper boundary crossings. |
+| `split-crossing-count` | There are not exactly two boundary contacts (attachments or proper crossings). |
 | `split-hole-crossing` | The cut crosses or touches a hole boundary. |
 | `split-invalid-result` | Intersection construction, result topology or area conservation failed. |
 

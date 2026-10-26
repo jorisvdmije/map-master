@@ -8,6 +8,10 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 
 ### Added
 
+- Polygon split cuts may start/end on outer edges or corners, with selected-boundary
+  attachment ahead of neighbouring geometry. Outside endpoints remain supported;
+  only the selected polygon changes, with one atomic Apply/Undo.
+
 - Simplification slider with exact numeric input, keyboard adjustments, vertex
   reduction summary and invalid-result feedback. A faint original outline reuses
   committed map data beneath the preview; Apply remains one transaction/Undo.

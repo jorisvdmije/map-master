@@ -58,3 +58,17 @@ it('requires a selected polygon and handles ID allocation failure without losing
   const saved = tool.exportGeoJSON(); expect(() => tool.finishSplit()).toThrow('unique feature ID');
   expect(tool.exportGeoJSON()).toEqual(saved); expect(tool.state.canFinish).toBe(true); tool.cancel();
 });
+
+it('splits only the selected parcel from shared edge to shared edge with one Undo', () => {
+  const tool = session();
+  const neighbours = [-10, 10].map((dx, index): PolygonFeature => ({ ...structuredClone(polygon), id: `neighbour-${index}`,
+    geometry: {type:'Polygon', coordinates:[polygon.geometry.coordinates[0]!.map(([x,y]): Coordinate => [x + dx, y])] } }));
+  tool.importGeoJSON({type:'FeatureCollection',features:neighbours}); tool.select(0); tool.clearHistory();
+  const before = tool.exportGeoJSON(); tool.splitSelected(); tool.setSplitLine([[0,3],[10,3]]);
+  expect(tool.state.canFinish).toBe(true); expect(tool.exportGeoJSON()).toEqual(before);
+  const event = tool.finishSplit()!; expect(event.changes.map(change => change.after!.id)).toEqual([0,'new']);
+  const saved = tool.exportGeoJSON(); expect(saved.features).toHaveLength(4);
+  expect(saved.features.slice(1,3)).toEqual(before.features.slice(1,3));
+  tool.undo(); expect(tool.exportGeoJSON()).toEqual(before); expect(tool.state.canUndo).toBe(false);
+  tool.redo(); expect(tool.exportGeoJSON()).toEqual(saved);
+});

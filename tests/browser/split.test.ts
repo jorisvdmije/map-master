@@ -2,7 +2,7 @@ import { Map, setWorkerUrl, type GeoJSONSource, type StyleSpecification } from '
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import { GeometryEditor, type PolygonFeature } from '../../src/index.js';
+import { GeometryEditor, type Coordinate, type PolygonFeature, type SnapResult, type TransactionEvent } from '../../src/index.js';
 import 'maplibre-gl/dist/maplibre-gl.css';
 setWorkerUrl(workerUrl);
 let container: HTMLDivElement; let map: Map; let editor: GeometryEditor;
@@ -20,6 +20,56 @@ beforeEach(async () => {
   ] } }); editor.clearHistory(); editor.select(0);
 });
 afterEach(() => { vi.restoreAllMocks(); editor.destroy(); map.remove(); container.remove(); });
+it.each([true, false])('attaches to the selected shared edges with general snapping %s and leaves neighbours unchanged', async enabled => {
+  const position = (x: number, y: number): Coordinate => map.unproject([x, y]).wrap().toArray();
+  editor.importGeoJSON({ type: 'FeatureCollection', features: [
+    { type: 'Feature', id: 'left', properties: { name: 'left parcel' }, geometry: { type: 'Polygon', coordinates: [
+      [[20, 100], [20, 350], [100, 350], [100, 200], [100, 100], [20, 100]].map(([x, y]) => position(x!, y!)),
+    ] } },
+    { type: 'Feature', id: 'right', properties: { name: 'right parcel' }, geometry: { type: 'Polygon', coordinates: [
+      [[500, 100], [500, 200], [500, 350], [650, 350], [650, 100], [500, 100]].map(([x, y]) => position(x!, y!)),
+    ] } },
+  ] });
+  editor.select(0); editor.clearHistory(); editor.setSnapping({ enabled });
+  const before = editor.exportGeoJSON(); const snaps: (SnapResult | null)[] = [];
+  editor.onSnap(snap => { snaps.push(snap); });
+  const transaction = vi.fn<(event: TransactionEvent) => void>(); editor.onTransaction(transaction);
+  editor.splitSelected(); await click(104, 200); await click(496, 200);
+  // The neighbours have tempting vertices at the click locations; the target's
+  // edge must win and the draft must land exactly on that edge.
+  expect(snaps.filter(snap => snap !== null).every(snap => snap.featureId === 0)).toBe(true);
+  const target = before.features[0] as PolygonFeature;
+  expect(editor.getDraft().map(point => point[0])).toEqual([target.geometry.coordinates[0]![0]![0], target.geometry.coordinates[0]![2]![0]]);
+  expect(editor.getState().canFinish).toBe(true); expect(editor.exportGeoJSON()).toEqual(before);
+  await userEvent.keyboard('{Enter}');
+  const saved = editor.exportGeoJSON(); expect(saved.features).toHaveLength(4);
+  expect(saved.features.slice(1, 3)).toEqual(before.features.slice(1, 3));
+  expect(transaction).toHaveBeenCalledOnce(); expect(transaction.mock.calls[0]![0].changes).toHaveLength(2);
+  editor.undo(); expect(editor.exportGeoJSON()).toEqual(before); expect(editor.getState().canUndo).toBe(false);
+  editor.redo(); expect(editor.exportGeoJSON()).toEqual(saved);
+});
+it('attaches to sloping edges after camera/style changes and cancels without saving', async () => {
+  const ring: Coordinate[] = [[4.89,52.37],[4.90,52.371],[4.899,52.376],[4.889,52.375],[4.89,52.37]];
+  editor.importGeoJSON({type:'Feature',id:'slope',properties:null,geometry:{type:'Polygon',coordinates:[ring]}});
+  editor.select('slope'); editor.clearHistory(); const before = editor.exportGeoJSON(); editor.splitSelected();
+  map.jumpTo({bearing:30,pitch:40});
+  const loaded = new Promise<void>(resolve => { map.once('style.load', () => { resolve(); }); });
+  map.setStyle(style(), {diff:false}); await loaded;
+  for (const [a, b] of [[ring[0]!,ring[1]!],[ring[2]!,ring[3]!]]) {
+    const point = map.project([(a![0]+b![0])/2,(a![1]+b![1])/2]); await click(point.x,point.y);
+  }
+  expect(editor.getState().canFinish).toBe(true);
+  await userEvent.keyboard('{Escape}'); expect(editor.exportGeoJSON()).toEqual(before); expect(editor.getState().canUndo).toBe(false);
+});
+it('accepts corner attachments and permits Alt to bypass boundary attachment', async () => {
+  editor.splitSelected(); await click(103,103); await click(497,347);
+  expect(editor.getState().canFinish).toBe(true);
+  const ring = (editor.getSelected() as PolygonFeature).geometry.coordinates[0]!;
+  expect(editor.getDraft()).toEqual([ring[0],ring[2]]);
+  editor.cancel(); editor.splitSelected();
+  await userEvent.keyboard('{Alt>}'); await click(104,200); await click(496,200); await userEvent.keyboard('{/Alt}');
+  expect(editor.getState()).toMatchObject({canFinish:false,splitError:'split-endpoints-inside'});
+});
 it('draws and previews a cut, commits once with Enter, and restores both parts using keyboard history', async () => {
   const original = editor.exportGeoJSON(); const upload = vi.spyOn(map.getSource<GeoJSONSource>(sourceId('-features'))!, 'setData');
   const transaction = vi.fn(); editor.onTransaction(transaction); const individual = vi.fn(); editor.onCreate(individual); editor.onUpdate(individual);

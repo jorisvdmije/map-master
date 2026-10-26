@@ -1,16 +1,16 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { SnapIndex, type ScreenPoint } from '../core/snapping.js';
-import { projectToEdge } from '../core/reshape-polygon.js';
+import { projectToEdge } from '../core/boundary-anchor.js';
 import type { PolygonFeature, SnapResult } from '../core/types.js';
 
-/** Attach only to the reshape target, even when general snapping is disabled.
+/** Attach only to the selected outer boundary, even when general snapping is disabled.
  * Cache the projected index until the camera changes; never upload geometry.
  */
-export class ReshapeSnapping {
+export class BoundarySnapping {
   private target: PolygonFeature | null = null;
   private index: SnapIndex | undefined;
   constructor(private readonly map: MapLibreMap) {}
-  start(target: PolygonFeature): void { this.target = target; this.index = undefined; }
+  start(target: PolygonFeature): void { this.target = { ...target, geometry: { type: 'Polygon', coordinates: [target.geometry.coordinates[0]!] } }; this.index = undefined; }
   clear(): void { this.target = null; this.index = undefined; }
   invalidateCamera(): void { this.index = undefined; }
   resolve(point: ScreenPoint): SnapResult | null {

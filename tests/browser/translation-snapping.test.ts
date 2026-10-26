@@ -3,7 +3,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { commands, userEvent } from 'vitest/browser';
 import { GeometryEditor, type Coordinate, type SnapResult } from '../../src/index.js';
-import { projectToEdge } from '../../src/core/reshape-polygon.js';
+import { projectToEdge } from '../../src/core/boundary-anchor.js';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 setWorkerUrl(workerUrl);

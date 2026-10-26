@@ -95,10 +95,11 @@ Select two or more polygons with **Shift+click**, choose **Merge polygons**, rev
 the preview, then **Apply merge**. Escape cancels; Undo restores every original.
 The first selected feature supplies the retained ID and properties.
 
-Select a polygon and choose **Split polygon**. Place an outside-to-outside cutting
-line across two edges, review the two colored parts, then press Enter or
-**Apply split**. Backspace removes the last cut point; Escape cancels.
-Cuts through existing corners or along edges are not supported in this first version.
+Select a polygon and choose **Split polygon**. Start and end the cutting line on
+its edges/corners or outside, passing through its interior. Review the two colored
+parts, then press Enter or **Apply split**. Backspace removes the last cut point;
+Escape cancels. Nearby target edges take priority over neighbouring shapes, which
+remain unchanged. Following an edge or touching it midway is unsupported.
 
 Select a shape and choose **Edit vertices**. Drag a corner to move it, click a
 small midpoint to insert one, and use **Remove vertex** or Delete/Backspace to

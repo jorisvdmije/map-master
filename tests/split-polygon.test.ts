@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { planarArea, splitPolygon } from '../src/core/split-polygon.js';
+import { planarArea, splitPolygon, splitPolygonRings } from '../src/core/split-polygon.js';
 import { validatePolygon } from '../src/core/polygon.js';
 import type { Coordinate, SplitError } from '../src/index.js';
 
@@ -37,7 +37,6 @@ it.each<[Coordinate[], SplitError]>([
   [[[-1, -1], [11, -1]], 'split-crossing-count'],
   [[[-1, 0], [11, 0]], 'split-boundary-touch'],
   [[[-1, -1], [11, 11]], 'split-boundary-touch'],
-  [[[0, 3], [11, 3]], 'split-boundary-touch'],
   [[[-1, 3], [0, 3], [11, 3]], 'split-boundary-touch'],
   [[[-1, 3], [-1, 3]], 'split-self-intersection'],
   [[[-1, 3], [5, 3], [2, 3], [11, 3]], 'split-self-intersection'],
@@ -79,4 +78,51 @@ it('covers the original interior exactly once across both results, with no added
       expect(coverage).toBe(Number(contains(point, square)));
     }
   }
+});
+
+it.each<Coordinate[]>([
+  [[0, 3], [10, 3]], [[0, 3], [11, 3]], [[-1, 3], [10, 3]],
+  [[0, 0], [10, 10]], [[0, 0], [10, 3]], [[0, 3], [5, 3], [10, 7]],
+  [[0, 2], [3, 2], [3, 8], [0, 8]],
+])('accepts boundary attachments, preserves area and is independent of direction %#', (...cut) => {
+  const before = structuredClone(cut); const result = split(cut);
+  expect(result.error).toBeNull();
+  const parts = [result.preview!.retained, result.preview!.created];
+  expect(parts.map(part => validatePolygon(part.coordinates[0]!))).toEqual([null, null]);
+  expect(parts.reduce((area, part) => area + planarArea(part.coordinates[0]!), 0)).toBeCloseTo(100, 10);
+  expect(split([...cut].reverse())).toEqual(result);
+  expect(split(cut, [...square].reverse())).toEqual(result);
+  expect(cut).toEqual(before);
+});
+it.each<[Coordinate[], SplitError]>([
+  [[[0, 2], [0, 8]], 'split-boundary-touch'],
+  [[[0, 0], [10, 0]], 'split-boundary-touch'],
+  [[[0, 2], [0, 8], [10, 8]], 'split-boundary-touch'],
+  [[[0, 2], [5, 2]], 'split-endpoints-inside'],
+  [[[0, 2], [-2, 2], [-2, 8], [0, 8]], 'split-invalid-result'],
+  [[[0, 2], [5, 2], [5, 10], [10, 8]], 'split-boundary-touch'],
+  [[[0, 2], [5, 2], [5, 8], [0, 2]], 'split-self-intersection'],
+])('still rejects non-splitting boundary paths %#', (cut, error) => {
+  expect(split(cut)).toEqual({preview:null,error});
+});
+it('handles construction roundoff on sloped boundaries at small and large scales', () => {
+  for (const scale of [1e-7, 0.01, 1]) {
+    const ring = square.map(([x,y]): Coordinate => [4.895 + (x + y / 3) * scale, 52.372 + (y + x / 5) * scale]);
+    const a = ring[0]!; const b = ring[1]!; const c = ring[2]!; const d = ring[3]!;
+    const cut: Coordinate[] = [[a[0] + (b[0] - a[0]) * .37, a[1] + (b[1] - a[1]) * .37],
+      [c[0] + (d[0] - c[0]) * .62, c[1] + (d[1] - c[1]) * .62]];
+    const result = split(cut, ring); expect(result.error).toBeNull();
+    const parts = [result.preview!.retained, result.preview!.created];
+    expect(parts.map(part => validatePolygon(part.coordinates[0]!))).toEqual([null,null]);
+    expect(Math.abs(parts.reduce((area, part) => area + planarArea(part.coordinates[0]!), 0) - planarArea(ring)) / planarArea(ring)).toBeLessThan(1e-10);
+    expect(split([...cut].reverse(), ring)).toEqual(result);
+  }
+});
+it('keeps untouched holes and rejects boundary cuts that cross or end at holes', () => {
+  const hole: Coordinate[] = [[2, 2], [2, 4], [4, 4], [4, 2], [2, 2]];
+  const result = splitPolygonRings([square, hole], [[0, 6], [10, 6]]);
+  expect(result.error).toBeNull();
+  expect([result.preview!.retained, result.preview!.created].flatMap(p => p.coordinates.slice(1))).toEqual([hole]);
+  expect(splitPolygonRings([square, hole], [[0, 3], [10, 3]]).error).toBe('split-hole-crossing');
+  expect(splitPolygonRings([square, hole], [[0, 3], [2, 3]]).preview).toBeNull();
 });

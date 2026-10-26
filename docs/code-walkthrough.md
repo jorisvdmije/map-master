@@ -30,7 +30,7 @@ src/
     intersection.ts          Common area of every input; valid empty results
     difference.ts            Target subtraction, empty and exact no-op results
     polygon-overlay.ts       Shared strict overlay result validation
-    split-polygon.ts         Restricted two-crossing splitter and result validation
+    split-polygon.ts         Two-contact splitter with boundary attachments and result validation
     geometry.ts              Component views/replacement and coordinate mapping
     snapping.ts              Projected candidate index, nearest vertex/edge policy
   maplibre/
@@ -39,7 +39,7 @@ src/
     keyboard-interaction.ts  Canvas-focused finish/cancel/delete/history commands
     pointer.ts               Shared viewport-to-map CSS coordinate conversion
     renderer.ts              Sources/layers, picking, selection styling, draft vertices
-    reshape-snapping.ts      Target-only boundary attachment and camera cache
+    boundary-snapping.ts      Target-only boundary attachment and camera cache
     snapping.ts              Map projection and camera/data-revision cache
     selection-interaction.ts Shared feature/vertex rectangle gestures and cancellation
     translation-interaction.ts Group drag, anchor snapping, axis constraint and cancellation
@@ -394,7 +394,7 @@ handles validation, one history action, events and exact replay. See
 its ID, draft route, selected boundary side and cached diagnostic/result.
 `core/reshape-polygon.ts` inserts boundary attachments, rejects route crossings and
 extra contacts, selects the old arc by planar length and validates the new ring.
-`maplibre/reshape-snapping.ts` supplies target-only attachments with an 18px radius,
+`maplibre/boundary-snapping.ts` supplies target-only attachments with an 18px radius,
 independent of general snapping. Its index is rebuilt only after camera changes.
 The original remains visible until a valid result is ready. The shared preview
 renderer draws the result and route handles; Backspace reopens construction.
@@ -515,3 +515,12 @@ history replay; `EditHistory.peek` lets it inspect the next entry without moving
 either stack. The MapLibre controller coordinates gesture cancellation and draft
 cleanup on a policy change. See [feature locks](feature-locks.md) for the API and
 the distinction between loading a locked reference and mutating one.
+
+### Split boundary attachments
+
+`core/boundary-anchor.ts` shares planar edge projection and endpoint roundoff
+handling between splitting, reshaping and tracing. The splitter inserts endpoint
+attachments into the boundary, accepts only the two endpoint contacts/proper
+crossings, checks the intervening path lies inside, then builds and validates both
+boundary arcs. `maplibre/boundary-snapping.ts` gives the selected outer boundary
+priority for split/reshape placement without changing neighbouring features.

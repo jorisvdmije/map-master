@@ -301,7 +301,14 @@ Local baseline on 2026-10-22: Apple M2 Pro, macOS arm64, Node.js 22.23.1.
 | 100 | 0.407 | 7.934 |
 | 1,000 | 8.000 | 8.900 |
 
-These first-run observations include runtime variability and are not CI thresholds.
+A repeat on 2026-10-26 after adding boundary endpoints, on the same setup,
+measured median/p95 of 0.048/0.103 ms (10 corners), 0.178/0.308 ms (100), and
+4.880/5.714 ms (1,000). Using the same rings and sample counts with endpoints at
+the midpoints of edge 0 and edge n/2 measured 0.053/0.128 ms, 0.208/0.322 ms,
+and 4.789/5.435 ms respectively. The midpoint fixture joins opposite edges through
+the interior. These measurements include concurrent local browser-test load.
+
+These observations include runtime variability and are not CI thresholds.
 With n polygon corners and m cutting points, crossing search is O(nm), cut
 self-intersection checking is O(m²), and the existing output validator is quadratic
 in each output's vertex count. Source rings are already validated on creation/import.
