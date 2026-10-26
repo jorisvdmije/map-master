@@ -155,3 +155,13 @@ textarea { width: 100%; height: 140px; margin-top: 12px; resize: vertical; borde
   .selection-toolbar button { padding: 0 9px; }
   .overlap-pick strong, .overlap-pick span { max-width: 150px; }
 }
+
+.styling-controls summary { cursor: pointer; font-weight: 650; }
+.styling-controls label { display: grid; gap: 6px; margin-top: 12px; font-size: 12px; }
+.styling-controls .snap-toggle { display: flex; }
+.styling-controls select, .styling-controls input[type="number"] { width: 100%; min-width: 0; }
+.styling-controls input[type="color"] { width: 100%; height: 34px; padding: 2px; background: white; border: 1px solid #d7ded9; border-radius: 6px; }
+.style-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.style-fields[hidden] { display: none; }
+.styling-controls .button-row { margin-top: 10px; }
+.styling-controls > button { margin-top: 12px; width: 100%; }

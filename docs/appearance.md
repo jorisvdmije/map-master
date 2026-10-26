@@ -119,8 +119,10 @@ handle radii do not expand the vertex interaction's acquisition distance.
 Keep sizes usable for the application and use separate operation restrictions
 when those become available.
 
-The contract is global per editor. Per-feature styling, CSS-driven themes,
-custom icons, layer ordering and a theme registry are outside this milestone.
+This contract is global per editor. Optional [feature styling](feature-styling.md)
+adds per-object rules, partial selection overrides, within-layer sort order and
+striped overlap through `styling` / `setStyling()`. CSS-driven themes, custom icons
+and a theme registry remain outside this contract.
 Basemap styling belongs to the application's MapLibre style. The examples' presets
 are illustrative palettes, not a claim of accessibility certification.
 
@@ -128,7 +130,9 @@ are illustrative palettes, not a claim of accessibility certification.
 
 The pure core appearance module owns types, defaults, patch merging and validation.
 The MapLibre renderer regenerates its owned layer definitions and updates paint
-properties in place; it does not replace sources or upload geometry. Missing
+properties in place; it does not replace sources or upload committed geometry.
+When optional overlap styling is enabled, it also refreshes derived fill attributes
+and pattern images while reusing the cached overlap geometry. Missing
 layers receive the current settings when remounted after a style change.
 
 SVG overlays are updated without removing them or interrupting a drag/commit

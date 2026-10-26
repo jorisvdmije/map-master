@@ -1,3 +1,4 @@
+export type { FeatureStyle, FeatureStyleResolver, SelectionStyle, OverlapMember, OverlapPalette, OverlapStyle, EditorStylingOptions, StylingIssue } from './core/feature-styling.js';
 export { FeatureLockedError } from './core/feature-locks.js';
 export { GeometryEditor } from './maplibre/geometry-editor.js';
 export { LineEditor } from './maplibre/line-editor.js';

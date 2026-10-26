@@ -1,3 +1,4 @@
+import type { EditorStylingOptions, StylingIssue } from '../core/feature-styling.js';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { EditorAppearance, EditorAppearanceOptions } from '../core/appearance.js';
 import type { Coordinate, VertexUpdate, DrawingConstraintsOptions, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeature, LineCollection, LineFeature } from '../core/types.js';
@@ -14,6 +15,11 @@ export class LineEditor {
   getLockedFeatureIds(): FeatureId[] { return this.editor.getLockedFeatureIds(); }
   isFeatureLocked(id: FeatureId): boolean { return this.editor.isFeatureLocked(id); }
   setLockedFeatureIds(ids: readonly FeatureId[]): void { this.editor.setLockedFeatureIds(ids); }
+
+  getStyling(): EditorStylingOptions { return this.editor.getStyling(); }
+  getStylingIssues(): StylingIssue[] { return this.editor.getStylingIssues(); }
+  setStyling(options: EditorStylingOptions): void { this.editor.setStyling(options); }
+  refreshStyling(): void { this.editor.refreshStyling(); }
 
   getAppearance(): EditorAppearance { return this.editor.getAppearance(); }
   setAppearance(options: EditorAppearanceOptions): void { this.editor.setAppearance(options); }

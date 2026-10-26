@@ -1,3 +1,5 @@
+import type { EditorStylingOptions, StylingIssue } from '../core/feature-styling.js';
+import { FeatureStyling, renderIdProperty } from './feature-styling.js';
 import type { GeometryPart } from '../core/geometry.js';
 import type { EditorAppearance, PointAppearance } from '../core/appearance.js';
 import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
@@ -13,7 +15,6 @@ const circlePaint = (point: PointAppearance) => ({
 });
 // String UUIDs need promoteId to survive MapLibre's numeric vector-tile IDs.
 // This property exists only in render data; the core/export never receives it.
-const renderIdProperty = '__geo_editor_id';
 type PreviewFeature = {
   type: 'Feature'; properties: { kind?: 'cut-contact' | 'cut-problem' | 'marker' | 'vertex' | 'midpoint' | 'snap' | 'split-part' | 'reshape' | 'shared-boundary-part'; part?: number; active?: boolean; locked?: boolean; snapKind?: 'vertex' | 'edge' };
   geometry: { type: 'Point'; coordinates: Coordinate }
@@ -35,8 +36,14 @@ export class MapLibreRenderer {
   private transfer: { ids: Set<FeatureId>; revision: number; ready: boolean; revealed: boolean } | undefined;
   private translationVisible = false;
   private revision = 0;
+  private readonly styling: FeatureStyling;
+  private appearance: EditorAppearance;
+  private committed: GeometryFeatureCollection = { type: 'FeatureCollection', features: [] };
+  private areasVisible = false;
 
-  constructor(private readonly map: MapLibreMap, private readonly namespace: string, appearance: EditorAppearance) {
+  constructor(private readonly map: MapLibreMap, private readonly namespace: string, appearance: EditorAppearance, styling: EditorStylingOptions = {}) {
+    this.appearance = appearance;
+    this.styling = new FeatureStyling(map, namespace, styling);
     this.translationPreview = new PreviewBorder(map, 'translation-preview', appearance.draft, true, appearance.draftMarker);
     this.draftBorder = new PreviewBorder(map, 'draft-border', appearance.draft, false, appearance.draftMarker);
     this.featuresId = `${namespace}-features`;
@@ -46,27 +53,37 @@ export class MapLibreRenderer {
 
   private makeLayers(appearance: EditorAppearance): LayerSpecification[] {
     const { namespace } = this;
-    const { feature, selected: selection, draft, vertex, midpoint, snap, pivot, marker, selectedMarker, draftMarker } = appearance;
-    const selected: ExpressionSpecification = ['boolean', ['feature-state', 'selected'], false];
+    const { feature, draft, vertex, midpoint, snap, pivot, draftMarker } = appearance;
+    const shape = (key: keyof EditorAppearance['feature']) => this.styling.paint('shape', key, appearance);
+    const marker = (key: keyof PointAppearance) => this.styling.paint('marker', key, appearance);
+    const sort = this.styling.sortKey;
     const editing: ExpressionSpecification = ['boolean', ['feature-state', 'editing'], false];
+    const visible = (expression: ExpressionSpecification): ExpressionSpecification => ['case', editing, 0, ...expression.slice(1)] as ExpressionSpecification;
     return [
       { id: `${namespace}-fill`, type: 'fill', source: this.featuresId,
         filter: ['==', '$type', 'Polygon'],
-        paint: { 'fill-color': ['case', selected, selection.fillColor, feature.fillColor],
-          'fill-opacity': ['case', editing, 0, selected, selection.fillOpacity, feature.fillOpacity], 'fill-opacity-transition': { duration: 0 } } },
+        layout: { 'fill-sort-key': sort },
+        paint: { 'fill-color': shape('fillColor'),
+          'fill-opacity': this.areasVisible ? 0 : visible(shape('fillOpacity')), 'fill-opacity-transition': { duration: 0 } } },
+      { id: `${namespace}-styled-fill`, type: 'fill', source: this.styling.sourceId, filter: ['==', 'kind', 'single'],
+        layout: { visibility: this.areasVisible ? 'visible' : 'none' },
+        paint: { 'fill-color': shape('fillColor'), 'fill-opacity': shape('fillOpacity'), 'fill-antialias': false, 'fill-opacity-transition': { duration: 0 } } },
+      { id: `${namespace}-overlap-stripes`, type: 'fill', source: this.styling.sourceId, filter: ['==', 'kind', 'overlap'],
+        layout: { visibility: this.areasVisible ? 'visible' : 'none' },
+        paint: { 'fill-pattern': ['get', 'pattern'], 'fill-opacity': this.styling.options.overlap?.opacity ?? 0.7, 'fill-antialias': false, 'fill-opacity-transition': { duration: 0 } } },
       { id: this.featuresId, type: 'line', source: this.featuresId,
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': ['case', selected, selection.lineColor, feature.lineColor],
-          'line-width': ['case', selected, selection.lineWidth, feature.lineWidth],
-          'line-opacity': ['case', editing, 0, selected, selection.lineOpacity, feature.lineOpacity], 'line-opacity-transition': { duration: 0 } } },
+        layout: { 'line-cap': 'round', 'line-join': 'round', 'line-sort-key': sort },
+        paint: { 'line-color': shape('lineColor'),
+          'line-width': shape('lineWidth'),
+          'line-opacity': visible(shape('lineOpacity')), 'line-opacity-transition': { duration: 0 } } },
       { id: `${namespace}-markers`, type: 'circle', source: this.featuresId,
-        filter: ['==', '$type', 'Point'],
-        paint: { 'circle-radius': ['case', selected, selectedMarker.radius, marker.radius],
-          'circle-color': ['case', selected, selectedMarker.color, marker.color],
-          'circle-stroke-color': ['case', selected, selectedMarker.strokeColor, marker.strokeColor],
-          'circle-stroke-width': ['case', selected, selectedMarker.strokeWidth, marker.strokeWidth],
-          'circle-opacity': ['case', editing, 0, selected, selectedMarker.opacity, marker.opacity],
-          'circle-stroke-opacity': ['case', editing, 0, selected, selectedMarker.opacity, marker.opacity],
+        filter: ['==', '$type', 'Point'], layout: { 'circle-sort-key': sort },
+        paint: { 'circle-radius': marker('radius'),
+          'circle-color': marker('color'),
+          'circle-stroke-color': marker('strokeColor'),
+          'circle-stroke-width': marker('strokeWidth'),
+          'circle-opacity': visible(marker('opacity')),
+          'circle-stroke-opacity': visible(marker('opacity')),
           'circle-opacity-transition': { duration: 0 }, 'circle-stroke-opacity-transition': { duration: 0 } } },
       { id: `${namespace}-simplification-original`, type: 'line', source: this.featuresId,
         filter: ['!=', '$type', 'Point'],
@@ -105,17 +122,25 @@ export class MapLibreRenderer {
   }
 
   setAppearance(appearance: EditorAppearance): void {
+    this.appearance = appearance;
+    this.styling.restyle(appearance);
+    this.areasVisible = this.styling.active && this.hiddenFeatureIds.size === 0;
     this.layers = this.makeLayers(appearance);
+    this.applyLayers();
+    // Restyle existing overlays without interrupting a drag/commit handoff.
+    this.draftBorder.setAppearance(appearance.draft, appearance.draftMarker);
+    this.translationPreview.setAppearance(appearance.draft, appearance.draftMarker);
+  }
+
+  private applyLayers(): void {
     for (const layer of this.layers) {
       if (!this.map.getLayer(layer.id)) continue;
+      for (const [property, value] of Object.entries(layer.layout ?? {})) this.map.setLayoutProperty(layer.id, property as Parameters<MapLibreMap['setLayoutProperty']>[1], value);
       for (const [property, value] of Object.entries(layer.paint ?? {})) {
         // Keys and values originate from our typed LayerSpecifications, never user paint objects.
         this.map.setPaintProperty(layer.id, property as Parameters<MapLibreMap['setPaintProperty']>[1], value as Parameters<MapLibreMap['setPaintProperty']>[2]);
       }
     }
-    // Restyle existing overlays without clearing gestures or the release-to-worker bridge.
-    this.draftBorder.setAppearance(appearance.draft, appearance.draftMarker);
-    this.translationPreview.setAppearance(appearance.draft, appearance.draftMarker);
   }
 
   mount(): void {
@@ -124,10 +149,10 @@ export class MapLibreRenderer {
     this.draftBorder.clear();
     this.renderEditingMany([]);
     if (!this.map.getSource(this.featuresId)) this.selectedFeatureIds.clear();
-    for (const id of [this.featuresId, this.draftId]) {
+    for (const id of [this.featuresId, this.draftId, this.styling.sourceId]) {
       if (!this.map.getSource(id)) this.map.addSource(id, {
         type: 'geojson', data: emptyCollection(),
-        ...(id === this.featuresId ? { promoteId: renderIdProperty } : {}),
+        ...(id !== this.draftId ? { promoteId: renderIdProperty } : {}),
       });
     }
     for (const layer of this.layers) {
@@ -136,6 +161,10 @@ export class MapLibreRenderer {
   }
 
   renderCommitted(collection: GeometryFeatureCollection): void {
+    this.committed = collection;
+    this.styling.prepare(collection, this.appearance);
+    this.styling.upload();
+    this.refreshAreaVisibility();
     const revision = ++this.revision;
     if (this.transfer) {
       this.transfer.revision = revision; this.transfer.ready = false; this.transfer.revealed = false;
@@ -149,12 +178,32 @@ export class MapLibreRenderer {
     // Encode ID types; keep old tiles hidden until the worker AND visible tiles are ready.
     void source?.setData({
       type: 'FeatureCollection', features: collection.features.map((feature) => ({
-        ...feature, properties: { ...feature.properties, [renderIdProperty]: JSON.stringify(feature.id) },
+        ...feature, properties: { [renderIdProperty]: JSON.stringify(feature.id), ...this.styling.properties(feature.id) },
       })),
     }).then(() => {
       if (this.transfer?.revision !== revision || this.map.getSource(this.featuresId) !== source) return;
       this.transfer.ready = true; this.map.triggerRepaint();
     }, () => { /* MapLibre reports source errors through the map error event. Keep the final preview. */ });
+  }
+
+  getStyling(): EditorStylingOptions { return this.styling.snapshot(); }
+  getStylingIssues(): StylingIssue[] { return this.styling.issues.map(issue => ({ ...issue })); }
+  setStyling(options: EditorStylingOptions): void {
+    this.styling.options = options;
+    this.refreshStyling();
+  }
+  refreshStyling(): void {
+    this.renderCommitted(this.committed);
+    this.layers = this.makeLayers(this.appearance);
+    this.applyLayers();
+    this.renderSelection([...this.selectedFeatureIds], true);
+  }
+  private refreshAreaVisibility(): void {
+    const visible = this.styling.active && this.hiddenFeatureIds.size === 0;
+    if (visible === this.areasVisible) return;
+    this.areasVisible = visible;
+    this.layers = this.makeLayers(this.appearance);
+    this.applyLayers();
   }
 
   get transferringTranslation(): boolean { return this.transfer !== undefined; }
@@ -199,6 +248,7 @@ export class MapLibreRenderer {
         if (force || !this.selectedFeatureIds.has(id)) this.map.setFeatureState({ source: this.featuresId, id: JSON.stringify(id) }, { selected: true });
       }
     }
+    this.styling.setSelection(next, force);
     this.selectedFeatureIds = next;
   }
 
@@ -220,6 +270,7 @@ export class MapLibreRenderer {
       }
     }
     this.hiddenFeatureIds = next;
+    this.refreshAreaVisibility();
   }
 
   /** Reveal a faint original outline from existing tiles, below the result preview. */
@@ -383,12 +434,14 @@ export class MapLibreRenderer {
     this.renderComparison([]);
     this.draftBorder.clear();
     this.stopTransfer();
-    if (!removeResources) return;
+    this.committed = { type: 'FeatureCollection', features: [] };
+    if (!removeResources) { this.styling.destroy(false); return; }
     for (const layer of [...this.layers].reverse()) {
       if (this.map.getLayer(layer.id)) this.map.removeLayer(layer.id);
     }
-    for (const id of [this.draftId, this.featuresId]) {
+    for (const id of [this.draftId, this.featuresId, this.styling.sourceId]) {
       if (this.map.getSource(id)) this.map.removeSource(id);
     }
+    this.styling.destroy(true);
   }
 }

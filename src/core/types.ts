@@ -1,3 +1,4 @@
+import type { EditorStylingOptions } from './feature-styling.js';
 import type { EditorAppearanceOptions } from './appearance.js';
 
 /** GeoJSON position in longitude, latitude order (decimal degrees). */
@@ -158,6 +159,8 @@ export interface EditorOptions {
   lockedFeatureIds?: readonly FeatureId[];
   /** Partial presentation settings. Omitted values use the built-in appearance. */
   appearance?: EditorAppearanceOptions;
+  /** Optional per-feature rules, selection overrides and striped overlap. */
+  styling?: EditorStylingOptions;
   /** Opt-in angle constraints for new line, polygon and hole segments. Alt bypasses them. */
   drawingConstraints?: Partial<DrawingConstraintsOptions>;
   /** Maximum retained actions, default 100; 0 disables history. Not a byte limit. */

@@ -11,6 +11,15 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const appearance: editor.EditorAppearanceOptions = { feature: { lineColor: '#175c4c' }, vertex: { radius: 6 } };
   const options: editor.EditorOptions = { historyLimit: 50, lockedFeatureIds: ['reference', 0], snapping: { enabled: true, distance: 18 }, appearance };
   const tool = new editor.GeometryEditor(map, options);
+  const styling: editor.EditorStylingOptions = {
+    feature: feature => ({ shape: { fillColor: feature.properties?.category === 'park' ? '#0a0' : '#a00' }, sortKey: 2 }),
+    selected: { shape: { lineWidth: 8 } },
+    overlap: { enabled: true, palette: members => members.map(member => member.color), stripeWidth: 12 },
+  };
+  tool.setStyling(styling); tool.refreshStyling(); tool.setStyling(tool.getStyling());
+  const issues: editor.StylingIssue[] = tool.getStylingIssues(); void issues;
+  // @ts-expect-error stripe directions are explicit
+  tool.setStyling({ overlap: { direction: 'vertical' } });
   const currentAppearance: editor.EditorAppearance = tool.getAppearance();
   tool.setAppearance({ draft: { lineColor: '#f80' }, selected: { fillOpacity: 0.4 } });
   tool.setAppearance(currentAppearance);

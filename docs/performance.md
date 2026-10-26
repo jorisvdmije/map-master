@@ -923,3 +923,10 @@ entry is checked against locks at most once per policy version; its cached resul
 is reused by pointer-state reads. Replacing policy invalidates that cache and
 does not upload committed geometry or rebuild snapping. These are work bounds,
 not measured browser-latency guarantees; see the separate [beta budgets](beta-budgets.md).
+
+## Object styling and overlap partitioning
+
+See the [styling cost, limits and local baseline](feature-styling.md#cost-limits-and-checks)
+for `npm run benchmark:styling`. The optional overlay uses cached Mercator cells
+and bounded synchronous work; unchanged defaults are covered by installed-consumer
+latency and lifecycle gates.

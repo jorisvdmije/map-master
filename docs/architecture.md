@@ -73,6 +73,13 @@ The core must not import MapLibre, the DOM, or a UI framework. Initially keep th
 renderer boundary narrow; a general plugin system, monorepo, and framework
 wrappers can wait for demonstrated needs.
 
+[Object styling](feature-styling.md) adds optional application callbacks and partial
+selection overrides in the renderer. Pure core code validates options and computes
+bounded Mercator overlap regions; the MapLibre styling module caches geometry,
+resolves attributes and owns stripe textures. These derived cells never enter the
+drawing session, exported GeoJSON or history. Picking continues to use original
+features. The demo persists chosen colors through ordinary property transactions.
+
 [Appearance](appearance.md) is per-editor presentation state, outside the drawing
 session and history. Its pure options module validates a common hex/numeric
 contract for MapLibre paint and SVG previews. The adapter applies paint changes

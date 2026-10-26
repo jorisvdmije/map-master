@@ -128,6 +128,9 @@ See the [GeometryEditor API guide](docs/geometry-editor.md) and
 [code walkthrough](docs/code-walkthrough.md). The earlier LineEditor API remains
 available as a compatibility facade.
 
+See [Object colors and overlap stripes](docs/feature-styling.md) for per-feature styling,
+selection overrides, drawing order and automatic/custom striped overlap.
+
 ## Development
 
 Use Node.js 22.13+ within the 22.x series, or Node.js 24.x, with npm. If you use
@@ -153,6 +156,7 @@ npm run check
 | `npm test` | Run core behavior tests and test the packed library in an isolated consumer. |
 | `npm run test:browser` | Build the package and run real Chromium interaction and demo tests. |
 | `npm run build:demo` | Build the library and a deployable demo in `examples/basic/dist/`. |
+| `npm run benchmark:styling` | Measure overlap partitioning and cached per-feature/palette restyling. |
 | `npm run benchmark:offset` | Measure line-offset entry, validated preview, commit and Undo. |
 | `npm run benchmark:buffer` | Measure buffer entry, validated preview, commit and Undo. |
 | `npm run benchmark:simplification` | Measure simplification entry, validated preview, commit and Undo. |

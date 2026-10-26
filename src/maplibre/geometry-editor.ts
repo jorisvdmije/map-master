@@ -1,3 +1,4 @@
+import { resolveStyling, type EditorStylingOptions, type StylingIssue } from '../core/feature-styling.js';
 import { lockedFeatureIds, sameLocks } from '../core/feature-locks.js';
 import { constrainDrawingPoint, drawingConstraintsOptions } from '../core/drawing-constraints.js';
 import { copyAppearance, resolveAppearance, type EditorAppearance, type EditorAppearanceOptions } from '../core/appearance.js';
@@ -65,13 +66,14 @@ export class GeometryEditor {
     }
     this.view = view;
     this.appearance = resolveAppearance(options.appearance);
+    const styling = resolveStyling(options.styling);
     this.drawingConstraints = drawingConstraintsOptions(options.drawingConstraints);
     this.tracing = this.tracingOptions(options.tracing ?? {});
     this.events = new EditorEvents((error) => { view.queueMicrotask(() => { throw error; }); });
     this.session = new DrawingSession(() => view.crypto.randomUUID(), options.historyLimit, options.lockedFeatureIds);
     this.boundarySnapping = new BoundarySnapping(map);
     this.snapping = new MapLibreSnapping(map, options.snapping);
-    this.renderer = new MapLibreRenderer(map, `geo-editor-${view.crypto.randomUUID()}`, this.appearance);
+    this.renderer = new MapLibreRenderer(map, `geo-editor-${view.crypto.randomUUID()}`, this.appearance, styling);
     this.renderer.mount();
     this.vertices = new VertexInteraction(map, {
       state: () => this.session.state, draft: () => this.session.getDraft(),
@@ -233,6 +235,20 @@ export class GeometryEditor {
     this.translation.refresh();
     if (['rotate-features', 'scale-features', 'buffer-features', 'offset-lines'].includes(this.session.state.mode)) this.schedulePreview();
     this.emitChange();
+  }
+
+  getStyling(): EditorStylingOptions { return this.renderer.getStyling(); }
+  getStylingIssues(): StylingIssue[] { return this.renderer.getStylingIssues(); }
+  /** Replace optional style rules. Presentation only; no history or data mutation. */
+  setStyling(options: EditorStylingOptions): void {
+    this.assertAlive();
+    const next = resolveStyling(options);
+    this.renderer.setStyling(next);
+    this.emitChange();
+  }
+  /** Re-evaluate rules after external application state changes. */
+  refreshStyling(): void {
+    this.assertAlive(); this.renderer.refreshStyling(); this.emitChange();
   }
 
   private tracingOptions(update: Partial<TracingOptions>, previous: TracingOptions = { enabled: false, side: 'shorter' }): TracingOptions {

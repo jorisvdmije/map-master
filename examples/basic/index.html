@@ -102,6 +102,23 @@
           <select id="appearance" disabled><option value="default">Original</option><option value="ocean">Ocean</option><option value="contrast">High contrast</option></select>
           <p>Change colors and handle sizes, including while drawing or editing.</p>
         </section>
+        <details id="feature-styling" class="snapping-tools styling-controls">
+          <summary>Object colors &amp; overlap</summary>
+          <label class="snap-toggle"><input name="object-colors" type="checkbox" /> Use object colors</label>
+          <p data-style-selection>Select shapes to set their color and drawing order.</p>
+          <div class="style-fields">
+            <label>Object color<input name="object-color" type="color" value="#1b998b" /></label>
+            <label>Drawing order<input name="object-order" type="number" value="0" step="1" required /></label>
+          </div>
+          <div class="button-row"><button class="button secondary" data-style-action="apply" disabled>Apply color &amp; order</button><button class="button secondary" data-style-action="reset" disabled>Reset</button></div>
+          <label for="overlap-mode">Overlap style</label><select id="overlap-mode" name="overlap-mode"><option value="off">Normal transparency</option><option value="auto">Stripes · object colors</option><option value="custom">Stripes · custom palette</option></select>
+          <div class="style-fields" data-custom-palette hidden><label>First stripe color<input name="stripe-a" type="color" value="#1b998b" /></label><label>Second stripe color<input name="stripe-b" type="color" value="#ed8b34" /></label></div>
+          <label>Stripe width<input name="stripe-width" type="range" min="2" max="32" step="1" value="12" /></label>
+          <label>Stripe opacity<input name="stripe-opacity" type="range" min="0" max="1" step="0.05" value="0.7" /></label>
+          <label for="stripe-direction">Stripe direction</label><select id="stripe-direction" name="stripe-direction"><option value="ascending">Diagonal ↗</option><option value="descending">Diagonal ↘</option></select>
+          <button class="button secondary" data-style-action="example">Add overlap example</button>
+          <p data-style-message role="status"></p>
+        </details>
         <section class="snapping-tools" aria-label="Drawing constraints">
           <label class="snap-toggle"><input id="drawing-constraints" type="checkbox" disabled /> Fixed drawing angles</label>
           <label for="angle-step">Angle step</label>

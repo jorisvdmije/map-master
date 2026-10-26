@@ -8,6 +8,13 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 
 ### Added
 
+- Optional per-feature styles, partial selection overrides and drawing order via
+  `styling`, `setStyling`, `refreshStyling` and diagnostic snapshots.
+- Diagonal overlap stripes with stable automatic colors or explicit/callback
+  palettes, width, direction and opacity; cached disjoint regions, bounded work
+  and ordinary-fill fallback. Demo object color/order controls use transactions
+  and Undo; presentation settings keep exported geometry unchanged.
+
 - Compact playground selection toolbar and accessible overlap chooser, including
   group checkboxes and lock status. `GeometryEditor.queryFeatures()` exposes
   independent rendered candidates; selected underlying shapes can be dragged

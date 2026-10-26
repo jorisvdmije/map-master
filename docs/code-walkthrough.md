@@ -9,6 +9,8 @@ src/
   index.ts                   Public classes and TypeScript types
   core/
     appearance.ts            Typed defaults, independent snapshots and atomic appearance validation
+    feature-styling.ts       Object/selection/palette contracts and validation
+    overlap-regions.ts       Bounded disjoint Mercator display regions
     types.ts                 Coordinates, features, modes, validation diagnostics
     drawing-session.ts       Draft, features indexed by ID, selection, create/edit/delete/export
     translation.ts           Translate coordinates from an immutable baseline in degrees
@@ -40,6 +42,7 @@ src/
     keyboard-interaction.ts  Canvas-focused finish/cancel/delete/history commands
     pointer.ts               Shared viewport-to-map CSS coordinate conversion
     renderer.ts              Sources/layers, picking, selection styling, draft vertices
+    feature-styling.ts       Render attributes, overlap cache and pattern images
     boundary-snapping.ts      Target-only boundary attachment and camera cache
     snapping.ts              Map projection and camera/data-revision cache
     selection-interaction.ts Shared feature/vertex rectangle gestures and cancellation
@@ -67,6 +70,7 @@ tests/                       Core behavior, boundary checks and packed-package i
 | Add a mouse gesture | Corresponding `maplibre/*-interaction.ts`, wired in `GeometryEditor` | Browser tests for release, Escape, blur, style changes and destruction |
 | Change keyboard shortcuts | `maplibre/keyboard-interaction.ts` | Browser tests for focus, modifiers and current mode |
 | Change event delivery | `maplibre/editor-events.ts`; emission stays in the controller | Observer mutation/error/unsubscribe tests in browser suites |
+| Configure object colors and overlap stripes | `core/feature-styling.ts`, `core/overlap-regions.ts`, `maplibre/feature-styling.ts` | Styling unit/browser tests, `benchmark:styling` |
 | Change map appearance or picking | `maplibre/renderer.ts` | Browser rendering/selection tests |
 | Change toolbar or instructions | `examples/basic/` | Demo tests and visual review |
 | Expose a public capability | `src/index.ts`, `core/types.ts`, editor facade | Packed-consumer fixture and API documentation |

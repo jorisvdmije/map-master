@@ -29,6 +29,7 @@ separately so consumers can integrate without depending on internal modules.
 | Subtract cutting polygons from a target | [Polygon difference](difference.md) |
 | Split a supported polygon | [Polygon splitting](splitting.md) |
 | Maintain an older line-only integration | [LineEditor compatibility facade](line-editor.md) |
+| Set per-object colors, order and overlap stripes | [Feature styling](feature-styling.md) |
 | Locate code for a change | [Code map and walkthrough](code-walkthrough.md) |
 | Understand ownership and dependency rules | [Current architecture](architecture.md) |
 | Add or review a capability | [Contribution workflow](../CONTRIBUTING.md) |

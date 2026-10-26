@@ -1,3 +1,4 @@
+import { bindStylingControls } from './styling-controls.js';
 import { Map, LngLatBounds, NavigationControl, setWorkerUrl } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { GeometryEditor, type DrawGeometryType, type GeometryFeature, type Coordinate, type ReshapeError, type SplitError, type ValidationError } from '@jorisvdmije/map-master';
@@ -165,6 +166,7 @@ map.on('error', () => {
 map.on('load', () => {
   editor = new GeometryEditor(map, { snapping: { enabled: true } });
   const activeEditor = editor;
+  const removeStylingControls = bindStylingControls(activeEditor, map, element('feature-styling'));
   removeAppearanceControl = bindAppearanceControl(activeEditor, element<HTMLSelectElement>('appearance'));
   const simplificationControls = new SimplificationControls(activeEditor, element('simplification-tools'), valid => { finish.disabled = !valid; });
   const selectionControls = new SelectionControls(activeEditor, map, element('selection-controls'), {
@@ -173,7 +175,7 @@ map.on('load', () => {
     selection.scrollIntoView({ block: 'start' });
     selection.querySelector<HTMLButtonElement>('button:not(:disabled):not([hidden])')?.focus({ preventScroll: true });
   });
-  map.once('remove', () => { simplificationControls.destroy(); selectionControls.destroy(); });
+  map.once('remove', () => { removeStylingControls(); simplificationControls.destroy(); selectionControls.destroy(); });
   let exportedRevision = -1;
   partIndex.addEventListener('change', () => { update(); });
   let ringSelectionPart = 0;
