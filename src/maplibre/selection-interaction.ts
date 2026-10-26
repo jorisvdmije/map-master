@@ -3,7 +3,7 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { ScreenPoint } from '../core/snapping.js';
 
 interface SelectionActions {
-  idle(): boolean;
+  enabled(): boolean;
   toggle(point: ScreenPoint): void;
   addBox(start: ScreenPoint, end: ScreenPoint): void;
 }
@@ -75,7 +75,7 @@ export class SelectionInteraction {
   private readonly down = (event: PointerEvent): void => {
     if (this.gesture) return;
     this.suppressClick = false;
-    if (!this.actions.idle() || !event.shiftKey || event.ctrlKey || event.metaKey || event.altKey
+    if (!this.actions.enabled() || !event.shiftKey || event.ctrlKey || event.metaKey || event.altKey
       || event.button !== 0 || event.pointerType !== 'mouse' || event.defaultPrevented) return;
     event.preventDefault();
     this.suppressClick = true;
@@ -113,7 +113,7 @@ export class SelectionInteraction {
     if (gesture?.pointerId !== event.pointerId) return;
     this.update(event);
     this.cancel();
-    if (!this.actions.idle()) return;
+    if (!this.actions.enabled()) return;
     if (gesture.moved) this.actions.addBox(gesture.start, gesture.end);
     else this.actions.toggle(gesture.end);
   };
@@ -127,8 +127,9 @@ export class SelectionInteraction {
     if (this.gesture?.pointerId === event.pointerId) this.cancel();
   };
   private readonly key = (event: KeyboardEvent): void => {
-    if (!this.gesture || event.key !== 'Escape' || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
-    event.preventDefault(); event.stopImmediatePropagation(); this.cancel();
+    if (!this.gesture || !['Escape', 'Enter'].includes(event.key) || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    if (event.key === 'Escape') this.cancel();
   };
   private readonly blur = (): void => { this.cancel(); };
 }

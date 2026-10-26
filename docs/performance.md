@@ -136,6 +136,31 @@ previews, UI callbacks, and MapLibre rendering; they are not frame-rate guarante
 Export and the committed source are unchanged during dragging; saving a changed
 edit uploads the full collection once.
 
+## Vertex rectangle selection
+
+Run `npm run benchmark:vertex-selection`. A fixed zigzag line contains 100, 1,000
+or 10,000 vertices. A deterministic linear projection maps it to a 1,000-pixel
+strip; alternating left/right boxes each contain exactly half the vertices.
+The timed path copies the draft, projects/picks its vertices, replaces the corner
+selection and reads a state snapshot. Setup, validity/history/export assertions
+and 20 warmups are excluded; 100 measured samples are retained.
+
+Local baseline on 2026-10-26: Apple M2 Pro, macOS arm64, Node.js 22.23.1.
+
+| Vertices | Selected | Median (ms) | p95 (ms) |
+| --- | ---: | ---: | ---: |
+| 100 | 50 | 0.012 | 0.033 |
+| 1,000 | 500 | 0.034 | 0.108 |
+| 10,000 | 5,000 | 0.401 | 0.760 |
+
+This isolates the selection computation with a synthetic projection; real
+MapLibre camera projection, merging an existing selection, UI callbacks and
+rendering are excluded. These are not end-to-end interaction/frame-rate numbers.
+Browser tests exercise real projection at zoom 6/17 with bearing/pitch, selection
+events and unchanged committed sources. During the gesture only the HTML
+rectangle changes; the draft is scanned once on release in O(n), and selection
+does not rerun topology validation or add history.
+
 ## Core GeoJSON import
 
 Run `npm run benchmark:import`. Each sample imports into a fresh empty session.

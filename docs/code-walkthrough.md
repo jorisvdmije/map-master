@@ -41,7 +41,7 @@ src/
     renderer.ts              Sources/layers, picking, selection styling, draft vertices
     reshape-snapping.ts      Target-only boundary attachment and camera cache
     snapping.ts              Map projection and camera/data-revision cache
-    selection-interaction.ts Shift+click/rectangle selection and cancellation
+    selection-interaction.ts Shared feature/vertex rectangle gestures and cancellation
     translation-interaction.ts Group drag, anchor snapping, axis constraint and cancellation
     translation-guide.ts       Moving anchor, ruler and Mercator displacement label
     pivot-interaction.ts     Shared rotation/scale pivot input, original-target snapping and rollback
@@ -211,6 +211,11 @@ selects both endpoints. A group computes every update from one frozen baseline;
 `DrawingSession.moveVertices` checks the complete batch before mutations and
 runs topology validation once. No partial batch or per-vertex `onChange` escapes.
 The renderer marks every selected vertex active with a set lookup.
+`SelectionInteraction` also handles Shift rectangles during editing; vertex
+Shift+click has priority. On release, `pickEditVertices` projects the active draft
+once and adds enclosed indices, excluding fixed shared-boundary junctions. The
+rectangle never modifies geometry or uploads the committed source. Public vertex
+commands cancel a pending rectangle before modifying its draft/selection baseline.
 Release resolves again before ending the gesture. Modifier, option and camera
 changes refresh a stationary single-vertex drag; camera movement rolls back a
 group/edge drag. Escape restores only the active gesture; Save commits the whole

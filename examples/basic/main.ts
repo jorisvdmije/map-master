@@ -288,8 +288,8 @@ map.on('load', () => {
       || shared && state.selectedVertexIndices.some(index => index === 0 || index === state.vertexCount - 1);
     removeVertex.textContent = state.selectedVertexIndices.length > 1 ? 'Remove selected vertices' : 'Remove vertex';
     element('editing-help').textContent = shared
-      ? 'Shift+click selects several corners; drag a selected corner to move them together. Drag an edge between handles to move both ends. Small points add a corner. Grey endpoints stay fixed. Both polygons change together.'
-      : 'Shift+click selects several corners; drag a selected corner to move them together. Drag an edge between handles to move both ends. Small points add a corner. Escape during dragging restores that drag; Save applies all edits.';
+      ? 'Shift+click adds corners; Shift+drag a box selects several. Drag a selected corner to move them together. Drag an edge between handles to move both ends. Small points add a corner. Grey endpoints stay fixed. Both polygons change together.'
+      : 'Shift+click adds corners; Shift+drag a box selects several. Drag a selected corner to move them together. Drag an edge between handles to move both ends. Small points add a corner. Escape during dragging restores that drag; Save applies all edits.';
     element('vertex-status').textContent = state.selectedVertexIndex === null
       ? 'Click a corner to select it.' : state.selectedVertexIndices.length > 1 ? `${state.selectedVertexIndices.length} of ${state.vertexCount} corners selected.` : `Corner ${state.selectedVertexIndex + 1} of ${state.vertexCount} selected.`;
     if (selectedFeature) {

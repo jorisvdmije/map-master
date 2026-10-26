@@ -8,6 +8,19 @@ export interface VertexHandle {
   coordinate: Coordinate;
 }
 
+/** Inclusive screen rectangle; only actual draft vertices, in draft order. */
+export function pickEditVertices(map: MapLibreMap, points: Coordinate[], start: ScreenPoint, end: ScreenPoint, fixedEndpoints: boolean): number[] {
+  const left = Math.min(start.x, end.x); const right = Math.max(start.x, end.x);
+  const top = Math.min(start.y, end.y); const bottom = Math.max(start.y, end.y);
+  const indices: number[] = [];
+  points.forEach((coordinate, index) => {
+    if (fixedEndpoints && (index === 0 || index === points.length - 1)) return;
+    const point = map.project(coordinate);
+    if (point.x >= left && point.x <= right && point.y >= top && point.y <= bottom) indices.push(index);
+  });
+  return indices;
+}
+
 /** One shared screen-space definition for drawing and picking edit handles. */
 export function vertexHandles(map: MapLibreMap, points: Coordinate[], polygon: boolean): VertexHandle[] {
   const handles: VertexHandle[] = points.map((coordinate, index) => ({ kind: 'vertex', index, coordinate }));

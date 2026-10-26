@@ -527,6 +527,22 @@ handles use the active vertex appearance. `selectedVertexIndex` remains the last
 selected index, or null, for compatibility. Inserting selects only the new corner;
 removing corners clears the selection so stale indices cannot refer to other points.
 
+**Shift+drag a rectangle** starting away from a corner to add all enclosed corners
+of the active line/ring. Existing selections remain first; new indices are appended
+in draft order without duplicates. Only vertex centres inside or on the screen
+rectangle count, not edges or midpoint insertion handles. Shared-boundary junctions
+remain fixed and are excluded. A small Shift+click away from corners or an empty
+box keeps the selection. A box can start inside a polygon or on a midpoint.
+
+The rectangle is clipped to the canvas and works in either drag direction, also
+with a rotated/pitched map. Selection changes once on release, even if Shift was
+released first; the geometry, export and history remain unchanged. Escape, blur,
+lost capture, pointer cancellation, camera/style changes or a vertex API command
+discard an unfinished box. Previous draft edits and corner selection remain.
+Enter is ignored while drawing a box. Pan and box zoom are temporarily disabled
+and their original settings restored afterwards. After release, drag or remove
+the selected corners normally and Save to record the edit.
+
 Drag any selected corner to move the group by one common longitude/latitude
 offset from a frozen gesture baseline. Other corners stay fixed. To **move an
 edge**, drag its segment within 6 CSS pixels, away from the endpoint and midpoint

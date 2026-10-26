@@ -87,3 +87,12 @@ Escape during a captured vertex drag now restores that gesture only; a subsequen
 Escape or `cancel()` discards the entire edit. Enter during the drag is ignored.
 Camera changes roll back a group/edge drag; existing single-vertex drags still
 refresh. GeoJSON, saved history entries and storage formats do not change.
+
+## Rectangle selection of vertices
+
+Shift+drag away from a corner while editing now selects draft vertices inside a
+screen rectangle, adding to the current corner selection. Shift+click on a corner
+still toggles that corner. This takes precedence over MapLibre box zoom during
+editing; its enabled setting is restored on release/cancellation. It operates on
+the active ring/component only and does not change the feature selection. No
+new public methods, state fields, GeoJSON or history formats are introduced.

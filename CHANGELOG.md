@@ -8,6 +8,10 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 
 ### Added
 
+- Shift+drag rectangle selection of corners within the active edit ring/component,
+  preserving previous selections and fixed shared-boundary junctions. Captured
+  gestures support cancellation, camera/style cleanup and API interruption.
+
 - Multi-vertex edit selection with Shift+click, group dragging and whole-edge
   dragging between handles. Selected corners move together using one snap anchor;
   Escape restores the active gesture and Save records one edit/Undo.

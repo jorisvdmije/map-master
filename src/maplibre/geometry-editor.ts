@@ -10,6 +10,7 @@ import { MapLibreSnapping } from './snapping.js';
 import type { ScreenPoint } from '../core/snapping.js';
 import { VertexInteraction } from './vertex-interaction.js';
 import { SelectionInteraction } from './selection-interaction.js';
+import { pickEditVertices } from './vertex-handles.js';
 import { TranslationInteraction } from './translation-interaction.js';
 import { RotationInteraction } from './rotation-interaction.js';
 import { ScalingInteraction } from './scaling-interaction.js';
@@ -90,12 +91,20 @@ export class GeometryEditor {
       },
     });
     this.selection = new SelectionInteraction(map, {
-      idle: () => !this.destroyed && this.session.state.mode === 'idle',
+      enabled: () => !this.destroyed && (this.session.state.mode === 'idle' || this.session.state.mode.startsWith('edit-')),
       toggle: (point) => {
+        // VertexInteraction already handles Shift+click on an editable corner.
+        if (this.session.state.mode !== 'idle') return;
         const id = this.renderer.pick(point);
         if (id !== null && this.session.hasFeature(id)) this.toggleSelection(id);
       },
       addBox: (start, end) => {
+        const state = this.session.state;
+        if (state.mode.startsWith('edit-')) {
+          const indices = pickEditVertices(map, this.session.getDraft(), start, end, state.mode === 'edit-shared-boundary');
+          this.selectVertices([...state.selectedVertexIndices, ...indices]);
+          return;
+        }
         const ids = this.renderer.pickBox(start, end).filter((id) => this.session.hasFeature(id));
         this.selectMany([...this.session.state.selectedFeatureIds, ...ids]);
       },
@@ -626,7 +635,7 @@ export class GeometryEditor {
     this.assertAlive();
     const initial = this.session.state;
     if (initial.mode !== 'edit-shared-boundary') return null;
-    this.vertices.stop();
+    this.selection.cancel(); this.vertices.stop();
     const state = this.session.state;
     if (state.mode !== 'edit-shared-boundary' || !state.canFinish) return null;
     const event = this.session.finishSharedBoundary();
@@ -661,42 +670,42 @@ export class GeometryEditor {
   }
 
   selectVertex(index: number | null): void {
-    this.assertAlive(); this.vertices.stop();
+    this.assertAlive(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.selectVertex(index));
   }
 
   selectVertices(indices: readonly number[]): void {
-    this.assertAlive(); this.vertices.stop();
+    this.assertAlive(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.selectVertices(indices));
   }
 
   moveVertices(updates: readonly VertexUpdate[]): void {
-    this.assertAlive(); this.vertices.stop();
+    this.assertAlive(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.moveVertices(updates));
   }
 
   translateSelectedVertices(delta: Coordinate): void {
-    this.assertAlive(); this.vertices.stop();
+    this.assertAlive(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.translateSelectedVertices(delta));
   }
 
   removeSelectedVertices(): boolean {
-    this.assertAlive(); this.vertices.stop();
+    this.assertAlive(); this.selection.cancel(); this.vertices.stop();
     const changed = this.session.removeSelectedVertices(); this.draftChanged(changed); return changed;
   }
 
   moveVertex(index: number, coordinate: Coordinate): void {
-    this.assertAlive(); this.vertices.stop();
+    this.assertAlive(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.moveVertex(index, coordinate));
   }
 
   insertVertex(index: number, coordinate: Coordinate): void {
-    this.assertAlive(); this.vertices.stop();
+    this.assertAlive(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.insertVertex(index, coordinate));
   }
 
   removeVertex(index: number): boolean {
-    this.assertAlive(); this.vertices.stop();
+    this.assertAlive(); this.selection.cancel(); this.vertices.stop();
     const changed = this.session.removeVertex(index);
     this.draftChanged(changed);
     return changed;
@@ -779,7 +788,7 @@ export class GeometryEditor {
       return preview.features[0]!;
     }
     if (this.session.state.mode === 'edit-shared-boundary') {
-      this.vertices.stop();
+      this.selection.cancel(); this.vertices.stop();
       if (!this.session.state.canFinish) return null;
       const original = this.session.getSelection()[0]!;
       return this.finishSharedBoundary()?.changes.find((change) => change.after?.id === original.id)?.after ?? original;
@@ -811,7 +820,7 @@ export class GeometryEditor {
       return this.finishReshape()?.changes[0]?.after ?? original;
     }
     if (this.session.state.mode === 'split-polygon') return this.finishSplit()?.changes[0]?.after ?? null;
-    this.vertices.stop();
+    this.selection.cancel(); this.vertices.stop();
     const before = this.session.state;
     const feature = this.session.finish();
     if (!feature) return null;
