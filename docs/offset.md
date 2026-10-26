@@ -1,6 +1,6 @@
 # Offset selected lines
 
-Select one or more open lines and choose **Offset lines**. Enter a signed
+Select one or more open lines and choose **Offset lines**. Drag **↔** or enter a signed
 **Offset distance (Mercator meters)**: positive moves left of each component's
 direction, negative moves right. The initial distance is 0, which preserves every
 source coordinate exactly. The direction is from the first point toward the last;
@@ -14,6 +14,42 @@ the map has focus. Map shortcuts do not intercept text input. Empty/incomplete
 numeric input disables Apply; leaving the field restores the last accepted value.
 The [example fixture](../examples/basic/public/offset.geojson) has eastbound and
 westbound routes for trying both sides.
+
+## Dragging the distance
+
+The **↔ distance handle** adjusts the same value as numeric input. A solid ruler
+measures from the original geometry to the requested result; a faint outline
+keeps the originals visible. The label shows **Mercator meters**, not ground
+meters. A dashed 36 CSS-pixel extension connects the result marker to the
+44-pixel handle, so tiny distances remain easy to grab. The extension is not part
+of the measured distance. Moving along the source edge does not change distance.
+
+The reference is the start of the first component of the first selected line.
+Its left normal defines the positive direction. The handle and its extension
+stay on that axis; sideways pointer movement cannot pull them away. For a group,
+each component still uses its own line direction, even when directions differ.
+
+Release to review, then Apply/Enter to save the whole selection in one Undo step.
+Escape during a drag restores its starting distance; Escape again cancels the
+session. Enter during a drag is ignored. Captured mouse input continues outside
+the canvas. Blur, capture loss, pointer cancellation and camera/style changes
+roll back only the active drag. Camera gesture settings are restored afterwards.
+Numeric/API distance changes stop an active drag, so a late release cannot
+replace the new value.
+
+Tab to the handle and use Up/Right to add 1 meter or Down/Left to subtract 1 meter.
+Shift uses 10-meter steps. Enter applies and Escape cancels when the handle is
+focused. Mouse dragging is supported; touch/pen dragging is not yet supported.
+
+Offset can pass through zero to either side. The label identifies left, right or
+the original position. The handle extension stays on the positive side of the
+result marker when the sign changes, avoiding a jump to the other side.
+
+Invalid results use a red ruler/handle and cannot be applied. The guide represents
+the requested distance, even when there is no valid preview. Adjust the distance
+to recover. If the guide lies outside the viewport or cannot be projected, pan,
+zoom or use numeric input. Snapping does not change the distance. Calculations
+and the ruler use the same Mercator plane at every zoom, bearing and pitch.
 
 ## Supported input and distance units
 

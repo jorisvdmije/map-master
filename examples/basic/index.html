@@ -53,13 +53,13 @@
           <h2>OFFSET YOUR LINES</h2>
           <label for="offset-distance">Offset distance (Mercator meters)</label>
           <input id="offset-distance" type="number" step="any" value="0" aria-describedby="offset-help" />
-          <p id="offset-help">Positive is left of each line's direction; negative is right. 0 keeps the originals. Miter joins and perpendicular endpoints. Apply replaces the selected open lines; Undo restores them. Map-plane meters, not ground meters.</p>
+          <p id="offset-help">Drag ↔ to change the offset or enter an exact distance. The ruler starts at the first line endpoint: positive is left, negative is right of its direction. Release to review; Apply replaces the selected lines. Escape during dragging restores that drag. Mercator meters, not ground meters.</p>
         </section>
         <section id="buffer-tools" class="editing-tools" aria-label="Buffer" hidden>
           <h2>BUFFER YOUR SELECTION</h2>
           <label for="buffer-distance">Buffer distance (Mercator meters)</label>
           <input id="buffer-distance" type="number" min="0" step="any" value="10" aria-describedby="buffer-help" />
-          <p id="buffer-help">Positive map-plane meters, not ground meters. Rounded corners and ends. Apply replaces each selected shape with its buffer; Undo restores the originals.</p>
+          <p id="buffer-help">Drag ↔ outward to widen the buffer or enter an exact positive distance. The ruler starts at the original boundary. Release to review; Apply replaces each shape with its buffer. Escape during dragging restores that drag. Mercator meters, not ground meters.</p>
         </section>
         <section id="simplification-tools" class="editing-tools" aria-label="Simplification" hidden>
           <h2>SIMPLIFY YOUR SELECTION</h2>

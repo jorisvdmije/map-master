@@ -8,6 +8,10 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 
 ### Added
 
+- Direct buffer/offset distance dragging with an attached handle, measured ruler,
+  original outline and signed Mercator-meter label. Keyboard distance steps and
+  interrupted-drag rollback share numeric validation and explicit Apply/Undo.
+
 - Mouse scaling with eight attached frame handles: proportional corners and
   independent horizontal/vertical side handles, keyboard resizing, drag rollback
   and a single explicit Undo transaction. Added `setScaleFactors(x, y)`,

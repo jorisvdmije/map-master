@@ -43,6 +43,7 @@ src/
     snapping.ts              Map projection and camera/data-revision cache
     selection-interaction.ts Shift+click/rectangle selection and cancellation
     translation-interaction.ts Group drag preview, release and cancellation
+    distance-interaction.ts  Buffer/offset distance handle, ruler and drag rollback
     preview-border.ts        Explicit dots per edge for every preview; optional drag fill
     vertex-interaction.ts    Pointer capture, vertex gestures, cancellation
     vertex-handles.ts        Shared screen-space corner/midpoint definitions
@@ -467,6 +468,14 @@ bounds reduce intersection comparisons. DrawingSession freezes the selection,
 caches distance/preview/diagnostic and commits through the transaction boundary.
 GeometryEditor reuses collection-preview rendering and existing history/events.
 See [line offsets](offset.md) for the supported subset and numeric limits.
+
+Both buffer and offset use `maplibre/distance-interaction.ts` for their mouse and
+keyboard distance handle. A fixed reference on the original selection defines
+the measurement axis. The module projects pointer movement onto that axis in
+Mercator meters, draws the ruler and original outline, and updates the existing
+session distance through animation frames. Release retains the preview; explicit
+confirmation uses the existing transaction. Interrupted drags restore their entry
+distance, while numeric/API overrides stop the gesture before setting a new value.
 
 ## Feature locks
 

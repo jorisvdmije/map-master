@@ -1,6 +1,6 @@
 import { Map } from 'maplibre-gl';
 import { expect, it, vi } from 'vitest';
-import { page, userEvent } from 'vitest/browser';
+import { commands, page, userEvent } from 'vitest/browser';
 import type { GeometryFeatureCollection, LineFeature } from '../../src/index.js';
 import html from '../../examples/basic/index.html?raw';
 import fixture from '../../examples/basic/public/offset.geojson?raw';
@@ -24,6 +24,15 @@ it('offsets through demo controls, blocks invalid distances and restores exact d
     const offset = page.getByRole('button', { name: 'Offset lines', exact: true }); await offset.click();
     const distance = page.getByLabelText('Offset distance (Mercator meters)');
     const apply = page.getByRole('button', { name: 'Apply offset', exact: true });
+    const grip = () => document.querySelector<HTMLButtonElement>('[data-geo-distance-handle]')!;
+    await expect.poll(grip).not.toBeNull();
+    const stem = document.querySelector('[data-geo-distance-stem]')!;
+    const x = parseFloat(grip().style.left); const y = parseFloat(grip().style.top);
+    const dx = Number(stem.getAttribute('x2')) - Number(stem.getAttribute('x1'));
+    const dy = Number(stem.getAttribute('y2')) - Number(stem.getAttribute('y1'));
+    await commands.vertexPointer('down', x, y); await commands.vertexPointer('up', x + dx, y + dy);
+    expect(document.querySelector<HTMLInputElement>('#offset-distance')!.valueAsNumber).toBeGreaterThan(0);
+    expect(output()).toEqual(original);
     await distance.fill('10'); await expect.element(apply).toBeEnabled(); expect(output()).toEqual(original);
     await expect.element(page.getByText('Preview: 10 Mercator m (left).', { exact: false })).toBeVisible();
     await expect.element(input).toBeDisabled(); await expect.element(offset).toBeDisabled();

@@ -13,6 +13,7 @@ import { SelectionInteraction } from './selection-interaction.js';
 import { TranslationInteraction } from './translation-interaction.js';
 import { RotationInteraction } from './rotation-interaction.js';
 import { ScalingInteraction } from './scaling-interaction.js';
+import { DistanceInteraction } from './distance-interaction.js';
 import { EditorEvents } from './editor-events.js';
 import { KeyboardInteraction } from './keyboard-interaction.js';
 import { GeoJSONImportError } from '../core/geojson-import.js';
@@ -39,6 +40,7 @@ export class GeometryEditor {
   private readonly translation: TranslationInteraction;
   private readonly rotation: RotationInteraction;
   private readonly scaling: ScalingInteraction;
+  private readonly distance: DistanceInteraction;
   private readonly canvas: HTMLCanvasElement;
   private readonly view: Window;
   private cursor: Coordinate | undefined;
@@ -136,6 +138,12 @@ export class GeometryEditor {
       finish: () => { this.finishScale(); },
       cancel: () => { this.cancel(); },
     });
+    this.distance = new DistanceInteraction(map, {
+      state: () => this.session.state,
+      distance: (kind, meters) => { this.draftChanged(kind === 'buffer' ? this.session.setBufferDistance(meters) : this.session.setOffsetDistance(meters)); },
+      finish: kind => { if (kind === 'buffer') this.finishBuffer(); else this.finishOffset(); },
+      cancel: () => { this.cancel(); },
+    });
     editors.add(map);
     map.on('click', this.handleClick);
     map.on('mousemove', this.handleMove);
@@ -179,6 +187,7 @@ export class GeometryEditor {
     this.vertices.stop(true);
     this.rotation.stop();
     this.scaling.stop();
+    this.distance.stop();
     const wasDrawing = this.session.state.mode !== 'idle';
     this.session.setLockedFeatureIds([...next]);
     if (wasDrawing && this.session.state.mode === 'idle') this.leaveDrawing();
@@ -195,7 +204,7 @@ export class GeometryEditor {
     if (JSON.stringify(next) === JSON.stringify(this.appearance)) return;
     this.appearance = next;
     this.renderer.setAppearance(next);
-    if (this.session.state.mode === 'rotate-features' || this.session.state.mode === 'scale-features') this.schedulePreview();
+    if (['rotate-features', 'scale-features', 'buffer-features', 'offset-lines'].includes(this.session.state.mode)) this.schedulePreview();
     this.emitChange();
   }
 
@@ -531,7 +540,7 @@ export class GeometryEditor {
   }
 
   setOffsetDistance(meters: number): boolean {
-    this.assertAlive();
+    this.assertAlive(); this.distance.stop();
     const changed = this.session.setOffsetDistance(meters);
     this.draftChanged(changed); return changed;
   }
@@ -539,7 +548,7 @@ export class GeometryEditor {
   getOffsetPreview(): GeometryFeatureCollection | null { return this.session.getOffsetPreview(); }
 
   finishOffset(): TransactionEvent | null {
-    this.assertAlive();
+    this.assertAlive(); this.distance.stop();
     if (this.session.state.mode !== 'offset-lines' || !this.session.state.canFinish) return null;
     const event = this.session.finishOffset();
     this.leaveDrawing();
@@ -555,7 +564,7 @@ export class GeometryEditor {
   }
 
   setBufferDistance(meters: number): boolean {
-    this.assertAlive();
+    this.assertAlive(); this.distance.stop();
     const changed = this.session.setBufferDistance(meters);
     this.draftChanged(changed); return changed;
   }
@@ -563,7 +572,7 @@ export class GeometryEditor {
   getBufferPreview(): GeometryFeatureCollection | null { return this.session.getBufferPreview(); }
 
   finishBuffer(): TransactionEvent | null {
-    this.assertAlive();
+    this.assertAlive(); this.distance.stop();
     if (this.session.state.mode !== 'buffer-features' || !this.session.state.canFinish) return null;
     const event = this.session.finishBuffer();
     this.leaveDrawing();
@@ -927,6 +936,7 @@ export class GeometryEditor {
   private readonly handleStyleLoad = (): void => {
     this.rotation.stop(true);
     this.scaling.stop(true);
+    this.distance.stop(true);
     this.cancelIdleGestures();
     this.vertices.stop(true);
     this.renderer.mount();
@@ -1055,12 +1065,14 @@ export class GeometryEditor {
         const preview = this.session.getOffsetPreview();
         this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
         this.renderer.renderTransform(preview);
+        this.distance.render(this.session.getSelection(), this.appearance);
         return;
       }
       if (this.session.state.mode === 'buffer-features') {
         const preview = this.session.getBufferPreview();
         this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
         this.renderer.renderTransform(preview);
+        this.distance.render(this.session.getSelection(), this.appearance);
         return;
       }
       if (this.session.state.mode === 'simplify-features') {
@@ -1117,6 +1129,7 @@ export class GeometryEditor {
   private leaveDrawing(): void {
     this.rotation.clear();
     this.scaling.clear();
+    this.distance.clear();
     this.traceAnchor = null; this.traceCache = null;
     this.reshapeSnapping.clear();
     this.pointer = undefined;
@@ -1145,6 +1158,7 @@ export class GeometryEditor {
     this.translation.destroy(removeResources);
     this.rotation.destroy(removeResources);
     this.scaling.destroy(removeResources);
+    this.distance.destroy(removeResources);
     this.vertices.destroy(removeResources);
     const wasDrawing = this.session.cancel();
     this.session.clearHistory();

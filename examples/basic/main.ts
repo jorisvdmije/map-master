@@ -51,6 +51,7 @@ const offsetSelected = element<HTMLButtonElement>('offset-selected');
 const offsetDistance = element<HTMLInputElement>('offset-distance');
 const bufferSelected = element<HTMLButtonElement>('buffer-selected');
 const bufferDistance = element<HTMLInputElement>('buffer-distance');
+const formatDistance = (value: number) => String(Number(value.toPrecision(6)));
 const simplifySelected = element<HTMLButtonElement>('simplify-selected');
 const simplificationTolerance = element<HTMLInputElement>('simplification-tolerance');
 const scaleSelected = element<HTMLButtonElement>('scale-selected');
@@ -193,11 +194,11 @@ map.on('load', () => {
     offsetSelected.disabled = selectedCount === 0 || drawing || activeEditor.getSelection().some(f => f.geometry.type !== 'LineString' && f.geometry.type !== 'MultiLineString');
     element('offset-tools').hidden = !offsetting;
     if (!offsetting) offsetDistance.setCustomValidity('');
-    if (document.activeElement !== offsetDistance) offsetDistance.value = String(state.offsetDistance ?? 0);
+    if (document.activeElement !== offsetDistance) offsetDistance.value = formatDistance(state.offsetDistance ?? 0);
     bufferSelected.disabled = selectedCount === 0 || drawing;
     element('buffer-tools').hidden = !buffering;
     if (!buffering) bufferDistance.setCustomValidity('');
-    if (document.activeElement !== bufferDistance) bufferDistance.value = String(state.bufferDistance ?? 10);
+    if (document.activeElement !== bufferDistance) bufferDistance.value = formatDistance(state.bufferDistance ?? 10);
     simplifySelected.disabled = selectedCount === 0 || drawing;
     element('simplification-tools').hidden = !simplifying;
     if (!simplifying) simplificationTolerance.setCustomValidity('');
@@ -316,14 +317,14 @@ map.on('load', () => {
         ? 'The offset leaves the supported map area. Reduce the distance or Cancel.'
         : state.offsetError === 'offset-join-too-sharp' ? 'A corner is too sharp for this miter join. Set 0 or Cancel and edit the line.'
         : state.offsetError ? 'The offset crosses or reverses itself, or is too small to represent. Change the distance or Cancel.'
-        : `Preview: ${state.offsetDistance} Mercator m (${(state.offsetDistance ?? 0) > 0 ? 'left' : (state.offsetDistance ?? 0) < 0 ? 'right' : 'original'}). Apply replaces the selected lines; Undo restores them.`;
+        : `Preview: ${formatDistance(state.offsetDistance!)} Mercator m (${(state.offsetDistance ?? 0) > 0 ? 'left' : (state.offsetDistance ?? 0) < 0 ? 'right' : 'original'}). Apply replaces the selected lines; Undo restores them.`;
     }
     if (buffering) {
       status.classList.toggle('is-invalid', state.bufferError !== null);
       status.textContent = state.bufferError === 'buffer-out-of-bounds'
         ? 'This buffer extends outside the supported Mercator map area. Reduce the distance or Cancel.'
         : state.bufferError ? 'The buffer could not produce valid geometry. Change the distance or Cancel.'
-        : `Preview: ${state.bufferDistance} Mercator m. Apply replaces each selected shape with its buffer; Undo restores it.`;
+        : `Preview: ${formatDistance(state.bufferDistance!)} Mercator m. Apply replaces each selected shape with its buffer; Undo restores it.`;
     }
     if (simplifying) {
       const preview = activeEditor.getSimplificationPreview();
@@ -388,7 +389,7 @@ map.on('load', () => {
         : preview?.geometry === null ? 'No target area remains. Apply subtraction deletes the target; cutting shapes are kept. Undo restores it.'
         : 'Remaining target area is orange; cutting shapes stay blue. Apply subtraction or Enter saves; Cancel keeps the original.';
     }
-    element('map-hint').textContent = offsetting ? 'Positive left · Negative right · Enter applies · Esc cancels' : buffering ? 'Set a distance · Review the zone · Enter applies · Esc cancels' : simplifying ? 'Set a tolerance · Review remaining vertices · Enter applies · Esc cancels' : scaling ? 'Corners: proportional · Sides: width or height · Release to review · Enter applies · Esc cancels' : rotating ? 'Drag ↻ to rotate · Shift: 15° · Release to review · Enter applies · Esc cancels' : shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
+    element('map-hint').textContent = offsetting ? 'Drag ↔ for distance · Positive left · Negative right · Release to review · Enter applies' : buffering ? 'Drag ↔ to widen the buffer · Release to review · Enter applies · Esc cancels' : simplifying ? 'Set a tolerance · Review remaining vertices · Enter applies · Esc cancels' : scaling ? 'Corners: proportional · Sides: width or height · Release to review · Enter applies · Esc cancels' : rotating ? 'Drag ↻ to rotate · Shift: 15° · Release to review · Enter applies · Esc cancels' : shared ? 'Edit the shared edge · Grey endpoints are fixed · Enter saves both · Esc cancels' : reshaping ? state.canFinish ? 'Review shape · Other boundary to switch · Enter to apply · Esc to cancel' : 'Start and end on the boundary · Backspace to correct · Esc to cancel' : intersecting ? 'Review common area · Enter to apply · Esc to cancel' : subtracting ? 'Review remaining area · Enter to apply · Esc to cancel' : merging ? 'Review merged area · Enter to apply · Esc to cancel' : splitting ? 'Draw across the polygon · Backspace to correct · Enter to apply · Esc to cancel' : editing ? 'Drag corners · Click small points to add · Enter to save'
       : drawing
       ? polygon ? 'Click to add corners · Click the first to close · Esc to cancel'
         : 'Click to add a point · Enter to finish · Esc to cancel'
@@ -494,7 +495,7 @@ offsetSelected.addEventListener('click', () => {
   if (!editor.offsetSelection()) {
     status.classList.add('is-invalid');
     status.textContent = 'Select only simple open lines within the Mercator map area, without date-line crossings or a span over 180°.';
-  } else offsetDistance.focus();
+  } else { element('offset-tools').scrollIntoView({ block: 'nearest' }); }
 });
 offsetDistance.addEventListener('input', () => {
   const distance = offsetDistance.valueAsNumber;
@@ -506,7 +507,7 @@ offsetDistance.addEventListener('input', () => {
 offsetDistance.addEventListener('blur', () => {
   // A cleared/incomplete number is only a text-entry draft. Restore the last preview distance on exit.
   offsetDistance.setCustomValidity('');
-  offsetDistance.value = String(editor?.getState().offsetDistance ?? 0);
+  offsetDistance.value = formatDistance(editor?.getState().offsetDistance ?? 0);
   finish.disabled = !editor?.getState().canFinish;
 });
 bufferSelected.addEventListener('click', () => {
@@ -514,7 +515,7 @@ bufferSelected.addEventListener('click', () => {
   if (!editor.bufferSelection()) {
     status.classList.add('is-invalid');
     status.textContent = 'Select shapes within the Mercator map area, without date-line crossings or a span over 180°.';
-  } else bufferDistance.focus();
+  } else { element('buffer-tools').scrollIntoView({ block: 'nearest' }); }
 });
 bufferDistance.addEventListener('input', () => {
   const distance = bufferDistance.valueAsNumber;
@@ -526,7 +527,7 @@ bufferDistance.addEventListener('input', () => {
 bufferDistance.addEventListener('blur', () => {
   // A cleared/incomplete number is only a text-entry draft. Restore the last preview distance on exit.
   bufferDistance.setCustomValidity('');
-  bufferDistance.value = String(editor?.getState().bufferDistance ?? 10);
+  bufferDistance.value = formatDistance(editor?.getState().bufferDistance ?? 10);
   finish.disabled = !editor?.getState().canFinish;
 });
 simplifySelected.addEventListener('click', () => {

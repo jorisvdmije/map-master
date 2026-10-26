@@ -1,6 +1,6 @@
 # Buffer selected geometry
 
-Select lines or polygons and choose **Buffer selection**. Set **Buffer distance
+Select lines or polygons and choose **Buffer selection**. Drag **↔** or set **Buffer distance
 (Mercator meters)** to a positive number; the initial distance is 10. **Apply
 buffer** replaces each selected feature with its buffered Polygon or MultiPolygon.
 IDs, JSON properties, selection and collection order remain stable. A line becomes
@@ -12,6 +12,42 @@ focus. Text input retains ordinary keyboard behavior. Empty, zero, negative and
 incomplete input disables Apply; leaving the field restores the accepted distance.
 The [example fixture](../examples/basic/public/buffer.geojson) contains a parcel and
 a route for trying the tool. Import it in the demo and select either or both.
+
+## Dragging the distance
+
+The **↔ distance handle** adjusts the same value as numeric input. A solid ruler
+measures from the original geometry to the requested result; a faint outline
+keeps the originals visible. The label shows **Mercator meters**, not ground
+meters. A dashed 36 CSS-pixel extension connects the result marker to the
+44-pixel handle, so tiny distances remain easy to grab. The extension is not part
+of the measured distance. North/south movement in the Mercator plane does not
+change distance; east/west movement adjusts it.
+
+The reference is the eastmost original vertex across the selection, pointing
+eastward. It stays fixed for the session and lies on the outer envelope, including
+for multipart selections. All selected features receive the same buffer distance.
+
+Release to review, then Apply/Enter to save the whole selection in one Undo step.
+Escape during a drag restores its starting distance; Escape again cancels the
+session. Enter during a drag is ignored. Captured mouse input continues outside
+the canvas. Blur, capture loss, pointer cancellation and camera/style changes
+roll back only the active drag. Camera gesture settings are restored afterwards.
+Numeric/API distance changes stop an active drag, so a late release cannot
+replace the new value.
+
+Tab to the handle and use Up/Right to add 1 meter or Down/Left to subtract 1 meter.
+Shift uses 10-meter steps. Enter applies and Escape cancels when the handle is
+focused. Mouse dragging is supported; touch/pen dragging is not yet supported.
+
+Buffer remains strictly positive. Moving past the source keeps the last positive
+distance; it never silently switches to an inward buffer. Keyboard steps that
+would reach zero or below leave the distance unchanged.
+
+Invalid results use a red ruler/handle and cannot be applied. The guide represents
+the requested distance, even when there is no valid preview. Adjust the distance
+to recover. If the guide lies outside the viewport or cannot be projected, pan,
+zoom or use numeric input. Snapping does not change the distance. Calculations
+and the ruler use the same Mercator plane at every zoom, bearing and pitch.
 
 ## Units and geometry policy
 
