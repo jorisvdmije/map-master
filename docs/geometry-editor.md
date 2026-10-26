@@ -106,6 +106,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `getSelected()` | Independent snapshot only for exactly one selected feature; otherwise `null`. |
 | `selectMany(ids)` | Replace the whole selection atomically, deduplicating typed IDs. |
 | `toggleSelection(id)` | Add/remove one existing feature from the selection. |
+| `queryFeatures({ x, y })` | Independent committed snapshots at a canvas-relative CSS-pixel point, in picking order. Idle only; no selection/data/history changes. |
 | `getSelection()` | Independent snapshots of all selected features in acquisition order. |
 | `editSelected(ringIndex = 0, partIndex = 0)` | Begin editing one component/ring of the selected feature; ring 0 is the exterior for polygons. |
 | `selectVertices(indices)` | Select unique corners in acquisition order within the active edit draft. Empty array clears selection. |
@@ -361,8 +362,52 @@ selection when the canvas is focused. No separate selection mode is needed.
 For click picking, outlines have a query box extending 6 CSS pixels on each side
 of the pointer, independent of zoom. Outline hits take priority over polygon
 interiors; among hits in the same layer, the topmost rendered feature wins.
-Overlapping objects are not cycled by repeated clicks. Host layers and drafts are
+Overlapping objects are not cycled by repeated clicks. Use `queryFeatures()` to
+build a chooser; the playground provides a **shapes here** list. Host layers and drafts are
 excluded. Ctrl/Meta/Alt-modified clicks are ignored; dragging a selected shape moves the selection; dragging elsewhere pans.
+
+### Choosing overlapping shapes
+
+The playground shows a compact map toolbar for an idle selection: **Edit**, **Copy**,
+**Delete**, **More tools**, and **Clear selection**. More tools focuses the existing
+sidebar tools. Availability follows the same geometry and lock restrictions as
+those tools. Copy/delete retain their normal transaction and Undo behavior.
+The toolbar disappears during editing/drawing and when nothing is selected.
+Tab enters the toolbar; Left/Right and Home/End move between enabled actions.
+Escape closes an open overlap list first; otherwise it clears the selection.
+Holding Shift with the map focused temporarily hides the toolbar, leaving the
+whole canvas available for additive click/rectangle selection. Release or window
+blur restores it. Shift+Tab within the toolbar retains normal keyboard navigation.
+
+Click an overlap and open **N shapes here**. Choose a named row to select only that
+shape, or use its checkbox to add/remove it from the selection. Rows show geometry
+type, typed ID (so `7` and `"7"` differ), and lock status. Locked shapes remain
+selectable and copyable. A deliberately selected underlying shape can be dragged
+through the overlap; the first selected hit in picking order anchors the drag.
+An unmoved ordinary click still chooses the topmost hit.
+
+The chooser closes on camera movement, resize, style reload, data changes or a tool
+change. It is demo UI: host applications can build their own presentation with:
+
+```ts
+map.on('click', event => {
+  const candidates = editor.queryFeatures(event.point);
+  // Show your own chooser. On activation, call select(id) or toggleSelection(id).
+  // Each candidate contains its original typed ID, geometry and properties.
+});
+```
+
+`queryFeatures()` reads this editor's rendered layers only. Markers/outlines within
+6 CSS pixels come first, then exact polygon-interior hits, preserving MapLibre
+order within each group. Duplicate tile/fill/outline/world-copy hits collapse by
+typed ID. Holes are not filled hits. Deleted IDs, drafts and host layers are excluded;
+geometry/properties are fresh snapshots of committed data, not rendered fragments.
+It does not emit events, change selection or write history. Invalid/nonfinite
+points throw `TypeError`; points outside the canvas return `[]`. Active tool or
+translation gestures return `[]`; calling after destroy throws. Source updates are
+asynchronous, so newly imported/updated shapes may not be pickable until rendered.
+There is no stable ordering guarantee across style/camera/data changes. Query on
+click rather than pointermove; cost scales with the returned overlap count.
 
 ### Rectangle selection
 

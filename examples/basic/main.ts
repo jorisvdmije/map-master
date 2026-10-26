@@ -5,6 +5,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
 import { bindAppearanceControl } from '../workspace/appearance.js';
 import { SimplificationControls } from './simplification-controls.js';
+import { SelectionControls } from './selection-controls.js';
 
 let removeAppearanceControl = () => {};
 
@@ -166,7 +167,13 @@ map.on('load', () => {
   const activeEditor = editor;
   removeAppearanceControl = bindAppearanceControl(activeEditor, element<HTMLSelectElement>('appearance'));
   const simplificationControls = new SimplificationControls(activeEditor, element('simplification-tools'), valid => { finish.disabled = !valid; });
-  map.once('remove', () => { simplificationControls.destroy(); });
+  const selectionControls = new SelectionControls(activeEditor, map, element('selection-controls'), {
+    edit: editSelected, copy: duplicateSelected, delete: deleteSelected, clear: deselect,
+  }, () => {
+    selection.scrollIntoView({ block: 'start' });
+    selection.querySelector<HTMLButtonElement>('button:not(:disabled):not([hidden])')?.focus({ preventScroll: true });
+  });
+  map.once('remove', () => { simplificationControls.destroy(); selectionControls.destroy(); });
   let exportedRevision = -1;
   partIndex.addEventListener('change', () => { update(); });
   let ringSelectionPart = 0;
@@ -421,6 +428,7 @@ map.on('load', () => {
       : selectedCount > 0 ? 'Drag selection to move · Release to save · Esc to cancel · Shift+click to toggle'
         : state.featureCount > 0 ? 'Click to select · Shift+drag to select several shapes' : 'Your next idea, on the map.';
     simplificationControls.update();
+    selectionControls.update();
     element('mode-dot').classList.toggle('drawing', drawing);
     element('mode-dot').classList.toggle('selected', selectedCount > 0);
     if (exportedRevision !== state.dataRevision) {

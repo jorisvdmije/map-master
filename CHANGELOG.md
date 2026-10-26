@@ -8,6 +8,11 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 
 ### Added
 
+- Compact playground selection toolbar and accessible overlap chooser, including
+  group checkboxes and lock status. `GeometryEditor.queryFeatures()` exposes
+  independent rendered candidates; selected underlying shapes can be dragged
+  through overlaps with the existing cancellation and Undo behavior.
+
 - Split/reshape boundary-contact markers, localized problem points and dashed
   problem segments, original-outline comparison and a demo legend. The additive
   `getCutFeedback()` API returns independent diagnostic snapshots for host UIs.

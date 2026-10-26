@@ -655,6 +655,11 @@ export class DrawingSession {
     return feature ? copyFeature(feature) : null;
   }
 
+  getFeature(id: FeatureId): GeometryFeature | null {
+    const feature = this.features.get(id);
+    return feature ? copyFeature(feature) : null;
+  }
+
   hasFeature(id: FeatureId): boolean {
     return this.features.has(id);
   }

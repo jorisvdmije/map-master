@@ -278,6 +278,25 @@ export class MapLibreRenderer {
     return typeof id === 'string' || typeof id === 'number' ? id : null;
   }
 
+  /** Every hit at a point: markers/outlines first, then interiors, in rendered order. */
+  pickAll({ x, y }: { x: number; y: number }): FeatureId[] {
+    const fillId = this.layers[0]!.id;
+    if (!this.map.getLayer(this.featuresId) || !this.map.getLayer(fillId)) return [];
+    const hits = [
+      ...this.map.queryRenderedFeatures([[x - 6, y - 6], [x + 6, y + 6]], {
+        layers: [`${this.namespace}-markers`, this.featuresId],
+      }),
+      ...this.map.queryRenderedFeatures([x, y], { layers: [fillId] }),
+    ];
+    const ids = new Set<FeatureId>();
+    for (const hit of hits) {
+      if (typeof hit.id !== 'string') continue;
+      const id: unknown = JSON.parse(hit.id);
+      if ((typeof id === 'string' || typeof id === 'number') && !this.transfer?.ids.has(id)) ids.add(id);
+    }
+    return [...ids];
+  }
+
   /** All rendered editor features intersecting the screen rectangle, deduplicated. */
   pickBox(a: { x: number; y: number }, b: { x: number; y: number }): FeatureId[] {
     const fillId = this.layers[0]!.id;

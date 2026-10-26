@@ -159,7 +159,7 @@
         <section id="drawing-instructions" class="instructions" aria-label="Instructions">
           <h2>MAKE YOUR MARK</h2>
           <ol><li><span>1</span>Click the map to place points.</li><li><span>2</span>Move your mouse to preview the shape.</li><li><span>3</span><span class="instruction-text" id="finish-instruction">Press Enter to save your line.</span></li></ol>
-          <p>Drag a selected shape to move the group. Drag elsewhere to pan. Scroll to zoom.<br />Shift+click toggles a shape. Shift+drag adds intersecting shapes.<br />Delete removes the selection. Escape cancels or deselects.</p>
+          <p>Drag a selected shape to move the group. Drag elsewhere to pan. Scroll to zoom.<br />Shift+click toggles a shape. Shift+drag adds intersecting shapes.<br />Click an overlap, then use “shapes here” to choose a shape below.<br />Delete removes the selection. Escape cancels or deselects.</p>
         </section>
         <section class="data-section" aria-label="Drawing data">
           <div class="section-heading"><h2>YOUR GEOMETRY</h2><span id="feature-count" class="count">0 features</span></div>
@@ -182,6 +182,21 @@
       <section class="map-panel" aria-label="Interactive map">
         <div id="map"></div>
         <div class="location-label"><span class="location-cross" aria-hidden="true">⌖</span><div><strong>Amsterdam</strong><span>THE NETHERLANDS</span></div></div>
+        <section id="selection-controls" class="selection-controls" aria-label="Selection controls" hidden>
+          <div class="selection-toolbar" role="toolbar" aria-label="Selection actions">
+            <strong data-selection-summary aria-live="polite"></strong>
+            <button type="button" data-action="edit" title="Edit the selected shape">Edit</button>
+            <button type="button" data-action="copy" title="Duplicate the selection">Copy</button>
+            <button type="button" data-action="delete" class="selection-delete" title="Delete the selection">Delete</button>
+            <button type="button" data-action="more" title="Open all selection tools">More tools</button>
+            <button type="button" data-action="clear" aria-label="Clear selection" title="Clear selection">×</button>
+          </div>
+          <details class="overlap-choices" hidden>
+            <summary></summary>
+            <p>Choose a shape, or use the checkboxes to build a selection.</p>
+            <div data-overlap-list role="group" aria-label="Shapes at this location"></div>
+          </details>
+        </section>
         <div class="map-hint"><span id="mode-dot" class="dot"></span><span id="map-hint">Your next idea, on the map.</span></div>
         <div class="map-caption">52.372° N &nbsp; 4.895° E</div>
       </section>

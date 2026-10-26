@@ -113,8 +113,10 @@ export class GeometryEditor {
       targets: (point) => {
         const state = this.session.state;
         if (this.destroyed || this.renderer.transferringTranslation || state.mode !== 'idle' || state.selectedFeatureIds.length === 0 || state.selectedFeatureIds.some((id) => this.session.isFeatureLocked(id))) return null;
-        const id = this.renderer.pick(point);
-        if (id === null || !state.selectedFeatureIds.includes(id)) return null;
+        // A deliberately chosen underlying shape must remain draggable through
+        // the overlap. Selection order is unchanged; only the grab target changes.
+        const id = this.renderer.pickAll(point).find(id => state.selectedFeatureIds.includes(id));
+        if (id === undefined) return null;
         const features = this.session.getSelection();
         return { features, grabbed: features.find(feature => feature.id === id)! };
       },
@@ -354,6 +356,21 @@ export class GeometryEditor {
   /** An independent snapshot when exactly one feature is selected, otherwise null. */
   getSelected(): GeometryFeature | null {
     return this.session.getSelected();
+  }
+
+  /** Independent committed snapshots at a canvas-relative CSS-pixel point.
+   * Rendered marker/outline hits precede polygon interiors. Idle only; querying
+   * never changes selection, data or history. Stale/deleted hits are excluded.
+   */
+  queryFeatures(point: { x: number; y: number }): GeometryFeature[] {
+    this.assertAlive();
+    if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) throw new TypeError('Expected a finite screen point.');
+    if (this.session.state.mode !== 'idle' || this.translation.active
+      || point.x < 0 || point.y < 0 || point.x > this.canvas.clientWidth || point.y > this.canvas.clientHeight) return [];
+    return this.renderer.pickAll(point).flatMap(id => {
+      const feature = this.session.getFeature(id);
+      return feature ? [feature] : [];
+    });
   }
 
   getDraft(): Coordinate[] { return this.session.getDraft(); }

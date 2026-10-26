@@ -44,6 +44,7 @@
     "benchmark:duplication": "npm run build && node scripts/benchmark-duplication.mjs",
     "benchmark:translation-snapping": "npm run build && node scripts/benchmark-translation-snapping.mjs",
     "benchmark:translation": "npm run build && node scripts/benchmark-translation.mjs",
+    "benchmark:selection-picking": "node scripts/benchmark-selection-picking.mjs",
     "benchmark:selection": "npm run build && node scripts/benchmark-selection.mjs",
     "benchmark:deletion": "npm run build && node scripts/benchmark-deletion.mjs",
     "benchmark:editing": "npm run build && node scripts/benchmark-editing.mjs",

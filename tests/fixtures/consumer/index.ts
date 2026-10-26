@@ -71,6 +71,8 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   tool.draw('Circle');
   tool.cancel();
   tool.select(null);
+  const hits: editor.GeometryFeature[] = tool.queryFeatures({ x: 100, y: 100 });
+  void hits;
   const sharedEditing: boolean = tool.editSharedBoundary();
   const sharedPreview: editor.SharedBoundaryPreview | null = tool.getSharedBoundaryPreview();
   const sharedError: editor.SharedBoundaryError | null = tool.getState().sharedBoundaryError;

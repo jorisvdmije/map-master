@@ -72,6 +72,9 @@ discard the current draft. Choose **Polygon** for an outline with at least three
 corners; Enter, Finish, or clicking the first corner closes a valid ring.
 For multipart examples, download the sample in the data panel and import it. Select a feature and use **Part to edit** to choose a component.
 Select a polygon and choose **Draw a hole** to create an interior ring; choose a ring to edit or delete it.
+The map selection toolbar offers **Edit**, **Copy**, **Delete**, and **More tools**.
+Click an overlap and open **shapes here** to choose an underlying shape; checkboxes
+build a group. See [overlap selection](docs/geometry-editor.md#choosing-overlapping-shapes).
 Choose **Duplicate** to copy the selection with a small offset; the copies become selected.
 Drag any selected shape to move the selection together; release saves, Escape cancels, and Undo restores the whole group.
 **Export GeoJSON** downloads committed markers, lines and polygons.

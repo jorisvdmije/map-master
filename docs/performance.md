@@ -5,6 +5,33 @@ in [Beta budgets](beta-budgets.md). The dated core microbenchmarks below remain
 historical observations; their lack of thresholds does not describe the new
 browser regression checks.
 
+## Overlap candidate queries
+
+Run `npm run benchmark:selection-picking` for an isolated Chromium/Vite workload
+with a local style, an 800×600 canvas, zoom 13, fixed four-corner polygons and
+small name properties. It waits for rendered hits, then measures
+`GeometryEditor.queryFeatures()` (both rendered queries, typed-ID deduplication,
+and independent committed snapshots). Each case has 10 warmup batches and 50
+samples of 10 calls. Fixtures/import/rendering are outside the timed interval.
+Only the specified overlap count lies at the query point; other polygons are offscreen.
+
+Local baseline on 2026-10-26: Apple M2 Pro, macOS arm64, Node 22.23.1,
+Chromium 156.0.8078.4 with software WebGL:
+
+| Stored shapes | Shapes at pointer | Median query (ms) | p95 query (ms) |
+| ---: | ---: | ---: | ---: |
+| 10 | 10 | 0.060 | 0.090 |
+| 1,000 | 10 | 0.050 | 0.060 |
+| 10,000 | 10 | 0.050 | 0.070 |
+| 1,000 | 1,000 | 3.140 | 3.230 |
+
+These are local observations, not release gates or end-to-end input latency.
+The query copies only returned features; geometry complexity and properties affect
+snapshot cost. MapLibre hit testing depends on visible geometry. The chooser runs
+queries on clicks, never pointermove, and clears candidates when the camera/data
+changes. The table excludes DOM creation for the list and source upload latency.
+Use the installed-workspace budgets below for broader regressions.
+
 ## Appearance updates
 
 Appearance changes upload no GeoJSON and rebuild no spatial indexes. Browser tests
