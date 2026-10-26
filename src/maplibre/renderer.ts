@@ -277,8 +277,9 @@ export class MapLibreRenderer {
     const polygon = state.mode === 'draw-polygon' || state.mode === 'edit-polygon' || state.mode === 'draw-hole';
     const handles = editing ? vertexHandles(this.map, coordinates, polygon)
       : coordinates.map((coordinate, index) => ({ kind: 'vertex' as const, index, coordinate }));
+    const selectedVertices = new Set(state.selectedVertexIndices);
     const features: PreviewFeature[] = handles.map((handle) => ({
-      type: 'Feature', properties: { kind: handle.kind, active: editing && handle.kind === 'vertex' && handle.index === state.selectedVertexIndex,
+      type: 'Feature', properties: { kind: handle.kind, active: editing && handle.kind === 'vertex' && selectedVertices.has(handle.index),
         locked: state.mode === 'edit-shared-boundary' && handle.kind === 'vertex' && (handle.index === 0 || handle.index === coordinates.length - 1) },
       geometry: { type: 'Point', coordinates: handle.coordinate },
     }));

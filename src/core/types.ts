@@ -184,6 +184,9 @@ export interface HistoryEvent {
   changes: FeatureChange[];
 }
 
+/** An absolute coordinate update in the active open edit draft. */
+export interface VertexUpdate { index: number; coordinate: Coordinate; }
+
 export interface EditorState {
   mode: 'idle' | 'draw-point' | 'edit-point' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon' | 'edit-shared-boundary' | 'rotate-features' | 'scale-features' | 'simplify-features' | 'buffer-features' | 'offset-lines';
   vertexCount: number;
@@ -192,8 +195,10 @@ export interface EditorState {
   selectedFeatureId: FeatureId | null;
   /** UI selection in acquisition order; never serialized into GeoJSON or history. */
   selectedFeatureIds: FeatureId[];
-  /** Zero-based index in the open editing draft, without a polygon's closing copy. */
+  /** Last selected index in the open editing draft, or null; no polygon closing copy. */
   selectedVertexIndex: number | null;
+  /** Selected indices in acquisition order, scoped to the active component/ring. */
+  selectedVertexIndices: number[];
   /** Active polygon ring while editing/drawing a hole; otherwise null. */
   activeRingIndex: number | null;
   /** Component being edited (0 for simple geometries); null outside editing/hole drawing. */

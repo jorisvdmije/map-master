@@ -134,6 +134,12 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   tool.editSelected();
   const draft: editor.Coordinate[] = tool.getDraft();
   tool.selectVertex(0);
+  tool.selectVertices([0, 1]);
+  const indices: number[] = tool.getState().selectedVertexIndices;
+  const moves: editor.VertexUpdate[] = [{ index: 0, coordinate: [4.9, 52.3] }, { index: 1, coordinate: [4.91, 52.3] }];
+  tool.moveVertices(moves); tool.translateSelectedVertices([0.001, 0]);
+  const removedGroup: boolean = tool.removeSelectedVertices();
+  void [indices, removedGroup];
   tool.moveVertex(0, [4.9, 52.3]);
   tool.insertVertex(1, [4.91, 52.31]);
   const removedVertex: boolean = tool.removeVertex(1);

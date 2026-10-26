@@ -3,7 +3,7 @@ import { constrainDrawingPoint, drawingConstraintsOptions } from '../core/drawin
 import { copyAppearance, resolveAppearance, type EditorAppearance, type EditorAppearanceOptions } from '../core/appearance.js';
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { DrawingSession } from '../core/drawing-session.js';
-import type { Coordinate, DrawingConstraintsOptions, SharedBoundaryPreview, TraceTarget, TraceSide, TracingOptions, ReshapePreview, ReshapeSide, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
+import type { Coordinate, VertexUpdate, DrawingConstraintsOptions, SharedBoundaryPreview, TraceTarget, TraceSide, TracingOptions, ReshapePreview, ReshapeSide, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
 import { ReshapeSnapping } from './reshape-snapping.js';
 import { MapLibreSnapping } from './snapping.js';
@@ -74,8 +74,8 @@ export class GeometryEditor {
     this.renderer.mount();
     this.vertices = new VertexInteraction(map, {
       state: () => this.session.state, draft: () => this.session.getDraft(),
-      select: (index) => { this.draftChanged(this.session.selectVertex(index)); },
-      move: (index, coordinate) => { this.draftChanged(this.session.moveVertex(index, coordinate)); },
+      select: (indices) => { this.draftChanged(this.session.selectVertices(indices)); },
+      move: (updates) => { this.draftChanged(this.session.moveVertices(updates)); },
       insert: (index, coordinate) => { this.draftChanged(this.session.insertVertex(index, coordinate)); },
       remove: (index) => { this.draftChanged(this.session.removeVertex(index)); },
       resolve: (point, altKey) => {
@@ -175,7 +175,7 @@ export class GeometryEditor {
       removeLastDrawStep: () => { this.removeLastDrawStep(); },
       removeSplitPoint: () => { this.removeSplitPoint(); },
       removeReshapePoint: () => { this.removeReshapePoint(); },
-      removeVertex: (index) => { this.removeVertex(index); },
+      removeSelectedVertices: () => { this.removeSelectedVertices(); },
       finish: () => { this.finish(); },
       cancel: () => { this.cancel(); },
     });
@@ -665,6 +665,26 @@ export class GeometryEditor {
     this.draftChanged(this.session.selectVertex(index));
   }
 
+  selectVertices(indices: readonly number[]): void {
+    this.assertAlive(); this.vertices.stop();
+    this.draftChanged(this.session.selectVertices(indices));
+  }
+
+  moveVertices(updates: readonly VertexUpdate[]): void {
+    this.assertAlive(); this.vertices.stop();
+    this.draftChanged(this.session.moveVertices(updates));
+  }
+
+  translateSelectedVertices(delta: Coordinate): void {
+    this.assertAlive(); this.vertices.stop();
+    this.draftChanged(this.session.translateSelectedVertices(delta));
+  }
+
+  removeSelectedVertices(): boolean {
+    this.assertAlive(); this.vertices.stop();
+    const changed = this.session.removeSelectedVertices(); this.draftChanged(changed); return changed;
+  }
+
   moveVertex(index: number, coordinate: Coordinate): void {
     this.assertAlive(); this.vertices.stop();
     this.draftChanged(this.session.moveVertex(index, coordinate));
@@ -985,7 +1005,7 @@ export class GeometryEditor {
     this.cancelIdleGestures();
     this.snapping.invalidateCamera();
     this.reshapeSnapping.invalidateCamera();
-    this.vertices.refresh();
+    this.vertices.cameraChanged();
     this.pivot.refresh();
     if (this.session.state.mode !== 'idle') this.schedulePreview();
   };

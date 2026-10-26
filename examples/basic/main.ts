@@ -283,14 +283,15 @@ map.on('load', () => {
     element('editing-tools').hidden = !editing;
     element('finish-label').textContent = offsetting ? 'Apply offset' : buffering ? 'Apply buffer' : simplifying ? 'Apply simplification' : scaling ? 'Apply scale' : rotating ? 'Apply rotation' : shared ? 'Save both polygons' : reshaping ? 'Apply reshape' : intersecting ? 'Apply intersection' : subtracting ? 'Apply subtraction' : merging ? 'Apply merge' : splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
     element('drawing-instructions').hidden = offsetting || buffering || simplifying || scaling || rotating || editing || reshaping || splitting || merging || subtracting || intersecting || state.mode === 'draw-hole';
-    removeVertex.disabled = !editing || state.selectedVertexIndex === null
-      || state.vertexCount <= (state.mode === 'edit-polygon' ? 3 : 2)
-      || shared && (state.selectedVertexIndex === 0 || state.selectedVertexIndex === state.vertexCount - 1);
+    removeVertex.disabled = !editing || state.selectedVertexIndices.length === 0
+      || state.vertexCount - state.selectedVertexIndices.length < (state.mode === 'edit-polygon' ? 3 : 2)
+      || shared && state.selectedVertexIndices.some(index => index === 0 || index === state.vertexCount - 1);
+    removeVertex.textContent = state.selectedVertexIndices.length > 1 ? 'Remove selected vertices' : 'Remove vertex';
     element('editing-help').textContent = shared
-      ? 'Edit the common edge. Small points add a corner; large white points can be dragged. Grey endpoints stay fixed. Both polygons change together.'
-      : 'Drag a large point to move a corner. Click a small point between corners to add one.';
+      ? 'Shift+click selects several corners; drag a selected corner to move them together. Drag an edge between handles to move both ends. Small points add a corner. Grey endpoints stay fixed. Both polygons change together.'
+      : 'Shift+click selects several corners; drag a selected corner to move them together. Drag an edge between handles to move both ends. Small points add a corner. Escape during dragging restores that drag; Save applies all edits.';
     element('vertex-status').textContent = state.selectedVertexIndex === null
-      ? 'Click a corner to select it.' : `Corner ${state.selectedVertexIndex + 1} of ${state.vertexCount} selected.`;
+      ? 'Click a corner to select it.' : state.selectedVertexIndices.length > 1 ? `${state.selectedVertexIndices.length} of ${state.vertexCount} corners selected.` : `Corner ${state.selectedVertexIndex + 1} of ${state.vertexCount} selected.`;
     if (selectedFeature) {
       element('selection-type').textContent = selectedFeature.geometry.type;
       const count = editing ? state.vertexCount : part?.type === 'Polygon'
@@ -628,8 +629,7 @@ deleteHole.addEventListener('click', () => {
 });
 ringIndex.addEventListener('change', () => { deleteHole.disabled = Number(ringIndex.value) < 1 || editor?.getState().mode !== 'idle' || editor.getState().selectedFeatureIds.some((id) => editor!.isFeatureLocked(id)); });
 removeVertex.addEventListener('click', () => {
-  const index = editor?.getState().selectedVertexIndex;
-  if (index !== undefined && index !== null) editor?.removeVertex(index);
+  editor?.removeSelectedVertices();
 });
 lockSelected.addEventListener('click', () => {
   if (!editor) return;

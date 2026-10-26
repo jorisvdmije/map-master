@@ -9,7 +9,7 @@ interface KeyboardActions {
   removeLastDrawStep(): void;
   removeSplitPoint(): void;
   removeReshapePoint(): void;
-  removeVertex(index: number): void;
+  removeSelectedVertices(): void;
   finish(): void;
   cancel(): void;
 }
@@ -59,8 +59,7 @@ export class KeyboardInteraction {
       event.preventDefault(); this.actions.removeSplitPoint(); return;
     }
     if (state.mode.startsWith('edit-') && (event.key === 'Delete' || event.key === 'Backspace')) {
-      const index = state.selectedVertexIndex;
-      if (index !== null) { event.preventDefault(); this.actions.removeVertex(index); }
+      if (state.selectedVertexIndices.length) { event.preventDefault(); this.actions.removeSelectedVertices(); }
       return;
     }
     if (event.key === 'Enter' || event.key === 'Escape') {

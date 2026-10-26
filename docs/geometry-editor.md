@@ -56,7 +56,7 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `removeLastDrawStep()` | Remove one drawing click, including a complete traced section. |
 | `getDrawingConstraints()` | Independent options snapshot: enabled and angleStep (45 or 90). |
 | `setDrawingConstraints(options)` | Update the opt-in direction grid for free drawing placement; exact snaps, tracing and closure take priority. |
-| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`, `differenceError`, `intersectionError`, `reshapeError`, `reshapeSide`, `sharedBoundaryError`, `rotationAngle`, `rotationPivot`, `rotationError`, `scaleFactor`, `scaleFactorX`, `scaleFactorY`, `scalePivot`, `scaleError`, `simplificationTolerance`, `simplificationError`, `bufferDistance`, `bufferError`, `offsetDistance`, `offsetError`. |
+| `getState()` | Snapshot: `mode`, `vertexCount`, `featureCount`, `selectedFeatureId`, `selectedFeatureIds`, `selectedVertexIndex`, `selectedVertexIndices`, `activeRingIndex`, `activePartIndex`, `dataRevision`, `canFinish`, `canUndo`, `canRedo`, `validationError`, `splitError`, `unionError`, `differenceError`, `intersectionError`, `reshapeError`, `reshapeSide`, `sharedBoundaryError`, `rotationAngle`, `rotationPivot`, `rotationError`, `scaleFactor`, `scaleFactorX`, `scaleFactorY`, `scalePivot`, `scaleError`, `simplificationTolerance`, `simplificationError`, `bufferDistance`, `bufferError`, `offsetDistance`, `offsetError`. |
 | `offsetSelection()` | Begin a signed Mercator offset of simple open lines at distance zero. |
 | `setOffsetDistance(meters)` | Set a finite signed distance from frozen originals; positive left, negative right. |
 | `getOffsetPreview()` | Independent validated line collection; null when inactive/invalid. |
@@ -108,6 +108,10 @@ The package is private and unpublished; use `npm pack` for an installable archiv
 | `toggleSelection(id)` | Add/remove one existing feature from the selection. |
 | `getSelection()` | Independent snapshots of all selected features in acquisition order. |
 | `editSelected(ringIndex = 0, partIndex = 0)` | Begin editing one component/ring of the selected feature; ring 0 is the exterior for polygons. |
+| `selectVertices(indices)` | Select unique corners in acquisition order within the active edit draft. Empty array clears selection. |
+| `moveVertices(updates)` | Atomically apply absolute `{ index, coordinate }` updates and select those indices. Coordinates are copied; duplicate indices are rejected. |
+| `translateSelectedVertices([deltaLng, deltaLat])` | Move selected draft corners by the same degree offset. No snapping; save with `finish()`. |
+| `removeSelectedVertices()` | Remove the entire corner selection, or return false if minimum counts/fixed junctions would be violated. |
 | `drawHole(partIndex = 0)` | Start a cancellable hole in the chosen polygon component; Finish saves one edit. |
 | `deleteHole(ringIndex, partIndex = 0)` | Delete an interior ring (index >= 1) as one transaction; idle only. |
 | `duplicateSelection(delta?)` | Create and select copies with new IDs as one transaction; optional offset in degrees, default `[0, 0]`. Returns `TransactionEvent` or null. Idle only. |
@@ -172,7 +176,7 @@ a hole. These examples address component 0; see [multipart](multipart.md) for ot
 entering editing. For a line only index 0 is supported. Ring indices follow the
 current coordinate array; they are not stable identities after ring deletion.
 Only one ring is edited per session. `getDraft()`, `vertexCount`, and
-`selectedVertexIndex` describe that ring; `activeRingIndex` identifies it while
+`selectedVertexIndex` and `selectedVertexIndices` describe that ring; `activeRingIndex` identifies it while
 editing a polygon or drawing a hole and is null otherwise. Hole drawing introduces
 `mode: 'draw-hole'`; consumers with exhaustive mode switches should handle it.
 
@@ -516,10 +520,51 @@ coordinates throw without changing the draft. Vertex commands require editing.
 polygon corners; otherwise it removes the corner and clears vertex selection.
 
 Drag a large handle to move a corner, or click/drag a small midpoint to insert
-one. Delete/Backspace removes the selected corner only while the map has focus.
-Enter/Save commits; Escape/Cancel discards. Invalid intermediate shapes stay
+one. **Shift+click** toggles a corner in `selectedVertexIndices`. A plain press on
+an already-selected corner preserves the group; a press on an unselected corner
+selects only that corner. Empty space clears corner selection. All selected
+handles use the active vertex appearance. `selectedVertexIndex` remains the last
+selected index, or null, for compatibility. Inserting selects only the new corner;
+removing corners clears the selection so stale indices cannot refer to other points.
+
+Drag any selected corner to move the group by one common longitude/latitude
+offset from a frozen gesture baseline. Other corners stay fixed. To **move an
+edge**, drag its segment within 6 CSS pixels, away from the endpoint and midpoint
+handles: its two endpoints become the selection, including a polygon's closing
+edge. Their other incident edges remain connected. Handles take priority so
+midpoint insertion remains available. Edge movement is a degree translation, not
+a perpendicular offset tool or a screen-parallel constraint. All operations are
+scoped to one active component/ring; they do not link separate features.
+
+Delete/Backspace and the demo's Remove control remove the entire corner selection
+only while editing. If fewer than two line points or three polygon corners would
+remain, nothing is removed. Shared-boundary junctions cannot be moved or removed;
+a group containing a fixed junction is rejected in full.
+
+Enter/Save commits the entire editing session. Escape during a captured drag
+restores only that gesture's original coordinates and previous corner selection;
+Escape again or Cancel discards the session. Enter during dragging is ignored. Invalid intermediate shapes stay
 visible but cannot be saved. Coincident consecutive line points and invalid
 polygon topology are rejected. Saved rings are closed; exteriors are CCW and holes CW.
+
+```ts
+editor.selectVertices([0, 1]);
+editor.translateSelectedVertices([0.001, 0]); // Both endpoints, in degrees.
+editor.moveVertices([
+  { index: 0, coordinate: [4.895, 52.373] },
+  { index: 1, coordinate: [4.896, 52.373] },
+]);
+editor.finish(); // One saved edit and one Undo for the complete session.
+```
+
+Batch methods validate every index and coordinate before changing the draft or
+selection, and validate resulting topology once. Bad indices, repeated update
+indices and out-of-bounds/nonfinite coordinates reject the whole batch. Invalid
+topology stays as a repairable draft and cannot be saved. A pointer group outside
+coordinate bounds keeps the last in-bounds preview with a not-allowed cursor;
+releasing there restores the whole gesture. Returning exactly to its starting
+position restores the frozen baseline. The API methods are available on both
+`GeometryEditor` and the `LineEditor` facade.
 
 `onUpdate(listener)` fires once for a changed saved geometry, with the same ID
 and properties. It returns an unsubscribe function. Cancel and unchanged saves
@@ -528,7 +573,7 @@ increases only for committed data changes, so UI exports can avoid work during
 pointer motion. `onChange` also reports transient draft and selection changes.
 
 Dragging temporarily disables pan and restores its previous setting. Pointer
-cancellation or window blur rolls back that gesture; Cancel discards the full
+cancellation, lost capture or window blur rolls back that gesture; Cancel discards the full
 session. Style replacement preserves the edit and recreates overlays; destroy
 cancels it and removes listeners/handles without emitting an update. Desktop
 mouse input is supported; touch editing is deferred.
@@ -803,16 +848,20 @@ The same `snapping` options apply to mouse drags in `edit-point`, `edit-line` an
 Drag a corner, or drag a midpoint to insert and position a new corner. Once moved,
 the draft and purple indicator follow the resolved point on another committed
 feature. An ordinary click still selects a corner or inserts the exact midpoint.
+For a selected group the grabbed corner is the snap anchor; for an edge it is the
+endpoint nearest the initial pointer. The same correction applies to all selected
+corners, preserving their relative coordinates. Other corners remain untouched.
 The complete edited feature is excluded, so neither its old saved coordinates nor
 its current draft can attract the drag. Self-snapping is deferred.
 
 Alt works from the start of a drag and can be pressed/released without moving
-the pointer. Option changes and camera movement also refresh the stationary drag
-on the next animation frame. Release resolves the final mouse position and Alt
+the pointer. Option changes refresh the stationary drag on the next animation
+frame. Camera movement refreshes a single-vertex drag; it rolls back a group/edge
+drag because those use a frozen geographic pointer origin. Release resolves the final mouse position and Alt
 state synchronously, then clears the indicator. Captured drags continue outside
 the canvas until release or cancellation; ordinary editing hover does not snap.
 
-`moveVertex()` and `insertVertex()` use the caller's exact coordinates and never
+`moveVertex()`, `moveVertices()`, `translateSelectedVertices()` and `insertVertex()` use the caller's exact coordinates and never
 apply screen-dependent snapping. They stop any active mouse gesture first.
 No public API additions are needed: use `getSnap()`, `onSnap()`, and `setSnapping()`
 as for drawing. Snapping remains disabled by default in the library.
@@ -823,8 +872,8 @@ for the whole session; undo/redo restores the exact committed coordinates, ID an
 properties. Targets are unchanged, including when acquiring an edge. Pointer
 cancellation, lost capture, blur and style replacement roll back the active gesture
 (including a newly inserted midpoint), clear the indicator, and restore panning.
-Earlier completed gestures remain in the draft. Escape/Cancel discards the entire
-session. Destroy discards the draft and removes the gesture and snap handlers.
+Earlier completed gestures remain in the draft. Escape during a drag restores that
+gesture; a subsequent Escape or Cancel discards the entire session. Destroy discards the draft and removes the gesture and snap handlers.
 
 This milestone supports the canonical world copy of a flat Mercator map, including
 zoom, bearing, and pitch. Repeated world copies, dateline/polar geometry, globe,

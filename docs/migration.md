@@ -67,3 +67,23 @@ The current angle/factors remain absolute from the original geometry, so moving
 the pivot may reposition the preview. Existing entry-pivot and numeric APIs keep
 their behavior. The new ⊕ handle supports mouse dragging and keyboard placement;
 its snapping targets are selected original vertices and the original centre.
+
+## Multi-vertex editing
+
+`selectedVertexIndices` contains the complete corner selection in acquisition
+order. `selectedVertexIndex` remains the last selected index for existing hosts;
+use the array to display or operate on all selected corners. State fixtures must
+include this new array (empty outside an edit or after clearing selection).
+`selectVertex(index)` and `moveVertex(index, coordinate)` still select one corner.
+The new batch APIs are described in [vertex editing](geometry-editor.md#vertex-editing).
+
+Shift+click now toggles corners within the active draft. Dragging a segment away
+from its handles moves both endpoints, while midpoint handles still insert a
+corner. Delete/Backspace removes the entire corner selection or nothing if the
+minimum count/fixed-junction policy would be violated. Hosts with a custom Remove
+button can call `removeSelectedVertices()` for the same behavior.
+
+Escape during a captured vertex drag now restores that gesture only; a subsequent
+Escape or `cancel()` discards the entire edit. Enter during the drag is ignored.
+Camera changes roll back a group/edge drag; existing single-vertex drags still
+refresh. GeoJSON, saved history entries and storage formats do not change.

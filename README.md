@@ -13,7 +13,7 @@ A TypeScript library in development for drawing and editing geometry on web maps
 verified target is desktop Chromium with mouse/keyboard and MapLibre 6.15.0.
 
 Marker placement and line/polygon drawing (including holes), single and multiple feature selection, group movement and duplication, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing/movement snapping are implemented:
-preview, validate, finish or cancel, select/deselect, delete, move/insert/remove vertices, and export committed features together
+preview, validate, finish or cancel, select/deselect, delete, select/move/remove groups of vertices, drag whole edges, insert vertices, and export committed features together
 as GeoJSON through one GeometryEditor API.
 [Atomic transactions](docs/transactions.md) can create, update, and delete multiple
 features as one validated batch and one undo action.

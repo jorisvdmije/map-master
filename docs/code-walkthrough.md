@@ -47,8 +47,8 @@ src/
     pivot-interaction.ts     Shared rotation/scale pivot input, original-target snapping and rollback
     distance-interaction.ts  Buffer/offset distance handle, ruler and drag rollback
     preview-border.ts        Explicit dots per edge for every preview; optional drag fill
-    vertex-interaction.ts    Pointer capture, vertex gestures, cancellation
-    vertex-handles.ts        Shared screen-space corner/midpoint definitions
+    vertex-interaction.ts    Multi-vertex/edge gestures, pointer capture and rollback
+    vertex-handles.ts        Shared screen-space corner/midpoint definitions and edge picking
     line-editor.ts           Compatibility facade for the earlier line-only API
 examples/basic/              Consumer UI; calls the same API as another app would
 examples/workspace/          Installed consumer with storage and host-owned appearance presets
@@ -205,9 +205,16 @@ exports/history; cancel discards it. See the [split guide](splitting.md).
 
 `VertexInteraction` retains the latest screen point and Alt state during pointer
 capture. Each animation frame resolves that point through the same MapLibre
-snapping adapter as drawing, then moves the draft vertex and validates it.
+snapping adapter as drawing. Shift+click changes the ordered vertex selection.
+A selected corner drags its group; a segment picked after vertex/midpoint handles
+selects both endpoints. A group computes every update from one frozen baseline;
+`DrawingSession.moveVertices` checks the complete batch before mutations and
+runs topology validation once. No partial batch or per-vertex `onChange` escapes.
+The renderer marks every selected vertex active with a set lookup.
 Release resolves again before ending the gesture. Modifier, option and camera
-changes can refresh a stationary drag. Programmatic vertex methods remain exact.
+changes refresh a stationary single-vertex drag; camera movement rolls back a
+group/edge drag. Escape restores only the active gesture; Save commits the whole
+session. Programmatic vertex methods remain exact.
 
 The query excludes the selected feature by its typed ID, skipping its saved
 vertices and edges inside the existing index. Changing edit targets requires no

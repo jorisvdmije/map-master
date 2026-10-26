@@ -19,7 +19,7 @@ import { EditHistory, type HistoryEntry } from './history.js';
 import { GeoJSONImportError, copyProperties, prepareImport } from './geojson-import.js';
 import { closePolygon, openRing, samePosition, validatePolygonRings, validateMultiPolygon } from './polygon.js';
 import type {
-  Coordinate, OffsetError, BufferError, SimplificationError, ScaleError, RotationError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
+  Coordinate, VertexUpdate, OffsetError, BufferError, SimplificationError, ScaleError, RotationError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
 } from './types.js';
 
 function copyFeature(feature: GeometryFeature): GeometryFeature {
@@ -32,6 +32,9 @@ function sameTraceAttachment(a: Coordinate, b: Coordinate): boolean {
   const tolerance = 64 * Number.EPSILON * Math.max(1, Math.abs(a[0]), Math.abs(a[1]));
   return Math.hypot(a[0] - b[0], a[1] - b[1]) <= tolerance;
 }
+
+// A boolean check preserves typed readonly arrays instead of narrowing them to any[].
+function isArray(value: unknown): boolean { return Array.isArray(value); }
 
 /** Internal editing state. No browser, map, or rendering dependencies. */
 export class DrawingSession {
@@ -69,7 +72,8 @@ export class DrawingSession {
   private selectedFeatureIds = new Set<FeatureId>();
   private validationError: ValidationError | null = null;
   private editingId: FeatureId | null = null;
-  private selectedVertexIndex: number | null = null;
+  private selectedVertexIndices: number[] = [];
+  private get selectedVertexIndex(): number | null { return this.selectedVertexIndices.at(-1) ?? null; }
   private dataRevision = 0;
 
   private readonly history: EditHistory;
@@ -129,6 +133,7 @@ export class DrawingSession {
       selectedFeatureId: this.selectedFeatureId,
       selectedFeatureIds: [...this.selectedFeatureIds],
       selectedVertexIndex: this.selectedVertexIndex,
+      selectedVertexIndices: [...this.selectedVertexIndices],
       activeRingIndex: this.activeRingIndex,
       activePartIndex: this.activePartIndex,
       dataRevision: this.dataRevision,
@@ -251,7 +256,7 @@ export class DrawingSession {
     this.holeId = null;
     this.activeRingIndex = null;
     this.activePartIndex = null;
-    this.selectedVertexIndex = null;
+    this.selectedVertexIndices = [];
     return copyFeature(feature);
   }
 
@@ -276,7 +281,7 @@ export class DrawingSession {
     this.holeId = null;
     this.activeRingIndex = null;
     this.activePartIndex = null;
-    this.selectedVertexIndex = null;
+    this.selectedVertexIndices = [];
     return true;
   }
 
@@ -975,7 +980,7 @@ export class DrawingSession {
     if (!context) return false;
     this.sharedBoundary = context; this.kind = 'LineString';
     this.draft = context.path.map((point) => [...point]);
-    this.selectedVertexIndex = null;
+    this.selectedVertexIndices = [];
     this.validateSharedBoundary(); return true;
   }
 
@@ -1018,7 +1023,7 @@ export class DrawingSession {
     this.editingId = feature.id;
     this.kind = part.type;
     this.draft = part.type === 'Polygon' ? openRing(part.coordinates[ringIndex]!) : part.type === 'Point' ? [part.coordinates] : part.coordinates;
-    this.selectedVertexIndex = null;
+    this.selectedVertexIndices = [];
     this.validateEdit();
     return true;
   }
@@ -1101,23 +1106,43 @@ export class DrawingSession {
     return this.applyTransaction({ update: [feature] });
   }
 
-  selectVertex(index: number | null): boolean {
+  selectVertex(index: number | null): boolean { return this.selectVertices(index === null ? [] : [index]); }
+
+  selectVertices(indices: readonly number[]): boolean {
     this.assertEditing();
-    if (index !== null) this.assertIndex(index);
-    if (index === this.selectedVertexIndex) return false;
-    this.selectedVertexIndex = index;
+    if (!isArray(indices)) throw new TypeError('Expected an array of vertex indices.');
+    for (const index of indices) this.assertIndex(index);
+    const next = [...new Set(indices)];
+    if (next.length === this.selectedVertexIndices.length && next.every((index, i) => index === this.selectedVertexIndices[i])) return false;
+    this.selectedVertexIndices = next;
     return true;
   }
 
-  moveVertex(index: number, coordinate: Coordinate): boolean {
-    this.assertEditing(); this.assertIndex(index); this.validatePosition(coordinate);
-    if (this.sharedBoundary && (index === 0 || index === this.draft.length - 1)) return false;
-    const changed = !samePosition(this.draft[index]!, coordinate);
-    const selected = this.selectVertex(index);
+  moveVertex(index: number, coordinate: Coordinate): boolean { return this.moveVertices([{ index, coordinate }]); }
+
+  /** Validate the complete batch before changing coordinates or selection; validate topology once. */
+  moveVertices(updates: readonly VertexUpdate[]): boolean {
+    this.assertEditing();
+    if (!isArray(updates)) throw new TypeError('Expected an array of vertex updates.');
+    const indices = new Set<number>();
+    for (const update of updates) {
+      if (!update || !isArray(update.coordinate) || update.coordinate.length !== 2) throw new TypeError('Expected a vertex index and 2D coordinate.');
+      this.assertIndex(update.index); this.validatePosition(update.coordinate);
+      if (indices.has(update.index)) throw new RangeError('Duplicate vertex update index.');
+      indices.add(update.index);
+    }
+    if (updates.length === 0 || this.sharedBoundary && (indices.has(0) || indices.has(this.draft.length - 1))) return false;
+    const changed = updates.some(({ index, coordinate }) => !samePosition(this.draft[index]!, coordinate));
+    const selected = this.selectVertices([...indices]);
     if (!changed) return selected;
-    this.draft[index] = [...coordinate];
-    this.validateEdit();
-    return true;
+    for (const { index, coordinate } of updates) this.draft[index] = [coordinate[0], coordinate[1]];
+    this.validateEdit(); return true;
+  }
+
+  translateSelectedVertices(delta: Coordinate): boolean {
+    this.assertEditing();
+    if (!Array.isArray(delta) || delta.length !== 2 || !delta.every(Number.isFinite)) throw new TypeError('Expected two finite degree offsets.');
+    return this.moveVertices(this.selectedVertexIndices.map(index => ({ index, coordinate: [this.draft[index]![0] + delta[0], this.draft[index]![1] + delta[1]] })));
   }
 
   /** Insert before index; index === vertexCount appends (also on a polygon's closing edge). */
@@ -1126,19 +1151,24 @@ export class DrawingSession {
     if (this.sharedBoundary && (index === 0 || index === this.draft.length)) throw new RangeError('Insert between the fixed boundary endpoints.');
     if (this.kind === 'Point') return false;
     this.draft.splice(index, 0, [...coordinate]);
-    this.selectedVertexIndex = index;
+    this.selectedVertexIndices = [index];
     this.validateEdit();
     return true;
   }
 
-  removeVertex(index: number): boolean {
-    this.assertEditing(); this.assertIndex(index);
-    if (this.sharedBoundary && (index === 0 || index === this.draft.length - 1)) return false;
-    if (this.draft.length <= (this.kind === 'Polygon' ? 3 : 2)) return false;
-    this.draft.splice(index, 1);
-    this.selectedVertexIndex = null;
-    this.validateEdit();
-    return true;
+  removeVertex(index: number): boolean { return this.removeVertices([index]); }
+
+  removeSelectedVertices(): boolean { return this.removeVertices(this.selectedVertexIndices); }
+
+  private removeVertices(indices: readonly number[]): boolean {
+    this.assertEditing();
+    for (const index of indices) this.assertIndex(index);
+    const removed = new Set(indices);
+    if (!removed.size || this.kind === 'Point' || this.draft.length - removed.size < (this.kind === 'Polygon' ? 3 : 2)
+      || this.sharedBoundary && (removed.has(0) || removed.has(this.draft.length - 1))) return false;
+    this.draft = this.draft.filter((_, index) => !removed.has(index));
+    this.selectedVertexIndices = [];
+    this.validateEdit(); return true;
   }
 
   private assertEditing(): void {

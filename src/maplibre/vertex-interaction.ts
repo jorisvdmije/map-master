@@ -1,14 +1,14 @@
 import { canvasPoint } from './pointer.js';
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import type { Coordinate, EditorState } from '../core/types.js';
+import type { Coordinate, EditorState, VertexUpdate } from '../core/types.js';
 import type { ScreenPoint } from '../core/snapping.js';
-import { vertexHandles } from './vertex-handles.js';
+import { pickEditEdge, vertexHandles } from './vertex-handles.js';
 
 interface VertexActions {
   state(): EditorState;
   draft(): Coordinate[];
-  select(index: number | null): void;
-  move(index: number, coordinate: Coordinate): void;
+  select(indices: readonly number[]): void;
+  move(updates: readonly VertexUpdate[]): void;
   insert(index: number, coordinate: Coordinate): void;
   remove(index: number): void;
   resolve(point: ScreenPoint, altKey: boolean): Coordinate;
@@ -18,13 +18,18 @@ interface Drag {
   pointerId: number;
   index: number;
   original: Coordinate;
+  originals: VertexUpdate[];
   inserted: boolean;
-  previousSelection: number | null;
+  group: boolean;
+  invalid: boolean;
+  previousSelection: number[];
   restorePan: boolean;
+  cursor: string;
   start: ScreenPoint;
+  origin: Coordinate;
 }
 
-/** Mouse pointer capture, coalesced vertex movement, and gesture cleanup. */
+/** Mouse pointer capture, coalesced atomic vertex movement, and gesture cleanup. */
 export class VertexInteraction {
   private readonly canvas: HTMLCanvasElement;
   private readonly view: Window;
@@ -41,6 +46,7 @@ export class VertexInteraction {
     this.canvas.addEventListener('pointerup', this.up);
     this.canvas.addEventListener('pointercancel', this.cancel);
     this.canvas.addEventListener('lostpointercapture', this.cancel);
+    this.view.addEventListener('keydown', this.key, true);
     this.view.addEventListener('blur', this.blur);
   }
 
@@ -52,29 +58,38 @@ export class VertexInteraction {
     this.frame = undefined;
     if (!rollback) this.flush();
     if (this.drag !== drag) return;
+    rollback ||= drag.invalid;
     this.drag = undefined;
     this.pointer = undefined;
     this.pending = false;
     if (this.canvas.hasPointerCapture(drag.pointerId)) this.canvas.releasePointerCapture(drag.pointerId);
+    this.canvas.style.cursor = drag.cursor;
     if (restorePan) {
       if (drag.restorePan) this.map.dragPan.enable();
       else this.map.dragPan.disable();
     }
     if (rollback) {
       if (drag.inserted) this.actions.remove(drag.index);
-      else this.actions.move(drag.index, drag.original);
-      this.actions.select(drag.previousSelection);
+      else this.actions.move(drag.originals);
+      // Host callbacks during restoration may have left the edit session.
+      if (this.actions.state().mode.startsWith('edit-')) this.actions.select(drag.previousSelection);
     }
     this.actions.clearSnap();
   }
 
-  /** Re-resolve a stationary drag after modifier, option, or camera changes. */
+  /** Re-resolve a stationary drag after modifier or option changes. */
   refresh(altKey?: boolean): void {
     if (!this.drag || !this.pointer) return;
     if (altKey !== undefined) this.pointer.altKey = altKey;
     this.pending = true;
     if (this.frame !== undefined) return;
     this.frame = this.view.requestAnimationFrame(() => { this.frame = undefined; this.flush(); });
+  }
+
+  cameraChanged(): void {
+    // A group uses a frozen geographic pointer origin. Do not let a camera move
+    // become an unintended group offset; legacy single-vertex drags re-resolve.
+    if (this.drag?.group) this.stop(true); else this.refresh();
   }
 
   destroy(restorePan: boolean): void {
@@ -84,39 +99,53 @@ export class VertexInteraction {
     this.canvas.removeEventListener('pointerup', this.up);
     this.canvas.removeEventListener('pointercancel', this.cancel);
     this.canvas.removeEventListener('lostpointercapture', this.cancel);
+    this.view.removeEventListener('keydown', this.key, true);
     this.view.removeEventListener('blur', this.blur);
   }
 
   private readonly down = (event: PointerEvent): void => {
     const state = this.actions.state();
     if (!state.mode.startsWith('edit-') || this.drag || event.pointerType !== 'mouse'
-      || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey
-      || event.defaultPrevented) return;
-    const point = canvasPoint(this.canvas, event);
-    // Vertices come first so small segments never make their endpoints unselectable.
-    const hit = vertexHandles(this.map, this.actions.draft(), state.mode === 'edit-polygon').find((handle) => {
+      || event.button !== 0 || event.ctrlKey || event.metaKey || event.defaultPrevented) return;
+    const point = canvasPoint(this.canvas, event); const draft = this.actions.draft();
+    // Vertices and insertion handles retain priority over whole-edge movement.
+    const hit = vertexHandles(this.map, draft, state.mode === 'edit-polygon').find((handle) => {
       const projected = this.map.project(handle.coordinate);
       return Math.hypot(projected.x - point.x, projected.y - point.y) <= (handle.kind === 'vertex' ? 8 : 6);
     });
-    if (!hit) { this.actions.select(null); return; }
-    if (state.mode === 'edit-shared-boundary' && hit.kind === 'vertex' && (hit.index === 0 || hit.index === state.vertexCount - 1)) {
-      event.preventDefault(); this.canvas.focus({ preventScroll: true }); this.actions.select(null); return;
+    const fixed = (index: number) => state.mode === 'edit-shared-boundary' && (index === 0 || index === draft.length - 1);
+    if (event.shiftKey) {
+      if (hit?.kind !== 'vertex' || fixed(hit.index)) return;
+      event.preventDefault(); this.canvas.focus({ preventScroll: true });
+      const selected = state.selectedVertexIndices;
+      this.actions.select(selected.includes(hit.index) ? selected.filter(i => i !== hit.index) : [...selected, hit.index]);
+      return;
     }
-    event.preventDefault();
-    this.canvas.focus({ preventScroll: true });
-    const restorePan = this.map.dragPan.isEnabled();
-    this.map.dragPan.disable();
-    this.drag = { pointerId: event.pointerId, index: hit.index, original: [...hit.coordinate],
-      inserted: hit.kind === 'midpoint', previousSelection: state.selectedVertexIndex, restorePan, start: point };
+    const edge = !hit ? pickEditEdge(this.map, draft, state.mode === 'edit-polygon', point) : null;
+    if (!hit && !edge) { this.actions.select([]); return; }
+    if (hit?.kind === 'vertex' && fixed(hit.index) || edge?.some(fixed)) {
+      event.preventDefault(); this.canvas.focus({ preventScroll: true }); this.actions.select([]); return;
+    }
+    const index = hit?.index ?? edge!.reduce((a, b) => {
+      const pa = this.map.project(draft[a]!); const pb = this.map.project(draft[b]!);
+      return Math.hypot(pa.x - point.x, pa.y - point.y) <= Math.hypot(pb.x - point.x, pb.y - point.y) ? a : b;
+    });
+    const inserted = hit?.kind === 'midpoint';
+    const indices = edge ?? (hit?.kind === 'vertex' && state.selectedVertexIndices.includes(index) ? state.selectedVertexIndices : [index]);
+    const original = hit?.coordinate ?? draft[index]!;
+    event.preventDefault(); this.canvas.focus({ preventScroll: true }); this.map.stop();
+    const restorePan = this.map.dragPan.isEnabled(); this.map.dragPan.disable();
+    this.drag = { pointerId: event.pointerId, index, original: [...original],
+      originals: indices.map(i => ({ index: i, coordinate: inserted ? [...original] : [...draft[i]!] })),
+      inserted, group: indices.length > 1, invalid: false, previousSelection: state.selectedVertexIndices,
+      restorePan, cursor: this.canvas.style.cursor, start: point, origin: this.map.unproject([point.x, point.y]).toArray() };
     this.canvas.setPointerCapture(event.pointerId);
-    if (hit.kind === 'midpoint') this.actions.insert(hit.index, hit.coordinate);
-    else this.actions.select(hit.index);
+    if (inserted) this.actions.insert(index, original); else this.actions.select(indices);
   };
 
   private readonly move = (event: PointerEvent): void => {
     if (this.drag?.pointerId !== event.pointerId) return;
-    const point = canvasPoint(this.canvas, event);
-    this.pointer = { point, altKey: event.altKey };
+    this.pointer = { point: canvasPoint(this.canvas, event), altKey: event.altKey };
     this.refresh();
   };
 
@@ -124,21 +153,43 @@ export class VertexInteraction {
     const drag = this.drag;
     if (!drag || !this.pending || !this.pointer) return;
     this.pending = false;
-    const coordinate = this.actions.resolve(this.pointer.point, this.pointer.altKey);
-    // Snap observers can cancel/destroy the editor synchronously.
-    if (this.drag === drag) this.actions.move(drag.index, coordinate);
+    let point = this.pointer.point;
+    if (drag.group) {
+      if (point.x === drag.start.x && point.y === drag.start.y) {
+        drag.invalid = false; this.canvas.style.cursor = drag.cursor;
+        this.actions.move(drag.originals); this.actions.clearSnap(); return;
+      }
+      const end = this.map.unproject([point.x, point.y]);
+      const anchor: Coordinate = [drag.original[0] + end.lng - drag.origin[0], drag.original[1] + end.lat - drag.origin[1]];
+      if (!anchor.every(Number.isFinite) || Math.abs(anchor[0]) > 180 || Math.abs(anchor[1]) >= 90) {
+        drag.invalid = true; this.canvas.style.cursor = 'not-allowed'; this.actions.clearSnap(); return;
+      }
+      point = this.map.project(anchor);
+    }
+    const coordinate = this.actions.resolve(point, this.pointer.altKey);
+    if (this.drag !== drag) return; // Snap observers can cancel/destroy synchronously.
+    const delta: Coordinate = [coordinate[0] - drag.original[0], coordinate[1] - drag.original[1]];
+    const updates: VertexUpdate[] = drag.group ? drag.originals.map(({ index, coordinate: p }) => ({ index, coordinate: [p[0] + delta[0], p[1] + delta[1]] }))
+      : [{ index: drag.index, coordinate }];
+    // Bounds failures never partly move a group. Keep the previous preview while
+    // the pointer is invalid; recovery is possible, invalid release rolls back.
+    drag.invalid = updates.some(({ coordinate: [x, y] }) => !Number.isFinite(x) || !Number.isFinite(y) || Math.abs(x) > 180 || Math.abs(y) > 90);
+    this.canvas.style.cursor = drag.invalid ? 'not-allowed' : drag.group ? 'move' : drag.cursor;
+    if (drag.invalid) this.actions.clearSnap(); else this.actions.move(updates);
   }
 
   private readonly up = (event: PointerEvent): void => {
     if (this.drag?.pointerId !== event.pointerId) return;
     const point = canvasPoint(this.canvas, event);
-    // A plain click selects/inserts the exact handle; a drag resolves its release
-    // position afresh, even when the final pointermove has not rendered yet.
     if (this.pointer || point.x !== this.drag.start.x || point.y !== this.drag.start.y) {
-      this.pointer = { point, altKey: event.altKey };
-      this.pending = true;
+      this.pointer = { point, altKey: event.altKey }; this.pending = true;
     }
     this.stop();
+  };
+  private readonly key = (event: KeyboardEvent): void => {
+    if (!this.drag || event.isComposing || !['Escape', 'Enter'].includes(event.key)) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    if (event.key === 'Escape') this.stop(true);
   };
   private readonly cancel = (event: PointerEvent): void => {
     if (this.drag?.pointerId === event.pointerId) this.stop(true);

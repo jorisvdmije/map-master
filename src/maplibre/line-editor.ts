@@ -1,6 +1,6 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { EditorAppearance, EditorAppearanceOptions } from '../core/appearance.js';
-import type { Coordinate, DrawingConstraintsOptions, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeature, LineCollection, LineFeature } from '../core/types.js';
+import type { Coordinate, VertexUpdate, DrawingConstraintsOptions, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeature, LineCollection, LineFeature } from '../core/types.js';
 import { GeometryEditor } from './geometry-editor.js';
 
 const isLine = (feature: GeometryFeature): feature is LineFeature => feature.geometry.type === 'LineString';
@@ -43,6 +43,10 @@ export class LineEditor {
   editSelected(): boolean { return this.editor.editSelected(); }
   getDraft(): Coordinate[] { return this.editor.getDraft(); }
   selectVertex(index: number | null): void { this.editor.selectVertex(index); }
+  selectVertices(indices: readonly number[]): void { this.editor.selectVertices(indices); }
+  moveVertices(updates: readonly VertexUpdate[]): void { this.editor.moveVertices(updates); }
+  translateSelectedVertices(delta: Coordinate): void { this.editor.translateSelectedVertices(delta); }
+  removeSelectedVertices(): boolean { return this.editor.removeSelectedVertices(); }
   moveVertex(index: number, coordinate: Coordinate): void { this.editor.moveVertex(index, coordinate); }
   insertVertex(index: number, coordinate: Coordinate): void { this.editor.insertVertex(index, coordinate); }
   removeVertex(index: number): boolean { return this.editor.removeVertex(index); }

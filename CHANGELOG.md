@@ -8,6 +8,13 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 
 ### Added
 
+- Multi-vertex edit selection with Shift+click, group dragging and whole-edge
+  dragging between handles. Selected corners move together using one snap anchor;
+  Escape restores the active gesture and Save records one edit/Undo.
+- `selectedVertexIndices`, `selectVertices`, `moveVertices`,
+  `translateSelectedVertices` and `removeSelectedVertices` on both editors.
+  Delete/Backspace removes the entire corner selection atomically.
+
 - Group dragging snaps a fixed vertex of the grabbed feature to unselected
   vertices/edges, with Alt bypass, live snapping options and a displacement ruler.
   Press Shift during dragging for a fixed geographic axis; release commits one

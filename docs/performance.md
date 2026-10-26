@@ -107,23 +107,34 @@ for future comparisons; no earlier deletion baseline or CI threshold exists.
 
 Run `npm run benchmark:editing`. Fixed regular polygons have 10, 100, or 1,000
 corners centered at `[4.895, 52.372]` with radius 0.01 degrees. Setup is excluded;
-each sample moves the first corner between its original position and a position
-0.0001 degrees farther east. The timer includes draft mutation and validation.
-There are 20 warmups and 50 samples per size, with validity checked after timing.
+each sample shifts a contiguous group of 1, 2 or up to 100 corners by 0.000001
+degrees east from an immutable baseline, alternating with exact restoration.
+The timer includes constructing the batch, atomic draft/selection mutation and
+one topology validation. There are 20 warmups and 50 measured samples per case;
+validity, selection count and final restoration are asserted outside the timer.
 
-Local baseline on 2026-10-22: Apple M2 Pro, macOS arm64, Node.js 22.23.1.
+Local baseline on 2026-10-26: Apple M2 Pro, macOS arm64, Node.js 22.23.1.
 
-| Corners | Median move + validation (ms) | p95 (ms) |
-| --- | ---: | ---: |
-| 10 | 0.013 | 0.040 |
-| 100 | 0.107 | 0.130 |
-| 1,000 | 7.777 | 10.574 |
+| Corners | Selected | Median move + validation (ms) | p95 (ms) |
+| --- | --- | ---: | ---: |
+| 10 | 1 | 0.015 | 0.026 |
+| 10 | 2 | 0.014 | 0.023 |
+| 10 | 10 | 0.014 | 0.022 |
+| 100 | 1 | 0.090 | 0.102 |
+| 100 | 2 | 0.091 | 0.105 |
+| 100 | 100 | 0.117 | 0.181 |
+| 1,000 | 1 | 6.271 | 6.474 |
+| 1,000 | 2 | 6.257 | 6.491 |
+| 1,000 | 100 | 6.289 | 6.472 |
 
-This is the first edit baseline; it uses the same ring family as validation.
-Pointer moves are coalesced per animation frame, but validation is still O(n²).
-These figures exclude handles, previews, UI callbacks, and MapLibre rendering;
-they are not frame-rate guarantees. Export and the committed source are unchanged
-during dragging; saving a changed edit uploads the full collection once.
+The earlier single-corner benchmark used a 0.0001-degree displacement and
+reported 7.777 / 10.574 ms for 1,000 corners on 2026-10-22; the changed workload
+is not a controlled speed comparison. Group updates validate once, rather than
+validating every partial corner move. Pointer moves are coalesced per animation
+frame, but polygon validation is still O(n²). These figures exclude handles,
+previews, UI callbacks, and MapLibre rendering; they are not frame-rate guarantees.
+Export and the committed source are unchanged during dragging; saving a changed
+edit uploads the full collection once.
 
 ## Core GeoJSON import
 
