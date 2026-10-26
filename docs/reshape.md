@@ -30,6 +30,40 @@ polygons with holes and MultiPolygon features (even one-part ones) are ineligibl
 Use the separate [shared-boundary](shared-boundaries.md) and [tracing](tracing.md) tools
 for their supported workflows. Multipart reshape remains planned.
 
+## Boundary and problem markers
+
+Hollow green rings mark known contacts with the selected outer boundary. For a
+split whose endpoints lie outside, these are the calculated crossings, not the
+endpoints of the cutting line. A valid preview also keeps a faint original
+outline visible. Split results use the two draft fill colors; reshape uses the
+primary draft fill. The demo shows a contact count and legend beside its status.
+
+Red dots and dashed red segments identify the first detected problem: a
+self-crossing/backtrack, forbidden boundary contact, misplaced endpoint, or a
+split through a hole. Extra boundary contacts are marked together. Correcting the
+path replaces these markers; Apply stays disabled while the result is invalid.
+These diagnostics use placed points only. Hover still previews the next segment
+without changing validation or committing it.
+
+`editor.getCutFeedback()` returns an independent `CutFeedback` snapshot:
+
+```ts
+const feedback = editor.getCutFeedback();
+// null outside split/reshape; otherwise:
+// { contacts: Coordinate[], problemPoints: Coordinate[],
+//   problemSegments: Coordinate[][] }
+```
+
+Read it from `onChange` alongside `splitError` or `reshapeError`. Contacts may be
+partial when validation stops early; they are not a second validity test. A cut
+missing the polygon entirely or a numerical/topology failure may have no reliable
+problem location. Such failures keep their explanatory status text without
+inventing a marker. Empty problem arrays do not imply that Apply is available.
+Markers do not change snapping, saved GeoJSON or history. They follow the map
+camera, survive style replacement, and clear on cancel, apply, lock revocation
+or destruction. Diagnostic red/green colors are currently fixed; result fills
+and the original contour use the existing appearance settings.
+
 ## Public API
 
 ```ts

@@ -114,3 +114,11 @@ corner crossings and edge overlaps. In the interactive split tool, target bounda
 attachment takes priority within 18 CSS pixels even with general snapping disabled;
 Alt bypasses it. The API, transaction events and history format are unchanged.
 Adjacent features are not modified. See [splitting](splitting.md).
+
+## Split and reshape feedback
+
+`GeometryEditor.getCutFeedback()` and the exported `CutFeedback` type are additive.
+Existing split/reshape state, validation errors, previews and commit contracts are
+unchanged. Custom hosts may read the snapshot during `onChange` to present contact
+counts or error locations. Empty diagnostic arrays are not a validity signal;
+continue to use `getState().canFinish`. The LineEditor facade remains unchanged.

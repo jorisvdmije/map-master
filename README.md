@@ -33,6 +33,7 @@ features as one validated batch and one undo action.
 [Polygon intersection](docs/intersection.md) keeps the common filled area of all selected polygons, with a cancellable preview and atomic Undo.
 [Polygon difference](docs/difference.md) subtracts selected cutting shapes from the first selected target, preserving cutters and supporting empty results.
 [Split Features](docs/splitting.md) divides a selected polygon into two independent features.
+Split and reshape show boundary contacts, localized error markers and an original-outline comparison.
 [Group movement](docs/geometry-editor.md#move-selected-shapes) snaps a fixed anchor to other shapes, supports Shift axis locking and a live displacement ruler, and records the move as one undoable action.
 [Duplication](docs/geometry-editor.md#duplicate-selected-shapes) creates independent copies with new IDs and one Undo for the whole group.
 [Multipart geometry](docs/multipart.md) supports imported or transaction-created MultiLineString/MultiPolygon features, with component/ring editing and whole-feature history.

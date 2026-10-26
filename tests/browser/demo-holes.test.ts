@@ -1,24 +1,33 @@
-import { expect, it } from 'vitest';
+import { Map } from 'maplibre-gl';
+import { afterEach, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import type { GeometryFeatureCollection, PolygonFeature } from '../../src/index.js';
 import html from '../../examples/basic/index.html?raw';
+
+let map: Map | undefined;
+afterEach(() => { map?.remove(); map = undefined; vi.restoreAllMocks(); });
 
 it('creates, edits and deletes a hole in the demo, preserving the polygon with undo/redo', async () => {
   history.replaceState(null, '', `${location.pathname}?basemap=off`);
   document.body.innerHTML = new DOMParser().parseFromString(html, 'text/html').body.innerHTML;
   document.querySelectorAll('script').forEach((script) => { script.remove(); });
+  const sourceSpy = vi.spyOn(Map.prototype, 'addSource');
   await import('../../examples/basic/main.js');
   await expect.element(page.getByRole('button', { name: 'Polygon drawing', exact: true })).toBeEnabled();
+  const instance = sourceSpy.mock.contexts[0];
+  if (!(instance instanceof Map)) throw new Error('Expected a mounted demo map.');
+  map = instance;
   await page.getByRole('button', { name: 'Polygon drawing', exact: true }).click();
   await page.getByRole('button', { name: 'Draw a polygon', exact: true }).click();
   const canvas = document.querySelector('canvas')!;
   const saved = (): PolygonFeature => (JSON.parse(document.querySelector<HTMLTextAreaElement>('#output')!.value) as GeometryFeatureCollection).features[0] as PolygonFeature;
   for (const [x, y] of [[80, 80], [500, 80], [500, 450], [80, 450]]) await userEvent.click(canvas, { position: { x: x!, y: y! } });
   await page.getByRole('button', { name: 'Finish', exact: true }).click(); const before = saved();
-  await expect.poll(async () => {
-    await userEvent.click(canvas, { position: { x: 110, y: 110 } });
-    return document.querySelector<HTMLElement>('#selection')!.hidden;
-  }).toBe(false);
+  // Picking depends on worker-built tiles; wait for the shape before clicking.
+  const fillId = instance.getStyle().layers.find(layer => layer.id.endsWith('-fill'))!.id;
+  await expect.poll(() => instance.queryRenderedFeatures([110,110], {layers:[fillId]}).length).toBeGreaterThan(0);
+  await userEvent.click(canvas, { position: { x: 110, y: 110 } });
+  await expect.poll(() => document.querySelector<HTMLElement>('#selection')!.hidden).toBe(false);
   await page.getByRole('button', { name: 'Draw a hole', exact: true }).click();
   for (const [x, y] of [[180, 180], [300, 180], [300, 300], [180, 300]]) await userEvent.click(canvas, { position: { x: x!, y: y! } });
   await userEvent.keyboard('{Enter}'); const withHole = saved();

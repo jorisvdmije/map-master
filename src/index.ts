@@ -4,7 +4,7 @@ export { LineEditor } from './maplibre/line-editor.js';
 export type { EditorAppearance, EditorAppearanceOptions, ShapeAppearance, DraftAppearance, PointAppearance, VertexAppearance, SnapAppearance } from './core/appearance.js';
 export type {
   // Geometry and identity.
-  Coordinate, FeatureId, FeatureProperties, JsonValue,
+  Coordinate, CutFeedback, FeatureId, FeatureProperties, JsonValue,
   GeometryFeature, GeometryFeatureCollection, GeometryType, DrawGeometryType,
   PointFeature, LineCollection, LineFeature, PolygonFeature, MultiLineFeature, MultiPolygonFeature,
   // Editor state and configuration.

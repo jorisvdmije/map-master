@@ -3,7 +3,7 @@ import { constrainDrawingPoint, drawingConstraintsOptions } from '../core/drawin
 import { copyAppearance, resolveAppearance, type EditorAppearance, type EditorAppearanceOptions } from '../core/appearance.js';
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { DrawingSession } from '../core/drawing-session.js';
-import type { Coordinate, VertexUpdate, DrawingConstraintsOptions, SharedBoundaryPreview, TraceTarget, TraceSide, TracingOptions, ReshapePreview, ReshapeSide, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
+import type { Coordinate, CutFeedback, VertexUpdate, DrawingConstraintsOptions, SharedBoundaryPreview, TraceTarget, TraceSide, TracingOptions, ReshapePreview, ReshapeSide, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
 import { BoundarySnapping } from './boundary-snapping.js';
 import { MapLibreSnapping } from './snapping.js';
@@ -469,6 +469,8 @@ export class GeometryEditor {
     this.assertAlive(); const changed = this.session.removeSplitPoint();
     this.draftChanged(changed); return changed;
   }
+
+  getCutFeedback(): CutFeedback | null { return this.session.getCutFeedback(); }
 
   getSplitPreview(): SplitPreview | null { return this.session.getSplitPreview(); }
 
@@ -1188,10 +1190,13 @@ export class GeometryEditor {
       if (this.session.state.mode === 'reshape-polygon') this.renderer.renderEditing(reshape ? this.session.state.selectedFeatureId : null);
       const split = this.session.getSplitPreview();
       if (this.session.state.mode === 'split-polygon') this.renderer.renderEditing(split ? this.session.state.selectedFeatureId : null);
+      if (this.session.state.mode === 'split-polygon' || this.session.state.mode === 'reshape-polygon') {
+        this.renderer.renderComparison(split || reshape ? this.session.state.selectedFeatureIds : []);
+      }
       const shared = this.session.getSharedBoundaryPreview();
       if (this.session.state.mode === 'edit-shared-boundary') this.renderer.renderEditingMany(shared ? this.session.state.selectedFeatureIds : []);
       const trace = this.getTracePreview();
-      this.renderer.renderPreview(this.session.getDraft(), reshape || trace ? undefined : this.cursor, this.session.state, this.snap, split, this.session.getDraftRings(), this.session.getInactiveParts(), reshape, trace, shared);
+      this.renderer.renderPreview(this.session.getDraft(), reshape || trace ? undefined : this.cursor, this.session.state, this.snap, split, this.session.getDraftRings(), this.session.getInactiveParts(), reshape, trace, shared, this.session.getCutFeedback());
     });
   }
 

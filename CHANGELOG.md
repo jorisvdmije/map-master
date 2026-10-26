@@ -8,6 +8,10 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 
 ### Added
 
+- Split/reshape boundary-contact markers, localized problem points and dashed
+  problem segments, original-outline comparison and a demo legend. The additive
+  `getCutFeedback()` API returns independent diagnostic snapshots for host UIs.
+
 - Polygon split cuts may start/end on outer edges or corners, with selected-boundary
   attachment ahead of neighbouring geometry. Outside endpoints remain supported;
   only the selected polygon changes, with one atomic Apply/Undo.

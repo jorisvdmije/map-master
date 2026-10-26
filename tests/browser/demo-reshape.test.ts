@@ -26,13 +26,17 @@ it('imports the reshape example, chooses either boundary, cancels, applies and r
     await expect.element(reshape).toBeEnabled(); await reshape.click();
     const apply = page.getByRole('button', { name: 'Apply reshape', exact: true });
     await expect.element(apply).toBeDisabled(); await expect.element(input).toBeDisabled();
+    await expect.element(page.getByText('Hollow green rings mark contacts.', {exact:false})).toBeVisible();
     await click([4.888, 52.370]); await click([4.890, 52.3715]); await click([4.892, 52.370]);
     await expect.element(apply).toBeEnabled(); expect(output()).toEqual(original);
+    expect(document.querySelector('#cut-feedback')!.textContent).toContain('2 boundary contacts');
+    expect(document.querySelector('#cut-feedback')!.textContent).toContain('The faint outline is the original.');
     const other = page.getByRole('button', { name: 'Other boundary', exact: true });
     await other.click(); await expect.element(other).toHaveAttribute('aria-pressed', 'true');
     await expect.element(page.getByText('Replacing the longer old boundary.', { exact: false })).toBeVisible();
     await other.click(); await expect.element(other).toHaveAttribute('aria-pressed', 'false');
     await page.getByRole('button', { name: 'Cancel', exact: true }).click(); expect(output()).toEqual(original);
+    expect(document.querySelector<HTMLElement>('#cut-feedback')!.hidden).toBe(true);
     await reshape.click(); await click([4.888, 52.370]); await click([4.890, 52.3715]); await click([4.892, 52.370]);
     await apply.click(); const after = output(); expect(after.features).toHaveLength(1);
     expect(after.features[0]).toMatchObject({ id: 'garden', properties: original.features[0]!.properties });

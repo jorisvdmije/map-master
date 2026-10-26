@@ -1,7 +1,8 @@
+import { emptyCutFeedback, markContact } from './cut-feedback.js';
 import { orient2d } from 'robust-predicates';
 import { boundaryAnchor } from './boundary-anchor.js';
 import { closePolygon, openRing, samePosition, validatePolygon, insideRing, ringsIntersect, validatePolygonRings } from './polygon.js';
-import type { Coordinate, SplitError, SplitPreview } from './types.js';
+import type { Coordinate, CutFeedback, SplitError, SplitPreview } from './types.js';
 
 const orientation = (a: Coordinate, b: Coordinate, c: Coordinate): number => orient2d(...a, ...b, ...c);
 const opposite = (a: number, b: number): boolean => a < 0 && b > 0 || a > 0 && b < 0;
@@ -42,21 +43,24 @@ function canonical(points: Coordinate[]): Coordinate[] {
   return [...result, [...result[0]!] as Coordinate];
 }
 interface Crossing { edge: number; segment: number; t: number; u: number; point: Coordinate }
-export type SplitCalculation = { preview: SplitPreview; error: null } | { preview: null; error: SplitError };
-const fail = (error: SplitError): SplitCalculation => ({ preview: null, error });
+export type SplitCalculation = { feedback: CutFeedback } & ({ preview: SplitPreview; error: null } | { preview: null; error: SplitError });
 
 /** Restricted planar splitter: two boundary contacts, including cut endpoint attachments.
  * Input polygon is already validated. Other boundary touches/overlaps are rejected.
  */
 export function splitPolygon(closedRing: Coordinate[], coordinates: Coordinate[]): SplitCalculation {
-  if (coordinates.length < 2) return fail('split-too-few-points');
+  const feedback = emptyCutFeedback();
+  const fail = (error: SplitError): SplitCalculation => ({ preview: null, error, feedback });
+
   const originalRing = openRing(closedRing);
-  const startAnchor = boundaryAnchor(coordinates[0]!, originalRing);
-  const endAnchor = boundaryAnchor(coordinates.at(-1)!, originalRing);
+  const startAnchor = coordinates[0] ? boundaryAnchor(coordinates[0], originalRing) : null;
+  const endAnchor = coordinates.length > 1 ? boundaryAnchor(coordinates.at(-1)!, originalRing) : null;
   const cut = coordinates.map((p): Coordinate => [...p]);
   if (startAnchor) cut[0] = startAnchor.point;
   if (endAnchor) cut[cut.length - 1] = endAnchor.point;
   const attachments = [startAnchor, endAnchor].filter((anchor) => anchor !== null);
+  feedback.contacts = attachments.map(anchor => anchor.point);
+  if (coordinates.length < 2) return fail('split-too-few-points');
   // Make attachments explicit vertices so projection roundoff cannot turn an
   // attached endpoint into a near miss or duplicate intersection.
   const ring: Coordinate[] = [];
@@ -68,11 +72,11 @@ export function splitPolygon(closedRing: Coordinate[], coordinates: Coordinate[]
   }
   for (let i = 0; i < cut.length - 1; i++) {
     const a = cut[i]!; const b = cut[i + 1]!;
-    if (Math.abs(a[0] - b[0]) > 180) return fail('split-antimeridian');
-    if (samePosition(a, b)) return fail('split-self-intersection');
-    if (i + 2 < cut.length && (onSegment(a, b, cut[i + 2]!) || onSegment(b, cut[i + 2]!, a))) return fail('split-self-intersection');
+    if (Math.abs(a[0] - b[0]) > 180) { feedback.problemSegments.push([a, b]); return fail('split-antimeridian'); }
+    if (samePosition(a, b)) { feedback.problemPoints.push(a); return fail('split-self-intersection'); }
+    if (i + 2 < cut.length && (onSegment(a, b, cut[i + 2]!) || onSegment(b, cut[i + 2]!, a))) { markContact(feedback, a, b, b, cut[i + 2]!); return fail('split-self-intersection'); }
     for (let j = i + 2; j < cut.length - 1; j++) {
-      if (intersects(a, b, cut[j]!, cut[j + 1]!)) return fail('split-self-intersection');
+      if (intersects(a, b, cut[j]!, cut[j + 1]!)) { markContact(feedback, a, b, cut[j]!, cut[j + 1]!); feedback.problemSegments.push([cut[j]!, cut[j + 1]!]); return fail('split-self-intersection'); }
     }
   }
   const hits: Crossing[] = [];
@@ -87,7 +91,7 @@ export function splitPolygon(closedRing: Coordinate[], coordinates: Coordinate[]
         const atEnd = endAnchor !== null && segment === cut.length - 2 && (samePosition(b, c) || samePosition(b, d));
         const extraContact = [c, d].some((p) => !samePosition(p, a) && !samePosition(p, b) && onSegment(a, b, p))
           || [a, b].some((p) => !samePosition(p, c) && !samePosition(p, d) && onSegment(c, d, p));
-        if (!atStart && !atEnd || extraContact || atStart && atEnd) return fail('split-boundary-touch');
+        if (!atStart && !atEnd || extraContact || atStart && atEnd) { markContact(feedback, a, b, c, d); return fail('split-boundary-touch'); }
         continue;
       }
       if (!opposite(orientation(a, b, c), orientation(a, b, d)) || !opposite(orientation(c, d, a), orientation(c, d, b))) continue;
@@ -96,11 +100,14 @@ export function splitPolygon(closedRing: Coordinate[], coordinates: Coordinate[]
       const qx = c[0] - a[0]; const qy = c[1] - a[1];
       const t = (qx * sy - qy * sx) / denominator; const u = (qx * ry - qy * rx) / denominator;
       if (!Number.isFinite(t) || !Number.isFinite(u) || t <= 0 || t >= 1 || u <= 0 || u >= 1) return fail('split-invalid-result');
-      hits.push({ edge, segment, t, u, point: [c[0] + u * sx, c[1] + u * sy] });
+      const point: Coordinate = [c[0] + u * sx, c[1] + u * sy];
+      hits.push({ edge, segment, t, u, point }); feedback.contacts.push(point);
     }
   }
-  if (!startAnchor && inside(cut[0]!, ring) || !endAnchor && inside(cut.at(-1)!, ring)) return fail('split-endpoints-inside');
-  if (hits.length !== 2) return fail('split-crossing-count');
+  if (!startAnchor && inside(cut[0]!, ring)) feedback.problemPoints.push(cut[0]!);
+  if (!endAnchor && inside(cut.at(-1)!, ring)) feedback.problemPoints.push(cut.at(-1)!);
+  if (feedback.problemPoints.length) return fail('split-endpoints-inside');
+  if (hits.length !== 2) { feedback.problemPoints.push(...feedback.contacts); return fail('split-crossing-count'); }
   hits.sort((a, b) => a.segment - b.segment || a.t - b.t);
   const [entry, exit] = hits as [Crossing, Crossing];
   const interior = cut.slice(entry.segment + 1, exit.segment + 1);
@@ -109,7 +116,7 @@ export function splitPolygon(closedRing: Coordinate[], coordinates: Coordinate[]
   const path = [entry.point, ...interior, exit.point];
   for (let i = 0; i < path.length - 1; i++) {
     const a = path[i]!; const b = path[i + 1]!;
-    if (!inside([a[0] + (b[0] - a[0]) / 2, a[1] + (b[1] - a[1]) / 2], ring)) return fail('split-invalid-result');
+    if (!inside([a[0] + (b[0] - a[0]) / 2, a[1] + (b[1] - a[1]) / 2], ring)) { feedback.problemSegments.push([a, b]); return fail('split-invalid-result'); }
   }
   // Insert the two intersections in boundary order, then walk each boundary arc.
   const boundary: Coordinate[] = [];
@@ -135,7 +142,8 @@ export function splitPolygon(closedRing: Coordinate[], coordinates: Coordinate[]
   const normalized = parts.map(canonical);
   // Largest area keeps the ID; equal-area ties use the canonical coordinate sequence.
   const retainFirst = areas[0]! > areas[1]! || areas[0] === areas[1] && JSON.stringify(normalized[0]) < JSON.stringify(normalized[1]);
-  return { error: null, preview: {
+  feedback.contacts.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  return { feedback, error: null, preview: {
     retained: { type: 'Polygon', coordinates: [normalized[retainFirst ? 0 : 1]!] },
     created: { type: 'Polygon', coordinates: [normalized[retainFirst ? 1 : 0]!] },
   } };
@@ -144,10 +152,19 @@ export function splitPolygon(closedRing: Coordinate[], coordinates: Coordinate[]
 /** Preserve holes wholly contained by one result; cutting/touching a hole is unsupported. */
 export function splitPolygonRings(rings: Coordinate[][], cut: Coordinate[]): SplitCalculation {
   const result = splitPolygon(rings[0]!, cut);
+  const feedback = result.feedback;
+  const fail = (error: SplitError): SplitCalculation => ({ preview: null, error, feedback });
   if (!result.preview || rings.length === 1) return result;
   const parts = [result.preview.retained, result.preview.created];
   for (const hole of rings.slice(1)) {
-    if (parts.some((part) => ringsIntersect(part.coordinates[0]!, hole))) return fail('split-hole-crossing');
+    if (parts.some((part) => ringsIntersect(part.coordinates[0]!, hole))) {
+      for (let i = 0; i + 1 < cut.length; i++) {
+        for (let j = 0; j + 1 < hole.length; j++) {
+          if (intersects(cut[i]!, cut[i + 1]!, hole[j]!, hole[j + 1]!)) markContact(feedback, cut[i]!, cut[i + 1]!, hole[j]!, hole[j + 1]!);
+        }
+      }
+      return fail('split-hole-crossing');
+    }
     const target = parts.find((part) => insideRing(hole[0]!, part.coordinates[0]!));
     if (!target) return fail('split-invalid-result');
     target.coordinates.push(hole.map((point) => [...point]));

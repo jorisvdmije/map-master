@@ -50,7 +50,7 @@ it.each<[string, Coordinate[], ReshapeError]>([
   ['partial boundary overlap', [[2, 0], [6, 0], [8, 3], [10, 3]], 'reshape-boundary-touch'],
   ['nonfinite point', [[0, 3], [NaN, 2], [10, 3]], 'reshape-invalid-result'],
 ])('rejects %s', (_, path, error) => {
-  expect(reshapePolygon(ring, path)).toEqual({ preview: null, error });
+  expect(reshapePolygon(ring, path)).toMatchObject({ preview: null, error });
 });
 
 it('handles sloped-edge construction roundoff without accepting a geographic snapping tolerance', () => {

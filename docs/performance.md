@@ -308,6 +308,18 @@ the midpoints of edge 0 and edge n/2 measured 0.053/0.128 ms, 0.208/0.322 ms,
 and 4.789/5.435 ms respectively. The midpoint fixture joins opposite edges through
 the interior. These measurements include concurrent local browser-test load.
 
+After adding cut feedback on 2026-10-26, the same split benchmark measured
+0.048/0.082 ms (10 corners), 0.183/0.312 ms (100), and 4.994/5.822 ms (1,000).
+The existing `benchmark:reshape` fixture measured preview median/p95 of
+0.056/0.146 ms, 0.247/0.510 ms and 6.194/9.502 ms for a three-point route against
+10/100/1,000 corners. A 25-point route measured 0.395/0.831 ms,
+1.533/1.957 ms and 15.624/16.072 ms. These valid-path measurements include
+contact feedback generation but exclude rendering. Local setup: Node.js 22.23.1,
+macOS arm64, Apple M2 Pro. They are observations, not an optimization claim.
+Diagnostic locations reuse the validator's detected contacts; only a rejected
+hole cut performs an extra O(mh) scan of that hole's h edges. Feedback is cached
+with the preview and copied by its getter, without uploading committed data.
+
 These observations include runtime variability and are not CI thresholds.
 With n polygon corners and m cutting points, crossing search is O(nm), cut
 self-intersection checking is O(m²), and the existing output validator is quadratic

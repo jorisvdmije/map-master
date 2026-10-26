@@ -61,6 +61,13 @@ export type ValidationError = 'too-few-vertices' | 'duplicate-vertex'
   | 'zero-area' | 'self-intersection' | 'antimeridian-crossing'
   | 'ring-intersection' | 'hole-outside' | 'nested-holes' | 'part-intersection' | 'part-overlap';
 
+/** Map feedback for placed split/reshape points, never the hover cursor.
+ * Empty problem arrays mean the failure has no reliably localized cause. */
+export interface CutFeedback {
+  contacts: Coordinate[];
+  problemPoints: Coordinate[];
+  problemSegments: Coordinate[][];
+}
 export type SplitError = 'split-too-few-points' | 'split-self-intersection' | 'split-antimeridian'
   | 'split-hole-crossing' | 'split-boundary-touch' | 'split-endpoints-inside' | 'split-crossing-count' | 'split-invalid-result';
 export interface SplitPreview {

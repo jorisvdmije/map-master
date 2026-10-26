@@ -41,6 +41,7 @@ const deselect = element<HTMLButtonElement>('deselect');
 const lockSelected = element<HTMLButtonElement>('lock-selected');
 const deleteSelected = element<HTMLButtonElement>('delete-selected');
 const duplicateSelected = element<HTMLButtonElement>('duplicate-selected');
+const cutFeedback = element<HTMLParagraphElement>('cut-feedback');
 const reshapeSelected = element<HTMLButtonElement>('reshape-selected');
 const reshapeSide = element<HTMLButtonElement>('reshape-side');
 const splitSelected = element<HTMLButtonElement>('split-selected');
@@ -372,6 +373,12 @@ map.on('load', () => {
       status.textContent = state.sharedBoundaryError === 'shared-boundary-overlap' ? 'The polygons would overlap. Move the shared boundary back inside their outer outline.'
         : state.sharedBoundaryError ? 'Both polygons must remain valid. Correct the shared boundary or Cancel.'
         : 'Add or drag points on the common boundary. Endpoints stay fixed. Save applies both polygons; Undo restores both.';
+    }
+    cutFeedback.hidden = !splitting && !reshaping;
+    if (splitting || reshaping) {
+      const feedback = activeEditor.getCutFeedback();
+      const problem = feedback && (feedback.problemPoints.length > 0 || feedback.problemSegments.length > 0);
+      cutFeedback.textContent = `${feedback?.contacts.length ?? 0} boundary contacts · Hollow green rings mark contacts. ${problem ? 'Red dots and dashed sections mark the problem. ' : ''}${state.canFinish ? (splitting ? 'The two fill colors show the split results. ' : 'The filled preview shows the result. ') + 'The faint outline is the original.' : ''}`;
     }
     if (reshaping) {
       status.classList.toggle('is-invalid', state.reshapeError !== null && state.reshapeError !== 'reshape-too-few-points' && state.reshapeError !== 'reshape-endpoints-off-boundary');

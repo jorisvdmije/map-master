@@ -2,7 +2,7 @@ import type { GeometryPart } from '../core/geometry.js';
 import type { EditorAppearance, PointAppearance } from '../core/appearance.js';
 import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
 import { samePosition } from '../core/polygon.js';
-import type { Coordinate, SharedBoundaryPreview, ReshapePreview, UnionPreview, SplitPreview, SnapResult, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
+import type { Coordinate, CutFeedback, SharedBoundaryPreview, ReshapePreview, UnionPreview, SplitPreview, SnapResult, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
 import { PreviewBorder } from './preview-border.js';
 import { vertexHandles } from './vertex-handles.js';
 
@@ -15,7 +15,7 @@ const circlePaint = (point: PointAppearance) => ({
 // This property exists only in render data; the core/export never receives it.
 const renderIdProperty = '__geo_editor_id';
 type PreviewFeature = {
-  type: 'Feature'; properties: { kind?: 'marker' | 'vertex' | 'midpoint' | 'snap' | 'split-part' | 'reshape' | 'shared-boundary-part'; part?: number; active?: boolean; locked?: boolean; snapKind?: 'vertex' | 'edge' };
+  type: 'Feature'; properties: { kind?: 'cut-contact' | 'cut-problem' | 'marker' | 'vertex' | 'midpoint' | 'snap' | 'split-part' | 'reshape' | 'shared-boundary-part'; part?: number; active?: boolean; locked?: boolean; snapKind?: 'vertex' | 'edge' };
   geometry: { type: 'Point'; coordinates: Coordinate }
     | { type: 'LineString'; coordinates: Coordinate[] }
     | { type: 'Polygon'; coordinates: Coordinate[][] };
@@ -89,6 +89,15 @@ export class MapLibreRenderer {
       { id: `${namespace}-transform-pivot`, type: 'circle', source: this.draftId,
         filter: ['==', 'kind', 'transform-pivot'],
         paint: circlePaint(pivot) },
+      { id: `${namespace}-cut-problem-lines`, type: 'line', source: this.draftId,
+        filter: ['all', ['==', 'kind', 'cut-problem'], ['==', '$type', 'LineString']],
+        paint: { 'line-color': '#dc2626', 'line-width': 5, 'line-dasharray': [2, 1] } },
+      { id: `${namespace}-cut-contacts`, type: 'circle', source: this.draftId,
+        filter: ['==', 'kind', 'cut-contact'],
+        paint: { 'circle-color': '#ffffff', 'circle-radius': 7, 'circle-stroke-color': '#0f766e', 'circle-stroke-width': 3 } },
+      { id: `${namespace}-cut-problems`, type: 'circle', source: this.draftId,
+        filter: ['all', ['==', 'kind', 'cut-problem'], ['==', '$type', 'Point']],
+        paint: { 'circle-color': '#dc2626', 'circle-radius': 7, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 } },
       { id: `${namespace}-snap`, type: 'circle', source: this.draftId,
         filter: ['==', 'kind', 'snap'],
         paint: { ...circlePaint(snap), 'circle-radius': ['case', ['==', ['get', 'snapKind'], 'vertex'], snap.radius, snap.edgeRadius] } },
@@ -285,7 +294,7 @@ export class MapLibreRenderer {
     return [...ids];
   }
 
-  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null, rings: Coordinate[][] | null = null, inactiveParts: GeometryPart[] = [], reshape: ReshapePreview | null = null, trace: Coordinate[] | null = null, shared: SharedBoundaryPreview | null = null): void {
+  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null, rings: Coordinate[][] | null = null, inactiveParts: GeometryPart[] = [], reshape: ReshapePreview | null = null, trace: Coordinate[] | null = null, shared: SharedBoundaryPreview | null = null, feedback: CutFeedback | null = null): void {
     if (state.mode !== 'idle') { this.translationVisible = false; this.translationPreview.clear(); }
     if (state.mode === 'draw-point') {
       this.draftBorder.clear();
@@ -336,6 +345,11 @@ export class MapLibreRenderer {
         geometry: { type: 'LineString', coordinates } });
     }
     if (!this.translationVisible) this.draftBorder.render(features.flatMap(({ geometry }) => geometry.type === 'Point' ? [] : [geometry]), editing || state.mode.startsWith('draw-') || state.mode === 'reshape-polygon' ? 8 : 0);
+    if (feedback) {
+      for (const coordinate of feedback.contacts) features.push({ type: 'Feature', properties: { kind: 'cut-contact' }, geometry: { type: 'Point', coordinates: coordinate } });
+      for (const coordinate of feedback.problemPoints) features.push({ type: 'Feature', properties: { kind: 'cut-problem' }, geometry: { type: 'Point', coordinates: coordinate } });
+      for (const coordinates of feedback.problemSegments) features.push({ type: 'Feature', properties: { kind: 'cut-problem' }, geometry: { type: 'LineString', coordinates } });
+    }
     void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection', features });
   }
 

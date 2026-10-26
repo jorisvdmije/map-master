@@ -1,7 +1,8 @@
+import { emptyCutFeedback, markContact } from './cut-feedback.js';
 import { boundaryAnchor } from './boundary-anchor.js';
 import { orient2d } from 'robust-predicates';
 import { closePolygon, openRing, samePosition, validatePolygon } from './polygon.js';
-import type { Coordinate, ReshapeError, ReshapePreview, ReshapeSide } from './types.js';
+import type { Coordinate, CutFeedback, ReshapeError, ReshapePreview, ReshapeSide } from './types.js';
 
 const orientation = (a: Coordinate, b: Coordinate, c: Coordinate): number => orient2d(...a, ...b, ...c);
 const opposite = (a: number, b: number): boolean => a < 0 && b > 0 || a > 0 && b < 0;
@@ -11,20 +12,27 @@ const intersects = (a: Coordinate, b: Coordinate, c: Coordinate, d: Coordinate):
   onSegment(a, b, c) || onSegment(a, b, d) || onSegment(c, d, a) || onSegment(c, d, b)
   || opposite(orientation(a, b, c), orientation(a, b, d)) && opposite(orientation(c, d, a), orientation(c, d, b));
 
-export type ReshapeCalculation = { preview: ReshapePreview; error: null } | { preview: null; error: ReshapeError };
-const fail = (error: ReshapeError): ReshapeCalculation => ({ preview: null, error });
+export type ReshapeCalculation = { feedback: CutFeedback } & ({ preview: ReshapePreview; error: null } | { preview: null; error: ReshapeError });
 const length = (path: Coordinate[]): number => path.slice(1).reduce((sum, p, i) => sum + Math.hypot(p[0] - path[i]![0], p[1] - path[i]![1]), 0);
 
 /** Replace one boundary arc of a validated single-ring polygon. No input mutation. */
 export function reshapePolygon(closedRing: Coordinate[], coordinates: Coordinate[], side: ReshapeSide = 'shorter'): ReshapeCalculation {
+  const feedback = emptyCutFeedback();
+  const fail = (error: ReshapeError): ReshapeCalculation => ({ preview: null, error, feedback });
   if (side !== 'shorter' && side !== 'longer') throw new TypeError('Unknown reshape side.');
   if (coordinates.some((p) => p.length !== 2 || !Number.isFinite(p[0]) || !Number.isFinite(p[1])
     || Math.abs(p[0]) > 180 || Math.abs(p[1]) > 90)) return fail('reshape-invalid-result');
-  if (coordinates.length < 2) return fail('reshape-too-few-points');
+
   const ring = openRing(closePolygon(closedRing));
-  let start = boundaryAnchor(coordinates[0]!, ring); let end = boundaryAnchor(coordinates.at(-1)!, ring);
-  if (!start || !end) return fail('reshape-endpoints-off-boundary');
-  if (samePosition(start.point, end.point)) return fail('reshape-same-endpoint');
+  let start = coordinates[0] ? boundaryAnchor(coordinates[0], ring) : null; let end = coordinates.length > 1 ? boundaryAnchor(coordinates.at(-1)!, ring) : null;
+  feedback.contacts = [start, end].flatMap(anchor => anchor ? [anchor.point] : []);
+  if (coordinates.length < 2) return fail('reshape-too-few-points');
+  if (!start || !end) {
+    if (!start) feedback.problemPoints.push(coordinates[0]!);
+    if (!end) feedback.problemPoints.push(coordinates.at(-1)!);
+    return fail('reshape-endpoints-off-boundary');
+  }
+  if (samePosition(start.point, end.point)) { feedback.problemPoints.push(start.point); return fail('reshape-same-endpoint'); }
   let path = coordinates.map((p): Coordinate => [...p]); path[0] = start.point; path[path.length - 1] = end.point;
   // Canonical endpoint order makes equal-length ties independent of path direction.
   if (start.point[0] > end.point[0] || start.point[0] === end.point[0] && start.point[1] > end.point[1]) {
@@ -32,11 +40,11 @@ export function reshapePolygon(closedRing: Coordinate[], coordinates: Coordinate
   }
   for (let i = 0; i < path.length - 1; i++) {
     const a = path[i]!; const b = path[i + 1]!;
-    if (Math.abs(a[0] - b[0]) > 180) return fail('reshape-antimeridian');
-    if (samePosition(a, b)) return fail('reshape-self-intersection');
-    if (i + 2 < path.length && (onSegment(a, b, path[i + 2]!) || onSegment(b, path[i + 2]!, a))) return fail('reshape-self-intersection');
+    if (Math.abs(a[0] - b[0]) > 180) { feedback.problemSegments.push([a, b]); return fail('reshape-antimeridian'); }
+    if (samePosition(a, b)) { feedback.problemPoints.push(a); return fail('reshape-self-intersection'); }
+    if (i + 2 < path.length && (onSegment(a, b, path[i + 2]!) || onSegment(b, path[i + 2]!, a))) { markContact(feedback, a, b, b, path[i + 2]!); return fail('reshape-self-intersection'); }
     for (let j = i + 2; j < path.length - 1; j++) {
-      if (intersects(a, b, path[j]!, path[j + 1]!)) return fail('reshape-self-intersection');
+      if (intersects(a, b, path[j]!, path[j + 1]!)) { markContact(feedback, a, b, path[j]!, path[j + 1]!); feedback.problemSegments.push([path[j]!, path[j + 1]!]); return fail('reshape-self-intersection'); }
     }
   }
   const boundary: Coordinate[] = [];
@@ -56,7 +64,7 @@ export function reshapePolygon(closedRing: Coordinate[], coordinates: Coordinate
       // Meeting at the two attachments is allowed; following any boundary is not.
       const extraContact = [c, d].some((p) => !samePosition(p, a) && !samePosition(p, b) && onSegment(a, b, p))
         || [a, b].some((p) => !samePosition(p, c) && !samePosition(p, d) && onSegment(c, d, p));
-      if (!atStart && !atEnd || extraContact || atStart && atEnd) return fail('reshape-boundary-touch');
+      if (!atStart && !atEnd || extraContact || atStart && atEnd) { markContact(feedback, a, b, c, d); return fail('reshape-boundary-touch'); }
     }
   }
   const startIndex = boundary.findIndex((p) => samePosition(p, start.point));
@@ -71,5 +79,6 @@ export function reshapePolygon(closedRing: Coordinate[], coordinates: Coordinate
   const kept = removeForward ? backward : [...forward].reverse();
   const result = [...path, ...kept.slice(1, -1)];
   if (validatePolygon(result)) return fail('reshape-invalid-result');
-  return { preview: { type: 'Polygon', coordinates: [closePolygon(result)] }, error: null };
+  feedback.contacts.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  return { feedback, preview: { type: 'Polygon', coordinates: [closePolygon(result)] }, error: null };
 }

@@ -42,7 +42,7 @@ it.each<[Coordinate[], SplitError]>([
   [[[-1, 3], [5, 3], [2, 3], [11, 3]], 'split-self-intersection'],
   [[[-1, 2], [11, 8], [-1, 8], [11, 2]], 'split-self-intersection'],
   [[[-170, 2], [170, 3]], 'split-antimeridian'],
-])('rejects unsupported cut %# explicitly', (cut, error) => { expect(split(cut)).toEqual({ preview: null, error }); });
+])('rejects unsupported cut %# explicitly', (cut, error) => { expect(split(cut)).toMatchObject({ preview: null, error }); });
 it('rejects more than two crossings instead of dropping parts', () => {
   const u: Coordinate[] = [[0, 0], [10, 0], [10, 10], [7, 10], [7, 3], [3, 3], [3, 10], [0, 10], [0, 0]];
   expect(split([[-1, 5], [11, 5]], u).error).toBe('split-crossing-count');
@@ -103,7 +103,7 @@ it.each<[Coordinate[], SplitError]>([
   [[[0, 2], [5, 2], [5, 10], [10, 8]], 'split-boundary-touch'],
   [[[0, 2], [5, 2], [5, 8], [0, 2]], 'split-self-intersection'],
 ])('still rejects non-splitting boundary paths %#', (cut, error) => {
-  expect(split(cut)).toEqual({preview:null,error});
+  expect(split(cut)).toMatchObject({preview:null,error});
 });
 it('handles construction roundoff on sloped boundaries at small and large scales', () => {
   for (const scale of [1e-7, 0.01, 1]) {

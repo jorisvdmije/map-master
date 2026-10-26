@@ -63,6 +63,8 @@ it('runs the demo with its real controls and a built package, without a tile ser
   await userEvent.click(canvas, { position: { x: 100, y: 200 } });
   await userEvent.click(canvas, { position: { x: 400, y: 200 } });
   await expect.element(page.getByRole('button', { name: 'Apply split', exact: true })).toBeEnabled();
+  expect(document.querySelector('#cut-feedback')!.textContent).toContain('2 boundary contacts');
+  expect(document.querySelector('#cut-feedback')!.textContent).toContain('The two fill colors show the split results.');
   expect(output?.value).toBe(saved);
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await split.click();

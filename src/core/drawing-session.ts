@@ -1,3 +1,4 @@
+import { copyCutFeedback, emptyCutFeedback } from './cut-feedback.js';
 import { FeatureLockedError, lockedFeatureIds, sameLocks } from './feature-locks.js';
 import { canOffsetFeatures, offsetFeatures, validateOffsetDistance } from './offset.js';
 import { bufferFeatures, validateBufferDistance } from './buffer.js';
@@ -19,7 +20,7 @@ import { EditHistory, type HistoryEntry } from './history.js';
 import { GeoJSONImportError, copyProperties, prepareImport } from './geojson-import.js';
 import { closePolygon, openRing, samePosition, validatePolygonRings, validateMultiPolygon } from './polygon.js';
 import type {
-  Coordinate, VertexUpdate, OffsetError, BufferError, SimplificationError, ScaleError, RotationError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
+  Coordinate, CutFeedback, VertexUpdate, OffsetError, BufferError, SimplificationError, ScaleError, RotationError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
 } from './types.js';
 
 function copyFeature(feature: GeometryFeature): GeometryFeature {
@@ -62,6 +63,7 @@ export class DrawingSession {
   private reshapePreview: ReshapePreview | null = null;
   private reshapeError: ReshapeError | null = null;
   private reshapeSide: ReshapeSide = 'shorter';
+  private cutFeedback: CutFeedback | null = null;
   private splitId: FeatureId | null = null;
   private splitPreview: SplitPreview | null = null;
   private splitError: SplitError | null = null;
@@ -271,6 +273,7 @@ export class DrawingSession {
     this.intersectionActive = false; this.intersectionPreview = null; this.intersectionError = null;
     this.differenceActive = false; this.differencePreview = null; this.differenceError = null;
     this.unionActive = false; this.unionPreview = null; this.unionError = null;
+    this.cutFeedback = null;
     this.reshapeId = null; this.reshapePreview = null; this.reshapeError = null; this.reshapeSide = 'shorter';
     this.splitId = null; this.splitPreview = null; this.splitError = null;
     this.kind = null;
@@ -405,6 +408,7 @@ export class DrawingSession {
     if (this.selectionLocked()) return false;
     const feature = this.getSelected();
     if (!feature || feature.geometry.type !== 'Polygon' || feature.geometry.coordinates.length !== 1) return false;
+    this.cutFeedback = emptyCutFeedback();
     this.reshapeId = feature.id; this.kind = 'LineString'; this.draft = [];
     this.reshapeError = 'reshape-too-few-points'; this.reshapePreview = null;
     return true;
@@ -441,6 +445,7 @@ export class DrawingSession {
     const feature = this.features.get(this.reshapeId!)!;
     if (feature.geometry.type !== 'Polygon') throw new Error('Expected a polygon reshape target.');
     const result = reshapePolygon(feature.geometry.coordinates[0]!, this.draft, this.reshapeSide);
+    this.cutFeedback = result.feedback;
     this.reshapePreview = result.preview; this.reshapeError = result.error;
   }
 
@@ -459,6 +464,7 @@ export class DrawingSession {
     if (this.selectionLocked()) return false;
     const feature = this.getSelected();
     if (!feature || feature.geometry.type !== 'Polygon') return false;
+    this.cutFeedback = emptyCutFeedback();
     this.splitId = feature.id; this.kind = 'LineString'; this.draft = [];
     this.splitError = 'split-too-few-points'; this.splitPreview = null;
     return true;
@@ -480,6 +486,10 @@ export class DrawingSession {
     this.draft.pop(); this.validateSplit(); return true;
   }
 
+  getCutFeedback(): CutFeedback | null {
+    return this.cutFeedback ? copyCutFeedback(this.cutFeedback) : null;
+  }
+
   getSplitPreview(): SplitPreview | null {
     if (!this.splitPreview) return null;
     return { retained: { type: 'Polygon', coordinates: this.splitPreview.retained.coordinates.map((ring) => ring.map((p) => [...p])) },
@@ -490,6 +500,7 @@ export class DrawingSession {
     const feature = this.features.get(this.splitId!)!;
     if (feature.geometry.type !== 'Polygon') throw new Error('Expected a polygon split target.');
     const result = splitPolygonRings(feature.geometry.coordinates, this.draft);
+    this.cutFeedback = result.feedback;
     this.splitPreview = result.preview; this.splitError = result.error;
   }
 

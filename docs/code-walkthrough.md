@@ -30,6 +30,7 @@ src/
     intersection.ts          Common area of every input; valid empty results
     difference.ts            Target subtraction, empty and exact no-op results
     polygon-overlay.ts       Shared strict overlay result validation
+    cut-feedback.ts          Diagnostic contact construction and feedback copying
     split-polygon.ts         Two-contact splitter with boundary attachments and result validation
     geometry.ts              Component views/replacement and coordinate mapping
     snapping.ts              Projected candidate index, nearest vertex/edge policy
@@ -524,3 +525,15 @@ attachments into the boundary, accepts only the two endpoint contacts/proper
 crossings, checks the intervening path lies inside, then builds and validates both
 boundary arcs. `maplibre/boundary-snapping.ts` gives the selected outer boundary
 priority for split/reshape placement without changing neighbouring features.
+
+## Split and reshape map feedback
+
+The split/reshape calculators return `feedback` alongside their existing preview
+and error. They attach diagnostic locations at the validation branch that detects
+the error; `cut-feedback.ts` constructs the contact point only after intersection
+has been established. The session caches this result and exposes independent
+snapshots through `getCutFeedback()`. Hover never recalculates the geometry.
+The renderer appends contact/error features to its existing draft source and
+reuses the committed comparison outline for valid previews. These display-only
+features cannot enter GeoJSON export, picking or transactions. The basic demo
+reads the same getter for its legend; hosts can do so in `onChange`.

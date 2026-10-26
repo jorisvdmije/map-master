@@ -81,6 +81,8 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   }
   void [sharedPreview, sharedError];
   const reshaping: boolean = tool.reshapeSelected();
+  const feedback: editor.CutFeedback | null = tool.getCutFeedback();
+  void feedback;
   const reshapePreview: editor.ReshapePreview | null = tool.getReshapePreview();
   const reshapeError: editor.ReshapeError | null = tool.getState().reshapeError;
   const reshapeSide: editor.ReshapeSide | null = tool.getState().reshapeSide;
