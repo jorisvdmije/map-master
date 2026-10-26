@@ -324,8 +324,8 @@ map.on('load', () => {
       ? 'Two corners coincide. Move or remove a corner.' : validationMessages[error]
       : editing ? `${state.vertexCount} corners. Save to apply changes, or Cancel to restore the original.` : drawing
       ? `${state.vertexCount} ${state.vertexCount === 1 ? 'point' : 'points'} placed. ${state.canFinish ? 'Ready to finish.' : `Place at least ${polygon ? 'three corners' : 'two points'}.`}`
-      : selectedCount > 1 ? `${selectedCount} shapes selected. Drag a selected shape to move the group. Undo restores the previous position.`
-        : selectedFeature ? 'Drag to move this shape, or edit its corners. Escape cancels a drag.'
+      : selectedCount > 1 ? `${selectedCount} shapes selected. Drag to move the group; the marked corner snaps. Press Shift during dragging to lock an axis, Alt to bypass snapping.`
+        : selectedFeature ? 'Drag to move; the marked corner snaps. Press Shift during dragging to lock an axis, Alt to bypass snapping. Escape cancels.'
         : state.featureCount > 0 ? 'Click a shape to select it, or draw another.' : 'Ready when you are.';
     if (state.mode === 'draw-point') status.textContent = 'Click once to place a marker. Escape cancels.';
     if (state.mode === 'edit-point') element('editing-help').textContent = 'Drag the point to move the marker, then Save. Cancel restores its position.';

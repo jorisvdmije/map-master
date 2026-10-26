@@ -42,7 +42,8 @@ src/
     reshape-snapping.ts      Target-only boundary attachment and camera cache
     snapping.ts              Map projection and camera/data-revision cache
     selection-interaction.ts Shift+click/rectangle selection and cancellation
-    translation-interaction.ts Group drag preview, release and cancellation
+    translation-interaction.ts Group drag, anchor snapping, axis constraint and cancellation
+    translation-guide.ts       Moving anchor, ruler and Mercator displacement label
     pivot-interaction.ts     Shared rotation/scale pivot input, original-target snapping and rollback
     distance-interaction.ts  Buffer/offset distance handle, ruler and drag rollback
     preview-border.ts        Explicit dots per edge for every preview; optional drag fill
@@ -235,7 +236,11 @@ and changes only their MapLibre feature states without uploading geometry.
 `TranslationInteraction` starts only on a selected committed hit while idle. It
 captures one selection snapshot, suspends pan, and computes a shared geographic
 offset from the original pointer position. Animation frames translate only that
-snapshot. The renderer hides originals through feature state and projects the
+snapshot. A fixed vertex on the grabbed feature queries `MapLibreSnapping` once
+per preview with a cached set excluding the whole selection; the common index
+is cached by data revision and camera. Shift locks a geographic axis and pauses
+snapping; Alt bypasses it. `TranslationGuide` owns a constant-size overlay and
+reports the anchor displacement in Mercator meters. The renderer hides originals through feature state and projects the
 moving group into SVG fills and explicit dots using the same `PreviewBorder` as
 drawing, vertex editing and geometry-operation previews. Each edge measures dots
 from its own start at 9 CSS pixel intervals, without a dash pattern or animation.

@@ -8,6 +8,11 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 
 ### Added
 
+- Group dragging snaps a fixed vertex of the grabbed feature to unselected
+  vertices/edges, with Alt bypass, live snapping options and a displacement ruler.
+  Press Shift during dragging for a fixed geographic axis; release commits one
+  Undo step. The live label measures anchor displacement in Mercator meters.
+
 - Movable rotation/scale pivots with original-vertex/centre snapping, Alt bypass,
   keyboard positioning, reset controls and interrupted-drag rollback. Added
   `setRotationPivot` and `setScalePivot`; the demo supports fixed scale corners.

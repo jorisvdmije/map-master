@@ -42,6 +42,7 @@
     "benchmark:holes": "npm run build && node scripts/benchmark-holes.mjs",
     "benchmark:polygon": "npm run build && node scripts/benchmark-polygon.mjs",
     "benchmark:duplication": "npm run build && node scripts/benchmark-duplication.mjs",
+    "benchmark:translation-snapping": "npm run build && node scripts/benchmark-translation-snapping.mjs",
     "benchmark:translation": "npm run build && node scripts/benchmark-translation.mjs",
     "benchmark:selection": "npm run build && node scripts/benchmark-selection.mjs",
     "benchmark:deletion": "npm run build && node scripts/benchmark-deletion.mjs",

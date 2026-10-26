@@ -103,10 +103,15 @@ export class GeometryEditor {
     this.translation = new TranslationInteraction(map, {
       targets: (point) => {
         const state = this.session.state;
-        if (this.destroyed || this.renderer.transferringTranslation || state.mode !== 'idle' || state.selectedFeatureIds.length === 0 || state.selectedFeatureIds.some((id) => this.session.isFeatureLocked(id))) return [];
+        if (this.destroyed || this.renderer.transferringTranslation || state.mode !== 'idle' || state.selectedFeatureIds.length === 0 || state.selectedFeatureIds.some((id) => this.session.isFeatureLocked(id))) return null;
         const id = this.renderer.pick(point);
-        return id !== null && state.selectedFeatureIds.includes(id) ? this.session.getSelection() : [];
+        if (id === null || !state.selectedFeatureIds.includes(id)) return null;
+        const features = this.session.getSelection();
+        return { features, grabbed: features.find(feature => feature.id === id)! };
       },
+      resolve: (point, excluded) => this.snapping.resolve(point, this.session.state.dataRevision, () => this.session.exportGeoJSON(), excluded, true),
+      snap: result => { if (!this.destroyed) this.setSnap(result); },
+      appearance: () => this.appearance,
       preview: (features) => {
         this.renderer.renderEditingMany(features.map((feature) => feature.id));
         this.renderer.renderTranslation(features);
@@ -214,6 +219,7 @@ export class GeometryEditor {
     if (JSON.stringify(next) === JSON.stringify(this.appearance)) return;
     this.appearance = next;
     this.renderer.setAppearance(next);
+    this.translation.refresh();
     if (['rotate-features', 'scale-features', 'buffer-features', 'offset-lines'].includes(this.session.state.mode)) this.schedulePreview();
     this.emitChange();
   }
@@ -294,6 +300,7 @@ export class GeometryEditor {
     if (!this.snapping.getOptions().enabled) { this.traceAnchor = null; this.traceCache = null; }
     this.vertices.refresh();
     this.pivot.refresh();
+    this.translation.refresh();
     if (this.pointer && this.isDrawing()) {
       const resolved = this.resolvePointer(this.pointer);
       this.cursor = resolved.blocked ? undefined : resolved.coordinate;

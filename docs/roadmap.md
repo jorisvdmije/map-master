@@ -24,6 +24,7 @@ each branch from updated `main` after its dependencies have merged.
 | 12 | `feat/edit-snapping` | Implemented: snap dragged corners and inserted midpoints to other committed features, exclude the edited feature, reuse the index, Alt/live toggles, exact release, validation/cancel/history, browser/demo tests and benchmark. |
 | 13a | `feat/multi-select` | Implemented: Shift+click toggle and additive rectangle selection, typed IDs, changed-only highlights, selectMany/getSelection/toggleSelection, atomic deleteSelection and undo, gesture cleanup, demo/core/browser/package tests and benchmark. |
 | 13b | `feat/move-features` | Implemented: drag selected lines/polygons as a group, selected-only preview, release/cancel, degree-offset API, atomic validation/history, lifecycle cleanup, tests and benchmark. |
+| 13b.1 | `feat/translation-snapping` | Implemented: fixed grabbed-vertex snapping for whole selections, Alt bypass, Shift geographic-axis lock, live Mercator displacement guide, exact release/Undo and interruption cleanup. |
 | 13c | `feat/duplicate-features` | Implemented: duplicate single/mixed selections with reserved fresh IDs, isolated properties, optional degree offset, selection of copies, atomic validation/history, demo/core/browser/package tests and benchmark. |
 | 14a | `feat/polygon-holes` | Implemented: strict ring topology, winding normalization, hole drawing/deletion, active-ring editing, import/export, ring-aware snapping, split preservation, history, demo and tests. |
 | 14b | `feat/multipart` | Implemented: MultiLineString/MultiPolygon import and transactions, strict component topology, component/ring editing, hole commands, whole-feature selection/translation/duplication/history, snapping, demo, tests and benchmark. See [multipart](multipart.md). Part construction tools and multipart splitting remain planned. |
@@ -53,7 +54,7 @@ each branch from updated `main` after its dependencies have merged.
 
 Steps 2–7 produce the first small CRUD editor. Step 8 adds recovery from user
 mistakes. Step 9 adds precise placement against existing shapes. Later candidates include touch interactions,
-interactive multipart construction, movable rotation pivots, broader cutting/splitting support, and framework wrappers.
+interactive multipart construction, broader cutting/splitting support, and framework wrappers.
 Prioritize those using actual application requirements. The next sequence is the
 beta gates above; specialized geometry tools no longer automatically take priority.
 

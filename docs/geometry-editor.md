@@ -2,7 +2,7 @@
 
 Status: experimental. Supports 2D Point, LineString, Polygon (including holes), MultiLineString and MultiPolygon
 features on a flat Mercator MapLibre GL JS 6.15 map. Desktop mouse and keyboard
-input, selection, group translation/duplication, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are tested in Chromium.
+input, selection, group translation/duplication, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing/movement snapping are tested in Chromium.
 See the [multipart guide](multipart.md) for component editing and topology constraints.
 
 For one-click marker placement and point editing, see [Point markers](markers.md).
@@ -286,7 +286,35 @@ uses the difference between the pointer's unprojected start and release position
 Every preview is computed from the original coordinates, avoiding accumulated
 rounding drift. Relative coordinate offsets and closed rings are preserved;
 physical distances and projected screen dimensions can change with latitude.
-Group movement does not snap; drawing and vertex snapping remain available.
+With snapping enabled, a fixed **anchor vertex** on the grabbed feature snaps to
+unselected committed vertices and edges. It is the screen-nearest vertex to the
+initial click (including holes and multipart components); ties use geometry order.
+A marker identifies it and a dashed ruler connects its original and current
+positions. The entire group receives the anchor's corrected degree offset. Other
+vertices do not independently snap, so relative coordinates stay intact. Every
+selected feature is excluded, including numeric/string IDs and offscreen members;
+locked stationary features remain valid targets. Edge targets lie on the source's
+longitude/latitude segment. Vertex priority, CSS-pixel tolerance and the live
+`setSnapping()` options are shared with drawing. `getSnap()` / `onSnap()` expose
+the acquired target and clear on release/cancel. Hold **Alt** to bypass snapping,
+including when starting a drag. Modifier and option changes update a stationary
+preview; release resolves its own final position. Returning exactly to the drag
+origin remains a no-op.
+
+Press **Shift after starting the drag** to lock east-west or north-south, chosen
+by the dominant Mercator displacement when Shift is acquired. That axis stays
+fixed until Shift is released, even if the pointer crosses the diagonal. Shift
+pauses snapping to enforce the axis exactly; releasing it restores free movement
+and snapping. These are geographic axes, so they rotate with the map. Starting
+with Shift held retains additive selection/rectangle selection.
+
+The live label shows total distance and signed east/north displacement of the
+anchor in **Mercator meters**, not ground meters. Because translation uses degree
+offsets, other vertices can travel different Mercator distances. At a pole the
+label reports distance unavailable. The ruler and label are temporary and do not
+enter GeoJSON, history or the drawing draft. Invalid bounds use a red guide and
+label. The existing `translateSelection()` API remains an exact degree offset and
+never applies pointer snapping or Shift constraints.
 
 Coordinates must remain within `[-180, 180]` longitude and `[-90, 90]` latitude.
 Nothing wraps or clamps individual vertices. One out-of-bounds member rejects the

@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { DrawingSession } from '../src/core/drawing-session.js';
-import { translateFeatures } from '../src/core/translation.js';
+import { translateFeatures, translationAnchor } from '../src/core/translation.js';
 import type { Coordinate, GeometryFeature } from '../src/index.js';
 
 function setup(historyLimit = 100): DrawingSession {
@@ -78,4 +78,18 @@ it('rejects floating-point collapse through final transaction validation', () =>
   const before = session.exportGeoJSON();
   expect(() => session.translateSelection([1, 0])).toThrow();
   expect(session.exportGeoJSON()).toEqual(before); expect(session.state.canUndo).toBe(false);
+});
+
+
+it('chooses a fixed screen-nearest anchor from holes and multipart components, independent of coordinate scale', () => {
+  const feature: GeometryFeature = { type: 'Feature', id: 1, properties: null, geometry: { type: 'MultiPolygon', coordinates: [
+    [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]], [[2, 2], [2, 4], [4, 4], [4, 2], [2, 2]]],
+    [[[20, 20], [30, 20], [30, 30], [20, 30], [20, 20]]],
+  ] } };
+  const project = ([x, y]: Coordinate) => ({ x: x * 100, y: y * 2 });
+  const anchor = translationAnchor(feature, { x: 201, y: 5 }, project)!;
+  expect(anchor).toEqual([2, 2]); anchor[0] = 99;
+  expect(translationAnchor(feature, { x: 201, y: 5 }, project)).toEqual([2, 2]);
+  expect(translationAnchor(feature, { x: 2999, y: 59 }, project)).toEqual([30, 30]);
+  expect(translationAnchor(feature, { x: 0, y: 0 }, () => ({ x: NaN, y: NaN }))).toBeNull();
 });

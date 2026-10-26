@@ -1,5 +1,19 @@
-import { mapGeometry, withGeometry } from './geometry.js';
+import { geometryParts, mapGeometry, withGeometry } from './geometry.js';
+import type { ScreenPoint } from './snapping.js';
 import type { Coordinate, GeometryFeature } from './types.js';
+
+/** Pick once from the grabbed feature, in CSS pixels; ties keep geometry order. */
+export function translationAnchor(feature: GeometryFeature, pointer: ScreenPoint, project: (coordinate: Coordinate) => ScreenPoint): Coordinate | null {
+  let best: Coordinate | null = null; let distance = Infinity;
+  for (const part of geometryParts(feature.geometry)) {
+    const paths = part.type === 'Polygon' ? part.coordinates : part.type === 'Point' ? [[part.coordinates]] : [part.coordinates];
+    for (const path of paths) for (const coordinate of path) {
+      const point = project(coordinate); const next = Math.hypot(point.x - pointer.x, point.y - pointer.y);
+      if (next < distance) { distance = next; best = coordinate; }
+    }
+  }
+  return best ? [...best] : null;
+}
 
 /** Translate from an immutable gesture baseline, never from the last preview.
  * Properties are shared with the input; callers own the input snapshots.

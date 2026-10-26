@@ -366,6 +366,32 @@ MapLibre worker/GPU time, SVG rendering, callback overhead, picking and
 feature-state updates are not included above. Large groups can exceed a frame budget during the final
 validated commit and still need representative application profiling.
 
+### Group translation snapping
+
+Run `npm run benchmark:translation-snapping`. A fixed grid of two-vertex lines
+uses a linear screen projection, one fixed grabbed anchor and a cached exclusion
+set. Ten index constructions are measured separately; 100 warmups precede 1,000
+indexed queries and selected-only translation previews. Each query asserts a
+stationary vertex target and the translated anchor is checked against that target.
+
+Local Node.js v22.23.1, macOS arm64, Apple M2 Pro (2026-10-26; concurrent project
+checks running):
+
+| Stored / selected | Index median / p95 ms | Cached query median / p95 ms | Query + translation median / p95 ms |
+| --- | --- | --- | --- |
+| 1,000 / 5 | 6.014 / 9.929 | 0.003 / 0.005 | 0.004 / 0.007 |
+| 10,000 / 5 | 66.557 / 173.532 | 0.003 / 0.006 | 0.005 / 0.007 |
+| 10,000 / 500 | 47.410 / 112.235 | 0.002 / 0.006 | 0.025 / 0.032 |
+
+Only the grabbed feature is scanned to choose an anchor, once at pointer-down.
+Each frame queries one translated anchor; it does not search every moving vertex.
+The index is shared with drawing/editing and rebuilt after a data revision or
+camera change. Cold construction on large stores can exceed a frame budget.
+These measurements exclude export, real MapLibre projection, picking, SVG layout
+and painting, and final validation/commit; they are not interactive latency
+claims. The existing browser suite separately verifies exact release, cancellation,
+selection-only previews and the installed-consumer latency/lifecycle budgets.
+
 ## Group duplication
 
 Run `npm run benchmark:duplication`. Fixed mixed two-point lines/four-corner

@@ -12,7 +12,7 @@ A TypeScript library in development for drawing and editing geometry on web maps
 1,000-feature installed-consumer workload and repeated map/editor teardown. The
 verified target is desktop Chromium with mouse/keyboard and MapLibre 6.15.0.
 
-Marker placement and line/polygon drawing (including holes), single and multiple feature selection, group movement and duplication, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing snapping are implemented:
+Marker placement and line/polygon drawing (including holes), single and multiple feature selection, group movement and duplication, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing/movement snapping are implemented:
 preview, validate, finish or cancel, select/deselect, delete, move/insert/remove vertices, and export committed features together
 as GeoJSON through one GeometryEditor API.
 [Atomic transactions](docs/transactions.md) can create, update, and delete multiple
@@ -33,7 +33,7 @@ features as one validated batch and one undo action.
 [Polygon intersection](docs/intersection.md) keeps the common filled area of all selected polygons, with a cancellable preview and atomic Undo.
 [Polygon difference](docs/difference.md) subtracts selected cutting shapes from the first selected target, preserving cutters and supporting empty results.
 [Split Features](docs/splitting.md) divides a selected polygon into two independent features.
-[Group movement](docs/geometry-editor.md#move-selected-shapes) previews a selected group and records the move as one undoable action.
+[Group movement](docs/geometry-editor.md#move-selected-shapes) snaps a fixed anchor to other shapes, supports Shift axis locking and a live displacement ruler, and records the move as one undoable action.
 [Duplication](docs/geometry-editor.md#duplicate-selected-shapes) creates independent copies with new IDs and one Undo for the whole group.
 [Multipart geometry](docs/multipart.md) supports imported or transaction-created MultiLineString/MultiPolygon features, with component/ring editing and whole-feature history.
 The API is experimental. Code and contributor documentation use English.
