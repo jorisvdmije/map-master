@@ -11,6 +11,8 @@ A TypeScript library in development for drawing and editing geometry on web maps
 [Beta compatibility and performance gates](docs/beta-budgets.md) now check a fixed
 1,000-feature installed-consumer workload and repeated map/editor teardown. The
 verified target is desktop Chromium with mouse/keyboard and MapLibre 6.15.0.
+[Touch/pen vertex editing](docs/touch-pen-vertices.md) additionally has Chromium
+input-emulation coverage; physical tablets and other touch tools remain unqualified.
 
 Marker placement and line/polygon drawing (including holes), single and multiple feature selection, group movement and duplication, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing/movement snapping are implemented:
 preview, validate, finish or cancel, select/deselect, delete, select groups of vertices with Shift+click or a rectangle, move/remove corners together, drag whole edges, insert vertices, and export committed features together
@@ -180,6 +182,7 @@ npm run check
 | `npm run benchmark:selection` | Measure core ID lookup and selected snapshots on fixed datasets. |
 | `npm run benchmark:deletion` | Measure one core deletion plus export of all surviving features. |
 | `npm run benchmark:editing` | Measure atomic movement of corner groups in fixed polygon drafts. |
+| `npm run benchmark:direct-picking` | Measure touch/pen handle acquisition on fixed line sizes. |
 | `npm run benchmark:vertex-keyboard` | Measure keyboard vertex navigation and nudge coordination for large drafts. |
 | `npm run benchmark:vertex-selection` | Measure draft rectangle picking and selection with a deterministic projection. |
 | `npm run benchmark:import` | Measure atomic imports of fixed line and polygon datasets. |

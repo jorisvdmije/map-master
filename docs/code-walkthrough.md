@@ -51,7 +51,7 @@ src/
     pivot-interaction.ts     Shared rotation/scale pivot input, original-target snapping and rollback
     distance-interaction.ts  Buffer/offset distance handle, ruler and drag rollback
     preview-border.ts        Explicit dots per edge for every preview; optional drag fill
-    vertex-interaction.ts    Multi-vertex/edge gestures, pointer capture and rollback
+    vertex-interaction.ts    Mouse edges; mouse/touch/pen vertex capture, map gesture separation and rollback
     vertex-keyboard.ts       Single-tab-stop vertex navigation, group nudges and movement rollback
     vertex-handles.ts        Shared screen-space corner/midpoint definitions and edge picking
     line-editor.ts           Compatibility facade for the earlier line-only API

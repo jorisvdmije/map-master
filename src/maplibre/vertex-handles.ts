@@ -8,6 +8,22 @@ export interface VertexHandle {
   coordinate: Coordinate;
 }
 
+/** Enlarged direct-input targets choose the closest corner before an insertion
+ * handle. Equal distances retain draft order, independent of selection. */
+export function pickDirectVertexHandle(map: MapLibreMap, handles: VertexHandle[], point: ScreenPoint, radius: number): VertexHandle | null {
+  for (const kind of ['vertex', 'midpoint'] as const) {
+    let best: VertexHandle | null = null; let distance = radius;
+    for (const handle of handles) {
+      if (handle.kind !== kind) continue;
+      const projected = map.project(handle.coordinate);
+      const next = Math.hypot(projected.x - point.x, projected.y - point.y);
+      if (next <= distance && (best === null || next < distance)) { best = handle; distance = next; }
+    }
+    if (best) return best;
+  }
+  return null;
+}
+
 /** Inclusive screen rectangle; only actual draft vertices, in draft order. */
 export function pickEditVertices(map: MapLibreMap, points: Coordinate[], start: ScreenPoint, end: ScreenPoint, fixedEndpoints: boolean): number[] {
   const left = Math.min(start.x, end.x); const right = Math.max(start.x, end.x);

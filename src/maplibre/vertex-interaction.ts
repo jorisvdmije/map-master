@@ -2,7 +2,7 @@ import { canvasPoint } from './pointer.js';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { Coordinate, EditorState, VertexUpdate } from '../core/types.js';
 import type { ScreenPoint } from '../core/snapping.js';
-import { pickEditEdge, vertexHandles } from './vertex-handles.js';
+import { pickDirectVertexHandle, pickEditEdge, vertexHandles } from './vertex-handles.js';
 
 interface VertexActions {
   state(): EditorState;
@@ -16,6 +16,8 @@ interface VertexActions {
 }
 interface Drag {
   pointerId: number;
+  direct: boolean;
+  moved: boolean;
   index: number;
   original: Coordinate;
   originals: VertexUpdate[];
@@ -29,7 +31,7 @@ interface Drag {
   origin: Coordinate;
 }
 
-/** Mouse pointer capture, coalesced atomic vertex movement, and gesture cleanup. */
+/** Captured mouse/touch/pen vertex editing, coalesced movement and rollback. */
 export class VertexInteraction {
   private readonly canvas: HTMLCanvasElement;
   private readonly view: Window;
@@ -37,6 +39,9 @@ export class VertexInteraction {
   private pointer: { point: ScreenPoint; altKey: boolean } | undefined;
   private pending = false;
   private frame: number | undefined;
+  private readonly contacts = new Set<number>();
+  private touchSequence = false;
+  private suppressClick = false;
 
   constructor(private readonly map: MapLibreMap, private readonly actions: VertexActions) {
     this.canvas = map.getCanvas();
@@ -46,8 +51,16 @@ export class VertexInteraction {
     this.canvas.addEventListener('pointerup', this.up);
     this.canvas.addEventListener('pointercancel', this.cancel);
     this.canvas.addEventListener('lostpointercapture', this.cancel);
+    this.canvas.addEventListener('click', this.click, true);
+    this.view.addEventListener('pointerdown', this.contactDown, true);
+    this.view.addEventListener('pointerup', this.contactEnd, true);
+    this.view.addEventListener('pointercancel', this.contactEnd, true);
+    for (const type of ['touchstart', 'touchmove', 'touchend', 'touchcancel']) {
+      this.canvas.addEventListener(type, this.touch, { capture: true, passive: false });
+    }
     this.view.addEventListener('keydown', this.key, true);
     this.view.addEventListener('blur', this.blur);
+    this.map.on('resize', this.resize);
   }
 
   /** Stop a gesture before API mutations, finish/cancel, style changes, or teardown. */
@@ -89,7 +102,7 @@ export class VertexInteraction {
   cameraChanged(): void {
     // A group uses a frozen geographic pointer origin. Do not let a camera move
     // become an unintended group offset; legacy single-vertex drags re-resolve.
-    if (this.drag?.group) this.stop(true); else this.refresh();
+    if (this.drag?.group || this.drag?.direct) this.stop(true); else this.refresh();
   }
 
   destroy(restorePan: boolean): void {
@@ -99,17 +112,27 @@ export class VertexInteraction {
     this.canvas.removeEventListener('pointerup', this.up);
     this.canvas.removeEventListener('pointercancel', this.cancel);
     this.canvas.removeEventListener('lostpointercapture', this.cancel);
+    this.canvas.removeEventListener('click', this.click, true);
+    this.view.removeEventListener('pointerdown', this.contactDown, true);
+    this.view.removeEventListener('pointerup', this.contactEnd, true);
+    this.view.removeEventListener('pointercancel', this.contactEnd, true);
+    for (const type of ['touchstart', 'touchmove', 'touchend', 'touchcancel']) this.canvas.removeEventListener(type, this.touch, true);
+    this.contacts.clear(); this.touchSequence = false; this.suppressClick = false;
     this.view.removeEventListener('keydown', this.key, true);
     this.view.removeEventListener('blur', this.blur);
+    this.map.off('resize', this.resize);
   }
 
   private readonly down = (event: PointerEvent): void => {
     const state = this.actions.state();
-    if (!state.mode.startsWith('edit-') || this.drag || event.pointerType !== 'mouse'
+    const direct = event.pointerType === 'touch' || event.pointerType === 'pen';
+    if (!state.mode.startsWith('edit-') || this.drag || (!direct && event.pointerType !== 'mouse')
+      || direct && (!event.isPrimary || this.contacts.size !== 1 || this.touchSequence)
       || event.button !== 0 || event.ctrlKey || event.metaKey || event.defaultPrevented) return;
     const point = canvasPoint(this.canvas, event); const draft = this.actions.draft();
     // Vertices and insertion handles retain priority over whole-edge movement.
-    const hit = vertexHandles(this.map, draft, state.mode === 'edit-polygon').find((handle) => {
+    const handles = vertexHandles(this.map, draft, state.mode === 'edit-polygon');
+    const hit = direct ? pickDirectVertexHandle(this.map, handles, point, event.pointerType === 'touch' ? 22 : 12) : handles.find((handle) => {
       const projected = this.map.project(handle.coordinate);
       return Math.hypot(projected.x - point.x, projected.y - point.y) <= (handle.kind === 'vertex' ? 8 : 6);
     });
@@ -117,13 +140,15 @@ export class VertexInteraction {
     if (event.shiftKey) {
       if (hit?.kind !== 'vertex' || fixed(hit.index)) return;
       event.preventDefault(); this.canvas.focus({ preventScroll: true });
+      this.claim(event);
       const selected = state.selectedVertexIndices;
       this.actions.select(selected.includes(hit.index) ? selected.filter(i => i !== hit.index) : [...selected, hit.index]);
       return;
     }
-    const edge = !hit ? pickEditEdge(this.map, draft, state.mode === 'edit-polygon', point) : null;
+    const edge = !hit && !direct ? pickEditEdge(this.map, draft, state.mode === 'edit-polygon', point) : null;
     if (!hit && !edge) { this.actions.select([]); return; }
     if (hit?.kind === 'vertex' && fixed(hit.index) || edge?.some(fixed)) {
+      this.claim(event);
       event.preventDefault(); this.canvas.focus({ preventScroll: true }); this.actions.select([]); return;
     }
     const index = hit?.index ?? edge!.reduce((a, b) => {
@@ -134,8 +159,9 @@ export class VertexInteraction {
     const indices = edge ?? (hit?.kind === 'vertex' && state.selectedVertexIndices.includes(index) ? state.selectedVertexIndices : [index]);
     const original = hit?.coordinate ?? draft[index]!;
     event.preventDefault(); this.canvas.focus({ preventScroll: true }); this.map.stop();
+    this.claim(event);
     const restorePan = this.map.dragPan.isEnabled(); this.map.dragPan.disable();
-    this.drag = { pointerId: event.pointerId, index, original: [...original],
+    this.drag = { pointerId: event.pointerId, direct, moved: false, index, original: [...original],
       originals: indices.map(i => ({ index: i, coordinate: inserted ? [...original] : [...draft[i]!] })),
       inserted, group: indices.length > 1, invalid: false, previousSelection: state.selectedVertexIndices,
       restorePan, cursor: this.canvas.style.cursor, start: point, origin: this.map.unproject([point.x, point.y]).toArray() };
@@ -154,7 +180,11 @@ export class VertexInteraction {
     if (!drag || !this.pending || !this.pointer) return;
     this.pending = false;
     let point = this.pointer.point;
-    if (drag.group) {
+    if (drag.direct) {
+      drag.moved ||= Math.hypot(point.x - drag.start.x, point.y - drag.start.y) >= 4;
+      if (!drag.moved) return; // Tap/jitter selects without shifting the corner.
+    }
+    if (drag.group || drag.direct) {
       if (point.x === drag.start.x && point.y === drag.start.y) {
         drag.invalid = false; this.canvas.style.cursor = drag.cursor;
         this.actions.move(drag.originals); this.actions.clearSnap(); return;
@@ -194,5 +224,39 @@ export class VertexInteraction {
   private readonly cancel = (event: PointerEvent): void => {
     if (this.drag?.pointerId === event.pointerId) this.stop(true);
   };
-  private readonly blur = (): void => { this.stop(true); };
+  private readonly blur = (): void => { this.stop(true); this.contacts.clear(); };
+  private readonly resize = (): void => { if (this.drag?.direct) this.stop(true); };
+
+  private claim(event: PointerEvent): void {
+    if (event.pointerType === 'mouse') return;
+    this.suppressClick = true;
+    if (event.pointerType === 'touch') this.touchSequence = true;
+  }
+
+  // Track direct contacts even outside the canvas: a second finger cancels the
+  // edit, and no remaining finger can start another drag until all are lifted.
+  private readonly contactDown = (event: PointerEvent): void => {
+    if (!this.contacts.size && !this.drag && (event.pointerType === 'mouse' || event.isPrimary)) {
+      this.suppressClick = false; this.touchSequence = false;
+    }
+    if (event.pointerType === 'touch' || event.pointerType === 'pen') this.contacts.add(event.pointerId);
+    if (this.drag && event.pointerId !== this.drag.pointerId) {
+      if (this.drag.direct && event.pointerType === 'touch') this.touchSequence = true;
+      this.stop(true);
+    }
+  };
+  private readonly contactEnd = (event: PointerEvent): void => { this.contacts.delete(event.pointerId); };
+  private readonly touch = (event: Event): void => {
+    // MapLibre consumes legacy TouchEvents as well as compatibility mouse input.
+    // Shield only contact sequences acquired on a handle; free-map gestures
+    // continue through the host's existing pan/zoom/pitch configuration.
+    if (this.touchSequence && event.target === this.canvas) {
+      if (event.cancelable) event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+    if ((event.type === 'touchend' || event.type === 'touchcancel') && !(event as TouchEvent).touches.length) this.touchSequence = false;
+  };
+  private readonly click = (event: MouseEvent): void => {
+    if (this.suppressClick) { event.preventDefault(); event.stopImmediatePropagation(); }
+  };
 }

@@ -108,8 +108,8 @@ existing editing session**. Keyboard-only feature acquisition and drawing/insert
 new vertices remain separate work; applications can already expose their own
 feature lists and coordinate inputs through the public API. Screen-reader behavior
 has not been manually certified. Automated coverage uses real Chromium keyboard
-input and accessibility attributes; Firefox, Safari, touch and pen coverage remain
-outside the current compatibility matrix.
+input and accessibility attributes. Separate [touch/pen vertex editing](touch-pen-vertices.md)
+has Chromium input-emulation coverage; Firefox, Safari and physical devices remain unqualified.
 
 ## Verification
 

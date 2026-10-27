@@ -8,6 +8,11 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 
 ### Added
 
+- Touch/pen editing of existing vertices and midpoint handles, enlarged acquisition,
+  offset-preserving movement, map gesture separation and second-contact rollback.
+  Chromium input-emulation, demo and installed-consumer checks cover this first
+  touch milestone; physical-device and other touch tool qualification remain open.
+
 - Keyboard vertex navigation with one focusable control, point/group pixel nudges,
   selection toggles, held-key cancellation, accessible status and visible focus.
   Editing, locks, validation and atomic Save/Undo retain their existing contracts.

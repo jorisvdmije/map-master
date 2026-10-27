@@ -198,6 +198,7 @@ map.on('load', () => {
     updateSnapStatus();
     const drawing = state.mode !== 'idle';
     const editing = state.mode.startsWith('edit-');
+    element('map').closest('.map-panel')!.classList.toggle('is-editing', editing);
     const offsetting = state.mode === 'offset-lines';
     const buffering = state.mode === 'buffer-features';
     const simplifying = state.mode === 'simplify-features';
@@ -300,7 +301,7 @@ map.on('load', () => {
     element('editing-help').textContent = shared
       ? 'Shift+click adds corners; Shift+drag a box selects several. Drag a selected corner to move them together. Drag an edge between handles to move both ends. Small points add a corner. Grey endpoints stay fixed. Both polygons change together.'
       : 'Shift+click adds corners; Shift+drag a box selects several. Drag a selected corner to move them together. Drag an edge between handles to move both ends. Small points add a corner. Escape during dragging restores that drag; Save applies all edits.';
-    element('editing-help').textContent += ' Keyboard: press Home on the map or Tab to the vertex control. Page Up/Down chooses a corner; arrows move it (Shift: 10 pixels). Space selects; Shift+Space toggles a group. Enter saves.';
+    element('editing-help').textContent += ' Touch/pen: drag a corner or tap a small midpoint. Drag elsewhere to pan; a second contact cancels the movement. Keyboard: press Home on the map or Tab to the vertex control. Page Up/Down chooses a corner; arrows move it (Shift: 10 pixels). Space selects; Shift+Space toggles a group. Enter saves.';
     element('vertex-status').textContent = state.selectedVertexIndex === null
       ? 'Click a corner or use the keyboard vertex control to select it.' : state.selectedVertexIndices.length > 1 ? `${state.selectedVertexIndices.length} of ${state.vertexCount} corners selected.` : `Corner ${state.selectedVertexIndex + 1} of ${state.vertexCount} selected.`;
     if (selectedFeature) {
@@ -340,7 +341,7 @@ map.on('load', () => {
         : selectedFeature ? 'Drag to move; the marked corner snaps. Press Shift during dragging to lock an axis, Alt to bypass snapping. Escape cancels.'
         : state.featureCount > 0 ? 'Click a shape to select it, or draw another.' : 'Ready when you are.';
     if (state.mode === 'draw-point') status.textContent = 'Click once to place a marker. Escape cancels.';
-    if (state.mode === 'edit-point') element('editing-help').textContent = 'Drag the point to move the marker, then Save. Cancel restores its position.';
+    if (state.mode === 'edit-point') element('editing-help').textContent = 'Drag the point with mouse, touch or pen, then Save. Keyboard: Home focuses the point; arrows move it. Cancel restores its position.';
     if (state.mode === 'draw-hole' && !invalid) status.textContent = `${state.vertexCount} corners. Draw inside the polygon; Enter saves the hole, Escape cancels.`;
     if (offsetting) {
       status.classList.toggle('is-invalid', state.offsetError !== null);

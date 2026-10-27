@@ -85,6 +85,8 @@ textarea { width: 100%; height: 140px; margin-top: 12px; resize: vertical; borde
   .sidebar { padding: 24px 18px 18px; }
   h1 { font-size: 29px; }
   .map-hint { left: 12px; right: 12px; transform: none; white-space: normal; line-height: 1.5; }
+  /* The vertex control and editing panel already provide these instructions. */
+  .map-panel.is-editing .map-hint { display: none; }
   .location-label { left: 12px; top: 18px; padding: 10px; }
 }
 @media (max-width: 520px) {

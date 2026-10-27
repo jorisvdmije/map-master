@@ -16,7 +16,7 @@ claim that every dataset of this size has the same cost.
 | Chrome / Edge releases | Not separately qualified. Sharing an engine does not establish that a shipping browser version passes. |
 | Firefox / Safari / WebKit | Not qualified in this milestone. Add real interaction/installed-consumer runs before expanding the support matrix. Chromium CDP memory measurements cannot be reused as cross-engine evidence. |
 | Input | Desktop mouse/pointer capture and focused keyboard shortcuts: Escape, Enter, Delete/Backspace, Undo/Redo, Shift selection, Alt snapping bypass. |
-| Touch / pen / mobile | Not supported as an editing workflow. Touch placement alone is insufficient: dragging, cancellation, gesture conflicts and toolbar layout need their own qualification. |
+| Touch / pen / mobile | [Vertex and midpoint editing](touch-pen-vertices.md) has Chromium-emulated contact/capture, pan/zoom separation, interruption and installed-consumer checks. Physical tablets/styluses, drawing, whole-feature drags and other touch tools remain unqualified. |
 | Accessibility | Native demo controls and focused keyboard actions are tested. Canvas geometry has no complete keyboard-only navigation or screen-reader editing workflow; no WCAG conformance claim. Hosts needing that workflow must provide accessible coordinate/feature controls through the public API. |
 | Projection / geometry | Existing 2D WGS84 and Mercator operation contracts remain in force, including topology, latitude and antimeridian limits. See the individual API guides. |
 

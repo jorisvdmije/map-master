@@ -123,6 +123,8 @@ against the production build, using the visible application controls:
 - Cancel drawing/editing, apply a real vertex drag, save, reload and clear old history.
 - Edit vertices with [keyboard focus and group nudges](keyboard-vertices.md),
   cancel, and apply the full session as one Undo/Redo action.
+- Edit a corner with browser-generated touch input, cancel, and save/Undo/Redo
+  against the installed package. See [touch/pen scope](touch-pen-vertices.md).
 - Change appearance during vertex editing without dirtying saved data.
 - Lock/unlock a feature, prevent editing/name/deletion, and reset session locks on reload.
 - Delete, Undo/Redo, and persist an empty workspace.

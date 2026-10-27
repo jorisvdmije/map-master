@@ -19,6 +19,7 @@ each branch from updated `main` after its dependencies have merged.
 | 6.1 | `feat/multi-vertex-editing` | Implemented: Shift multi-vertex selection, atomic group movement/removal, whole-edge dragging, selected-handle styling, snapping anchor, gesture rollback and one saved edit/Undo. Scoped to one active ring/component. |
 | 6.2 | `feat/vertex-box-selection` | Implemented: additive Shift rectangle selection of active draft corners, screen-space picking, fixed-junction exclusions, captured release and cancellation/API/lifecycle cleanup. |
 | 6.3 | `feat/keyboard-vertices` | Implemented: one focusable vertex control, keyboard navigation/selection, pixel nudging of points/groups, held-key rollback, validation/status feedback, one Save/Undo, lifecycle cleanup and browser/demo tests. See [keyboard vertex editing](keyboard-vertices.md). |
+| 6.4 | `feat/touch-pen-vertices` | Implemented: touch/pen vertex and midpoint acquisition, contact-offset movement, existing groups/snapping, second-contact rollback, map gesture separation and browser/demo/installed-package checks. Physical devices and other touch tools remain unqualified. See [touch/pen editing](touch-pen-vertices.md). |
 | 7 | `feat/import-geojson` | Implemented: atomic append of supported GeoJSON, typed IDs/nested properties, validation errors, onImport, file-picker demo, round trips, and core/browser/package tests. |
 | 8 | `feat/history` | Implemented: bounded undo/redo for create, saved edits, delete, and import batches; stable IDs/properties/order, onHistory, clearHistory, UI/shortcuts, and core/browser/package tests. Cancellation adds no action. |
 | 9 | `feat/snapping` | Implemented: drawing snaps to committed vertices/edges, pixel tolerance, vertex priority, indicator, Alt bypass, toggle/API/events, camera/revision cache invalidation, and core/browser/package/demo tests plus a benchmark. |
@@ -60,7 +61,7 @@ each branch from updated `main` after its dependencies have merged.
 | 18e | `chore/public-beta` | Local preparation implemented: one verified archive, checksum/report retention, changelog, migration policy and [release procedure](releases.md). Identity set to `@jorisvdmije/map-master@0.1.0-beta.0`, MIT license, maintainer @jorisvdmije and GitHub reporting policy. Pending: operational repository/private reporting, hosted CI and required checks, npm access and public distribution. |
 
 Steps 2–7 produce the first small CRUD editor. Step 8 adds recovery from user
-mistakes. Step 9 adds precise placement against existing shapes. Later candidates include touch interactions,
+mistakes. Step 9 adds precise placement against existing shapes. Later candidates include extending touch interactions beyond vertex editing,
 interactive multipart construction, broader cutting/splitting support, and framework wrappers.
 Prioritize those using actual application requirements. The next sequence is the
 beta gates above; specialized geometry tools no longer automatically take priority.

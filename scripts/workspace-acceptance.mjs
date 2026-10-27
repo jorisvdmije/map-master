@@ -144,6 +144,35 @@ export async function checkWorkspace(origin, { smoke = false } = {}) {
     await page.locator('#undo').click();
     passed('keyboard vertex focus, group movement, cancellation and one-step Undo/Redo');
 
+    // Exercise browser-generated touch events against the installed package.
+    const input = await context.newCDPSession(page);
+    try {
+      await input.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+      const touchDrag = async () => {
+        await page.keyboard.press('Home');
+        const marker = await page.locator('[data-geo-vertex-keyboard-marker]').boundingBox();
+        assert.ok(marker);
+        const x = marker.x + marker.width / 2 + 18;
+        const y = marker.y + marker.height / 2;
+        await input.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ id: 1, x, y }] });
+        await input.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ id: 1, x: x + 30, y: y + 20 }] });
+        await input.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      };
+      await page.locator('#edit').click(); await touchDrag(); await page.locator('#cancel').click();
+      assert.deepEqual(await exportData(page), edited);
+      await page.locator('#edit').click(); await touchDrag(); await page.locator('#finish').click();
+      const touchEdited = await exportData(page);
+      assert.notDeepEqual(touchEdited.features[0].geometry, edited.features[0].geometry);
+      await page.locator('#undo').click(); assert.deepEqual(await exportData(page), edited);
+      assert.equal(await page.locator('#undo').isDisabled(), true);
+      await page.locator('#redo').click(); assert.deepEqual(await exportData(page), touchEdited);
+      await page.locator('#undo').click();
+    } finally {
+      await input.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+      await input.detach();
+    }
+    passed('touch vertex movement, cancellation and one-step Undo/Redo');
+
     const savedBeforeTheme = await page.evaluate((key) => localStorage.getItem(key), key);
     await page.locator('#appearance').selectOption('ocean');
     await text(page, '#save-state', 'All changes saved locally');

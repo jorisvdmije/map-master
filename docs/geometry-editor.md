@@ -1102,3 +1102,10 @@ Corners use miter joins capped at four times the absolute distance; endpoints
 shift perpendicular to their segment. Invalid joins or intersecting/reversed
 results block confirmation. `finishOffset()` replaces the selection as one Undo
 action. See [line offsets](offset.md) for input restrictions, units and lifecycle.
+
+## Touch and pen vertex input
+
+Existing editing sessions accept touch and pen tips on corners and midpoints,
+including existing vertex groups, snapping and one saved Undo. See the
+[touch/pen contract](touch-pen-vertices.md) for target sizes, contact-offset movement,
+map gesture ownership, interruption rollback and the bounded compatibility scope.

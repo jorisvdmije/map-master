@@ -937,3 +937,9 @@ latency and lifecycle gates.
 coordination for 100, 1,000 and 10,000 line vertices. See the
 [keyboard baseline and limits](keyboard-vertices.md#verification). It asserts one
 focusable control at every size and checks DOM cleanup on destruction.
+
+## Touch and pen acquisition
+
+`npm run benchmark:direct-picking` measures handle generation and nearest-corner
+acquisition on 100, 1,000 and 10,000 vertices with a deterministic projection.
+See the [baseline and exclusions](touch-pen-vertices.md#verification-and-cost).
