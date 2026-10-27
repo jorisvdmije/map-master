@@ -1,4 +1,6 @@
 import { bindStylingControls } from './styling-controls.js';
+import { WorkflowControls } from './workflow-controls.js';
+import { bindExampleControls } from './example-controls.js';
 import { Map, LngLatBounds, NavigationControl, setWorkerUrl } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { GeometryEditor, type DrawGeometryType, type GeometryFeature, type Coordinate, type ReshapeError, type SplitError, type ValidationError } from '@jorisvdmije/map-master';
@@ -166,6 +168,8 @@ map.on('error', () => {
 map.on('load', () => {
   editor = new GeometryEditor(map, { snapping: { enabled: true } });
   const activeEditor = editor;
+  const workflow = new WorkflowControls(activeEditor);
+  const removeExampleControls = bindExampleControls(activeEditor, map);
   const removeStylingControls = bindStylingControls(activeEditor, map, element('feature-styling'));
   removeAppearanceControl = bindAppearanceControl(activeEditor, element<HTMLSelectElement>('appearance'));
   const simplificationControls = new SimplificationControls(activeEditor, element('simplification-tools'), valid => { finish.disabled = !valid; });
@@ -175,9 +179,10 @@ map.on('load', () => {
     selection.scrollIntoView({ block: 'start' });
     selection.querySelector<HTMLButtonElement>('button:not(:disabled):not([hidden])')?.focus({ preventScroll: true });
   });
-  map.once('remove', () => { removeStylingControls(); simplificationControls.destroy(); selectionControls.destroy(); });
+  map.once('remove', () => { removeExampleControls(); removeStylingControls(); simplificationControls.destroy(); selectionControls.destroy(); });
   let exportedRevision = -1;
   partIndex.addEventListener('change', () => { update(); });
+  ringIndex.addEventListener('change', () => { update(); });
   let ringSelectionPart = 0;
   let ringSelectionId: string | number | null = null;
   const update = (): void => {
@@ -199,6 +204,7 @@ map.on('load', () => {
     const drawing = state.mode !== 'idle';
     const editing = state.mode.startsWith('edit-');
     element('map').closest('.map-panel')!.classList.toggle('is-editing', editing);
+    element('map').closest('.map-panel')!.classList.toggle('has-selection', !drawing && state.selectedFeatureIds.length > 0);
     const offsetting = state.mode === 'offset-lines';
     const buffering = state.mode === 'buffer-features';
     const simplifying = state.mode === 'simplify-features';
@@ -314,11 +320,13 @@ map.on('load', () => {
       if (editing && state.activeRingIndex !== null) details.push(state.activeRingIndex === 0 ? 'outer boundary' : `hole ${state.activeRingIndex}`);
       element('selection-detail').textContent = details.join(' · ');
     } else if (selectedCount > 1) {
+      const first = activeEditor.getSelection()[0]!;
+      const targetName = typeof first.properties?.name === 'string' ? first.properties.name : first.geometry.type;
       element('selection-type').textContent = `${selectedCount} shapes selected`;
       element('selection-detail').textContent = shared ? 'One shared boundary. Both polygons are saved and restored together.' : intersecting ? activeEditor.getIntersectionPreview()?.geometry === null
         ? 'No common area. All selected shapes are removed on apply.'
-        : 'Intersection keeps the common area under the first selected ID; other inputs are removed.' : subtracting ? `Target: ${JSON.stringify(state.selectedFeatureIds[0])}. All other selected shapes are kept as cutters.` : merging ? 'Merge keeps the first selected shape’s ID and properties.'
-        : `First selected: ${JSON.stringify(state.selectedFeatureIds[0])}. Subtract cuts this shape using the others.`;
+        : 'Intersection keeps the common area under the first selected ID; other inputs are removed.' : subtracting ? `Target: ${targetName}. All other selected shapes are kept as cutters.` : merging ? 'Merge keeps the first selected shape’s ID and properties.'
+        : `First selected: ${targetName}. Subtract cuts this shape using the others.`;
     }
     importFile.disabled = drawing || importing;
     start.disabled = drawing;
@@ -432,6 +440,7 @@ map.on('load', () => {
       : selectedCount > 0 ? 'Drag selection to move · Release to save · Esc to cancel · Shift+click to toggle'
         : state.featureCount > 0 ? 'Click to select · Shift+drag to select several shapes' : 'Your next idea, on the map.';
     simplificationControls.update();
+    workflow.update();
     selectionControls.update();
     element('mode-dot').classList.toggle('drawing', drawing);
     element('mode-dot').classList.toggle('selected', selectedCount > 0);
@@ -507,7 +516,7 @@ rotateSelected.addEventListener('click', () => {
   if (!editor.rotateSelection()) {
     status.classList.add('is-invalid');
     status.textContent = 'Select shapes within the Mercator map area, without date-line crossings or a span over 180°.';
-  } else element('rotation-tools').scrollIntoView({ block: 'center' });
+  }
 });
 rotationAngle.addEventListener('input', () => {
   const angle = rotationAngle.valueAsNumber;
@@ -533,7 +542,7 @@ offsetSelected.addEventListener('click', () => {
   if (!editor.offsetSelection()) {
     status.classList.add('is-invalid');
     status.textContent = 'Select only simple open lines within the Mercator map area, without date-line crossings or a span over 180°.';
-  } else { element('offset-tools').scrollIntoView({ block: 'nearest' }); }
+  }
 });
 offsetDistance.addEventListener('input', () => {
   const distance = offsetDistance.valueAsNumber;
@@ -553,7 +562,7 @@ bufferSelected.addEventListener('click', () => {
   if (!editor.bufferSelection()) {
     status.classList.add('is-invalid');
     status.textContent = 'Select shapes within the Mercator map area, without date-line crossings or a span over 180°.';
-  } else { element('buffer-tools').scrollIntoView({ block: 'nearest' }); }
+  }
 });
 bufferDistance.addEventListener('input', () => {
   const distance = bufferDistance.valueAsNumber;
@@ -580,7 +589,7 @@ scaleSelected.addEventListener('click', () => {
   if (!editor.scaleSelection()) {
     status.classList.add('is-invalid');
     status.textContent = 'Select shapes within the Mercator map area, without date-line crossings or a span over 180°.';
-  } else { element('scale-tools').scrollIntoView({ block: 'nearest' }); }
+  }
 });
 element('rotation-center').addEventListener('click', () => { editor?.setRotationPivot(); });
 scaleAnchor.addEventListener('change', () => {
@@ -671,7 +680,7 @@ importFile.addEventListener('change', () => {
           for (const point of points) bounds.extend(point);
         }
       }
-      if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 60, maxZoom: 16, duration: 0 });
+      if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: Math.min(60, map.getCanvas().clientWidth / 8, map.getCanvas().clientHeight / 8), maxZoom: 16, duration: 0 });
     } catch (error) {
       importStatus.classList.add('is-invalid');
       importStatus.textContent = error instanceof SyntaxError ? 'The file is not valid JSON.'

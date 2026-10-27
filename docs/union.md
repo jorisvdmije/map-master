@@ -3,8 +3,8 @@
 Select at least two Polygon or MultiPolygon features and choose **Merge polygons**.
 The orange preview shows their combined filled area. **Apply merge** or Enter
 with map focus commits it; **Cancel** or Escape restores the originals. The demo
-includes a downloadable overlapping-polygon example with a hole. Use Shift+click
-to select both inputs.
+offers **Merge overlapping polygons** under **Try an example**. **Add example**
+loads and selects both inputs, including a polygon with a hole.
 
 ## Public API
 

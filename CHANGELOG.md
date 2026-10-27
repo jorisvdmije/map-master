@@ -8,6 +8,12 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 
 ### Added
 
+- Playground workflow controls: a fixed action/status bar, grouped selection tools
+  with disabled-action explanations, contextual settings and responsive panel
+  scrolling. Direct examples append fresh geometry as one Undo action, and a
+  built user guide explains drawing, selection, editing and geometry tools.
+  Library APIs and operation semantics are unchanged.
+
 - Touch/pen editing of existing vertices and midpoint handles, enlarged acquisition,
   offset-preserving movement, map gesture separation and second-contact rollback.
   Chromium input-emulation, demo and installed-consumer checks cover this first

@@ -9,7 +9,7 @@ interior rings clockwise, preserving each first corner.
 
 ## Try it
 
-In the demo, download the **multipart example**, then use **Import GeoJSON**.
+In the demo, choose **Edit multipart geometry** under **Try an example**, then **Add example**.
 Click either garden to select the complete `MultiPolygon`. Choose **Part to edit**,
 then **Ring to edit** when the component contains holes, and choose **Edit vertices**.
 Only that component/ring gets handles; the remaining components stay visible.

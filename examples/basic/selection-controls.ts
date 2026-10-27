@@ -47,6 +47,12 @@ export class SelectionControls {
     for (const button of this.toolbar.querySelectorAll<HTMLButtonElement>('button[data-action]')) {
       const source = this.sources[button.dataset.action!];
       button.disabled = source ? source.disabled : false;
+      if (source) {
+        button.title = source.title || source.textContent.trim();
+        const description = source.getAttribute('aria-describedby');
+        if (description) button.setAttribute('aria-describedby', description);
+        else button.removeAttribute('aria-describedby');
+      }
     }
     for (const [id, row] of this.rows) {
       const selected = ids.includes(id);

@@ -52,6 +52,11 @@ Both demos offer session lock/unlock controls.
 
 ## Try the demo
 
+The playground keeps Finish/Apply, Cancel and Undo/Redo in a fixed action bar,
+groups selection tools by task and explains unavailable actions. **How to use**
+opens a step-by-step guide; **Add example** loads sample geometry directly.
+See [playground workflows](docs/playground-workflow.md).
+
 For the smaller **Area workspace** application, run `npm run dev:workspace`
 after `npm ci` and open <http://127.0.0.1:5174>. Draw/edit areas and routes,
 change names, save/reopen locally, and exchange GeoJSON files. It installs a
@@ -72,7 +77,7 @@ Open <http://localhost:5173>. Choose **Draw a line**, click at least two differe
 positions, and press **Enter** or **Finish**. Press **Escape** or **Cancel** to
 discard the current draft. Choose **Polygon** for an outline with at least three
 corners; Enter, Finish, or clicking the first corner closes a valid ring.
-For multipart examples, download the sample in the data panel and import it. Select a feature and use **Part to edit** to choose a component.
+Under **Try an example**, choose **Edit multipart geometry** and click **Add example**. Select a feature and use **Part to edit** to choose a component.
 Select a polygon and choose **Draw a hole** to create an interior ring; choose a ring to edit or delete it.
 The map selection toolbar offers **Edit**, **Copy**, **Delete**, and **More tools**.
 Click an overlap and open **shapes here** to choose an underlying shape; checkboxes

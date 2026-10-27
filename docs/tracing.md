@@ -5,7 +5,8 @@ Start a line or polygon, click an existing boundary, then move to another point
 on the same boundary. The orange preview follows its intervening corners. Click
 to insert the entire section. Mix traced sections with ordinary free drawing;
 **Other trace route** chooses the other arc of a polygon ring before the next click.
-The downloadable tracing example has a stepped boundary for trying this out.
+Choose **Trace an existing boundary** under **Try an example**, then **Add example**
+to load a stepped boundary for trying this out.
 
 Backspace/Delete removes the last drawing step, including every corner inserted
 by one trace click. Enter/Finish saves the whole draft; Escape/Cancel discards it.

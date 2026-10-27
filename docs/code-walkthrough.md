@@ -73,7 +73,8 @@ tests/                       Core behavior, boundary checks and packed-package i
 | Change event delivery | `maplibre/editor-events.ts`; emission stays in the controller | Observer mutation/error/unsubscribe tests in browser suites |
 | Configure object colors and overlap stripes | `core/feature-styling.ts`, `core/overlap-regions.ts`, `maplibre/feature-styling.ts` | Styling unit/browser tests, `benchmark:styling` |
 | Change map appearance or picking | `maplibre/renderer.ts` | Browser rendering/selection tests |
-| Change toolbar or instructions | `examples/basic/` | Demo tests and visual review |
+| Change toolbar or instructions | `examples/basic/workflow-controls.ts`, `selection-controls.ts`, `index.html`, `guide.html` | Demo workflow tests and responsive visual review |
+| Change directly loadable examples | `examples/basic/example-controls.ts`, `public/*.geojson` | Additive import, repeated IDs and Undo in `demo-workflow.test.ts` |
 | Expose a public capability | `src/index.ts`, `core/types.ts`, editor facade | Packed-consumer fixture and API documentation |
 
 The core imports only other core modules and geometry dependencies. The adapter

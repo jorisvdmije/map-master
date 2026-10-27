@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>How to use Map Master</title>
+    <link rel="stylesheet" href="./guide.css">
+  </head>
+  <body>
+    <header><a href="./">← Drawing playground</a><span>MAP MASTER · USER GUIDE</span></header>
+    <main>
+      <h1>Draw. Review. Apply.</h1>
+      <p class="lead">Create and edit geometry on a map. Every preview gives you a chance to review your work before applying it.</p>
+      <nav aria-label="On this page"><a href="#first-shape">First shape</a><a href="#selection">Selection</a><a href="#editing">Editing</a><a href="#tools">Tools</a><a href="#colors">Colors</a><a href="#files">Files & examples</a><a href="#keyboard">Keyboard & touch</a></nav>
+      <section id="first-shape">
+        <h2>Your first shape</h2>
+        <ol><li>Choose <strong>Line</strong>, <strong>Marker</strong> or <strong>Polygon</strong>, then press the green drawing button.</li><li>Click the map to place points. A line needs at least two different points; a polygon needs at least three corners. A marker is saved with one click.</li><li>For lines and polygons, choose <strong>Finish</strong> in the top bar, or press Enter with the map focused. Clicking the first corner also closes a polygon.</li></ol>
+        <p>The top bar always names your current operation. <strong>Cancel</strong> discards its preview; <strong>Undo</strong> restores the last saved change. Undo becomes available again when you finish or cancel an operation.</p>
+        <p>If Finish is unavailable, read the message in the top bar. You may need another point or to correct crossing polygon edges. Backspace removes the last point while drawing.</p>
+      </section>
+      <section id="selection">
+        <h2>Select the right shape</h2>
+        <p>Click a shape. Shift+click adds or removes shapes from the selection; Shift+drag selects shapes intersecting a rectangle. Click empty space or use Deselect to clear the selection.</p>
+        <p>For overlapping shapes, click the overlap and open <strong>shapes here</strong> in the map toolbar. Choose a named shape, or use its checkbox to build a group. The first selected shape is the target for subtraction.</p>
+        <p>The map toolbar gives quick access to Edit, Copy and Delete. <strong>More tools</strong> opens the selection panel, grouped into Edit shape, Transform and Combine polygons. Unavailable actions have an explanation below them.</p>
+        <p>Drag a selected shape to move the group. Release saves that move; Escape during dragging restores its starting position. Undo restores a completed move. Drag elsewhere to pan the map.</p>
+      </section>
+      <section id="editing">
+        <h2>Edit, review and apply</h2>
+        <ol><li>Select one shape and choose <strong>Edit vertices</strong>.</li><li>Drag a corner to move it. Click or drag a small midpoint to add a corner. Select a corner and use Remove vertex to delete it.</li><li>Choose <strong>Save</strong> in the top bar to keep all edits as one undoable change, or <strong>Cancel</strong> to restore the original.</li></ol>
+        <p>Shift+click selects several corners; Shift+drag selects them in a rectangle. Drag a selected corner to move the group. Polygon and line minimums still apply.</p>
+        <p>For multipart shapes, choose <strong>Part to edit</strong> first. For a polygon with holes, choose <strong>Ring to edit</strong>. Draw a hole creates an interior boundary; Delete hole removes the chosen interior ring.</p>
+        <p>With <strong>Snap to vertices & edges</strong> enabled, nearby corners and edges guide placement. Hold Alt to bypass snapping. Locked shapes remain available as references, but cannot be changed until unlocked. Demo locks reset on reload.</p>
+      </section>
+      <section id="tools">
+        <h2>Choose a tool for your task</h2>
+        <p>Operation settings appear at the top of the tool panel. Review the map preview and the message in the top bar before applying. Cancel keeps the originals.</p>
+        <div class="table-scroll" role="region" aria-label="Tool reference" tabindex="0"><table>
+          <thead><tr><th>Tool</th><th>Start with</th><th>What to do</th></tr></thead>
+          <tbody>
+            <tr><td>Split polygon</td><td>One Polygon</td><td>Draw a simple cut across it. Start and end on the boundary or outside; avoid holes. Apply saves two shapes.</td></tr>
+            <tr><td>Reshape polygon</td><td>One polygon without holes</td><td>Draw a new route between two boundary points. Other boundary chooses the arc to replace.</td></tr>
+            <tr><td>Edit shared boundary</td><td>Two polygons without holes</td><td>Their shared boundary must match exactly. Move or add corners; the end junctions stay fixed. Save changes both polygons.</td></tr>
+            <tr><td>Rotate / Scale</td><td>One or more shapes</td><td>Use the map handles or exact numeric values. Move the pivot to change the centre. Apply saves the preview.</td></tr>
+            <tr><td>Simplify selection</td><td>One or more shapes</td><td>Adjust tolerance and compare the vertex count and original outline. Zero keeps the original detail.</td></tr>
+            <tr><td>Buffer selection</td><td>One or more shapes</td><td>Set a positive distance. Apply replaces each shape with its surrounding area; a marker becomes a polygonal circle.</td></tr>
+            <tr><td>Offset lines</td><td>Simple open lines</td><td>Positive distance moves left of the line direction; negative moves right. Apply replaces the lines.</td></tr>
+            <tr><td>Merge polygons</td><td>At least two polygons</td><td>Preview their combined area. Apply retains the first selected ID and properties.</td></tr>
+            <tr><td>Intersect polygons</td><td>At least two polygons</td><td>Keep only the area common to all of them. An empty result removes all selected inputs when applied.</td></tr>
+            <tr><td>Subtract polygons</td><td>Target first, then cutters</td><td>Remove the cutter areas from the target. Cutters stay; an empty result deletes the target.</td></tr>
+          </tbody>
+        </table></div>
+        <p class="note"><strong>Distances:</strong> buffer, offset and simplification use Mercator map-plane meters. These are not ground distances. Geometries near the poles or crossing the date line have additional limits; read the operation feedback.</p>
+      </section>
+      <section id="colors">
+        <h2>Object colors and overlaps</h2>
+        <p>Open <strong>Object colors & overlap</strong>. Enable Use object colors, select shapes, choose a color and drawing order, then Apply color & order. These object changes can be undone.</p>
+        <p>Overlap style can show ordinary transparency or alternating diagonal stripes. Use the object colors or choose a custom palette, width, opacity and direction. Add overlap example demonstrates three overlapping polygons.</p>
+        <p>During editing, overlap stripes are temporarily replaced by normal fills. Saving recalculates them; cancelling restores them. A message explains when standard colors are used because stripes cannot be displayed.</p>
+      </section>
+      <section id="files">
+        <h2>Try examples and keep your work</h2>
+        <p>Under Your geometry, choose an example and press <strong>Add example</strong>. Shapes are added to your existing work and selected for the suggested task. Repeating an example creates fresh shapes. Undo removes the latest added batch.</p>
+        <p><strong>Import GeoJSON</strong> adds supported shapes from a file up to 5 MB. Invalid imports leave existing work intact. Existing feature IDs cannot be imported twice.</p>
+        <p><strong>Export GeoJSON</strong> downloads your committed shapes and properties. Apply an active preview before exporting it. The playground does not automatically save your work across reloads; export before leaving.</p>
+      </section>
+      <section id="keyboard">
+        <h2>Keyboard and touch</h2>
+        <ul><li>With map focus: Enter finishes; Escape cancels or deselects; Delete removes the selection; Ctrl/Cmd+Z undoes; Ctrl/Cmd+Shift+Z redoes.</li><li>While editing vertices: Home on the map focuses the first corner. Page Up/Down changes corners; arrows move the focused corner. Shift+arrows moves 10 pixels. Space selects; Shift+Space toggles a group. Tab leaves the vertex control.</li><li>Touch or pen can move existing corners and add midpoints in vertex editing. Drag elsewhere to pan; a second contact cancels the current corner movement.</li></ul>
+        <p>Whole-shape dragging and transformation handles currently require a mouse. Physical touch devices and browsers beyond the documented Chromium test scope still need qualification. A complete keyboard-only drawing workflow is not yet available.</p>
+      </section>
+      <footer><a href="./">Return to the playground</a><p>For application developers: these controls are an example UI. Your application can use the library API with its own buttons, storage and styles.</p></footer>
+    </main>
+  </body>
+</html>

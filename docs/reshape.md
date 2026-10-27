@@ -6,7 +6,8 @@ boundary again. The orange preview shows the resulting polygon. **Other boundary
 switches which old boundary section is replaced. **Apply reshape** or Enter saves;
 Cancel or Escape restores the original. Backspace/Delete removes the last route
 point, including reopening a completed preview. One Undo restores the whole edit.
-The demo provides a downloadable single-ring example.
+Choose **Reshape a boundary** under **Try an example**, then **Add example**
+to load and select a single-ring polygon.
 
 ## Boundary choice and supported geometry
 

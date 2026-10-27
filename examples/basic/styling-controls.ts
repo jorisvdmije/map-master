@@ -58,7 +58,7 @@ export function bindStylingControls(editor: GeometryEditor, map: MapLibreMap, ro
           geometry: { type: 'Polygon', coordinates: [[[left, bottom], [left + 0.007, bottom], [left + 0.007, bottom + 0.004], [left, bottom + 0.004], [left, bottom]]] } };
       }) });
       editor.selectMany(created.features.map(feature => feature.id));
-      map.fitBounds([[x - 0.006, y - 0.004], [x + 0.008, y + 0.004]], { padding: 65, duration: 0 });
+      map.fitBounds([[x - 0.006, y - 0.004], [x + 0.008, y + 0.004]], { padding: Math.min(65, map.getCanvas().clientWidth / 8, map.getCanvas().clientHeight / 8), duration: 0 });
       return;
     }
     const order = input('object-order').valueAsNumber;
