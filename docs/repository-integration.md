@@ -26,8 +26,9 @@ per-feature branches.
 Read back through GitHub's authenticated API on 2026-10-28:
 
 - Public source repository, default branch `main`, Issues enabled, wiki disabled.
-- Private vulnerability reporting enabled. Form access and delivery of security
-  notifications still need verification before npm publication.
+- Private vulnerability reporting enabled. The maintainer later confirmed
+  configuring security alerts and email notifications on 2026-10-28; actual
+  delivery remains untested. See the updated [release gates](releases.md).
 - `main` requires a PR, up-to-date `Check (Node 22)` and `Check (Node 24)` status
   checks, and resolved conversations. These requirements include administrators.
 - Force pushes and branch deletion are disabled for `main`.
@@ -66,9 +67,9 @@ commit. Merge, update local `main`, then start the next branch.
 ## Remaining distribution gates
 
 - Fresh passing hosted checks for the final release commit and archive.
-- Verification of the private reporting form and notification receipt.
-- npm authentication and permission for `@jorisvdmije/map-master` (the name lookup
-  returns 404; that does not reserve it). `npm whoami` returned 401 on 2026-10-28.
-- A separately reviewed publication change: remove `private: true`, finalize the
-  release date, verify the exact archive and publish only with explicit release
-  authorization. Repository creation does not authorize a registry release.
+- Recheck npm identity and version availability before publishing. Authentication
+  as `jorisvdmije` succeeded on 2026-10-28; the version lookup returned 404, which
+  does not reserve it or prove publication permission.
+- Review the release change removing `private: true` and dating the changelog,
+  verify the exact archive and publish only with explicit release authorization.
+  Repository creation does not authorize a registry release.

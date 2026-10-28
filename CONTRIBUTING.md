@@ -144,5 +144,5 @@ checks and retain its checksum and reports. CI runs this on Node 22 and 24.
 Follow the [release checklist](docs/releases.md), record user-visible changes in
 the [changelog](CHANGELOG.md), and document upgrades in the
 [migration guide](docs/migration.md). Preparation does not publish the package;
-passing hosted checks on the release commit, verified security notifications and
+passing hosted checks on the release commit, configured security notifications and
 registry access remain prerequisites for distribution.

@@ -12,9 +12,10 @@ Do not disclose vulnerability details, exploit code, credentials or sensitive
 geometry in public issues or feature requests.
 
 **Setup status (2026-10-28):** the public repository exists and GitHub's API
-confirms private vulnerability reporting is enabled. Before npm distribution,
-the maintainer must still verify access to the reporting form and receipt of
-security notifications. No test vulnerability report has been sent.
+confirms private vulnerability reporting is enabled. On this date the maintainer
+confirmed configuring repository security alerts and email notifications.
+Actual notification delivery has not been tested; no test vulnerability report
+has been sent. A synthetic vulnerability report is not required for release.
 If the form is unavailable, do not post the report publicly;
 a public issue may request activation of the private channel without including
 any vulnerability details.

@@ -173,8 +173,9 @@ The next beta work is deliberately separate and reviewable:
    migration policy are included. The package is now
    `@jorisvdmije/map-master@0.1.0-beta.0`, licensed under MIT, with @jorisvdmije
    as maintainer and a GitHub private-reporting policy. The public repository, private reporting setting
-   and required branch checks are configured. Passing hosted checks, verified
-   reporting notifications and npm scope access remain distribution gates; see
+   and required branch checks are configured. Security notification settings and
+   npm login are confirmed; notification delivery remains untested. Final hosted
+   archive checks and authorized publication remain distribution gates; see
    [repository integration](repository-integration.md). No registry publication is performed here.
 
 Trim/extend is deferred until a consuming application needs it. The full playground

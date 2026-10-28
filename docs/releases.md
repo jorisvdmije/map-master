@@ -29,21 +29,32 @@ merged with feature history preserved. Both Node jobs passed on merge commit
 checksums. See the [retained qualification evidence](release-evidence/2026-10-28-main/README.md)
 and [repository integration](repository-integration.md).
 
-The npm package lookup still returned 404 and `npm whoami` returned 401 on
-2026-10-28. The name is not reserved and publishing access is not verified.
+Later on 2026-10-28, `npm whoami` returned `jorisvdmije`, matching the intended
+personal scope. The package/version lookup still returned 404. Login is verified;
+the name is not reserved and actual publishing permission is not yet proven.
+The maintainer confirmed configuring repository security alerts and email
+notifications. Delivery remains untested; no synthetic vulnerability report is
+required to proceed. This replaces the earlier mandatory delivery-test gate.
 
-1. Verify access to the enabled private-reporting form and receipt of maintainer
-   security notifications. The setting alone does not prove notification delivery.
-2. Verify CI again on the final release commit and retain its artifacts. Initial
-   integration qualification is complete; later documentation/metadata changes
-   require a fresh archive. Required checks and resolved conversations are already
-   enforced on `main`; the solo-maintainer policy does not require a second reviewer.
-3. Confirm npm scope access and the release version's availability. The metadata
-   already selects the registry, public access and `beta` tag. The package keeps
-   `private: true` until the remaining release gates are complete.
-4. Remove the private publishing guard in a reviewed release change, finalize the
-   dated changelog entry and verify a fresh archive from that exact clean commit.
-   Record the rename migration and retain the archive and evidence for publication.
+Both Node jobs also passed on `9073fa0f798f7dadad059a8e7503dcd1f9251b12` in
+[the subsequent main run](https://github.com/jorisvdmije/map-master/actions/runs/40680674891).
+Downloaded archives have matching SHA-256
+`600a013f861d42873122ec4b109c285df78cba55b0ae67d34c3df39070a5f68e`, verified
+against their reports, pack inventories and integrity values. Those archives
+still contain the old private guard and are not the publication artifacts.
+
+This release change removes the private publishing guard and dates the changelog.
+The remaining distribution steps are:
+
+1. Review and merge the release change after both required PR checks pass. Verify
+   CI on the final clean release commit and retain its fresh artifacts. Required
+   checks and resolved conversations are enforced on `main`; the solo-maintainer
+   policy does not require a second reviewer.
+2. Compare the final Node 22 and 24 archive checksums, review package contents and
+   perform the publication dry-run using the selected verified archive.
+3. Recheck npm identity and version availability, obtain explicit publication
+   authorization, then publish that same archive with the `beta` tag. Verify
+   registry integrity, install the published version and create the prerelease.
 
 ### Maintainer account checks
 
@@ -62,11 +73,14 @@ permission if an organization owns it. A 404 does not reserve the package name;
 successful login alone does not prove publication permission. Record account
 identity and the verification date, never authentication tokens.
 
-Open the [private reporting form](https://github.com/jorisvdmije/map-master/security/advisories/new)
-while signed in and verify notification receipt through the maintainer's chosen
-private reporting check. Record the date and outcome without committing private
-report contents. The current browser session redirects to GitHub sign-in, so it
-does not establish form access or delivery. No test report has been sent.
+Private reporting is enabled through GitHub's repository setting. Subscribe to
+**Watch → Custom → Security alerts** and enable email under **Subscriptions →
+Watching** in [notification settings](https://github.com/settings/notifications).
+The maintainer confirmed completing these settings on 2026-10-28. The agent's
+browser still redirects to sign-in; neither direct form access nor delivery was
+independently verified. Record configuration separately from delivery evidence.
+The [reporting form](https://github.com/jorisvdmije/map-master/security/advisories/new)
+is for concrete vulnerabilities; do not invent one to satisfy a release checklist.
 
 After changes to metadata or dependencies, regenerate the root lockfile and run
 `npm run lock:workspace`; review both lockfiles. The package-content tests require
