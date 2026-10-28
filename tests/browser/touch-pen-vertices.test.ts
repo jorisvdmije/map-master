@@ -13,6 +13,15 @@ const point = (x: number, y: number): Coordinate => map.unproject([x, y]).toArra
 const finger = (x: number, y: number, id = 1) => ({ id, x, y });
 const touch = (action: 'start' | 'move', x: number, y: number) => commands.touchContact(action, [finger(x, y)]);
 const end = () => commands.touchContact('end', []);
+async function cancelTouch(): Promise<void> {
+  // CDP acknowledgement can precede delivery in the renderer. Wait for the
+  // actual cancellation before asserting synchronous editor rollback.
+  const cancelled = new Promise<void>(resolve => {
+    map.getCanvas().addEventListener('pointercancel', () => { resolve(); }, { once: true });
+  });
+  await commands.touchContact('cancel', []);
+  await cancelled;
+}
 function fixture(type: 'LineString' | 'Polygon' | 'Point' = 'LineString'): void {
   const geometry = type === 'Polygon' ? { type, coordinates: [[[130, 100], [430, 100], [430, 300], [130, 300], [130, 100]].map(([x, y]) => point(x!, y!))] }
     : type === 'Point' ? { type, coordinates: point(130, 100) }
@@ -140,7 +149,16 @@ it.each(['cancel', 'capture', 'blur', 'camera', 'resize', 'style', 'api', 'lock'
   let pointerId = 0; map.getCanvas().addEventListener('pointerdown', event => { pointerId = event.pointerId; }, { once: true });
   await touch('start', 130, 100); await touch('move', 160, 130);
   await expect.poll(() => editor.getDraft()).not.toEqual(draft);
-  if (reason === 'cancel') await commands.touchContact('cancel', []);
+  if (reason === 'cancel') {
+    await cancelTouch();
+    expect(editor.getDraft()).toEqual(draft);
+    // A cancelled contact cannot send another real CDP move. Inject stale
+    // input with its old pointer id and let any scheduled movement flush.
+    const bounds = map.getCanvas().getBoundingClientRect();
+    map.getCanvas().dispatchEvent(new PointerEvent('pointermove', { bubbles: true,
+      pointerType: 'touch', pointerId, clientX: bounds.x + 180, clientY: bounds.y + 150 }));
+    await new Promise<void>(resolve => { requestAnimationFrame(() => { resolve(); }); });
+  }
   if (reason === 'capture') map.getCanvas().releasePointerCapture(pointerId);
   if (reason === 'blur') window.dispatchEvent(new Event('blur'));
   if (reason === 'camera') map.jumpTo({ bearing: 10 });
@@ -168,7 +186,7 @@ it.each(['cancel', 'capture', 'blur', 'camera', 'resize', 'style', 'api', 'lock'
 it('rolls back an inserted midpoint on touch cancellation', async () => {
   fixture(); const draft = editor.getDraft();
   await touch('start', 280, 100); await touch('move', 280, 140);
-  expect(editor.getDraft()).toHaveLength(4); await commands.touchContact('cancel', []);
+  expect(editor.getDraft()).toHaveLength(4); await cancelTouch();
   expect(editor.getDraft()).toEqual(draft); expect(editor.getState().selectedVertexIndices).toEqual([]);
 });
 

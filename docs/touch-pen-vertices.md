@@ -84,6 +84,10 @@ second-contact rollback, snapping, groups, holes, multipart, markers, fixed
 endpoints, locks, callbacks and lifecycle interruptions. The full playground and
 independently installed workspace verify cancellation and one-step Undo/Redo.
 These are browser emulation checks, not physical-device certification.
+Cancellation assertions wait for the renderer's actual `pointercancel` event,
+then check rollback immediately; protocol acknowledgement alone is not the
+assertion boundary. The cancelled-contact case also injects a stale movement
+with the old pointer ID and checks that the next frame cannot restore the drag.
 
 Acquisition generates the current handles and scans for the nearest match: O(V)
 time and temporary storage in the active ring/component. It occurs at contact
