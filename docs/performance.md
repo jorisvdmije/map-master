@@ -243,6 +243,34 @@ entire collection. These are observations, not CI timing thresholds.
 
 ## Drawing snapping
 
+### Index construction update (2026-10-28)
+
+The initial hosted runs exposed a cold-pointer p95 of 158.5 ms on an AMD EPYC
+7763 runner, exceeding the unchanged 150 ms budget; another runner passed.
+A local CPU profile identified synchronous candidate/index construction as a
+cost in the first movement. The tree now partitions a shared candidate array
+around each median, instead of fully sorting and copying each subtree. A bounded
+partition loop falls back to sorting its remaining range for adversarial input.
+Leaves reference array ranges; query pruning, exact distances and source-order
+ties retain their existing semantics. Mixed-geometry tests compare tree queries
+to an exhaustive scan of independent single-feature leaves.
+
+Before/after `node scripts/benchmark-snapping.mjs`, Apple M2 Pro, macOS arm64,
+Node 22.23.1, same fixtures/warmups/sample counts:
+
+| Polygons | Before build median / p95 (ms) | After build median / p95 (ms) |
+| ---: | ---: | ---: |
+| 10 | 0.103 / 0.152 | 0.048 / 0.091 |
+| 1,000 | 6.425 / 8.859 | 1.869 / 2.513 |
+| 10,000 | 108.285 / 132.112 | 37.032 / 56.696 |
+
+These are local construction measurements with a fixed projection, not hosted
+input-to-render qualification. The installed-consumer checks still include actual
+MapLibre projection, snapping and rendered-handle acquisition; their budgets and
+measurement endpoints have not changed. The historical baselines below predate
+this optimization.
+
+
 Run `npm run benchmark:snapping`. Fixtures contain 10, 1,000, or 10,000 squares
 with four distinct corners, on a fixed 100-column grid. A simple linear test
 projection makes each square 50 pixels wide with 100-pixel spacing. Each sample

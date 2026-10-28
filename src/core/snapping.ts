@@ -7,15 +7,15 @@ interface Candidate extends Bounds {
   kind: 'vertex' | 'edge';
   featureId: FeatureId;
   index: number;
-  ringIndex?: number;
-  partIndex?: number;
+  ringIndex: number | undefined;
+  partIndex: number | undefined;
   order: number;
   a: ScreenPoint;
   b: ScreenPoint;
   start: Coordinate;
   end: Coordinate;
 }
-interface Node extends Bounds { items?: Candidate[]; left?: Node; right?: Node }
+interface Node extends Bounds { start: number; end: number; left?: Node; right?: Node }
 
 export function snappingOptions(update: Partial<SnappingOptions> = {}, previous: SnappingOptions = {
   enabled: false, distance: 18, vertices: true, edges: true,
@@ -30,21 +30,47 @@ export function snappingOptions(update: Partial<SnappingOptions> = {}, previous:
   return options;
 }
 
-function bounds(items: Candidate[]): Bounds {
-  const result = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
-  for (const item of items) {
-    result.minX = Math.min(result.minX, item.minX); result.minY = Math.min(result.minY, item.minY);
-    result.maxX = Math.max(result.maxX, item.maxX); result.maxY = Math.max(result.maxY, item.maxY);
+/** Partition around the median without re-sorting and copying every subtree. */
+function partition(items: Candidate[], start: number, end: number, middle: number, horizontal: boolean): void {
+  const center = (item: Candidate) => horizontal ? item.minX / 2 + item.maxX / 2 : item.minY / 2 + item.maxY / 2;
+  let low = start; let high = end - 1;
+  let remaining = 2 * Math.ceil(Math.log2(end - start));
+  while (low < high) {
+    // Bound adversarial partitioning: sorting this remaining range still places
+    // the median correctly, without quadratic worst-case construction.
+    if (remaining-- === 0) {
+      const sorted = items.slice(low, high + 1).sort((a, b) => center(a) - center(b));
+      for (let i = 0; i < sorted.length; i++) items[low + i] = sorted[i]!;
+      return;
+    }
+    const a = center(items[low]!); const b = center(items[(low + high) >>> 1]!); const c = center(items[high]!);
+    const pivot = Math.max(Math.min(a, b), Math.min(Math.max(a, b), c));
+    let left = low; let right = high;
+    while (left <= right) {
+      while (center(items[left]!) < pivot) left++;
+      while (center(items[right]!) > pivot) right--;
+      if (left <= right) {
+        [items[left], items[right]] = [items[right]!, items[left]!];
+        left++; right--;
+      }
+    }
+    if (middle <= right) high = right;
+    else if (middle >= left) low = left;
+    else return;
   }
-  return result;
 }
-function tree(items: Candidate[]): Node {
-  const box = bounds(items);
-  if (items.length <= 16) return { ...box, items };
-  const horizontal = box.maxX - box.minX >= box.maxY - box.minY;
-  items.sort((a, b) => horizontal ? (a.minX + a.maxX) - (b.minX + b.maxX) : (a.minY + a.maxY) - (b.minY + b.maxY));
-  const middle = Math.floor(items.length / 2);
-  return { ...box, left: tree(items.slice(0, middle)), right: tree(items.slice(middle)) };
+function tree(items: Candidate[], start = 0, end = items.length): Node {
+  const node: Node = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity, start, end };
+  for (let i = start; i < end; i++) {
+    const item = items[i]!;
+    node.minX = Math.min(node.minX, item.minX); node.minY = Math.min(node.minY, item.minY);
+    node.maxX = Math.max(node.maxX, item.maxX); node.maxY = Math.max(node.maxY, item.maxY);
+  }
+  if (end - start <= 16) return node;
+  const middle = (start + end) >>> 1;
+  partition(items, start, end, middle, node.maxX - node.minX >= node.maxY - node.minY);
+  node.left = tree(items, start, middle); node.right = tree(items, middle, end);
+  return node;
 }
 function intersects(a: Bounds, b: Bounds): boolean {
   return a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY;
@@ -60,6 +86,7 @@ function earlierAddress(a: Candidate, b: Candidate): boolean {
 /** Projected bounds hierarchy: exact pixel distances, no browser/map dependencies. */
 export class SnapIndex {
   private readonly root: Node;
+  private readonly items: Candidate[];
 
   constructor(collection: GeometryFeatureCollection, project: (coordinate: Coordinate) => ScreenPoint) {
     const items: Candidate[] = [];
@@ -69,23 +96,27 @@ export class SnapIndex {
         const polygon = part.type === 'Polygon';
         const rings = part.type === 'Polygon' ? part.coordinates.map((ring) => ring.slice(0, -1)) : part.type === 'Point' ? [[part.coordinates]] : [part.coordinates];
         for (const [ringIndex, coordinates] of rings.entries()) {
-          const address = { ...(multipart ? { partIndex } : {}), ...(polygon ? { ringIndex } : {}) };
+          // Keep one object shape for every candidate. Spreading a different
+          // address object for each geometry makes cold index builds expensive.
+          const candidatePart = multipart ? partIndex : undefined;
+          const candidateRing = polygon ? ringIndex : undefined;
           const points = coordinates.map(project);
           for (let index = 0; index < coordinates.length; index++) {
             const a = points[index]!; const start = coordinates[index]!;
             if (!Number.isFinite(a.x) || !Number.isFinite(a.y)) continue;
-            items.push({ kind: 'vertex', featureId: feature.id, ...address, index, order, a, b: a, start: [...start], end: [...start],
+            items.push({ kind: 'vertex', featureId: feature.id, partIndex: candidatePart, ringIndex: candidateRing, index, order, a, b: a, start: [...start], end: [...start],
               minX: a.x, minY: a.y, maxX: a.x, maxY: a.y });
             if (!polygon && index === coordinates.length - 1) continue;
             const next = (index + 1) % coordinates.length;
             const b = points[next]!;
             if (!Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
-            items.push({ kind: 'edge', featureId: feature.id, ...address, index, order, a, b, start: [...start], end: [...coordinates[next]!],
+            items.push({ kind: 'edge', featureId: feature.id, partIndex: candidatePart, ringIndex: candidateRing, index, order, a, b, start: [...start], end: [...coordinates[next]!],
               minX: Math.min(a.x, b.x), minY: Math.min(a.y, b.y), maxX: Math.max(a.x, b.x), maxY: Math.max(a.y, b.y) });
           }
         }
       }
     }
+    this.items = items;
     this.root = tree(items);
   }
 
@@ -96,9 +127,9 @@ export class SnapIndex {
     let best: { candidate: Candidate; point: ScreenPoint; t: number; distance: number } | undefined;
     const visit = (node: Node): void => {
       if (!intersects(node, box)) return;
-      if (node.left) visit(node.left);
-      if (node.right) visit(node.right);
-      for (const candidate of node.items ?? []) {
+      if (node.left && node.right) { visit(node.left); visit(node.right); return; }
+      for (let i = node.start; i < node.end; i++) {
+        const candidate = this.items[i]!;
         // Exclude the entire saved edit target without rebuilding the shared index.
         if (typeof excludedFeatureId === 'object' && excludedFeatureId !== null ? excludedFeatureId.has(candidate.featureId) : candidate.featureId === excludedFeatureId) continue;
         if (!intersects(candidate, box) || candidate.kind === 'vertex' && !options.vertices || candidate.kind === 'edge' && !options.edges) continue;

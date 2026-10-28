@@ -8,6 +8,10 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 
 ### Fixed
 
+- Cold snapping-index construction partitions one candidate array instead of
+  repeatedly sorting and copying subtrees. Nearest-target, tie-breaking and
+  exclusion rules are unchanged.
+
 - Vertex dragging submits its preview in the same animation frame as the coalesced
   movement, removing an extra frame of latency while preserving snapping and
   explicit Save/Undo behavior.

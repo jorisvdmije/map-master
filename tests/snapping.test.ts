@@ -83,3 +83,46 @@ it('validates bounded options without mutating the previous configuration', () =
   expect(snappingOptions({ distance: 100, edges: false }, options)).toEqual({ enabled: true, distance: 100, vertices: true, edges: false });
   expect(options).toEqual({ enabled: true, distance: 18, vertices: true, edges: true });
 });
+
+it.each(['ordered', 'reversed', 'shuffled', 'coincident'] as const)(
+  'matches an exhaustive scan across mixed geometry with %s candidate order', order => {
+    const features = Array.from({ length: 256 }, (_, i): GeometryFeatureCollection['features'][number] => {
+      const x = order === 'coincident' ? 0 : i * 3;
+      const y = order === 'coincident' ? 0 : i % 7 * 5;
+      const id = i % 2 ? String(i) : i;
+      const common = { type: 'Feature' as const, id, properties: {} };
+      switch (i % 4) {
+        case 0: return { ...common, geometry: { type: 'Point', coordinates: [x, y] } };
+        case 1: return line(id, [[x, y], [x + 20, y + 5]]);
+        case 2: return { ...common, geometry: { type: 'Polygon', coordinates: [
+          [[x, y], [x + 10, y], [x + 10, y + 10], [x, y + 10], [x, y]],
+        ] } };
+        default: return { ...common, geometry: { type: 'MultiLineString', coordinates: [
+          [[x, y], [x + 20, y]], [[x, y + 8], [x + 20, y + 8]],
+        ] } };
+      }
+    });
+    const ordered = order === 'reversed' ? [...features].reverse()
+      : order === 'shuffled' ? features.map((_, i) => features[i * 137 % features.length]!) : features;
+    const input = collection(...ordered); const original = structuredClone(input);
+    const index = new SnapIndex(input, project);
+    // Each independent feature fits inside one leaf. Scanning all of them is an
+    // oracle for tree pruning/partitioning, including source-order tie breaking.
+    const leaves = ordered.map(feature => new SnapIndex(collection(feature), project));
+    for (const toggles of [{ vertices: true, edges: true }, { vertices: true, edges: false }, { vertices: false, edges: true }]) {
+      const config = { ...options, ...toggles };
+      for (let i = 0; i < 100; i++) {
+        const point = { x: order === 'coincident' ? i % 25 - 3 : i * 37 % 800 - 15, y: i * 13 % 55 - 10 };
+        const excluded = i % 2 ? new Set<string | number>([0, '1', 2, '3']) : null;
+        let expected: ReturnType<SnapIndex['query']> = null;
+        for (const leaf of leaves) {
+          const hit = leaf.query(point, config, unproject, excluded);
+          if (hit && (!expected || hit.kind === 'vertex' && expected.kind === 'edge'
+            || hit.kind === expected.kind && hit.distance <= expected.distance)) expected = hit;
+        }
+        expect(index.query(point, config, unproject, excluded)).toEqual(expected);
+      }
+    }
+    expect(input).toEqual(original);
+  },
+);
