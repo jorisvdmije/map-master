@@ -89,6 +89,9 @@ Put real MapLibre interaction tests in `tests/browser/`, run with
 The browser suite caps parallel workers at four to limit competition between
 software-rendered WebGL maps. Wait for rendered geometry before picking it;
 increasing test timeouts alone does not establish that the map is ready.
+For an imported fixture on a static map, subscribe to MapLibre's `idle` event
+before import, await it, then assert the expected rendered feature identities.
+Keep latency measurements separate from this setup synchronization.
 The complete demo test consumes the built package and checks its buttons and
 download payload. During development, `npm run dev` resolves the editor to source
 for live updates; the production demo resolves it through package exports.

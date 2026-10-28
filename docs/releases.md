@@ -2,8 +2,9 @@
 
 Milestone 18e prepares **Map Master**, package `@jorisvdmije/map-master`, version
 `0.1.0-beta.0`, for its first public beta. The identity and licensing decisions
-are complete; the public source repository is configured. npm distribution and
-passing hosted verification on the release commit remain separate gates.
+are complete; the public source repository is configured and the initial
+integration passed hosted verification on `main`. npm distribution and passing
+verification of the final publication archive remain separate gates.
 
 ## Agreed project identity
 
@@ -22,26 +23,50 @@ passing hosted verification on the release commit remain separate gates.
 ## Remaining gates before public distribution
 
 On 2026-10-28 the public repository was created, Issues and private vulnerability
-reporting enabled, and `main` protected with both required Node checks. The first
-integration imports the existing feature history through a PR; see
-[repository integration](repository-integration.md). Hosted execution is distinct
-from configuration and must succeed before merging/releasing.
+reporting enabled, and `main` protected with both required Node checks. PR #1
+merged with feature history preserved. Both Node jobs passed on merge commit
+`864aa349acfc62f7b7f440336468f0d3bccf390f`; the archives have identical SHA-256
+checksums. See the [retained qualification evidence](release-evidence/2026-10-28-main/README.md)
+and [repository integration](repository-integration.md).
 
 The npm package lookup still returned 404 and `npm whoami` returned 401 on
 2026-10-28. The name is not reserved and publishing access is not verified.
 
 1. Verify access to the enabled private-reporting form and receipt of maintainer
    security notifications. The setting alone does not prove notification delivery.
-2. Complete the initial integration PR after hosted `Check (Node 22)` and
-   `Check (Node 24)` pass. Verify CI again on the actual release commit and retain
-   its artifacts. Required checks and resolved conversations are already enforced
-   on `main`; the solo-maintainer policy does not require a second reviewer.
+2. Verify CI again on the final release commit and retain its artifacts. Initial
+   integration qualification is complete; later documentation/metadata changes
+   require a fresh archive. Required checks and resolved conversations are already
+   enforced on `main`; the solo-maintainer policy does not require a second reviewer.
 3. Confirm npm scope access and the release version's availability. The metadata
    already selects the registry, public access and `beta` tag. The package keeps
    `private: true` until the remaining release gates are complete.
 4. Remove the private publishing guard in a reviewed release change, finalize the
    dated changelog entry and verify a fresh archive from that exact clean commit.
    Record the rename migration and retain the archive and evidence for publication.
+
+### Maintainer account checks
+
+Authenticate in your own terminal and verify the account used for the intended
+scope. [npm login](https://docs.npmjs.com/cli/v11/commands/npm-login/) stores the
+registry credentials locally; do not put credentials in release notes or Git.
+
+```sh
+npm login --registry=https://registry.npmjs.org/
+npm whoami --registry=https://registry.npmjs.org/
+npm view @jorisvdmije/map-master@0.1.0-beta.0 version --registry=https://registry.npmjs.org/
+```
+
+Confirm that the account owns the intended personal scope, or has publishing
+permission if an organization owns it. A 404 does not reserve the package name;
+successful login alone does not prove publication permission. Record account
+identity and the verification date, never authentication tokens.
+
+Open the [private reporting form](https://github.com/jorisvdmije/map-master/security/advisories/new)
+while signed in and verify notification receipt through the maintainer's chosen
+private reporting check. Record the date and outcome without committing private
+report contents. The current browser session redirects to GitHub sign-in, so it
+does not establish form access or delivery. No test report has been sent.
 
 After changes to metadata or dependencies, regenerate the root lockfile and run
 `npm run lock:workspace`; review both lockfiles. The package-content tests require

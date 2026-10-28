@@ -9,14 +9,15 @@ ending at `a9bf610`. They form a single accumulated implementation, not 56
 independently pending feature reviews.
 
 The original `main` was pushed as the bootstrap base. Branch
-`chore/integrate-beta` imports all completed features plus the repository workflow
-changes through one PR. This first PR should use a **merge commit** to preserve
-the existing commit ancestry. After it merges, fast-forward local `main` from
-`origin/main`; subsequent small features use ordinary short-lived branches and
-squash merges. Do not reconstruct old PRs or rewrite the feature history.
+`chore/integrate-beta` imported all completed features plus the repository workflow
+changes through [PR #1](https://github.com/jorisvdmije/map-master/pull/1), merged on
+2026-10-28 as `864aa349acfc62f7b7f440336468f0d3bccf390f`. The merge commit preserves
+the existing ancestry, and local `main` was fast-forwarded from `origin/main`.
+Subsequent small features use ordinary short-lived branches and squash merges.
+Do not reconstruct old PRs or rewrite the feature history.
 
-Local feature branch pointers are retained until integration is confirmed.
-They need not all be pushed. Once their tips are ancestors of `main`, they can be
+Local feature branch pointers are retained for optional housekeeping.
+They need not all be pushed. After confirming their tips are ancestors of `main`, they can be
 removed with normal `git branch -d` as housekeeping; they are not permanent
 per-feature branches.
 
@@ -36,8 +37,10 @@ Read back through GitHub's authenticated API on 2026-10-28:
 - Merged remote branches are deleted automatically. Merge commits are allowed
   for the initial import; squash merges are the normal workflow afterwards.
 
-Configuration is not a passing CI result. The initial PR must pass both matrix
-jobs before integration. No npm package or release tag is created by this step.
+Both required matrix jobs passed on the initial PR and subsequently on the merge
+commit. The [qualification record](release-evidence/2026-10-28-main/README.md)
+retains the raw reports and matching archive checksums. No npm package or release
+tag was created by this step.
 
 ## Checks and artifacts
 
@@ -62,7 +65,7 @@ commit. Merge, update local `main`, then start the next branch.
 
 ## Remaining distribution gates
 
-- Passing hosted checks for the initial integration and eventual release commit.
+- Fresh passing hosted checks for the final release commit and archive.
 - Verification of the private reporting form and notification receipt.
 - npm authentication and permission for `@jorisvdmije/map-master` (the name lookup
   returns 404; that does not reserve it). `npm whoami` returned 401 on 2026-10-28.
