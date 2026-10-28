@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f8f9f6" />
+    <title>Map Master — Drawing playground</title>
+  </head>
+  <body>
+    <header class="header">
+      <a class="brand" href="/" aria-label="Map Master home"><span class="brand-mark">m.</span>Map Master<span class="brand-divider"></span><span class="brand-caption">Drawing playground</span></a>
+      <a class="guide-link" href="./guide.html" target="_blank" rel="noopener">How to use ↗</a>
+    </header>
+    <section class="action-bar" aria-label="Current operation">
+      <div class="operation-status"><strong id="operation-title">Select or draw</strong><div id="status" class="status" role="status">Loading the map…</div></div>
+      <div class="operation-actions" role="group" aria-label="Finish or cancel"><div class="button-row"><button id="finish" class="button secondary" aria-keyshortcuts="Enter" disabled><span id="finish-label">Finish</span> <kbd aria-hidden="true">↵</kbd></button><button id="cancel" class="button secondary" aria-keyshortcuts="Escape" disabled>Cancel <kbd aria-hidden="true">esc</kbd></button></div></div>
+      <div class="button-row" role="group" aria-label="History">
+          <button id="undo" class="button secondary" aria-keyshortcuts="Control+z Meta+z" disabled>Undo <span aria-hidden="true">↶</span></button>
+          <button id="redo" class="button secondary" aria-keyshortcuts="Control+Shift+z Meta+Shift+z Control+y" disabled>Redo <span aria-hidden="true">↷</span></button>
+        </div>
+    </section>
+    <main class="workspace">
+      <aside class="sidebar" aria-label="Drawing tools">
+        <div id="operation-settings" aria-label="Operation settings" role="region" hidden>
+        <section id="rotation-tools" class="editing-tools" aria-label="Rotation" hidden>
+          <h2>ROTATE YOUR SELECTION</h2>
+          <label for="rotation-angle">Angle (degrees clockwise)</label>
+          <input id="rotation-angle" type="number" step="any" value="0" aria-describedby="rotation-help" />
+          <div class="action-row">
+            <button id="rotate-left" class="button secondary" type="button">−15°</button>
+            <button id="rotate-right" class="button secondary" type="button">+15°</button>
+          </div>
+          <button id="rotation-center" class="button secondary" type="button">Reset rotation centre</button>
+          <p id="rotation-help">Drag the ↻ handle to rotate around the white pivot. Drag ⊕ to move the pivot; it snaps to original vertices and the centre (Alt bypasses snapping). Moving the pivot recalculates the current angle from the original shapes. Hold Shift for 15° steps, or enter an exact angle. The dashed frame stays horizontal and vertical. Release to review; Apply saves the preview. Escape during a drag restores that drag; Cancel discards the whole rotation.</p>
+        </section>
+        <section id="offset-tools" class="editing-tools" aria-label="Line offset" hidden>
+          <h2>OFFSET YOUR LINES</h2>
+          <label for="offset-distance">Offset distance (Mercator meters)</label>
+          <input id="offset-distance" type="number" step="any" value="0" aria-describedby="offset-help" />
+          <p id="offset-help">Drag ↔ to change the offset or enter an exact distance. The ruler starts at the first line endpoint: positive is left, negative is right of its direction. Release to review; Apply replaces the selected lines. Escape during dragging restores that drag. Mercator meters, not ground meters.</p>
+        </section>
+        <section id="buffer-tools" class="editing-tools" aria-label="Buffer" hidden>
+          <h2>BUFFER YOUR SELECTION</h2>
+          <label for="buffer-distance">Buffer distance (Mercator meters)</label>
+          <input id="buffer-distance" type="number" min="0" step="any" value="10" aria-describedby="buffer-help" />
+          <p id="buffer-help">Drag ↔ outward to widen the buffer or enter an exact positive distance. The ruler starts at the original boundary. Release to review; Apply replaces each shape with its buffer. Escape during dragging restores that drag. Mercator meters, not ground meters.</p>
+        </section>
+        <section id="simplification-tools" class="editing-tools" aria-label="Simplification" hidden>
+          <h2>SIMPLIFY YOUR SELECTION</h2>
+          <label for="simplification-tolerance">Tolerance (Mercator meters)</label>
+          <input id="simplification-tolerance" type="number" min="0" step="any" value="0" aria-describedby="simplification-help" />
+          <label for="simplification-slider">Adjust tolerance</label>
+          <input id="simplification-slider" type="range" min="0" max="100" step="any" value="0" aria-describedby="simplification-help simplification-range" />
+          <p id="simplification-range" class="simplification-range"></p>
+          <div class="simplification-summary" aria-live="polite" aria-atomic="true">
+            <strong id="simplification-count"></strong>
+            <span id="simplification-reduction"></span>
+          </div>
+          <p id="simplification-feedback" role="status"></p>
+          <p id="simplification-help">Drag the slider or enter an exact tolerance. 0 keeps every vertex. Arrow keys make small adjustments; Home resets to 0. The faint solid outline shows the original; the dotted outline shows the preview. These are Mercator map-plane meters, not ground meters. Neighbouring boundaries are not linked.</p>
+        </section>
+        <section id="scale-tools" class="editing-tools" aria-label="Scaling" hidden>
+          <h2>SCALE YOUR SELECTION</h2>
+          <label for="scale-factor">Scale factor</label>
+          <input id="scale-factor" type="number" min="0" step="any" value="1" aria-describedby="scale-help" />
+          <label for="scale-x">Horizontal scale factor</label>
+          <input id="scale-x" type="number" min="0" step="any" value="1" aria-describedby="scale-help" />
+          <label for="scale-y">Vertical scale factor</label>
+          <input id="scale-y" type="number" min="0" step="any" value="1" aria-describedby="scale-help" />
+          <div class="action-row">
+            <button id="scale-half" class="button secondary" type="button">Half size</button>
+            <button id="scale-double" class="button secondary" type="button">Double size</button>
+          </div>
+          <label for="scale-anchor">Fixed scale anchor</label>
+          <select id="scale-anchor" aria-describedby="scale-help">
+            <option value="center">Original centre</option>
+            <option value="nw">Northwest corner</option><option value="ne">Northeast corner</option>
+            <option value="se">Southeast corner</option><option value="sw">Southwest corner</option>
+            <option value="custom" disabled>Custom pivot</option>
+          </select>
+          <p id="scale-help">Drag a corner to scale proportionally, or a side to change only width or height. Drag ⊕ to move the pivot, or fix a corner of the original bounds and drag the opposite handle. Moving the pivot recalculates the current factors from the originals. Alt bypasses pivot snapping. Factors: 1 = original, 0.5 = half, 2 = double. Release to review; Apply saves; Escape during dragging restores the starting size.</p>
+        </section>
+        <section id="editing-tools" class="editing-tools" aria-label="Vertex editing" hidden>
+          <h2>RESHAPE YOUR GEOMETRY</h2>
+          <p id="editing-help">Drag a large point to move a corner. Click a small point between corners to add one.</p>
+          <p id="vertex-status"></p>
+          <button id="remove-vertex" class="button secondary" disabled>Remove vertex</button>
+          <p>Delete removes the selected corner. Save applies your changes; Cancel restores the original shape.</p>
+        </section>
+        <p id="cut-feedback" class="snap-status" hidden></p>
+          <button id="reshape-side" class="button secondary" aria-pressed="false" hidden>Other boundary</button>
+        </div>
+        <div class="section-heading"><h1>Draw geometry</h1><span class="step">01 / CREATE</span></div>
+        <p class="intro">Choose a shape, then draw on the map.</p>
+        <div class="tool-selector" role="group" aria-label="Geometry type">
+          <button id="tool-line" class="tool-card" aria-label="Line drawing" aria-pressed="true" disabled>
+            <span class="tool-icon" aria-hidden="true"><svg width="27" height="27" viewBox="0 0 28 28" fill="none"><path d="M6 21L13 7L22 15" stroke="currentColor" stroke-width="2"/><circle cx="6" cy="21" r="2.5" fill="white" stroke="currentColor" stroke-width="2"/><circle cx="13" cy="7" r="2.5" fill="white" stroke="currentColor" stroke-width="2"/><circle cx="22" cy="15" r="2.5" fill="white" stroke="currentColor" stroke-width="2"/></svg></span>
+            <span class="tool-label"><strong>Line</strong><span>2+ points</span></span>
+            <span class="tool-selected" aria-hidden="true">✓</span>
+          </button>
+          <button id="tool-marker" class="tool-card" aria-label="Marker placement" aria-pressed="false" disabled>
+            <span class="tool-icon" aria-hidden="true"><svg width="27" height="27" viewBox="0 0 28 28"><circle cx="14" cy="14" r="7" fill="currentColor" /></svg></span>
+            <span class="tool-label"><strong>Marker</strong><span>1 point</span></span>
+            <span class="tool-selected" aria-hidden="true">✓</span>
+          </button>
+          <button id="tool-polygon" class="tool-card" aria-label="Polygon drawing" aria-pressed="false" disabled>
+            <span class="tool-icon" aria-hidden="true"><svg width="27" height="27" viewBox="0 0 28 28" fill="none"><path d="M5 21L9 6L23 11L21 23Z" fill="currentColor" fill-opacity=".1" stroke="currentColor" stroke-width="2"/><circle cx="5" cy="21" r="2" fill="white" stroke="currentColor"/><circle cx="9" cy="6" r="2" fill="white" stroke="currentColor"/><circle cx="23" cy="11" r="2" fill="white" stroke="currentColor"/><circle cx="21" cy="23" r="2" fill="white" stroke="currentColor"/></svg></span>
+            <span class="tool-label"><strong>Polygon</strong><span>3+ corners</span></span>
+            <span class="tool-selected" aria-hidden="true">✓</span>
+          </button>
+        </div>
+        <button id="start" class="button primary" disabled><span aria-hidden="true">＋</span><span id="start-label">Draw a line</span></button>
+
+        <section id="selection" class="selection-card" aria-label="Selected geometry" hidden>
+          <h2>02 / SELECTION</h2><p id="selection-busy" class="tool-reason" hidden>Finish or cancel the current operation to use selection tools.</p><div><strong id="selection-type"></strong><span id="selection-detail"></span></div>
+
+          <label id="part-control" hidden>Part to edit
+            <select id="part-index" aria-label="Part to edit"><option value="0">Part 1</option></select>
+          </label>
+          <label id="ring-control" hidden>Ring to edit
+            <select id="ring-index" aria-label="Ring to edit"><option value="0">Outer boundary</option></select>
+          </label>
+
+          <fieldset class="tool-group"><legend>Edit shape</legend>
+          <button id="edit-selected" class="button secondary" disabled>Edit vertices</button>
+          <button id="draw-hole" class="button secondary" disabled>Draw a hole</button>
+          <button id="delete-hole" class="button danger" hidden disabled>Delete hole</button>
+          <button id="reshape-selected" class="button secondary" disabled>Reshape polygon</button>
+          <button id="split-selected" class="button secondary" disabled>Split polygon</button>
+          <button id="edit-shared-boundary" class="button secondary" disabled>Edit shared boundary</button>
+          </fieldset>
+          <fieldset class="tool-group"><legend>Transform</legend>
+          <button id="rotate-selected" class="button secondary" disabled>Rotate selection</button>
+          <button id="scale-selected" class="button secondary" disabled>Scale selection</button>
+          <button id="simplify-selected" class="button secondary" disabled>Simplify selection</button>
+          <button id="buffer-selected" class="button secondary" disabled>Buffer selection</button>
+          <button id="offset-selected" class="button secondary" disabled>Offset lines</button>
+          </fieldset>
+          <fieldset class="tool-group"><legend>Combine polygons</legend>
+          <button id="union-selected" class="button secondary" disabled>Merge polygons</button>
+          <button id="intersection-selected" class="button secondary" disabled>Intersect polygons</button>
+          <button id="difference-selected" class="button secondary" disabled>Subtract polygons</button>
+          </fieldset>
+          <button id="lock-selected" class="button secondary" disabled>Lock selection</button>
+          <p id="lock-status">Locks last until this page is reloaded.</p>
+          <button id="duplicate-selected" class="button secondary" aria-label="Duplicate selected shape" disabled>Duplicate</button>
+          <div class="selection-actions">
+            <button id="deselect" class="button secondary" disabled>Deselect</button>
+            <button id="delete-selected" class="button danger" aria-label="Delete selected shape" aria-keyshortcuts="Delete Backspace" disabled>Delete <kbd aria-hidden="true">del</kbd></button>
+          </div>
+        </section>
+        <section class="snapping-tools" aria-label="Appearance">
+          <label for="appearance">Map colors</label>
+          <select id="appearance" disabled><option value="default">Original</option><option value="ocean">Ocean</option><option value="contrast">High contrast</option></select>
+          <p>Change colors and handle sizes, including while drawing or editing.</p>
+        </section>
+        <details id="feature-styling" class="snapping-tools styling-controls">
+          <summary>Object colors &amp; overlap</summary>
+          <label class="snap-toggle"><input name="object-colors" type="checkbox" /> Use object colors</label>
+          <p data-style-selection>Select shapes to set their color and drawing order.</p>
+          <div class="style-fields">
+            <label>Object color<input name="object-color" type="color" value="#1b998b" /></label>
+            <label>Drawing order<input name="object-order" type="number" value="0" step="1" required /></label>
+          </div>
+          <div class="button-row"><button class="button secondary" data-style-action="apply" disabled>Apply color &amp; order</button><button class="button secondary" data-style-action="reset" disabled>Reset</button></div>
+          <label for="overlap-mode">Overlap style</label><select id="overlap-mode" name="overlap-mode"><option value="off">Normal transparency</option><option value="auto">Stripes · object colors</option><option value="custom">Stripes · custom palette</option></select>
+          <div class="style-fields" data-custom-palette hidden><label>First stripe color<input name="stripe-a" type="color" value="#1b998b" /></label><label>Second stripe color<input name="stripe-b" type="color" value="#ed8b34" /></label></div>
+          <label>Stripe width<input name="stripe-width" type="range" min="2" max="32" step="1" value="12" /></label>
+          <label>Stripe opacity<input name="stripe-opacity" type="range" min="0" max="1" step="0.05" value="0.7" /></label>
+          <label for="stripe-direction">Stripe direction</label><select id="stripe-direction" name="stripe-direction"><option value="ascending">Diagonal ↗</option><option value="descending">Diagonal ↘</option></select>
+          <button class="button secondary" data-style-action="example">Add overlap example</button>
+          <p data-style-message role="status"></p>
+        </details>
+        <section class="snapping-tools" aria-label="Drawing constraints">
+          <label class="snap-toggle"><input id="drawing-constraints" type="checkbox" disabled /> Fixed drawing angles</label>
+          <label for="angle-step">Angle step</label>
+          <select id="angle-step" disabled><option value="45">45° — axes and diagonals</option><option value="90">90° — axes only</option></select>
+          <p>New line and polygon segments follow map directions. Snapping, tracing and closing take priority. Hold Alt to draw freely.</p>
+        </section>
+        <section class="snapping-tools" aria-label="Snapping">
+          <label class="snap-toggle"><input id="snapping" type="checkbox" checked disabled /> Snap to vertices &amp; edges</label>
+          <p>Hold Alt to place a point freely.</p>
+          <label class="snap-toggle"><input id="tracing" type="checkbox" disabled /> Trace existing boundaries</label>
+          <button id="trace-side" class="button secondary" aria-pressed="false" hidden>Other trace route</button>
+          <p id="trace-help" class="snap-status" hidden>Click two points on the same boundary to follow its corners. Alt draws freely. Backspace removes the last section.</p>
+          <p id="snap-status" class="snap-status" role="status">Draw near an existing shape to snap.</p>
+        </section>
+
+        <section id="drawing-instructions" class="instructions" aria-label="Instructions">
+          <h2>MAKE YOUR MARK</h2>
+          <ol><li><span>1</span>Click the map to place points.</li><li><span>2</span>Move your mouse to preview the shape.</li><li><span>3</span><span class="instruction-text" id="finish-instruction">Press Enter to save your line.</span></li></ol>
+          <p>Drag a selected shape to move the group. Drag elsewhere to pan. Scroll to zoom.<br />Shift+click toggles a shape. Shift+drag adds intersecting shapes.<br />Click an overlap, then use “shapes here” to choose a shape below.<br />Delete removes the selection. Escape cancels or deselects.</p>
+        </section>
+        <section class="data-section" aria-label="Drawing data">
+          <div class="section-heading"><h2>YOUR GEOMETRY</h2><span id="feature-count" class="count">0 features</span></div>
+          <label class="import-label" for="import-file">Import GeoJSON</label>
+          <input id="import-file" class="import-file" type="file" accept=".geojson,.json,application/geo+json,application/json" aria-describedby="import-help" disabled />
+          <p id="import-help" class="import-help">Add lines and polygons, including multipart features, from a file (up to 5 MB). Existing shapes stay on the map.</p>
+          <div class="example-picker">
+            <label for="example">Try an example</label>
+            <select id="example" aria-describedby="example-help"></select>
+            <p id="example-help" class="import-help"></p>
+            <button id="load-example" class="button secondary" disabled>Add example</button>
+            <p id="example-status" class="import-status" role="status"></p>
+          </div>
+          <p id="import-status" class="import-status" role="status" hidden></p>
+          <button id="export" class="button export" disabled>Export GeoJSON <span aria-hidden="true">↗</span></button>
+          <details><summary>Inspect GeoJSON <span>{ }</span></summary><textarea id="output" aria-label="GeoJSON output" readonly spellcheck="false">{"type":"FeatureCollection","features":[]}</textarea></details>
+        </section>
+        <div class="sidebar-footer"><span class="dot"></span> Map Master · MapLibre</div>
+      </aside>
+      <section class="map-panel" aria-label="Interactive map">
+        <div id="map"></div>
+        <div class="location-label"><span class="location-cross" aria-hidden="true">⌖</span><div><strong>Amsterdam</strong><span>THE NETHERLANDS</span></div></div>
+        <section id="selection-controls" class="selection-controls" aria-label="Selection controls" hidden>
+          <div class="selection-toolbar" role="toolbar" aria-label="Selection actions">
+            <strong data-selection-summary aria-live="polite"></strong>
+            <button type="button" data-action="edit" title="Edit the selected shape">Edit</button>
+            <button type="button" data-action="copy" title="Duplicate the selection">Copy</button>
+            <button type="button" data-action="delete" class="selection-delete" title="Delete the selection">Delete</button>
+            <button type="button" data-action="more" title="Open all selection tools">More tools</button>
+            <button type="button" data-action="clear" aria-label="Clear selection" title="Clear selection">×</button>
+          </div>
+          <details class="overlap-choices" hidden>
+            <summary></summary>
+            <p>Choose a shape, or use the checkboxes to build a selection.</p>
+            <div data-overlap-list role="group" aria-label="Shapes at this location"></div>
+          </details>
+        </section>
+        <div class="map-hint"><span id="mode-dot" class="dot"></span><span id="map-hint">Your next idea, on the map.</span></div>
+        <div class="map-caption">52.372° N &nbsp; 4.895° E</div>
+      </section>
+    </main>
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>

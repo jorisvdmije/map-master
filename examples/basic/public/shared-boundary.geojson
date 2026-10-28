@@ -1,0 +1,7 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    { "type": "Feature", "id": "west", "properties": { "name": "West parcel" }, "geometry": { "type": "Polygon", "coordinates": [[[4.886, 52.370], [4.890, 52.370], [4.890, 52.375], [4.886, 52.375], [4.886, 52.370]]] } },
+    { "type": "Feature", "id": "east", "properties": { "name": "East parcel" }, "geometry": { "type": "Polygon", "coordinates": [[[4.890, 52.370], [4.894, 52.370], [4.894, 52.375], [4.890, 52.375], [4.890, 52.370]]] } }
+  ]
+}

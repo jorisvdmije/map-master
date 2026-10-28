@@ -1,0 +1,76 @@
+import { Map } from 'maplibre-gl';
+import { expect, it, vi } from 'vitest';
+import { page, userEvent } from 'vitest/browser';
+import type { GeometryFeatureCollection } from '../../src/index.js';
+import html from '../../examples/basic/index.html?raw';
+
+it('chooses hidden overlaps, builds groups, respects locks and runs toolbar actions with keyboard and Undo', async () => {
+  const spy = vi.spyOn(Map.prototype, 'fitBounds'); let map: Map | undefined;
+  try {
+    history.replaceState(null, '', `${location.pathname}?basemap=off`);
+    document.body.innerHTML = new DOMParser().parseFromString(html, 'text/html').body.innerHTML;
+    document.querySelectorAll('script').forEach(script => { script.remove(); });
+    await import('../../examples/basic/main.js');
+    const file = page.getByLabelText('Import GeoJSON'); await expect.element(file).toBeEnabled();
+    const fixture = { type: 'FeatureCollection', features: ['bottom', 'top'].map(id => ({ type: 'Feature', id, properties: { name: id === 'bottom' ? 'Garden' : 'Parcel' },
+      geometry: { type: 'Polygon', coordinates: [[[4.89,52.37],[4.9,52.37],[4.9,52.375],[4.89,52.375],[4.89,52.37]]] } })) };
+    await file.upload(new File([JSON.stringify(fixture)], 'overlap.geojson', { type: 'application/geo+json' }));
+    await expect.poll(() => spy.mock.contexts[0]).toBeInstanceOf(Map);
+    const instance = spy.mock.contexts[0];
+    if (!(instance instanceof Map)) throw new Error('Expected imported map');
+    map = instance;
+    const point = () => instance.project([4.895, 52.3735]);
+    const click = () => userEvent.click(instance.getCanvas(), { position: point() });
+    const fill = Object.keys(map.getStyle().sources).find(id => id.endsWith('-features'))!.replace(/-features$/, '-fill');
+    await expect.poll(() => instance.queryRenderedFeatures(point(), { layers: [fill] }).length).toBeGreaterThanOrEqual(2);
+    const output = (): GeometryFeatureCollection => JSON.parse(document.querySelector<HTMLTextAreaElement>('#output')!.value) as GeometryFeatureCollection;
+    const original = output();
+    const root = document.querySelector<HTMLElement>('#selection-controls')!;
+    const toolbar = page.getByRole('toolbar', { name: 'Selection actions' });
+    const choices = root.querySelector('details')!;
+    const summary = page.getByText('2 shapes here', { exact: true });
+    const bottom = page.getByRole('button', { name: 'Select Garden · "bottom"', exact: true });
+    const top = page.getByRole('button', { name: 'Select Parcel · "top"', exact: true });
+    await click(); expect(root.hidden).toBe(false); await summary.click();
+    map.getCanvas().focus();
+    await userEvent.keyboard('{Shift>}'); expect(getComputedStyle(root).visibility).toBe('hidden');
+    await userEvent.keyboard('{/Shift}'); expect(getComputedStyle(root).visibility).toBe('visible');
+    await userEvent.keyboard('{Shift>}'); window.dispatchEvent(new Event('blur'));
+    expect(getComputedStyle(root).visibility).toBe('visible'); await userEvent.keyboard('{/Shift}');
+    await expect.element(top).toHaveAttribute('aria-pressed', 'true');
+    await bottom.click(); await expect.element(bottom).toHaveAttribute('aria-pressed', 'true');
+    await expect.element(top).toHaveAttribute('aria-pressed', 'false'); expect(output()).toEqual(original);
+    await page.getByRole('checkbox', { name: 'Include Parcel · "top" in selection', exact: true }).click();
+    await expect.element(toolbar.getByRole('button', { name: 'Edit', exact: true })).toBeDisabled();
+    expect(root.querySelector('[data-selection-summary]')!.textContent).toBe('2 selected');
+    await userEvent.keyboard('{Escape}'); expect(choices.open).toBe(false);
+    expect(root.hidden).toBe(false); expect(document.activeElement).toBe(choices.querySelector('summary'));
+    await page.getByRole('button', { name: 'Lock selection', exact: true }).click();
+    await expect.element(toolbar.getByRole('button', { name: 'Delete', exact: true })).toBeDisabled();
+    await expect.element(toolbar.getByRole('button', { name: 'Copy', exact: true })).toBeEnabled();
+    expect(root.querySelector('[data-selection-summary]')!.textContent).toBe('2 selected · 2 locked');
+    await summary.click(); expect([...root.querySelectorAll('.overlap-lock')].map(e => e.textContent)).toEqual(['Locked','Locked']);
+    await page.getByRole('button', { name: 'Unlock selection', exact: true }).click();
+    await bottom.click(); await userEvent.keyboard('{Escape}');
+    // Toolbar keyboard skips disabled buttons and keeps a single Tab stop.
+    root.querySelector<HTMLButtonElement>('[data-action="edit"]')!.focus();
+    await userEvent.keyboard('{End}'); expect(document.activeElement?.getAttribute('data-action')).toBe('clear');
+    await userEvent.keyboard('{Home}'); expect(document.activeElement?.getAttribute('data-action')).toBe('edit');
+    await userEvent.keyboard('{Enter}'); expect(root.hidden).toBe(true);
+    expect(document.activeElement).toBe(map.getCanvas());
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click(); expect(root.hidden).toBe(false); expect(choices.hidden).toBe(true);
+    await toolbar.getByRole('button', { name: 'Copy', exact: true }).click(); expect(output().features).toHaveLength(3);
+    await page.getByRole('button', { name: 'Undo', exact: true }).click(); expect(output()).toEqual(original);
+    await click(); await toolbar.getByRole('button', { name: 'Delete', exact: true }).click();
+    expect(output().features.map(f => f.id)).toEqual(['bottom']); expect(root.hidden).toBe(true);
+    await page.getByRole('button', { name: 'Undo', exact: true }).click(); expect(output()).toEqual(original);
+    await expect.poll(() => instance.queryRenderedFeatures(point(), { layers: [fill] }).length).toBeGreaterThanOrEqual(2);
+    await click(); await summary.click();
+    map.jumpTo({ bearing: 20, pitch: 25 }); expect(choices.hidden).toBe(true); expect(root.hidden).toBe(false);
+    await toolbar.getByRole('button', { name: 'More tools', exact: true }).click();
+    expect(document.querySelector('#selection')!.contains(document.activeElement)).toBe(true);
+    await toolbar.getByRole('button', { name: 'Clear selection', exact: true }).click();
+    expect(root.hidden).toBe(true); expect(document.activeElement).toBe(map.getCanvas()); expect(output()).toEqual(original);
+    map.remove(); expect(root.hidden).toBe(true); expect(root.querySelector('[data-overlap-list]')!.children).toHaveLength(0); map = undefined;
+  } finally { map?.remove(); spy.mockRestore(); }
+});

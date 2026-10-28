@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#133f39">
+    <title>Area workspace · geo</title>
+  </head>
+  <body>
+    <header class="app-header">
+      <a class="brand" href="./" aria-label="Area workspace home"><span class="brand-mark" aria-hidden="true">g.</span><span>Area workspace<small>Areas, routes & markers</small></span></a>
+      <div class="save-group"><span id="save-state" role="status">Opening workspace…</span><button id="save" class="primary" disabled>Save workspace</button></div>
+    </header>
+    <main>
+      <aside aria-label="Workspace tools">
+        <section>
+          <p class="eyebrow">YOUR WORKSPACE</p>
+          <div class="section-heading"><h1>Areas, routes & markers</h1><span id="count" class="count">0</span></div>
+          <p class="muted">Add an area, route or marker, give it a name, and save your plan.</p>
+          <div class="button-row"><button id="polygon" disabled>+ Area</button><button id="line" disabled>+ Route</button><button id="marker" disabled>+ Marker</button></div>
+          <div class="button-row secondary-row"><button id="undo" disabled>Undo</button><button id="redo" disabled>Redo</button></div>
+          <label class="appearance-control" for="appearance">Map colors
+            <select id="appearance" disabled><option value="default">Original</option><option value="ocean">Ocean</option><option value="contrast">High contrast</option></select>
+          </label>
+        </section>
+        <section class="feature-section" aria-label="Features">
+          <p id="empty" class="empty">Your workspace is empty.<br>Draw on the map or import a GeoJSON file.</p>
+          <ul id="features" aria-label="Workspace features"></ul>
+        </section>
+        <section id="selection" hidden>
+          <p class="eyebrow">SELECTED FEATURE</p>
+          <form id="name-form"><label for="name">Name</label><input id="name" maxlength="120" autocomplete="off"><button id="rename" type="submit">Apply name</button></form>
+          <div class="button-row"><button id="edit">Edit vertices</button><button id="delete" class="danger">Delete</button></div>
+          <button id="lock" type="button">Lock for this session</button>
+          <p id="edit-scope" class="muted"></p>
+        </section>
+        <section class="files">
+          <label class="file-label" for="import">Import GeoJSON <span>up to 5 MB</span></label>
+          <input id="import" type="file" accept=".geojson,.json,application/geo+json,application/json" disabled>
+          <button id="export" disabled>Export GeoJSON</button>
+          <p class="muted">Saved in this browser. Export a file for a portable backup.</p>
+          <div id="recovery" hidden><button id="download-recovery">Download saved copy</button><button id="discard-recovery" class="danger">Discard unreadable copy</button></div>
+        </section>
+      </aside>
+      <section class="map-panel" aria-label="Map workspace">
+        <div id="map" aria-label="Editable map"></div>
+        <div class="map-top"><span class="badge">LOCAL WORKSPACE <span class="beta">BETA PREVIEW</span></span><label class="snap-control"><input id="snapping" type="checkbox" checked disabled> Snap to edges</label></div>
+        <div class="map-bottom">
+          <div id="notice" role="alert" hidden></div>
+          <div class="instruction-bar"><p id="instruction" role="status">Loading the map…</p><div class="button-row"><button id="finish" class="primary" hidden disabled>Finish</button><button id="cancel" hidden disabled>Cancel</button></div></div>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>

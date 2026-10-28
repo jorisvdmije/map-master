@@ -1,0 +1,7 @@
+{
+  "type": "FeatureCollection",
+  "features": [{
+    "type": "Feature", "id": "trace-garden", "properties": { "name": "Trace this stepped boundary" },
+    "geometry": { "type": "Polygon", "coordinates": [[[4.886, 52.370], [4.894, 52.370], [4.894, 52.372], [4.891, 52.372], [4.891, 52.375], [4.886, 52.375], [4.886, 52.370]]] }
+  }]
+}

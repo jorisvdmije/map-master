@@ -1,0 +1,18 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature", "id": "west", "properties": { "name": "West garden" },
+      "geometry": { "type": "Polygon", "coordinates": [
+        [[4.886,52.370],[4.895,52.370],[4.895,52.377],[4.886,52.377],[4.886,52.370]],
+        [[4.888,52.372],[4.888,52.374],[4.890,52.374],[4.890,52.372],[4.888,52.372]]
+      ] }
+    },
+    {
+      "type": "Feature", "id": "east", "properties": { "name": "East garden" },
+      "geometry": { "type": "Polygon", "coordinates": [
+        [[4.892,52.373],[4.900,52.373],[4.900,52.380],[4.892,52.380],[4.892,52.373]]
+      ] }
+    }
+  ]
+}
