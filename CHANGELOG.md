@@ -4,7 +4,7 @@ User-visible changes are recorded here. There has been no public npm release.
 The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 [release prerequisites](docs/releases.md).
 
-## Unreleased — initial beta candidate
+## 0.1.0-beta.0 — 2026-10-28 (prepared; publication pending)
 
 ### Fixed
 
@@ -134,6 +134,8 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 - Browser storage is an example persistence mechanism, not a backend or backup.
   Collaboration, server authorization, framework wrappers, trim/extend and
   interactive multipart construction are outside this candidate.
-- The GitHub repository, Issues/private security reporting, required hosted CI
-  checks and npm publishing access still need to be operational before public
-  distribution. `private: true` remains in place pending those release gates.
+- The public GitHub repository, Issues/private security reporting and required
+  hosted CI checks are configured. The maintainer has configured security
+  notifications; delivery remains untested. npm login is verified and the
+  private publishing guard is removed. Final archive verification and explicit
+  publication authorization remain required before distribution.

@@ -40,7 +40,7 @@ map.once('style.load', () => {
 
 For host worker configuration and local package installation, see the
 [integration setup](line-editor.md#integrate) and [working demo](../examples/basic/main.ts).
-The package is private and unpublished; use `npm pack` for an installable archive.
+Registry publication is pending; use `npm pack` for an installable archive.
 
 | Member | Contract |
 | --- | --- |

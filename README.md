@@ -62,7 +62,7 @@ after `npm ci` and open <http://127.0.0.1:5174>. Draw/edit areas and routes,
 change names, save/reopen locally, and exchange GeoJSON files. It installs a
 fresh npm archive outside this checkout and uses only public APIs. See the
 [beta integration guide](docs/beta.md) for acceptance checks and release gates.
-This is a local beta preview; the package remains private and unpublished.
+This is a local beta preview; registry publication is pending.
 The [release guide](docs/releases.md), [changelog](CHANGELOG.md) and
 [migration policy](docs/migration.md) cover preparation for the public beta.
 
@@ -205,7 +205,7 @@ localhost) for feature UUIDs. Desktop mouse and keyboard input in Chromium is
 tested; touch/pen vertex editing has Chromium input-emulation coverage, while
 physical devices and other browser engines remain unqualified. The package is
 `@jorisvdmije/map-master`, licensed under MIT. Candidate `0.1.0-beta.0` remains
-private and unpublished pending the [release gates](docs/releases.md).
+unpublished pending the [release gates](docs/releases.md).
 
 The tests install an actual npm archive into a temporary directory, import it in
 Node.js, and compile a consumer in both NodeNext and Bundler resolution modes.

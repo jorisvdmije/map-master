@@ -18,10 +18,12 @@ const options = (): EditorStylingOptions => ({ feature: feature => ({ shape: { f
   selected: { shape: { lineWidth: 8, lineColor: '#0000ff' } }, overlap: { enabled: true, opacity: 0.6 } });
 const hits = () => map.queryRenderedFeatures([300, 220], { layers: [layer('-overlap-stripes')] });
 async function fixture(): Promise<void> {
+  const rendered = map.once('idle');
   editor.setStyling(options());
   editor.importGeoJSON({ type: 'FeatureCollection', features: [box(7, 100, 100, '#ff0000', 20), box('7', 220, 100, '#00ff00', 10), box('c', 180, 180, '#0000ff', 30)] });
   editor.clearHistory();
-  await expect.poll(() => hits().length).toBeGreaterThan(0);
+  await rendered;
+  expect(hits().length).toBeGreaterThan(0);
 }
 beforeEach(async () => {
   errors.length = 0; container = document.createElement('div'); container.style.cssText = 'width:700px;height:500px;position:relative'; document.body.append(container);

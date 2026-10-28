@@ -1,7 +1,6 @@
 {
   "name": "@jorisvdmije/map-master",
   "version": "0.1.0-beta.0",
-  "private": true,
   "description": "Map Master: a TypeScript geometry editor for MapLibre web maps.",
   "license": "MIT",
   "type": "module",
