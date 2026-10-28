@@ -18,6 +18,9 @@ const drag = (x: number, y: number, endX: number, endY: number) => userEvent.dra
   sourcePosition: { x, y }, targetPosition: { x: endX, y: endY },
 });
 async function fixture(): Promise<void> {
+  // Import and camera changes schedule asynchronous worker/tile rendering.
+  // Synchronize setup with MapLibre, then assert the actual pickable geometry.
+  const rendered = map.once('idle');
   editor.importGeoJSON({ type: 'FeatureCollection', features: [
     { type: 'Feature', id: 0, properties: { nested: { name: 'polygon' } }, geometry: { type: 'Polygon', coordinates: [
       [[100, 100], [300, 100], [300, 300], [100, 300], [100, 100]].map(([x, y]) => position(x!, y!)),
@@ -26,7 +29,9 @@ async function fixture(): Promise<void> {
     { type: 'Feature', id: 'far', properties: null, geometry: { type: 'LineString', coordinates: [position(500, 100), position(600, 100)] } },
   ] });
   editor.clearHistory(); editor.selectMany(['0', 0]);
-  await expect.poll(() => map.queryRenderedFeatures({ layers: [sourceId()] }).length).toBeGreaterThanOrEqual(3);
+  await rendered;
+  expect(new Set(map.queryRenderedFeatures({ layers: [sourceId()] }).map(hit => hit.id)))
+    .toEqual(new Set([JSON.stringify(0), JSON.stringify('0'), JSON.stringify('far')]));
 }
 beforeEach(async () => {
   container = document.createElement('div'); container.style.cssText = 'width:700px;height:450px;position:relative;'; document.body.append(container);
