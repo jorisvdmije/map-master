@@ -202,7 +202,8 @@ Build output lives in `dist/`. MapLibre GL JS is a host-supplied peer dependency
 not bundled into the editor. Version 6.15.0 is tested; the peer range is `^6.15.0`.
 The editor requires a modern browser with WebGL and a secure context (HTTPS or
 localhost) for feature UUIDs. Desktop mouse and keyboard input in Chromium is
-tested; touch and other browser engines are not yet validated. The package is
+tested; touch/pen vertex editing has Chromium input-emulation coverage, while
+physical devices and other browser engines remain unqualified. The package is
 `@jorisvdmije/map-master`, licensed under MIT. Candidate `0.1.0-beta.0` remains
 private and unpublished pending the [release gates](docs/releases.md).
 
@@ -216,9 +217,10 @@ and the demo's export controls. Tests use local styles and need no tile service.
 
 CI installs Chromium and runs `npm ci` and `npm run release:prepare` (including
 `npm run check`) on Node.js 22 and 24 for
-pull requests and pushes to `main`. The workflow will run once the repository is
-hosted on GitHub with Actions enabled; required branch checks need configuration
-in the repository settings. On Linux, `npx playwright install --with-deps chromium`
+pull requests and pushes to `main`. The public GitHub repository requires both
+checks before merging into protected `main`; hosted results must pass on the
+actual release commit. See [repository integration](docs/repository-integration.md).
+On Linux, `npx playwright install --with-deps chromium`
 also installs the system libraries needed by the browser.
 
 MapLibre 6.15's transitive declarations currently contain NodeNext import errors.

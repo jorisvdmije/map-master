@@ -11,10 +11,11 @@ On the repository, choose **Security → Advisories → Report a vulnerability**
 Do not disclose vulnerability details, exploit code, credentials or sensitive
 geometry in public issues or feature requests.
 
-**Setup status:** this policy is prepared locally. The repository and its private
-reporting setting have not yet been verified as operational. The maintainer must
-create/configure the repository and verify the private reporting form before
-public distribution. If the form is unavailable, do not post the report publicly;
+**Setup status (2026-10-28):** the public repository exists and GitHub's API
+confirms private vulnerability reporting is enabled. Before npm distribution,
+the maintainer must still verify access to the reporting form and receipt of
+security notifications. No test vulnerability report has been sent.
+If the form is unavailable, do not post the report publicly;
 a public issue may request activation of the private channel without including
 any vulnerability details.
 
@@ -35,6 +36,6 @@ Applications should upgrade to the fixed candidate when one is released.
 ## Ordinary bugs and feature requests
 
 Use [GitHub Issues](https://github.com/jorisvdmije/map-master/issues) for
-non-sensitive bugs and feature requests once the repository is available.
+non-sensitive bugs and feature requests.
 Feature locks are editor interaction policy; applications must enforce their
 own server-side authorization and protect stored geometry.

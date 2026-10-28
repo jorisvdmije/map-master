@@ -2,7 +2,8 @@
 
 Milestone 18e prepares **Map Master**, package `@jorisvdmije/map-master`, version
 `0.1.0-beta.0`, for its first public beta. The identity and licensing decisions
-are complete; public distribution and hosted verification remain pending.
+are complete; the public source repository is configured. npm distribution and
+passing hosted verification on the release commit remain separate gates.
 
 ## Agreed project identity
 
@@ -20,18 +21,21 @@ are complete; public distribution and hosted verification remain pending.
 
 ## Remaining gates before public distribution
 
-The authenticated GitHub lookup returned HTTP 404 on 2026-10-25. The remote URL
-is configured, but the repository, Issues, private reporting and branch checks
-have not been verified as operational. A registry lookup also returned 404;
-this does not reserve the npm name or prove permission to publish to its scope.
+On 2026-10-28 the public repository was created, Issues and private vulnerability
+reporting enabled, and `main` protected with both required Node checks. The first
+integration imports the existing feature history through a PR; see
+[repository integration](repository-integration.md). Hosted execution is distinct
+from configuration and must succeed before merging/releasing.
 
-1. Create/configure the intended repository with Issues enabled. Enable GitHub
-   Private Vulnerability Reporting, verify its form, and update the setup status
-   in `SECURITY.md`. Verify that the maintainer receives security notifications.
-2. Push the reviewed source and run CI on the release commit. Require
-   `Check (Node 22)` and `Check (Node 24)` on `main`, with PR review and resolved
-   conversations appropriate to the maintainer team. These are repository
-   settings; committing the workflow does not activate branch protection.
+The npm package lookup still returned 404 and `npm whoami` returned 401 on
+2026-10-28. The name is not reserved and publishing access is not verified.
+
+1. Verify access to the enabled private-reporting form and receipt of maintainer
+   security notifications. The setting alone does not prove notification delivery.
+2. Complete the initial integration PR after hosted `Check (Node 22)` and
+   `Check (Node 24)` pass. Verify CI again on the actual release commit and retain
+   its artifacts. Required checks and resolved conversations are already enforced
+   on `main`; the solo-maintainer policy does not require a second reviewer.
 3. Confirm npm scope access and the release version's availability. The metadata
    already selects the registry, public access and `beta` tag. The package keeps
    `private: true` until the remaining release gates are complete.

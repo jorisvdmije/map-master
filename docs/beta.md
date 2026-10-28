@@ -166,15 +166,16 @@ The next beta work is deliberately separate and reviewable:
    qualify a fixed 1,000-feature installed-consumer workload, visible pointer
    previews and repeated map/editor teardown. The browser/input matrix explicitly
    limits evidence to desktop Chromium and MapLibre 6.15.0; hosted CI is configured
-   but has not run on GitHub yet.
+   and must pass on the initial integration and release commits.
 4. **Public prerelease — locally prepared, publication pending:**
    [release preparation](releases.md) verifies one archive through package and
    workspace checks and retains its checksum and reports. A changelog and
    migration policy are included. The package is now
    `@jorisvdmije/map-master@0.1.0-beta.0`, licensed under MIT, with @jorisvdmije
-   as maintainer and a GitHub private-reporting policy. The repository, reporting
-   channels, required hosted checks and npm scope access still need to be
-   operational before publication. No registry publication is performed here.
+   as maintainer and a GitHub private-reporting policy. The public repository, private reporting setting
+   and required branch checks are configured. Passing hosted checks, verified
+   reporting notifications and npm scope access remain distribution gates; see
+   [repository integration](repository-integration.md). No registry publication is performed here.
 
 Trim/extend is deferred until a consuming application needs it. The full playground
 continues to demonstrate advanced geometry tools; this smaller workspace focuses

@@ -19,8 +19,13 @@ For a solo maintainer, use the same PR checklist and review the diff before merg
 
 This follows [GitHub flow](https://docs.github.com/en/get-started/using-github/github-flow).
 The configured remote is `https://github.com/jorisvdmije/map-master.git`.
-The repository and automated branch protection still need to be established.
-When hosted, configure required checks and review rules appropriate to the team.
+The public repository and protection of `main` were configured on 2026-10-28.
+Pull requests require up-to-date `Check (Node 22)` and `Check (Node 24)` results
+and resolved conversations, including for administrators. Force pushes and
+deletion of `main` are disabled. The current solo-maintainer policy requires a
+PR but no second approving reviewer; raise that requirement when another
+maintainer joins. See [repository integration](docs/repository-integration.md)
+for the initial history import and remaining release gates.
 Maintainer: [@jorisvdmije](https://github.com/jorisvdmije). Use
 [Issues](https://github.com/jorisvdmije/map-master/issues) for non-sensitive bugs
 and feature requests; follow [SECURITY.md](SECURITY.md) for vulnerabilities.
@@ -132,4 +137,5 @@ checks and retain its checksum and reports. CI runs this on Node 22 and 24.
 Follow the [release checklist](docs/releases.md), record user-visible changes in
 the [changelog](CHANGELOG.md), and document upgrades in the
 [migration guide](docs/migration.md). Preparation does not publish the package;
-hosted checks, operational reporting channels and registry access are still pending.
+passing hosted checks on the release commit, verified security notifications and
+registry access remain prerequisites for distribution.

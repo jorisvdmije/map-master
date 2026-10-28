@@ -5,6 +5,7 @@ separately so consumers can integrate without depending on internal modules.
 
 | Goal | Guide |
 | --- | --- |
+| Follow the initial history import and protected-branch workflow | [Repository integration](repository-integration.md) |
 | Use the playground controls, direct examples and step-by-step guide | [Playground workflows](playground-workflow.md) |
 | Run a standalone installed-package app with saving and recovery | [Beta integration milestone](beta.md) |
 | Protect reference geometry from editing while retaining snapping | [Feature locks](feature-locks.md) |
