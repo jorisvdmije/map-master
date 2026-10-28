@@ -1,0 +1,37 @@
+{
+  "workflowRun": "https://github.com/jorisvdmije/map-master/actions/runs/40620481848",
+  "commit": "864aa349acfc62f7b7f440336468f0d3bccf390f",
+  "publicationPerformed": false,
+  "candidates": [
+    {
+      "nodeMajor": 22,
+      "artifactName": "beta-candidate-node-22",
+      "candidateDirectory": "candidate-z9bOxo",
+      "archive": {
+        "filename": "jorisvdmije-map-master-0.1.0-beta.0.tgz",
+        "name": "@jorisvdmije/map-master",
+        "version": "0.1.0-beta.0",
+        "sha256": "74a255200eccdbd4e596d9d4dbcefc8ec288269ff2d708cee358602a8555b4e9"
+      },
+      "reportSha256": {
+        "node-22-verification.json": "3c5578796a537ddd9f31c14a52fca7876ef90ca89b85f224aaf133ade1442181",
+        "node-22-beta-budgets.json": "bf6c5d7166c4f918b80c49326caba5d845e3564f1d83b67179467f0509519149"
+      }
+    },
+    {
+      "nodeMajor": 24,
+      "artifactName": "beta-candidate-node-24",
+      "candidateDirectory": "candidate-HPk01L",
+      "archive": {
+        "filename": "jorisvdmije-map-master-0.1.0-beta.0.tgz",
+        "name": "@jorisvdmije/map-master",
+        "version": "0.1.0-beta.0",
+        "sha256": "74a255200eccdbd4e596d9d4dbcefc8ec288269ff2d708cee358602a8555b4e9"
+      },
+      "reportSha256": {
+        "node-24-verification.json": "26d310c21d0b62053af42dbfbecf962ef29cf85bdc5a677f76592b54724d5b26",
+        "node-24-beta-budgets.json": "a528a6acccdcf078e43f94221d0e8e662eadd9b3bac4ac5daf52cdbd60e000cd"
+      }
+    }
+  ]
+}
