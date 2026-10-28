@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -27,10 +27,12 @@ describe('packed package', () => {
 
     consumer = mkdtempSync(join(tmpdir(), 'geo-consumer-'));
     cpSync(join(root, 'tests/fixtures/consumer'), consumer, { recursive: true });
-    writeFileSync(
-      join(consumer, 'package.json'),
-      JSON.stringify({ name: 'geo-test-consumer', private: true, type: 'module' }),
-    );
+    // Reuse the standalone application's pinned dependency graph. A fresh
+    // repository npm ci caches its tarballs, but not registry metadata needed
+    // by an unlocked npm install to resolve peer dependency ranges offline.
+    for (const file of ['package.json', 'package-lock.json']) {
+      cpSync(join(root, 'examples/workspace', file), join(consumer, file));
+    }
 
     // Release preparation supplies one archive to both this suite and the workspace.
     // A dry-run on that local tarball inspects its contents without rebuilding it.
@@ -44,10 +46,13 @@ describe('packed package', () => {
     if (!packed) throw new Error('npm pack did not produce an archive.');
     packedFiles = packed.files.map((file) => file.path);
 
-    // Install the archive outside the repository: no workspace links or source aliases.
+    // Install only runtime dependencies outside the repository. Consumer tooling
+    // must not mask a missing runtime dependency in the archive.
+    mkdirSync(join(consumer, 'vendor'));
+    cpSync(archive ? resolve(root, archive) : join(consumer, packed.filename),
+      join(consumer, 'vendor/map-master.tgz'));
     run(process.execPath, [
-      npm, 'install', archive ? resolve(root, archive) : join(consumer, packed.filename),
-      '--offline', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false',
+      npm, 'ci', '--offline', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund',
     ], consumer);
   });
 

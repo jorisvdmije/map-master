@@ -80,6 +80,10 @@ Documentation-only changes need link and diff checks, not application tests.
 Add behavior tests under `tests/` using Vitest. Consumer fixtures are checked
 inside their isolated installation instead of against repository source files.
 The package integration test uses npm's CLI path, so invoke it through `npm test`.
+It reuses the standalone example's manifest and lockfile to install the archive
+offline with `npm ci --omit=dev`; the root `npm ci` supplies the cached third-party tarballs.
+No prior registry metadata cache is required. Use `CI=true npm test` when checking
+CI-specific behavior, including architecture tests that lint virtual source text.
 Put real MapLibre interaction tests in `tests/browser/`, run with
 `npm run test:browser`. Use local styles so tests do not depend on tile services.
 The browser suite caps parallel workers at four to limit competition between

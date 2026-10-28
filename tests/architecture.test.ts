@@ -1,7 +1,13 @@
 import { ESLint } from 'eslint';
 import { expect, it } from 'vitest';
 
-const eslint = new ESLint();
+const eslint = new ESLint({
+  // lintText replaces the same project files repeatedly. CI's single-run
+  // optimization can instead read their on-disk contents on the first call.
+  overrideConfig: {
+    languageOptions: { parserOptions: { disallowAutomaticSingleRunInference: true } },
+  },
+});
 
 it.each([
   ['src/core/types.ts', "import type { Map } from 'maplibre-gl'; export type Host = Map;"],
