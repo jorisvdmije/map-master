@@ -80,7 +80,9 @@ export class GeometryEditor {
     this.vertices = new VertexInteraction(map, {
       state: () => this.session.state, draft: () => this.session.getDraft(),
       select: (indices) => { this.draftChanged(this.session.selectVertices(indices)); },
-      move: (updates) => { this.draftChanged(this.session.moveVertices(updates)); },
+      // Pointer movement is already coalesced by VertexInteraction. Upload its
+      // preview in that frame instead of waiting for another animation frame.
+      move: (updates) => { this.draftChanged(this.session.moveVertices(updates), true); },
       insert: (index, coordinate) => { this.draftChanged(this.session.insertVertex(index, coordinate)); },
       remove: (index) => { this.draftChanged(this.session.removeVertex(index)); },
       resolve: (point, altKey) => {
@@ -1158,9 +1160,9 @@ export class GeometryEditor {
     this.events.emit('change', () => this.getState());
   }
 
-  private draftChanged(changed: boolean): void {
+  private draftChanged(changed: boolean, immediatePreview = false): void {
     if (!changed || this.destroyed) return;
-    this.schedulePreview();
+    if (immediatePreview) this.flushPreview(); else this.schedulePreview();
     this.emitChange();
   }
 
@@ -1168,81 +1170,89 @@ export class GeometryEditor {
     if (this.frame !== undefined) return;
     this.frame = this.view.requestAnimationFrame(() => {
       this.frame = undefined;
-      if (this.pointer && this.isDrawing()) {
-        const resolved = this.resolvePointer(this.pointer);
-        this.cursor = resolved.blocked ? undefined : resolved.coordinate;
-        this.setSnap(resolved.snap);
-      }
-      if (this.destroyed || this.translation.active) return;
-      if (this.session.state.mode === 'offset-lines') {
-        const preview = this.session.getOffsetPreview();
-        this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
-        this.renderer.renderTransform(preview);
-        this.distance.render(this.session.getSelection(), this.appearance);
-        return;
-      }
-      if (this.session.state.mode === 'buffer-features') {
-        const preview = this.session.getBufferPreview();
-        this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
-        this.renderer.renderTransform(preview);
-        this.distance.render(this.session.getSelection(), this.appearance);
-        return;
-      }
-      if (this.session.state.mode === 'simplify-features') {
-        const preview = this.session.getSimplificationPreview();
-        this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
-        this.renderer.renderComparison(preview ? this.session.state.selectedFeatureIds : []);
-        this.renderer.renderTransform(preview);
-        return;
-      }
-      if (this.session.state.mode === 'scale-features') {
-        const preview = this.session.getScalePreview();
-        this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
-        this.renderer.renderTransform(preview, this.session.state.scalePivot!);
-        const originals = this.session.getSelection();
-        this.scaling.render(preview?.features ?? originals, originals, this.appearance);
-        this.pivot.render(originals, this.appearance);
-        return;
-      }
-      if (this.session.state.mode === 'rotate-features') {
-        const preview = this.session.getRotationPreview();
-        this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
-        this.renderer.renderTransform(preview, this.session.state.rotationPivot!);
-        const originals = this.session.getSelection();
-        this.rotation.render(preview?.features ?? originals, originals, this.appearance);
-        this.pivot.render(originals, this.appearance);
-        return;
-      }
-      if (this.session.state.mode === 'intersection-polygons') {
-        const intersection = this.session.getIntersectionPreview();
-        this.renderer.renderEditingMany(intersection ? this.session.state.selectedFeatureIds : [], true);
-        this.renderer.renderOverlay(intersection?.geometry ?? null);
-        return;
-      }
-      if (this.session.state.mode === 'union-polygons') {
-        const union = this.session.getUnionPreview();
-        this.renderer.renderEditingMany(union ? this.session.state.selectedFeatureIds : [], true);
-        this.renderer.renderOverlay(union);
-        return;
-      }
-      if (this.session.state.mode === 'difference-polygons') {
-        const difference = this.session.getDifferencePreview();
-        this.renderer.renderEditing(difference ? this.session.state.selectedFeatureIds[0]! : null);
-        this.renderer.renderOverlay(difference?.geometry ?? null);
-        return;
-      }
-      const reshape = this.session.getReshapePreview();
-      if (this.session.state.mode === 'reshape-polygon') this.renderer.renderEditing(reshape ? this.session.state.selectedFeatureId : null);
-      const split = this.session.getSplitPreview();
-      if (this.session.state.mode === 'split-polygon') this.renderer.renderEditing(split ? this.session.state.selectedFeatureId : null);
-      if (this.session.state.mode === 'split-polygon' || this.session.state.mode === 'reshape-polygon') {
-        this.renderer.renderComparison(split || reshape ? this.session.state.selectedFeatureIds : []);
-      }
-      const shared = this.session.getSharedBoundaryPreview();
-      if (this.session.state.mode === 'edit-shared-boundary') this.renderer.renderEditingMany(shared ? this.session.state.selectedFeatureIds : []);
-      const trace = this.getTracePreview();
-      this.renderer.renderPreview(this.session.getDraft(), reshape || trace ? undefined : this.cursor, this.session.state, this.snap, split, this.session.getDraftRings(), this.session.getInactiveParts(), reshape, trace, shared, this.session.getCutFeedback());
+      this.flushPreview();
     });
+  }
+
+  /** Consume pending preview work, including snap/selection changes, once. */
+  private flushPreview(): void {
+    if (this.frame !== undefined) this.view.cancelAnimationFrame(this.frame);
+    this.frame = undefined;
+    if (this.destroyed) return;
+    if (this.pointer && this.isDrawing()) {
+      const resolved = this.resolvePointer(this.pointer);
+      this.cursor = resolved.blocked ? undefined : resolved.coordinate;
+      this.setSnap(resolved.snap);
+    }
+    if (this.destroyed || this.translation.active) return;
+    if (this.session.state.mode === 'offset-lines') {
+      const preview = this.session.getOffsetPreview();
+      this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
+      this.renderer.renderTransform(preview);
+      this.distance.render(this.session.getSelection(), this.appearance);
+      return;
+    }
+    if (this.session.state.mode === 'buffer-features') {
+      const preview = this.session.getBufferPreview();
+      this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
+      this.renderer.renderTransform(preview);
+      this.distance.render(this.session.getSelection(), this.appearance);
+      return;
+    }
+    if (this.session.state.mode === 'simplify-features') {
+      const preview = this.session.getSimplificationPreview();
+      this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
+      this.renderer.renderComparison(preview ? this.session.state.selectedFeatureIds : []);
+      this.renderer.renderTransform(preview);
+      return;
+    }
+    if (this.session.state.mode === 'scale-features') {
+      const preview = this.session.getScalePreview();
+      this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
+      this.renderer.renderTransform(preview, this.session.state.scalePivot!);
+      const originals = this.session.getSelection();
+      this.scaling.render(preview?.features ?? originals, originals, this.appearance);
+      this.pivot.render(originals, this.appearance);
+      return;
+    }
+    if (this.session.state.mode === 'rotate-features') {
+      const preview = this.session.getRotationPreview();
+      this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
+      this.renderer.renderTransform(preview, this.session.state.rotationPivot!);
+      const originals = this.session.getSelection();
+      this.rotation.render(preview?.features ?? originals, originals, this.appearance);
+      this.pivot.render(originals, this.appearance);
+      return;
+    }
+    if (this.session.state.mode === 'intersection-polygons') {
+      const intersection = this.session.getIntersectionPreview();
+      this.renderer.renderEditingMany(intersection ? this.session.state.selectedFeatureIds : [], true);
+      this.renderer.renderOverlay(intersection?.geometry ?? null);
+      return;
+    }
+    if (this.session.state.mode === 'union-polygons') {
+      const union = this.session.getUnionPreview();
+      this.renderer.renderEditingMany(union ? this.session.state.selectedFeatureIds : [], true);
+      this.renderer.renderOverlay(union);
+      return;
+    }
+    if (this.session.state.mode === 'difference-polygons') {
+      const difference = this.session.getDifferencePreview();
+      this.renderer.renderEditing(difference ? this.session.state.selectedFeatureIds[0]! : null);
+      this.renderer.renderOverlay(difference?.geometry ?? null);
+      return;
+    }
+    const reshape = this.session.getReshapePreview();
+    if (this.session.state.mode === 'reshape-polygon') this.renderer.renderEditing(reshape ? this.session.state.selectedFeatureId : null);
+    const split = this.session.getSplitPreview();
+    if (this.session.state.mode === 'split-polygon') this.renderer.renderEditing(split ? this.session.state.selectedFeatureId : null);
+    if (this.session.state.mode === 'split-polygon' || this.session.state.mode === 'reshape-polygon') {
+      this.renderer.renderComparison(split || reshape ? this.session.state.selectedFeatureIds : []);
+    }
+    const shared = this.session.getSharedBoundaryPreview();
+    if (this.session.state.mode === 'edit-shared-boundary') this.renderer.renderEditingMany(shared ? this.session.state.selectedFeatureIds : []);
+    const trace = this.getTracePreview();
+    this.renderer.renderPreview(this.session.getDraft(), reshape || trace ? undefined : this.cursor, this.session.state, this.snap, split, this.session.getDraftRings(), this.session.getInactiveParts(), reshape, trace, shared, this.session.getCutFeedback());
   }
 
   private leaveDrawing(): void {

@@ -192,3 +192,31 @@ it('allows snap observers to cancel an active gesture without a late move or sta
   expect(editor.getSnap()).toBeNull(); expect(editor.exportGeoJSON().features).toEqual(original);
   expect(map.dragPan.isEnabled()).toBe(true);
 });
+
+it('uploads a coalesced pointer edit in its movement frame without a second preview upload', async () => {
+  const original = setup();
+  await commands.vertexPointer('down', 400, 150);
+  await new Promise<void>(resolve => { map.once('idle', () => resolve()); map.triggerRepaint(); });
+  const upload = vi.spyOn(source('-draft'), 'setData');
+  const committedUpload = vi.spyOn(source('-features'), 'setData');
+  const observed: unknown[] = [];
+  const before = editor.getDraft()[0]!;
+  editor.onChange(() => {
+    if (editor.getDraft()[0]?.[0] === before[0]) return;
+    // Change observers run inside the movement frame. A deferred preview would
+    // still have no upload here, even if it eventually rendered correctly.
+    observed.push(upload.mock.calls.at(-1)?.[0]);
+  });
+  await commands.vertexPointer('move', 308, 106);
+  await expect.poll(() => observed.length).toBe(1);
+  const uploaded = observed[0] as GeoJSON.FeatureCollection | undefined;
+  expect(uploaded?.type).toBe('FeatureCollection');
+  expect(uploaded?.features).toContainEqual({ type: 'Feature', properties: { kind: 'vertex', active: true, locked: false },
+    geometry: { type: 'Point', coordinates: coordinate(300, 100) } });
+  expect(uploaded?.features).toContainEqual({ type: 'Feature', properties: { kind: 'snap', snapKind: 'vertex' },
+    geometry: { type: 'Point', coordinates: coordinate(300, 100) } });
+  await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  expect(upload).toHaveBeenCalledOnce();
+  expect(committedUpload).not.toHaveBeenCalled();
+  expect(editor.exportGeoJSON().features).toEqual(original);
+});

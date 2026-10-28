@@ -6,6 +6,12 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
 
 ## Unreleased — initial beta candidate
 
+### Fixed
+
+- Vertex dragging submits its preview in the same animation frame as the coalesced
+  movement, removing an extra frame of latency while preserving snapping and
+  explicit Save/Undo behavior.
+
 ### Added
 
 - Playground workflow controls: a fixed action/status bar, grouped selection tools
