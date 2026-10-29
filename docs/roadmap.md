@@ -1,9 +1,9 @@
 # Incremental roadmap
 
 Steps 0–17c.4 and beta milestones 18a–18d are integrated on protected `main`;
-trim/extend is deferred and milestone 18e has release preparation. Initial hosted
-qualification passed on Node 22 and 24. npm access, reporting-channel verification
-and public distribution remain pending; see [repository integration](repository-integration.md). Each row describes
+trim/extend is deferred and milestone 18e is published as `0.1.0-beta.0`. Final
+hosted qualification passed on Node 22 and 24, and registry installation was
+verified; see the [release record](releases.md). Each row describes
 a reviewable change or a milestone that can be split further when needed. Create
 each branch from updated `main` after its dependencies have merged.
 
@@ -59,7 +59,7 @@ each branch from updated `main` after its dependencies have merged.
 | 18c | `feat/feature-restrictions` | Implemented: host-owned feature locks across tool entry, atomic transactions, pointer/keyboard actions and Undo/Redo; active-draft revocation, reference snapping/tracing, locked subtraction cutters, demo controls and installed-consumer acceptance. See [feature locks](feature-locks.md). |
 | 18c.1 | `feat/draw-markers` | Implemented: GeoJSON Point placement, rendering, selection, movement/editing, snapping, typed import/export, locks, atomic history, both demos and installed workspace acceptance. See [markers](markers.md). |
 | 18d | `test/beta-budgets` | Implemented and qualified on integrated `main` with Node 22 and 24: fixed 1,000-feature installed-consumer workload, explicit latency and lifecycle heap/DOM/listener gates, raw reports, CI artifact retention and a bounded Chromium/mouse/keyboard/MapLibre compatibility matrix. See [beta budgets](beta-budgets.md) and [hosted evidence](release-evidence/2026-10-28-main/README.md). |
-| 18e | `chore/public-beta` | Preparation implemented: verified archives with matching hosted checksums, retained reports, changelog, migration policy and [release procedure](releases.md). Identity set to `@jorisvdmije/map-master@0.1.0-beta.0`, MIT license, maintainer @jorisvdmije and GitHub reporting policy. Initial integration and hosted qualification complete. Security notification settings and npm login confirmed; delivery untested. Final publication metadata prepared. Pending: final archive verification and authorized public distribution. |
+| 18e | `chore/public-beta` | Preparation implemented: verified archives with matching hosted checksums, retained reports, changelog, migration policy and [release procedure](releases.md). Identity set to `@jorisvdmije/map-master@0.1.0-beta.0`, MIT license, maintainer @jorisvdmije and GitHub reporting policy. Initial integration and hosted qualification complete. Security notification settings and npm login confirmed; delivery untested. Published as `0.1.0-beta.0` after final archive verification and authorized public distribution. Registry integrity, installation and type resolution verified; release evidence is attached to the GitHub prerelease. |
 
 Steps 2–7 produce the first small CRUD editor. Step 8 adds recovery from user
 mistakes. Step 9 adds precise placement against existing shapes. Later candidates include extending touch interactions beyond vertex editing,

@@ -28,9 +28,9 @@ the private advisory. No guaranteed response time or paid support SLA is offered
 
 ## Supported versions
 
-No npm version has been publicly released yet. Reports about the current source
-and the prepared `0.1.0-beta.0` candidate are welcome once the private channel is
-operational. During beta, security fixes target the latest published beta;
+The first public version is `0.1.0-beta.0`. Reports about this beta and the current
+source are welcome through the private reporting channel above. During beta,
+security fixes target the latest published beta;
 earlier candidates and unpublished snapshots receive no backport commitment.
 Applications should upgrade to the fixed candidate when one is released.
 

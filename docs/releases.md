@@ -1,10 +1,27 @@
-# Preparing a public beta
+# Public beta releases
 
-Milestone 18e prepares **Map Master**, package `@jorisvdmije/map-master`, version
-`0.1.0-beta.0`, for its first public beta. The identity and licensing decisions
-are complete; the public source repository is configured and the initial
-integration passed hosted verification on `main`. npm distribution and passing
-verification of the final publication archive remain separate gates.
+## Published 0.1.0-beta.0
+
+**Map Master** (`@jorisvdmije/map-master@0.1.0-beta.0`) was published on 2026-10-28
+from clean source commit `a4fd2fac9e73ec65407b44f50445d0579d740813`.
+The [GitHub prerelease](https://github.com/jorisvdmije/map-master/releases/tag/v0.1.0-beta.0)
+and annotated tag `v0.1.0-beta.0` retain the exact archive, SHA256SUMS, both hosted
+verification/budget reports, pack inventories and post-publication verification.
+
+[Final main CI](https://github.com/jorisvdmije/map-master/actions/runs/40725158490)
+passed on Node 22 and 24. Both archives and the downloaded npm archive have SHA-256
+`b8c160be659b0757ee8aecaab115af070b840aa7f379a9809e4ec796f72702da`.
+Registry SHA-512 integrity matched; a fresh registry installation passed ESM
+imports, internal-export protection and NodeNext/Bundler declaration resolution.
+
+The `beta` tag points to this version. npm also exposes it under `latest`;
+an authenticated removal attempt returned HTTP 400. There is no stable release
+at this point. Pin the beta version explicitly in consuming applications.
+Notification settings are configured; actual security notification delivery
+remains untested. The immutable npm archive contains the preparation-time docs;
+this source documentation records the completed publication.
+
+The following preparation record and procedure remain relevant to later releases.
 
 ## Agreed project identity
 
@@ -20,7 +37,7 @@ verification of the final publication archive remain separate gates.
 - Security: [SECURITY.md](../SECURITY.md) designates GitHub Private Vulnerability
   Reporting. A Markdown file alone does not enable that GitHub setting.
 
-## Remaining gates before public distribution
+## First-beta preparation record
 
 On 2026-10-28 the public repository was created, Issues and private vulnerability
 reporting enabled, and `main` protected with both required Node checks. PR #1
@@ -43,8 +60,8 @@ Downloaded archives have matching SHA-256
 against their reports, pack inventories and integrity values. Those archives
 still contain the old private guard and are not the publication artifacts.
 
-This release change removes the private publishing guard and dates the changelog.
-The remaining distribution steps are:
+The release change removed the private publishing guard and dated the changelog.
+The following steps were completed for the first beta and remain required for later releases:
 
 1. Review and merge the release change after both required PR checks pass. Verify
    CI on the final clean release commit and retain its fresh artifacts. Required

@@ -8,3 +8,5 @@ coverage/
 **/__screenshots__/
 .vitest/
 artifacts/
+website/.generated/
+website/dist/

@@ -5,6 +5,9 @@ separately so consumers can integrate without depending on internal modules.
 
 | Goal | Guide |
 | --- | --- |
+| Build a first editable map with the published npm beta | [Complete quickstart](https://github.com/jorisvdmije/map-master/blob/main/website/content/quickstart.md) |
+| Try drawing, editing and GeoJSON workflows | [Interactive examples](https://github.com/jorisvdmije/map-master/blob/main/website/content/examples.md) |
+| Run or build the searchable documentation site | [Website development](https://github.com/jorisvdmije/map-master/blob/main/website/README.md) |
 | Follow the initial history import and protected-branch workflow | [Repository integration](repository-integration.md) |
 | Use the playground controls, direct examples and step-by-step guide | [Playground workflows](playground-workflow.md) |
 | Run a standalone installed-package app with saving and recovery | [Beta integration milestone](beta.md) |
@@ -41,7 +44,7 @@ separately so consumers can integrate without depending on internal modules.
 | Reproduce performance measurements | [Performance baselines and limits](performance.md) |
 | See what is implemented and planned | [Incremental roadmap](roadmap.md) |
 
-Start development with `npm ci` and `npm run dev` from the repository root.
+Start development with `npm ci`, `npm ci --prefix website` and `npm run dev` from the repository root.
 Install Chromium with `npx playwright install chromium` before browser testing.
 Run `npm run check` before committing code changes; it includes type checks,
 architectural lint rules, core/package/browser tests, the demo build and isolated

@@ -1,7 +1,8 @@
 # Beta compatibility and performance gates
 
 Milestone 18d adds executable regression budgets for the installed package and
-workspace. The package is still an unpublished beta preview. These are initial
+workspace. Version `0.1.0-beta.0` is published; its [release record](releases.md)
+links the final hosted evidence. These are initial
 engineering targets for one fixed workload, not a service-level agreement or a
 claim that every dataset of this size has the same cost.
 
@@ -11,7 +12,7 @@ claim that every dataset of this size has the same cost.
 | --- | --- |
 | Browser engine | Playwright 1.64.1 bundled Chromium 156.0.8078.4; real desktop browser interactions and budget checks pass locally. The report records the browser actually launched. |
 | Local platform | macOS arm64, Apple M2 Pro, Node 22.23.1. See the committed raw baseline for exact measurements. |
-| Hosted CI | Ubuntu x64 with Node 22.23.4 and 24.21.0 passed `npm run release:prepare` on integrated `main` commit `864aa34`, including the full check suite and installed-consumer budgets. Both jobs produced identical archives. See [raw qualification evidence](release-evidence/2026-10-28-main/README.md); later release commits require fresh verification. |
+| Hosted CI | Ubuntu x64 with Node 22.23.4 and 24.21.0 passed `npm run release:prepare` on integrated `main` commit `864aa34`, including the full check suite and installed-consumer budgets. Both jobs produced identical archives. See [raw qualification evidence](release-evidence/2026-10-28-main/README.md); the [published beta](https://github.com/jorisvdmije/map-master/releases/tag/v0.1.0-beta.0) additionally retains passing Node 22/24 reports for release commit `a4fd2fa`. |
 | MapLibre | 6.15.0 is tested. The peer range remains `^6.15.0`; that installation range is broader than the verified-version list. Rerun checks before qualifying an upgrade. |
 | Chrome / Edge releases | Not separately qualified. Sharing an engine does not establish that a shipping browser version passes. |
 | Firefox / Safari / WebKit | Not qualified in this milestone. Add real interaction/installed-consumer runs before expanding the support matrix. Chromium CDP memory measurements cannot be reused as cross-engine evidence. |
