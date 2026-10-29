@@ -31,7 +31,7 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.core.json && tsc -p tsconfig.tools.json && tsc -p tsconfig.example.json",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
-    "check": "npm run typecheck && npm run lint && npm test && npm run test:browser && npm run build:demo && npm run test:workspace",
+    "check": "npm run typecheck && npm run lint && npm test && npm run test:browser && npm run build:demo && npm run test:workspace && npm run test:docs",
     "prepack": "npm run build",
     "test:browser": "npm run build && vitest run --config vitest.browser.config.ts",
     "dev": "npm run build && vite",
@@ -72,7 +72,10 @@
     "test:budgets": "node --test scripts/beta-budget-policy.test.mjs && node scripts/workspace.mjs budgets",
     "test:workspace": "node --test scripts/beta-budget-policy.test.mjs && node scripts/workspace.mjs check",
     "lock:workspace": "node scripts/workspace.mjs lock",
-    "release:prepare": "node scripts/prepare-release.mjs"
+    "release:prepare": "node scripts/prepare-release.mjs",
+    "dev:docs": "npm --prefix website run dev",
+    "build:docs": "npm --prefix website run build",
+    "test:docs": "npm --prefix website run check"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

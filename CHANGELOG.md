@@ -1,10 +1,16 @@
 # Changelog
 
-User-visible changes are recorded here. There has been no public npm release.
-The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
-[release prerequisites](docs/releases.md).
+User-visible changes are recorded here. The first public beta is
+`@jorisvdmije/map-master@0.1.0-beta.0`; see the [release record](docs/releases.md).
 
-## 0.1.0-beta.0 — 2026-10-28 (prepared; publication pending)
+## Unreleased
+
+- Searchable documentation website with a complete quickstart and three working
+  examples consuming the published npm beta. Existing Markdown guides are rendered
+  directly, with responsive navigation, section links and copyable code.
+- Correct the source documentation to reflect the completed beta publication.
+
+## 0.1.0-beta.0 — 2026-10-28
 
 ### Fixed
 
@@ -138,4 +144,4 @@ The prepared package is `@jorisvdmije/map-master@0.1.0-beta.0`, pending the
   hosted CI checks are configured. The maintainer has configured security
   notifications; delivery remains untested. npm login is verified and the
   private publishing guard is removed. Final archive verification and explicit
-  publication authorization remain required before distribution.
+  publication authorization were completed for this release; see the release record.

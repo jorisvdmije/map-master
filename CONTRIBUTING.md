@@ -65,7 +65,7 @@ one branch per file. Finish one reviewable behavior before starting the next.
 - New dependencies have a documented purpose and compatible licensing.
 - Performance-sensitive changes include comparable measurements on a fixed dataset.
 
-Run `npm ci` and `npx playwright install chromium` after cloning, then
+Run `npm ci`, `npm ci --prefix website` and `npx playwright install chromium` after cloning, then
 `npm run check` before submitting a code change. On Linux, use
 `npx playwright install --with-deps chromium` to include system dependencies.
 The check command includes type checking, linting, core/package/browser tests,
@@ -76,6 +76,9 @@ until green without investigating the recorded conditions.
 Package tests build through the `prepack` hook. See the
 [README](README.md#development) for individual commands and supported Node versions.
 Documentation-only changes need link and diff checks, not application tests.
+Website changes also run `npm run test:docs`: it builds the site, validates local
+links/anchors, checks browser workflows and compiles/runs the exact quickstart.
+See [website development](https://github.com/jorisvdmije/map-master/blob/main/website/README.md).
 
 Add behavior tests under `tests/` using Vitest. Consumer fixtures are checked
 inside their isolated installation instead of against repository source files.

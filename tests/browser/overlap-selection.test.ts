@@ -13,9 +13,12 @@ const click = (x = 300, y = 240) => userEvent.click(map.getCanvas(), { position:
 const coordinate = (x: number, y: number) => map.unproject([x, y]).toArray();
 async function polygons(ids: FeatureId[] = ['bottom', 'top']) {
   const coordinates = [[100, 100], [500, 100], [500, 350], [100, 350], [100, 100]].map(([x, y]) => coordinate(x!, y!));
+  // The center can be queryable before tiles containing the outline finish rendering.
+  const rendered = map.once('idle');
   editor.importGeoJSON({ type: 'FeatureCollection', features: ids.map(id => ({ type: 'Feature', id, properties: { name: String(id), nested: { value: 1 } },
     geometry: { type: 'Polygon', coordinates: [coordinates] } })) });
-  await expect.poll(() => hitIds().length).toBe(ids.length);
+  await rendered;
+  expect(hitIds().length).toBe(ids.length);
   editor.clearHistory();
 }
 beforeEach(async () => {

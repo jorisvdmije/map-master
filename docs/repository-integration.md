@@ -64,7 +64,11 @@ The PR template prompts for behavior, validation and limits. Include relevant
 docs/tests, run local checks, and require both hosted checks on the current PR
 commit. Merge, update local `main`, then start the next branch.
 
-## Remaining distribution gates
+## Distribution status and future release gates
+
+Version `0.1.0-beta.0` is published from `a4fd2fa`. The final main checks, identical
+archives and registry installation were verified; the [release record](releases.md)
+links the retained evidence. The following gates apply to subsequent releases:
 
 - Fresh passing hosted checks for the final release commit and archive.
 - Recheck npm identity and version availability before publishing. Authentication

@@ -1,8 +1,8 @@
 # Beta integration milestone
 
 Milestone 18a validates one complete consuming application against an installed
-npm archive. It is a local beta preview, not a public release or a claim of
-production readiness. The package remains private, experimental, and unpublished.
+npm archive. This workspace is a local example, not a claim of production
+readiness. The experimental library is published as `0.1.0-beta.0`.
 
 ## Run the area workspace
 
@@ -167,7 +167,7 @@ The next beta work is deliberately separate and reviewable:
    previews and repeated map/editor teardown. The browser/input matrix explicitly
    limits evidence to desktop Chromium and MapLibre 6.15.0; hosted CI is configured
    and must pass on the initial integration and release commits.
-4. **Public prerelease — locally prepared, publication pending:**
+4. **Public prerelease — published as 0.1.0-beta.0:**
    [release preparation](releases.md) verifies one archive through package and
    workspace checks and retains its checksum and reports. A changelog and
    migration policy are included. The package is now
@@ -175,8 +175,8 @@ The next beta work is deliberately separate and reviewable:
    as maintainer and a GitHub private-reporting policy. The public repository, private reporting setting
    and required branch checks are configured. Security notification settings and
    npm login are confirmed; notification delivery remains untested. Final hosted
-   archive checks and authorized publication remain distribution gates; see
-   [repository integration](repository-integration.md). No registry publication is performed here.
+   archive checks and authorized publication completed on 2026-10-28; see the
+   [release record](releases.md). Running this workspace does not publish a package.
 
 Trim/extend is deferred until a consuming application needs it. The full playground
 continues to demonstrate advanced geometry tools; this smaller workspace focuses

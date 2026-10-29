@@ -50,6 +50,23 @@ Settings survive map style changes and leave GeoJSON and Undo history unchanged.
 transactions, pointer/keyboard actions and Undo/Redo while retaining snapping.
 Both demos offer session lock/unlock controls.
 
+## Install the public beta
+
+```sh
+npm install @jorisvdmije/map-master@0.1.0-beta.0 maplibre-gl@6.15.0
+```
+
+Start with the [complete quickstart](https://github.com/jorisvdmije/map-master/blob/main/website/content/quickstart.md), then try
+[drawing](https://github.com/jorisvdmije/map-master/blob/main/website/content/draw.md), [editing and Undo](https://github.com/jorisvdmije/map-master/blob/main/website/content/edit.md),
+and [GeoJSON exchange](https://github.com/jorisvdmije/map-master/blob/main/website/content/geojson.md). Run the searchable documentation
+site locally with `npm ci --prefix website` and `npm run dev:docs`.
+See [documentation site development](https://github.com/jorisvdmije/map-master/blob/main/website/README.md).
+
+The [0.1.0-beta.0 prerelease](https://github.com/jorisvdmije/map-master/releases/tag/v0.1.0-beta.0)
+includes the verified archive, checksums and test evidence. Both npm tags `beta`
+and `latest` currently point to this prerelease; pin an exact version while
+integrating. The API remains experimental.
+
 ## Try the demo
 
 The playground keeps Finish/Apply, Cancel and Undo/Redo in a fixed action bar,
@@ -62,7 +79,7 @@ after `npm ci` and open <http://127.0.0.1:5174>. Draw/edit areas and routes,
 change names, save/reopen locally, and exchange GeoJSON files. It installs a
 fresh npm archive outside this checkout and uses only public APIs. See the
 [beta integration guide](docs/beta.md) for acceptance checks and release gates.
-This is a local beta preview; registry publication is pending.
+The workspace is a local example; the library is published as `0.1.0-beta.0`.
 The [release guide](docs/releases.md), [changelog](CHANGELOG.md) and
 [migration policy](docs/migration.md) cover preparation for the public beta.
 
@@ -204,8 +221,8 @@ The editor requires a modern browser with WebGL and a secure context (HTTPS or
 localhost) for feature UUIDs. Desktop mouse and keyboard input in Chromium is
 tested; touch/pen vertex editing has Chromium input-emulation coverage, while
 physical devices and other browser engines remain unqualified. The package is
-`@jorisvdmije/map-master`, licensed under MIT. Candidate `0.1.0-beta.0` remains
-unpublished pending the [release gates](docs/releases.md).
+`@jorisvdmije/map-master`, licensed under MIT. Version `0.1.0-beta.0` is
+published on npm; see the [release record and procedure](docs/releases.md).
 
 The tests install an actual npm archive into a temporary directory, import it in
 Node.js, and compile a consumer in both NodeNext and Bundler resolution modes.

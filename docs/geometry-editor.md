@@ -40,7 +40,8 @@ map.once('style.load', () => {
 
 For host worker configuration and local package installation, see the
 [integration setup](line-editor.md#integrate) and [working demo](../examples/basic/main.ts).
-Registry publication is pending; use `npm pack` for an installable archive.
+Install the published beta with `npm install @jorisvdmije/map-master@0.1.0-beta.0`.
+For a complete runnable application, follow the [quickstart](https://github.com/jorisvdmije/map-master/blob/main/website/content/quickstart.md).
 
 | Member | Contract |
 | --- | --- |
@@ -136,10 +137,10 @@ Registry publication is pending; use `npm pack` for an installable archive.
 | `onSnap(listener)` | Notify when the snap target/coordinate changes or is released (`null`). Returns an unsubscribe function. |
 | `destroy()` | Remove owned resources/listeners and restore drawing gesture settings. Idempotent. |
 
-`GeometryFeature` is the union of `LineFeature`, `PolygonFeature`, `MultiLineFeature`
-and `MultiPolygonFeature`. Inspect
+`GeometryFeature` is the union of `PointFeature`, `LineFeature`, `PolygonFeature`,
+`MultiLineFeature` and `MultiPolygonFeature`. Inspect
 `feature.geometry.type` to narrow coordinates in TypeScript. `GeometryFeatureCollection`
-is a GeoJSON FeatureCollection containing all four geometry types. New drawings receive a UUID and empty properties. Imported features preserve
+is a GeoJSON FeatureCollection containing all five geometry types. New drawings receive a UUID and empty properties. Imported features preserve
 string or numeric IDs and JSON properties (including null). Coordinates are
 `[longitude, latitude]`. Properties can be imported but there is no property-editing API yet.
 

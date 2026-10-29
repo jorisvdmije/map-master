@@ -1,0 +1,25 @@
+{
+  "name": "map-master-documentation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/content.mjs && vite --host 127.0.0.1 --port 5180 --strictPort",
+    "build": "node scripts/content.mjs && tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5180 --strictPort",
+    "check": "npm run build && node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "@jorisvdmije/map-master": "0.1.0-beta.0",
+    "maplibre-gl": "6.15.0"
+  },
+  "devDependencies": {
+    "@fontsource-variable/dm-sans": "5.3.0",
+    "@fontsource-variable/manrope": "5.3.0",
+    "@types/geojson": "7946.0.16",
+    "marked": "18.1.2",
+    "playwright": "1.64.1",
+    "typescript": "6.0.3",
+    "vite": "8.3.5"
+  }
+}
