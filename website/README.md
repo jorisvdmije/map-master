@@ -61,6 +61,21 @@ MapLibre is loaded only on pages containing an interactive example. Pages and
 reference content remain readable without JavaScript; search and examples need it.
 The site does not expand the library's documented browser/device support matrix.
 
-The optional Sites preview is a separate private deployment of the static output;
-its hosting identity and credentials are not part of this public source repository.
-Public hosting or a custom domain can be configured separately.
+## Public hosting
+
+The public site is https://jorisvdmije.github.io/map-master/ on GitHub Pages.
+Repository Settings → Pages must use **GitHub Actions** as the publishing source.
+The `github-pages` deployment environment permits only the protected `main` branch.
+
+CI uploads `website/dist/` from the Node 22 job after all checks pass. The deploy
+job publishes that same artifact only from `main`, after both Node 22 and Node 24
+jobs succeed. Pull requests validate the site and artifact without publishing.
+Deployment uses GitHub's short-lived workflow token and OIDC; no separate hosting
+secret is needed. Relative asset URLs support the `/map-master/` project path,
+including direct visits to nested guide pages.
+
+To redeploy, run the **CI** workflow manually on `main`. To roll back content,
+revert the relevant change through a PR; the next successful `main` run publishes
+the reverted site. A failed build or test leaves the last deployed site online.
+Deployment status and the public URL appear in the workflow's **Deploy
+documentation** job and the `github-pages` environment.

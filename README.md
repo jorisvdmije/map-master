@@ -6,6 +6,8 @@
 
 A TypeScript library in development for drawing and editing geometry on web maps.
 
+[Documentation and interactive examples](https://jorisvdmije.github.io/map-master/)
+
 ## Status
 
 [Beta compatibility and performance gates](docs/beta-budgets.md) now check a fixed
@@ -56,9 +58,9 @@ Both demos offer session lock/unlock controls.
 npm install @jorisvdmije/map-master@0.1.0-beta.0 maplibre-gl@6.15.0
 ```
 
-Start with the [complete quickstart](https://github.com/jorisvdmije/map-master/blob/main/website/content/quickstart.md), then try
-[drawing](https://github.com/jorisvdmije/map-master/blob/main/website/content/draw.md), [editing and Undo](https://github.com/jorisvdmije/map-master/blob/main/website/content/edit.md),
-and [GeoJSON exchange](https://github.com/jorisvdmije/map-master/blob/main/website/content/geojson.md). Run the searchable documentation
+Start with the [complete quickstart](https://jorisvdmije.github.io/map-master/guides/quickstart.html), then try
+[drawing](https://jorisvdmije.github.io/map-master/guides/draw.html), [editing and Undo](https://jorisvdmije.github.io/map-master/guides/edit.html),
+and [GeoJSON exchange](https://jorisvdmije.github.io/map-master/guides/geojson.html). Run the searchable documentation
 site locally with `npm ci --prefix website` and `npm run dev:docs`.
 See [documentation site development](https://github.com/jorisvdmije/map-master/blob/main/website/README.md).
 
