@@ -34,6 +34,8 @@ search, copying, navigation, drawing, editing, Undo, GeoJSON error handling and
 export, plus a mobile layout check. It serves the site under `/map-master/` to
 check relative deployment paths. The exact HTML/CSS/TypeScript printed in the
 quickstart is extracted, compiled, built and exercised in a browser too.
+The Vite development server is checked separately for loaded styles, maps and
+drawing controls on both the overview and a nested guide.
 Install Chromium first with the root repository's documented Playwright setup.
 Screenshots and the verification report are retained in `artifacts/documentation/`.
 

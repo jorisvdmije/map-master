@@ -6,6 +6,8 @@ export default defineConfig({
   root: ".generated",
   base: "./",
   publicDir: "public",
+  // HTML lives in .generated; source URLs must resolve outside that dev root.
+  resolve: { alias: { "/src": resolve("src") } },
   build: {
     outDir: "../dist",
     emptyOutDir: true,

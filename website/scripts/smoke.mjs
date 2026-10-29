@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { chromium } from "playwright";
+import { createServer as createViteServer } from "vite";
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dist = resolve(site, "dist");
@@ -133,6 +134,8 @@ const server = createServer((request, response) => {
 });
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
+const allowedOrigins = new Set([origin]);
+let devServer;
 const browser = await chromium.launch({
   args: ["--enable-unsafe-swiftshader"],
 });
@@ -143,13 +146,13 @@ const context = await browser.newContext({
 const page = await context.newPage();
 const errors = [];
 page.on("request", (request) => {
-  if (!request.url().startsWith(origin) && /^https?:/.test(request.url())) {
+  if (/^https?:/.test(request.url()) && !allowedOrigins.has(new URL(request.url()).origin)) {
     errors.push(`Unexpected external request: ${request.url()}`);
   }
 });
 page.on("pageerror", (error) => errors.push(error.message));
 page.on("response", (response) => {
-  if (response.url().startsWith(origin) && response.status() >= 400)
+  if (/^https?:/.test(response.url()) && allowedOrigins.has(new URL(response.url()).origin) && response.status() >= 400)
     errors.push(`${response.status()} ${response.url()}`);
 });
 const open = async (slug) => {
@@ -335,6 +338,26 @@ try {
   await page.locator("#undo:enabled").click();
   assert.match(await page.locator("#status").textContent(), /0 features/);
   console.log("✓ Exact quickstart works in the browser: draw, save and Undo");
+
+  // A successful production build cannot catch source URLs broken only in dev mode.
+  devServer = await createViteServer({
+    server: { host: "127.0.0.1", port: 0, strictPort: false },
+    clearScreen: false,
+  });
+  await devServer.listen();
+  const devOrigin = devServer.resolvedUrls.local[0];
+  allowedOrigins.add(new URL(devOrigin).origin);
+  await page.setViewportSize({ width: 1440, height: 1050 });
+  for (const path of ["", "guides/draw.html"]) {
+    await page.goto(new URL(path, devOrigin).href, { waitUntil: "networkidle" });
+    await ready();
+    assert.equal(await page.locator(".sidebar").evaluate((node) => getComputedStyle(node).position), "fixed");
+    await page.locator('[data-action="polygon"]').click();
+    await page.locator('[data-demo][data-mode="draw-polygon"]').waitFor();
+    await page.locator('[data-action="cancel"]').click();
+  }
+  await page.screenshot({ path: resolve(evidence, "development-desktop.png") });
+  console.log("✓ Development server: styled overview and nested guide, loaded map and drawing controls");
   assert.deepEqual(errors, []);
   writeFileSync(
     resolve(evidence, "verification.json"),
@@ -353,6 +376,7 @@ try {
           "geojson-errors-download",
           "mobile",
           "exact-quickstart-build-and-browser",
+          "development-server-styles-and-map",
         ],
         errorCount: errors.length,
       },
@@ -362,5 +386,6 @@ try {
   );
 } finally {
   await browser.close();
+  await devServer?.close();
   await new Promise((resolve) => server.close(resolve));
 }
