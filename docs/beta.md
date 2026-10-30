@@ -12,6 +12,12 @@ From the repository root, after `npm ci`:
 npm run dev:workspace
 ```
 
+To exercise the same app against the **published npm beta**, use
+`npm run dev:workspace:published`. This pins `0.1.0-beta.0`, checks the downloaded
+archive against the committed SHA-512 integrity in
+`examples/workspace/published-release.json`, then uses the same isolated consumer.
+It does not build the checkout or select the mutable `beta`/`latest` tags.
+
 Open <http://127.0.0.1:5174>. The app supports drawing areas/routes and placing markers, selecting on
 the map or in a list, dragging shapes, editing the outer boundary of a simple
 feature, changing names, deleting, Undo/Redo, GeoJSON import/export, and explicitly
@@ -113,7 +119,17 @@ implemented here.
 npm run test:workspace
 ```
 
-This is included in `npm run check`, and therefore in the existing CI definition.
+Run `npm run test:workspace:published` for the same production acceptance,
+performance/lifecycle gates and development smoke against the pinned npm release.
+CI runs this separately as **Published beta workspace** on Node 22; the candidate
+continues to run on both Node 22 and Node 24. Published checks require registry
+access and fail on download or integrity errors, without falling back to a local
+archive. `GEO_RELEASE_ARCHIVE` is rejected for published commands.
+Evidence is retained in a fresh `artifacts/published-workspace/run-*/` directory,
+including the downloaded archive, SHA-256/SHA-512 checksums and verification result.
+This check does not expand the supported browser/device matrix.
+
+The candidate `test:workspace` command is included in `npm run check`, and therefore in CI.
 Install Chromium using the repository's usual Playwright setup first. The check
 type-checks and builds the isolated installed consumer, then runs real Chromium
 against the production build, using the visible application controls:

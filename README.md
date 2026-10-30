@@ -175,6 +175,8 @@ npm run check
 | --- | --- |
 | `npm run dev` | Start the demo with live library source updates. |
 | `npm run dev:workspace` | Pack and install the library in a standalone area-workspace app on port 5174. |
+| `npm run dev:workspace:published` | Start the same workspace using the integrity-pinned published npm beta. |
+| `npm run test:workspace:published` | Verify the published beta through full workspace acceptance, budgets and development rendering; retain evidence in `artifacts/published-workspace/`. |
 | `npm run test:budgets` | Run installed-browser latency and lifecycle-memory gates; write `artifacts/beta-budgets.json`. |
 | `npm run test:workspace` | Build an isolated installed consumer; exercise production CRUD/storage/recovery and development rendering in Chromium. |
 | `npm run lock:workspace` | Refresh the example lockfile after dependency/version changes; review before committing. |

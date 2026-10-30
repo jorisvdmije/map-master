@@ -48,9 +48,33 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  published-workspace:
+    name: Published beta workspace
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:workspace:published
+      - name: Retain published-consumer evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: published-workspace
+          path: artifacts/published-workspace/
+          if-no-files-found: ignore
+          retention-days: 14
+
   deploy-docs:
     name: Deploy documentation
-    needs: check
+    needs: [check, published-workspace]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10

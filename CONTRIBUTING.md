@@ -80,6 +80,13 @@ Website changes also run `npm run test:docs`: it builds the site, validates loca
 links/anchors, checks browser workflows and compiles/runs the exact quickstart.
 See [website development](https://github.com/jorisvdmije/map-master/blob/main/website/README.md).
 
+Changes to the standalone consumer or its published launcher also run
+`npm run test:workspace:published`. This verifies the exact npm release pinned in
+`examples/workspace/published-release.json`, separately from candidate checks.
+CI retains the result and archive under `artifacts/published-workspace/`.
+After publishing a new beta, explicitly update that version and integrity pin and
+verify the complete consumer before merging; never substitute `latest` or a local archive.
+
 Add behavior tests under `tests/` using Vitest. Consumer fixtures are checked
 inside their isolated installation instead of against repository source files.
 The package integration test uses npm's CLI path, so invoke it through `npm test`.

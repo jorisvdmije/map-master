@@ -5,6 +5,8 @@ User-visible changes are recorded here. The first public beta is
 
 ## Unreleased
 
+- Published-beta workspace commands with an explicit version/integrity pin and
+  separate CI verification of CRUD, save/reload, storage recovery and browser budgets.
 - Searchable documentation website with a complete quickstart and three working
   examples consuming the published npm beta. Existing Markdown guides are rendered
   directly, with responsive navigation, section links and copyable code.

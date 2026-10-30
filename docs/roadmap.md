@@ -53,19 +53,31 @@ each branch from updated `main` after its dependencies have merged.
 | 17c.4 | `feat/offset-lines` | Implemented: signed Mercator offsets of simple open lines, limited miter joins, perpendicular endpoints, validated preview, atomic replacement/Undo, demo, tests and benchmark. See [line offsets](offset.md). |
 | 17c.5 | `feat/trim-extend` | Deferred until a real application needs it: trim/extend lines to target geometry with preview and atomic Undo. |
 | 17c.6 | `feat/buffer-offset-handles` | Implemented: attached mouse distance handle, ruler and original outline for buffer/offset, signed distance, keyboard steps, drag rollback and explicit Apply/Undo. |
-| 18a | `feat/beta-workspace` | Implemented: standalone area-workspace app installed from a fresh npm archive outside the repo; CRUD, names via transactions, local save/restore, dirty state, recovery, conflict detection, independent dependency lockfile, production browser acceptance and dev rendering smoke. See [beta integration](beta.md). No public release yet. |
+| 18a | `feat/beta-workspace` | Implemented: standalone area-workspace app installed from a fresh npm archive outside the repo; CRUD, names via transactions, local save/restore, dirty state, recovery, conflict detection, independent dependency lockfile, production browser acceptance and dev rendering smoke. See [beta integration](beta.md); the published release is also exercised by step 19c. |
 | 18b | `feat/editor-appearance` | Implemented: typed constructor/live appearance patches for committed/selected features, draft/translation previews, vertices/midpoints and snap/pivot markers; atomic validation, unchanged data/history, style-reload restoration, presets in both demos and installed-consumer acceptance. See [appearance](appearance.md). |
 | 18b.1 | `feat/feature-styling` | Implemented: optional per-feature shape/marker rules, partial selection overrides, sort keys, automatic/custom overlap stripes with exact member regions, bounds/caching/fallback, demo color picker, tests and benchmark. See [feature styling](feature-styling.md). |
 | 18c | `feat/feature-restrictions` | Implemented: host-owned feature locks across tool entry, atomic transactions, pointer/keyboard actions and Undo/Redo; active-draft revocation, reference snapping/tracing, locked subtraction cutters, demo controls and installed-consumer acceptance. See [feature locks](feature-locks.md). |
 | 18c.1 | `feat/draw-markers` | Implemented: GeoJSON Point placement, rendering, selection, movement/editing, snapping, typed import/export, locks, atomic history, both demos and installed workspace acceptance. See [markers](markers.md). |
 | 18d | `test/beta-budgets` | Implemented and qualified on integrated `main` with Node 22 and 24: fixed 1,000-feature installed-consumer workload, explicit latency and lifecycle heap/DOM/listener gates, raw reports, CI artifact retention and a bounded Chromium/mouse/keyboard/MapLibre compatibility matrix. See [beta budgets](beta-budgets.md) and [hosted evidence](release-evidence/2026-10-28-main/README.md). |
-| 18e | `chore/public-beta` | Preparation implemented: verified archives with matching hosted checksums, retained reports, changelog, migration policy and [release procedure](releases.md). Identity set to `@jorisvdmije/map-master@0.1.0-beta.0`, MIT license, maintainer @jorisvdmije and GitHub reporting policy. Initial integration and hosted qualification complete. Security notification settings and npm login confirmed; delivery untested. Published as `0.1.0-beta.0` after final archive verification and authorized public distribution. Registry integrity, installation and type resolution verified; release evidence is attached to the GitHub prerelease. |
+| 18e | `chore/public-beta` | Preparation implemented: verified archives with matching hosted checksums, retained reports, changelog, migration policy and [release procedure](releases.md). Identity set to `@jorisvdmije/map-master@0.1.0-beta.0`, MIT license, maintainer @jorisvdmije and GitHub reporting policy. Initial integration and hosted qualification complete. Security notification settings and npm login confirmed. Published as `0.1.0-beta.0` after final archive verification and authorized public distribution. Registry integrity, installation and type resolution verified; release evidence is attached to the GitHub prerelease. |
 
 Steps 2–7 produce the first small CRUD editor. Step 8 adds recovery from user
 mistakes. Step 9 adds precise placement against existing shapes. Later candidates include extending touch interactions beyond vertex editing,
 interactive multipart construction, broader cutting/splitting support, and framework wrappers.
-Prioritize those using actual application requirements. The next sequence is the
-beta gates above; specialized geometry tools no longer automatically take priority.
+Prioritize those using actual application requirements. The beta gates above are
+complete; specialized geometry tools no longer automatically take priority.
+
+## After the first public beta
+
+| Step | Branch | Deliverable and acceptance criteria |
+| --- | --- | --- |
+| 19a | `feat/documentation-site` | Complete: searchable public documentation, runnable quickstart and three interactive examples consuming the npm beta. |
+| 19b | `ci/documentation-pages` | Complete: GitHub Pages deployment from verified CI artifacts on protected `main`, with live page and workflow checks. |
+| 19c | `test/published-workspace` | Implemented: explicit published-beta start/check commands for the existing complete workspace. Pin version and archive integrity; run CRUD, save/reload, recovery, conflicts, import/export and browser budgets against the downloaded npm archive. Retain evidence separately from local candidates. |
+| 19d | `test/browser-compatibility` | Next: investigate Firefox and WebKit using the installed consumer, record actual failures and scope before extending the support matrix. Physical Safari/touch qualification remains separate. |
+
+Gather application feedback before choosing new geometry tools or preparing the
+next beta. A browser passing smoke checks alone does not establish full support.
 
 ## First working milestone: draw one line
 

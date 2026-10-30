@@ -69,7 +69,8 @@ The `github-pages` deployment environment permits only the protected `main` bran
 
 CI uploads `website/dist/` from the Node 22 job after all checks pass. The deploy
 job publishes that same artifact only from `main`, after both Node 22 and Node 24
-jobs succeed. Pull requests validate the site and artifact without publishing.
+jobs and the published-beta workspace check succeed. Pull requests validate the
+site and artifact without publishing.
 Deployment uses GitHub's short-lived workflow token and OIDC; no separate hosting
 secret is needed. Relative asset URLs support the `/map-master/` project path,
 including direct visits to nested guide pages.
