@@ -55,7 +55,7 @@ try {
     writeFileSync(join(root, 'examples/workspace/package-lock.json'), `${JSON.stringify(lock, null, 2)}\n`);
     process.stdout.write('Updated standalone application lockfile.\n');
   } else if (mode === 'dev') {
-    process.stdout.write(`Installed consumer: ${workspace}\nEdits belong in examples/workspace; restart this command to repack.\n`);
+    process.stdout.write(`Installed consumer: ${workspace}\nEdits belong in examples/workspace; restart this command to reinstall the example.\n`);
     child = spawn(process.execPath, [npm, 'run', 'dev'], { cwd: workspace, stdio: 'inherit' });
     const stop = () => { child.kill('SIGTERM'); };
     process.once('SIGINT', stop); process.once('SIGTERM', stop);
