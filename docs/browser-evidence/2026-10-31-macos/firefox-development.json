@@ -1,0 +1,21 @@
+{
+  "browserName": "firefox",
+  "headless": true,
+  "phase": "development",
+  "startedAt": "2026-10-31T00:18:40.622Z",
+  "passed": true,
+  "scenarios": [
+    "draw, render, pick on the map and export the installed package’s geometry"
+  ],
+  "excluded": [],
+  "browserVersion": "157.0",
+  "rendering": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:157.0) Gecko/20100101 Firefox/157.0",
+    "webgl2": true,
+    "renderer": "Apple M1, or similar",
+    "version": "WebGL 2.0"
+  },
+  "errors": [],
+  "external": [],
+  "finishedAt": "2026-10-31T00:18:42.685Z"
+}

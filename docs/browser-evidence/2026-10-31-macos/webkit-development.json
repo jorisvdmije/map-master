@@ -1,0 +1,21 @@
+{
+  "browserName": "webkit",
+  "headless": true,
+  "phase": "development",
+  "startedAt": "2026-10-31T00:18:49.081Z",
+  "passed": true,
+  "scenarios": [
+    "draw, render, pick on the map and export the installed package’s geometry"
+  ],
+  "excluded": [],
+  "browserVersion": "27.2",
+  "rendering": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15",
+    "webgl2": true,
+    "renderer": "WebKit WebGL",
+    "version": "WebGL 2.0"
+  },
+  "errors": [],
+  "external": [],
+  "finishedAt": "2026-10-31T00:18:50.029Z"
+}

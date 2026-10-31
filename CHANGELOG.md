@@ -5,6 +5,9 @@ User-visible changes are recorded here. The first public beta is
 
 ## Unreleased
 
+- Firefox/WebKit installed-workspace investigation with candidate and published
+  commands, retained browser/phase evidence and a separate macOS/Linux CI matrix.
+  Existing Chromium qualification and budgets remain unchanged.
 - Published-beta workspace commands with an explicit version/integrity pin and
   separate CI verification of CRUD, save/reload, storage recovery and browser budgets.
 - Searchable documentation website with a complete quickstart and three working

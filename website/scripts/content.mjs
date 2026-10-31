@@ -84,6 +84,7 @@ const groups = [
     "Project",
     [
       ["beta-budgets", "Compatibility & budgets"],
+      ["browser-compatibility", "Browser investigation"],
       ["touch-pen-vertices", "Touch & pen"],
       ["migration", "Migration"],
       ["changelog", "Changelog"],

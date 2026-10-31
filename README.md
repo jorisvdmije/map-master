@@ -13,6 +13,8 @@ A TypeScript library in development for drawing and editing geometry on web maps
 [Beta compatibility and performance gates](docs/beta-budgets.md) now check a fixed
 1,000-feature installed-consumer workload and repeated map/editor teardown. The
 verified target is desktop Chromium with mouse/keyboard and MapLibre 6.15.0.
+[Firefox/WebKit investigation](docs/browser-compatibility.md) adds passing local
+installed-workspace workflows; full cross-engine qualification remains open.
 [Touch/pen vertex editing](docs/touch-pen-vertices.md) additionally has Chromium
 input-emulation coverage; physical tablets and other touch tools remain unqualified.
 
@@ -177,6 +179,8 @@ npm run check
 | `npm run dev:workspace` | Pack and install the library in a standalone area-workspace app on port 5174. |
 | `npm run dev:workspace:published` | Start the same workspace using the integrity-pinned published npm beta. |
 | `npm run test:workspace:published` | Verify the published beta through full workspace acceptance, budgets and development rendering; retain evidence in `artifacts/published-workspace/`. |
+| `npm run test:compatibility` | Run the installed candidate's functional workspace checks in Chromium, Firefox and WebKit; accept optional engine names after `--`. |
+| `npm run test:compatibility:published` | Run the same functional investigation against the integrity-pinned npm beta. |
 | `npm run test:budgets` | Run installed-browser latency and lifecycle-memory gates; write `artifacts/beta-budgets.json`. |
 | `npm run test:workspace` | Build an isolated installed consumer; exercise production CRUD/storage/recovery and development rendering in Chromium. |
 | `npm run lock:workspace` | Refresh the example lockfile after dependency/version changes; review before committing. |

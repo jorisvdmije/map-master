@@ -1,0 +1,49 @@
+{
+  "startedAt": "2026-10-31T00:18:31.395Z",
+  "passed": true,
+  "browsers": [
+    "firefox",
+    "webkit"
+  ],
+  "headless": true,
+  "environment": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "osRelease": "25.6.0",
+    "node": "v22.23.1",
+    "checkoutCommit": "87e99f9ef0dcd9bd65c4631aba7856eae0c48ab1",
+    "checkoutDirty": true,
+    "playwright": "1.64.1",
+    "maplibre": "6.15.0",
+    "library": "0.1.0-beta.0",
+    "archiveSha256": "b8c160be659b0757ee8aecaab115af070b840aa7f379a9809e4ec796f72702da"
+  },
+  "excluded": [
+    "Chromium CDP performance and heap budgets",
+    "Shipping Safari/Firefox qualification",
+    "Physical touch/pen devices"
+  ],
+  "results": [
+    {
+      "browserName": "firefox",
+      "phase": "production",
+      "passed": true
+    },
+    {
+      "browserName": "firefox",
+      "phase": "development",
+      "passed": true
+    },
+    {
+      "browserName": "webkit",
+      "phase": "production",
+      "passed": true
+    },
+    {
+      "browserName": "webkit",
+      "phase": "development",
+      "passed": true
+    }
+  ],
+  "finishedAt": "2026-10-31T00:18:50.030Z"
+}

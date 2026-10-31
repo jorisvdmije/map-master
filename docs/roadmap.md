@@ -74,7 +74,7 @@ complete; specialized geometry tools no longer automatically take priority.
 | 19a | `feat/documentation-site` | Complete: searchable public documentation, runnable quickstart and three interactive examples consuming the npm beta. |
 | 19b | `ci/documentation-pages` | Complete: GitHub Pages deployment from verified CI artifacts on protected `main`, with live page and workflow checks. |
 | 19c | `test/published-workspace` | Implemented: explicit published-beta start/check commands for the existing complete workspace. Pin version and archive integrity; run CRUD, save/reload, recovery, conflicts, import/export and browser budgets against the downloaded npm archive. Retain evidence separately from local candidates. |
-| 19d | `test/browser-compatibility` | Next: investigate Firefox and WebKit using the installed consumer, record actual failures and scope before extending the support matrix. Physical Safari/touch qualification remains separate. |
+| 19d | `test/browser-compatibility` | Implemented investigation: local Firefox 157.0 and WebKit 27.2 pass 13 desktop workspace scenarios plus development smoke against candidate and published archives. Add per-phase evidence and a separate macOS/Linux CI matrix; see [scope and limits](browser-compatibility.md). Full cross-engine, shipping Safari and physical touch qualification remain open. |
 
 Gather application feedback before choosing new geometry tools or preparing the
 next beta. A browser passing smoke checks alone does not establish full support.

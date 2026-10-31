@@ -1,9 +1,10 @@
-/* global document, localStorage, Storage, DOMException */
+/* global document, localStorage, Storage, DOMException, navigator */
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import process from 'node:process';
 import { Buffer } from 'node:buffer';
-import { chromium } from 'playwright';
+import { chromium, firefox, webkit } from 'playwright';
 
 const key = 'geo-area-workspace:v1';
 const sample = { type: 'FeatureCollection', features: [
@@ -11,8 +12,13 @@ const sample = { type: 'FeatureCollection', features: [
   { type: 'Feature', id: '0', properties: { name: 'South route' }, geometry: { type: 'LineString', coordinates: [[4.88, 52.355], [4.90, 52.355]] } },
 ] };
 
-export async function checkWorkspace(origin, { smoke = false } = {}) {
-  const browser = await chromium.launch({ headless: true, args: ['--enable-unsafe-swiftshader'] });
+export async function checkWorkspace(origin, { smoke = false, browserName = 'chromium', headless = true, reportPath } = {}) {
+  if (!['chromium', 'firefox', 'webkit'].includes(browserName)) throw new Error(`Unknown workspace browser: ${browserName}`);
+  const engine = { chromium, firefox, webkit }[browserName];
+  const report = { browserName, headless, phase: smoke ? 'development' : 'production', startedAt: new Date().toISOString(), passed: false, scenarios: [], excluded: [] };
+  if (!smoke && browserName !== 'chromium') report.excluded.push('Chromium CDP touch emulation; no cross-engine touch claim');
+  let browser;
+  let lastPage;
   const errors = [];
   const external = [];
   let scenarios = 0;
@@ -27,6 +33,7 @@ export async function checkWorkspace(origin, { smoke = false } = {}) {
   }
   async function open(context) {
     const page = await context.newPage();
+    lastPage = page;
     page.on('pageerror', (error) => { errors.push(error.message); });
     page.on('console', (entry) => { if (entry.type() === 'error') errors.push(entry.text()); });
     page.on('response', (response) => { if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`); });
@@ -35,6 +42,10 @@ export async function checkWorkspace(origin, { smoke = false } = {}) {
     await page.goto(`${origin}/?basemap=off`);
     await page.locator('#polygon').waitFor({ state: 'visible' });
     await page.waitForFunction(() => !document.querySelector('#polygon').disabled);
+    if (!report.rendering) report.rendering = await page.evaluate(() => {
+      const gl = document.querySelector('canvas')?.getContext('webgl2');
+      return { userAgent: navigator.userAgent, webgl2: Boolean(gl), renderer: gl?.getParameter(gl.RENDERER), version: gl?.getParameter(gl.VERSION) };
+    });
     return page;
   }
   async function text(page, selector, expected) {
@@ -50,9 +61,11 @@ export async function checkWorkspace(origin, { smoke = false } = {}) {
     await page.locator('#import').setInputFiles({ name: filename, mimeType: 'application/geo+json', buffer: Buffer.from(typeof value === 'string' ? value : JSON.stringify(value)) });
     await page.waitForFunction(() => !document.querySelector('#import').disabled && document.querySelector('#import').value === '');
   }
-  function passed(label) { scenarios++; process.stdout.write(`  ✓ ${label}\n`); }
+  function passed(label) { scenarios++; report.scenarios.push(label); process.stdout.write(`  ✓ ${label}\n`); }
 
   try {
+    browser = await engine.launch({ headless, ...(browserName === 'chromium' ? { args: ['--enable-unsafe-swiftshader'] } : {}) });
+    report.browserVersion = browser.version();
     const context = await newContext();
     const page = await open(context);
     await text(page, '#count', '0');
@@ -78,8 +91,9 @@ export async function checkWorkspace(origin, { smoke = false } = {}) {
     passed('draw, render, pick on the map and export the installed package’s geometry');
     if (smoke) {
       assert.deepEqual(errors, []); assert.deepEqual(external, []);
-      process.stdout.write('Workspace development server: render/pick smoke passed.\n');
-      return;
+      process.stdout.write(`Workspace development server (${browserName}): render/pick smoke passed.\n`);
+      report.passed = true;
+      return report;
     }
 
     await page.locator('#features button').click();
@@ -144,34 +158,36 @@ export async function checkWorkspace(origin, { smoke = false } = {}) {
     await page.locator('#undo').click();
     passed('keyboard vertex focus, group movement, cancellation and one-step Undo/Redo');
 
-    // Exercise browser-generated touch events against the installed package.
-    const input = await context.newCDPSession(page);
-    try {
-      await input.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
-      const touchDrag = async () => {
-        await page.keyboard.press('Home');
-        const marker = await page.locator('[data-geo-vertex-keyboard-marker]').boundingBox();
-        assert.ok(marker);
-        const x = marker.x + marker.width / 2 + 18;
-        const y = marker.y + marker.height / 2;
-        await input.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ id: 1, x, y }] });
-        await input.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ id: 1, x: x + 30, y: y + 20 }] });
-        await input.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      };
-      await page.locator('#edit').click(); await touchDrag(); await page.locator('#cancel').click();
-      assert.deepEqual(await exportData(page), edited);
-      await page.locator('#edit').click(); await touchDrag(); await page.locator('#finish').click();
-      const touchEdited = await exportData(page);
-      assert.notDeepEqual(touchEdited.features[0].geometry, edited.features[0].geometry);
-      await page.locator('#undo').click(); assert.deepEqual(await exportData(page), edited);
-      assert.equal(await page.locator('#undo').isDisabled(), true);
-      await page.locator('#redo').click(); assert.deepEqual(await exportData(page), touchEdited);
-      await page.locator('#undo').click();
-    } finally {
-      await input.send('Emulation.setTouchEmulationEnabled', { enabled: false });
-      await input.detach();
+    if (browserName === 'chromium') {
+      // Exercise browser-generated touch events against the installed package.
+      const input = await context.newCDPSession(page);
+      try {
+        await input.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+        const touchDrag = async () => {
+          await page.keyboard.press('Home');
+          const marker = await page.locator('[data-geo-vertex-keyboard-marker]').boundingBox();
+          assert.ok(marker);
+          const x = marker.x + marker.width / 2 + 18;
+          const y = marker.y + marker.height / 2;
+          await input.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ id: 1, x, y }] });
+          await input.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ id: 1, x: x + 30, y: y + 20 }] });
+          await input.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        };
+        await page.locator('#edit').click(); await touchDrag(); await page.locator('#cancel').click();
+        assert.deepEqual(await exportData(page), edited);
+        await page.locator('#edit').click(); await touchDrag(); await page.locator('#finish').click();
+        const touchEdited = await exportData(page);
+        assert.notDeepEqual(touchEdited.features[0].geometry, edited.features[0].geometry);
+        await page.locator('#undo').click(); assert.deepEqual(await exportData(page), edited);
+        assert.equal(await page.locator('#undo').isDisabled(), true);
+        await page.locator('#redo').click(); assert.deepEqual(await exportData(page), touchEdited);
+        await page.locator('#undo').click();
+      } finally {
+        await input.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+        await input.detach();
+      }
+      passed('touch vertex movement, cancellation and one-step Undo/Redo');
     }
-    passed('touch vertex movement, cancellation and one-step Undo/Redo');
 
     const savedBeforeTheme = await page.evaluate((key) => localStorage.getItem(key), key);
     await page.locator('#appearance').selectOption('ocean');
@@ -317,6 +333,26 @@ export async function checkWorkspace(origin, { smoke = false } = {}) {
 
     assert.deepEqual(errors, [], 'No uncaught browser errors');
     assert.deepEqual(external, [], 'Tile-free acceptance must make no external requests');
-    process.stdout.write(`Workspace acceptance: ${scenarios} scenarios passed against the isolated production build.\n`);
-  } finally { await browser.close(); }
+    assert.equal(scenarios, browserName === 'chromium' ? 14 : 13, 'All expected workspace scenarios ran');
+    report.passed = true;
+    process.stdout.write(`Workspace acceptance (${browserName}): ${scenarios} scenarios passed against the isolated production build.\n`);
+    return report;
+  } catch (error) {
+    report.error = error.stack ?? error.message;
+    if (reportPath && lastPage && !lastPage.isClosed()) {
+      await mkdir(dirname(reportPath), { recursive: true });
+      await lastPage.screenshot({ path: `${reportPath}.png`, timeout: 5_000 }).catch((error) => { report.screenshotError = error.message; });
+    }
+    throw error;
+  } finally {
+    try {
+      await browser?.close().catch((error) => { report.passed = false; report.error ??= error.message; throw error; });
+    }
+    finally {
+      if (reportPath) {
+        await mkdir(dirname(reportPath), { recursive: true });
+        await writeFile(reportPath, `${JSON.stringify({ ...report, errors, external, finishedAt: new Date().toISOString() }, null, 2)}\n`);
+      }
+    }
+  }
 }
