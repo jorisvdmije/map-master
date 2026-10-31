@@ -54,7 +54,7 @@ src/
     vertex-interaction.ts    Mouse edges; mouse/touch/pen vertex capture, map gesture separation and rollback
     vertex-keyboard.ts       Single-tab-stop vertex navigation, group nudges and movement rollback
     vertex-handles.ts        Shared screen-space corner/midpoint definitions and edge picking
-    line-editor.ts           Compatibility facade for the earlier line-only API
+    line-editor.ts           Deprecated line-only facade over GeometryEditor
 examples/basic/              Consumer UI; calls the same API as another app would
 examples/workspace/          Installed consumer with storage and host-owned appearance presets
 tests/                       Core behavior, boundary checks and packed-package integration
@@ -71,7 +71,7 @@ tests/                       Core behavior, boundary checks and packed-package i
 | Add a mouse gesture | Corresponding `maplibre/*-interaction.ts`, wired in `GeometryEditor` | Browser tests for release, Escape, blur, style changes and destruction |
 | Change keyboard shortcuts | `maplibre/keyboard-interaction.ts` | Browser tests for focus, modifiers and current mode |
 | Change event delivery | `maplibre/editor-events.ts`; emission stays in the controller | Observer mutation/error/unsubscribe tests in browser suites |
-| Configure object colors and overlap stripes | `core/feature-styling.ts`, `core/overlap-regions.ts`, `maplibre/feature-styling.ts` | Styling unit/browser tests, `benchmark:styling` |
+| Configure object colors and overlap stripes | `core/feature-styling.ts`, `core/overlap-regions.ts`, `maplibre/feature-styling.ts` | Styling unit/browser tests, `npm run benchmark -- styling` |
 | Change map appearance or picking | `maplibre/renderer.ts` | Browser rendering/selection tests |
 | Change toolbar or instructions | `examples/basic/workflow-controls.ts`, `selection-controls.ts`, `index.html`, `guide.html` | Demo workflow tests and responsive visual review |
 | Change directly loadable examples | `examples/basic/example-controls.ts`, `public/*.geojson` | Additive import, repeated IDs and Undo in `demo-workflow.test.ts` |
@@ -102,8 +102,8 @@ as an internal shortcut: it would pull the adapter back into lower-level modules
    refuses invalid drafts; otherwise it closes/normalizes the ring, assigns a
    UUID, stores the committed feature, and clears the draft.
 6. The controller restores map gestures and cursor. The renderer clears the
-   draft source and updates the committed source. `onCreate` receives the saved
-   feature once; `onChange` reports idle state. The demo refreshes its export.
+   draft source and updates the committed source. `onCreate` and then
+   `onDataChange` receive the saved feature once; `onChange` reports idle state. The demo refreshes its export.
 7. `exportGeoJSON()` copies committed data from the session. No screenshot,
    visible-feature query, or reconstruction from MapLibre layers is needed.
    The host can download this snapshot or save it using its own backend.
@@ -116,7 +116,7 @@ flowchart LR
   Core --> Data[Draft and committed GeoJSON]
   Editor --> Renderer[MapLibreRenderer]
   Renderer --> Map[MapLibre sources and layers]
-  Editor --> Events[onChange / onCreate / onDelete]
+  Editor --> Events[onChange / onDataChange / onCreate]
   Events --> UI
 ```
 

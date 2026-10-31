@@ -6,7 +6,10 @@ import { GeometryEditor } from './geometry-editor.js';
 
 const isLine = (feature: GeometryFeature): feature is LineFeature => feature.geometry.type === 'LineString';
 
-/** Compatibility facade for the first milestone. Use GeometryEditor for new integrations. */
+/**
+ * Line-only compatibility facade over {@link GeometryEditor}.
+ * @deprecated Use `GeometryEditor` with `draw('LineString')`. `LineEditor` will be removed in a future release.
+ */
 export class LineEditor {
   private readonly editor: GeometryEditor;
 

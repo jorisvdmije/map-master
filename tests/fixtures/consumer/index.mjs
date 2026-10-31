@@ -9,3 +9,7 @@ assert.equal(typeof editor.GeometryEditor, 'function');
 await assert.rejects(import('@jorisvdmije/map-master/dist/index.js'), {
   code: 'ERR_PACKAGE_PATH_NOT_EXPORTED',
 });
+
+// Tooling may read the manifest through the explicit package.json export.
+const { default: manifest } = await import('@jorisvdmije/map-master/package.json', { with: { type: 'json' } });
+assert.equal(manifest.name, '@jorisvdmije/map-master');

@@ -3,7 +3,7 @@
 The library has three boundaries: the geometry/editing core, the MapLibre adapter,
 and the host application. Drawing, vertex editing, selection, import, transactions,
 undo/redo, splitting, snapping, group translation, duplication, polygon holes, multipart geometry, polygon union, difference, intersection, single-ring reshape, boundary tracing, shared-boundary editing selection rotation, scaling, simplification, buffers, line offsets and drawing constraints use these same boundaries.
-The [roadmap](roadmap.md) separates implemented capabilities from planned work.
+The [roadmap](roadmap.md) lists planned work.
 See the [GeometryEditor guide](geometry-editor.md) for the current public API and
 the [code walkthrough](code-walkthrough.md) for the implemented structure.
 
@@ -64,7 +64,7 @@ The example imports only `@jorisvdmije/map-master`, just like an external applic
 creation, basemap configuration, toolbar elements, file dialogs and downloads
 belong there. Internal helpers are not exported from the package entry point.
 
-The [area workspace](beta.md) is installed from an npm archive in a temporary
+The [area workspace](../examples/workspace/README.md) is installed from an npm archive in a temporary
 directory outside this checkout, type-checked and built against that installation,
 and exercised through browser UI. Its persistence, dirty tracking and recovery
 stay in the application. No library APIs were added for those responsibilities.
@@ -121,14 +121,14 @@ guarantee topological validity.
 - Restore temporarily changed map controls on finish, cancellation, and destruction.
 - Remove owned handlers, layers, and sources on destruction; support independent editor instances.
 
-Start with desktop mouse input plus explicit finish/cancel controls and keyboard
-shortcuts. Document that initial input scope. Touch support, accessible controls,
-interactive multipart construction, antimeridian handling, and other projections
-need explicit design and tests before being advertised.
+Desktop mouse input with explicit finish/cancel controls and keyboard shortcuts is
+the baseline; touch and pen cover vertex editing. Touch drawing, complete accessible
+controls, interactive multipart construction, antimeridian handling and other
+projections need explicit design and tests before being advertised.
 
 ## Performance approach
 
-The first installed-browser qualification is [milestone 18d](beta-budgets.md):
+Installed-browser [performance budgets](testing.md#performance-budgets) use
 a fixed mixed dataset, visible pointer/selection/commit timings and post-teardown
 heap/DOM/listener budgets. Its matrix records the current browser, input and
 MapLibre scope without extending support to untested engines or touch workflows.
@@ -140,8 +140,8 @@ animation frames. Create editing handles only for the active selection.
 Once a real draw operation works, record a baseline on fixed browser/hardware
 and datasets with both feature counts and vertex counts. Measure load time,
 input-to-preview latency, memory after repeated create/destroy cycles, and bundle
-size. Include ordinary cases and one large geometry. Define numerical budgets
-from target application needs and these measurements before the first beta.
+size. Include ordinary cases and one large geometry. Numerical budgets
+follow from target application needs and these measurements.
 
 Use profiling to decide when spatial indexes, incremental renderer updates, or
 workers are necessary. Do not promise a feature count without reporting geometry

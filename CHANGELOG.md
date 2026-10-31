@@ -1,19 +1,41 @@
 # Changelog
 
-User-visible changes are recorded here. The first public beta is
-`@jorisvdmije/map-master@0.1.0-beta.0`; see the [release record](docs/releases.md).
+All notable changes to `@jorisvdmije/map-master` are recorded here. The project
+follows [semantic versioning](https://semver.org/); see the
+[migration guide](docs/migration.md) for upgrade steps.
 
 ## Unreleased
 
-- Firefox/WebKit installed-workspace investigation with candidate and published
-  commands, retained browser/phase evidence and a separate macOS/Linux CI matrix.
-  Existing Chromium qualification and budgets remain unchanged.
-- Published-beta workspace commands with an explicit version/integrity pin and
-  separate CI verification of CRUD, save/reload, storage recovery and browser budgets.
-- Searchable documentation website with a complete quickstart and three working
-  examples consuming the published npm beta. Existing Markdown guides are rendered
-  directly, with responsive navigation, section links and copyable code.
-- Correct the source documentation to reflect the completed beta publication.
+### Added
+
+- `GeometryEditor.onDataChange(listener)`: one stream of every committed data change
+  (drawing, edits, deletions, imports, transactions, geometry tools and undo/redo)
+  with its `source`, before/after `changes` and the new `dataRevision`. Applications
+  no longer need six listeners to save their data.
+- `GeometryEditor.getFeature(id)` returns one committed feature.
+- Exported `EditorMode`, `DataChangeEvent` and `DataChangeSource` types.
+- TSDoc for every public `GeometryEditor` member and public type, shown in editors
+  and IDEs.
+- Guides for [saving and loading data](docs/persistence.md),
+  [compatibility and limits](docs/compatibility.md) and [testing](docs/testing.md).
+- Searchable documentation website with a complete quickstart and three interactive
+  examples.
+- Verification of the published release in the example application, and
+  Firefox/WebKit checks of its workflows on Linux and macOS.
+
+### Changed
+
+- The package no longer declares a Node.js `engines` range, so installing it never
+  warns on other Node.js versions. The supported development versions moved to
+  `devEngines`.
+- The package declares `"sideEffects": false` for tree shaking, exports
+  `./package.json` and no longer ships the Markdown guides; they are online.
+- `npm run benchmark -- <name>` replaces the 32 separate `benchmark:*` scripts.
+
+### Deprecated
+
+- `LineEditor`. Use `GeometryEditor`; the [LineEditor page](docs/line-editor.md) maps
+  each method. It will be removed in a future release.
 
 ## 0.1.0-beta.0 — 2026-10-28
 
@@ -138,15 +160,10 @@ User-visible changes are recorded here. The first public beta is
   upgrading from an earlier local snapshot.
 - The measured integration uses MapLibre 6.15.0 and desktop Chromium with mouse
   and keyboard. Other browsers, touch and other MapLibre versions remain
-  unqualified; see the [compatibility and budget profile](docs/beta-budgets.md).
+  unqualified; see [compatibility and limits](docs/compatibility.md).
 - Geometry operations have documented topology and coordinate restrictions.
   Mercator-based distances are projected distances, not geodesic measurements.
   Review each operation's guide before using it in a new workload.
 - Browser storage is an example persistence mechanism, not a backend or backup.
   Collaboration, server authorization, framework wrappers, trim/extend and
   interactive multipart construction are outside this candidate.
-- The public GitHub repository, Issues/private security reporting and required
-  hosted CI checks are configured. The maintainer has configured security
-  notifications; delivery remains untested. npm login is verified and the
-  private publishing guard is removed. Final archive verification and explicit
-  publication authorization were completed for this release; see the release record.

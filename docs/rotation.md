@@ -156,7 +156,7 @@ if (editor.rotateSelection()) { // Optional explicit pivot: [4.895, 52.372].
 
 Consumers with exhaustive mode/state switches must handle `rotate-features` and
 its state fields. Getters remain readable after destruction; commands and
-subscriptions throw. The LineEditor compatibility facade does not expose rotation.
+subscriptions throw.
 
 ## Rendering, transactions and lifecycle
 

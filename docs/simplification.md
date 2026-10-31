@@ -127,8 +127,7 @@ if (editor.simplifySelection()) {
   unchanged confirmation. `finishSimplification()` returns the complete change batch.
 
 Consumers with exhaustive mode/state switches must handle the new mode and fields.
-Getters remain readable after destruction; commands/subscriptions throw. The
-LineEditor compatibility facade does not expose simplification.
+Getters remain readable after destruction; commands/subscriptions throw.
 
 ## Rendering, history and lifecycle
 

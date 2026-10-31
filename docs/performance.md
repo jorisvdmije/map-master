@@ -1,13 +1,14 @@
-# Performance baselines
+# Performance notes
 
-Executable installed-browser latency and lifecycle-memory gates are now described
-in [Beta budgets](beta-budgets.md). The dated core microbenchmarks below remain
-historical observations; their lack of thresholds does not describe the new
-browser regression checks.
+These are recorded results of the operation benchmarks in `benchmarks/`, with the
+conditions they were measured under. Run them with `npm run benchmark -- <name>`;
+`npm run benchmark` lists the names. They are dated observations without
+thresholds. The enforced installed-browser latency and memory budgets are described
+in [testing](testing.md#performance-budgets) and [compatibility](compatibility.md#performance-profile).
 
 ## Overlap candidate queries
 
-Run `npm run benchmark:selection-picking` for an isolated Chromium/Vite workload
+Run `npm run benchmark -- selection-picking` for an isolated Chromium/Vite workload
 with a local style, an 800×600 canvas, zoom 13, fixed four-corner polygons and
 small name properties. It waits for rendered hits, then measures
 `GeometryEditor.queryFeatures()` (both rendered queries, typed-ID deduplication,
@@ -45,7 +46,7 @@ See the [appearance contract](appearance.md).
 
 ## Polygon validation
 
-Run `npm run benchmark:polygon` to build and measure the core validator. The
+Run `npm run benchmark -- polygon` to build and measure the core validator. The
 script uses fixed regular rings centered at `[4.895, 52.372]`, radius 0.01 degrees,
 with 10, 100, and 1,000 vertices. Valid simple rings exercise all nonadjacent edge
 pairs without an early failure. Each size gets 20 warmup calls and 50 samples;
@@ -79,7 +80,7 @@ remain release work, as described in [the architecture](architecture.md#performa
 
 ## Core selection
 
-Run `npm run benchmark:selection`. Fixtures contain 10, 1,000, and 10,000 fixed
+Run `npm run benchmark -- selection`. Fixtures contain 10, 1,000, and 10,000 fixed
 two-vertex lines. Each batch alternates selecting the first/last ID and requesting
 a selected-feature snapshot 1,000 times. The script runs 20 warmup batches and
 50 timed batches. Fixture creation, export, events, and rendering are excluded.
@@ -106,7 +107,7 @@ selected geometries need browser benchmarks before setting scale guarantees.
 
 ## Deletion and export
 
-Run `npm run benchmark:deletion`. It uses the same fixed two-vertex line fixtures
+Run `npm run benchmark -- deletion`. It uses the same fixed two-vertex line fixtures
 as the selection benchmark: 10, 1,000, and 10,000 features. Every sample starts
 with a fresh session and its middle feature selected. The timer measures deletion
 plus export of all survivors, reflecting the core work before a renderer update.
@@ -132,7 +133,7 @@ for future comparisons; no earlier deletion baseline or CI threshold exists.
 
 ## Core vertex movement
 
-Run `npm run benchmark:editing`. Fixed regular polygons have 10, 100, or 1,000
+Run `npm run benchmark -- editing`. Fixed regular polygons have 10, 100, or 1,000
 corners centered at `[4.895, 52.372]` with radius 0.01 degrees. Setup is excluded;
 each sample shifts a contiguous group of 1, 2 or up to 100 corners by 0.000001
 degrees east from an immutable baseline, alternating with exact restoration.
@@ -165,7 +166,7 @@ edit uploads the full collection once.
 
 ## Vertex rectangle selection
 
-Run `npm run benchmark:vertex-selection`. A fixed zigzag line contains 100, 1,000
+Run `npm run benchmark -- vertex-selection`. A fixed zigzag line contains 100, 1,000
 or 10,000 vertices. A deterministic linear projection maps it to a 1,000-pixel
 strip; alternating left/right boxes each contain exactly half the vertices.
 The timed path copies the draft, projects/picks its vertices, replaces the corner
@@ -190,7 +191,7 @@ does not rerun topology validation or add history.
 
 ## Core GeoJSON import
 
-Run `npm run benchmark:import`. Each sample imports into a fresh empty session.
+Run `npm run benchmark -- import`. Each sample imports into a fresh empty session.
 Line fixtures contain 10, 1,000, or 10,000 two-point lines with explicit string
 IDs and nested properties. Polygon fixtures reuse the regular ring family above
 with 100 or 1,000 corners. Each case has 10 warmups and 50 timed samples.
@@ -217,7 +218,7 @@ Large imports may need worker validation and incremental source updates later.
 
 ## Undo and export
 
-Run `npm run benchmark:history`. Fixtures contain 10, 1,000, or 10,000 fixed
+Run `npm run benchmark -- history`. Fixtures contain 10, 1,000, or 10,000 fixed
 two-point lines around `[4.895, 52.372]`, matching the previous selection/deletion
 fixture family. Import/setup and assertions are outside the timer. After clearing
 setup history and deleting the middle line, measure undo alone and undo plus a
@@ -255,7 +256,7 @@ Leaves reference array ranges; query pruning, exact distances and source-order
 ties retain their existing semantics. Mixed-geometry tests compare tree queries
 to an exhaustive scan of independent single-feature leaves.
 
-Before/after `node scripts/benchmark-snapping.mjs`, Apple M2 Pro, macOS arm64,
+Before/after `node benchmarks/snapping.mjs`, Apple M2 Pro, macOS arm64,
 Node 22.23.1, same fixtures/warmups/sample counts:
 
 | Polygons | Before build median / p95 (ms) | After build median / p95 (ms) |
@@ -271,7 +272,7 @@ measurement endpoints have not changed. The historical baselines below predate
 this optimization.
 
 
-Run `npm run benchmark:snapping`. Fixtures contain 10, 1,000, or 10,000 squares
+Run `npm run benchmark -- snapping`. Fixtures contain 10, 1,000, or 10,000 squares
 with four distinct corners, on a fixed 100-column grid. A simple linear test
 projection makes each square 50 pixels wide with 100-pixel spacing. Each sample
 builds a fresh projected index, then queries 1,000 deterministic positions
@@ -311,7 +312,7 @@ is a repeatable microbenchmark, not a dataset or frame-rate guarantee.
 
 ## Atomic transactions
 
-Run `npm run benchmark:transactions`. Start with 10, 1,000, or 10,000 fixed
+Run `npm run benchmark -- transactions`. Start with 10, 1,000, or 10,000 fixed
 2-point lines with nested JSON properties. Each batch replaces the second line,
 deletes the last and first lines (in that order), and appends two new lines.
 Measure validation + preparation + commit + returned snapshots, then undo in a
@@ -341,7 +342,7 @@ no partial changes on failure, selection, keyboard replay, and updated snapping.
 
 ## Polygon splitting
 
-Run `npm run benchmark:split`. Fixed regular rings have 10, 100, or 1,000
+Run `npm run benchmark -- split`. Fixed regular rings have 10, 100, or 1,000
 corners, centered at `[4.895, 52.372]` with radius 0.01 degrees. The two-point
 cut is horizontal at latitude 52.37373, from longitude 4.875 to 4.915, avoiding
 ring vertices. There are 20 warmups and 50 individually timed samples. The timer
@@ -365,7 +366,7 @@ the interior. These measurements include concurrent local browser-test load.
 
 After adding cut feedback on 2026-10-26, the same split benchmark measured
 0.048/0.082 ms (10 corners), 0.183/0.312 ms (100), and 4.994/5.822 ms (1,000).
-The existing `benchmark:reshape` fixture measured preview median/p95 of
+The existing `reshape` benchmark fixture measured preview median/p95 of
 0.056/0.146 ms, 0.247/0.510 ms and 6.194/9.502 ms for a three-point route against
 10/100/1,000 corners. A 25-point route measured 0.395/0.831 ms,
 1.533/1.957 ms and 15.624/16.072 ms. These valid-path measurements include
@@ -390,7 +391,7 @@ cuts/rings may need a general indexed geometry engine or worker execution later.
 
 ## Snapping during vertex editing
 
-`npm run benchmark:snapping` also queries the same fixed grids while excluding
+`npm run benchmark -- snapping` also queries the same fixed grids while excluding
 feature ID `0`, representing the active edit target. It performs 1,000 queries
 per sample on the already-built index, with 10 warmups and 50 samples. Queries
 near the excluded square must miss; other squares must still yield edge targets.
@@ -416,7 +417,7 @@ on large datasets. Large-dataset indexing/worker work remains a separate task.
 
 ## Multiple selection
 
-`npm run benchmark:selection` retains the single-feature benchmark and adds
+`npm run benchmark -- selection` retains the single-feature benchmark and adds
 replacement of two disjoint groups of typed IDs plus an `EditorState` snapshot.
 Each group contains half the fixture's two-vertex lines. Each sample alternates
 groups 20 times; there are 20 warmup samples and 50 timed samples. Fixture setup,
@@ -448,7 +449,7 @@ budgets; these measurements are not supported-dataset guarantees.
 
 ## Group translation
 
-Run `npm run benchmark:translation`. Fixed mixed two-point lines and four-corner
+Run `npm run benchmark -- translation`. Fixed mixed two-point lines and four-corner
 polygons, selected in ID order; 10 warmups and 50 samples, 20 preview calculations
 per sample. Translation always starts from a captured baseline. Commit includes
 selection snapshots, full transaction validation, history recording and the
@@ -478,7 +479,7 @@ validated commit and still need representative application profiling.
 
 ### Group translation snapping
 
-Run `npm run benchmark:translation-snapping`. A fixed grid of two-vertex lines
+Run `npm run benchmark -- translation-snapping`. A fixed grid of two-vertex lines
 uses a linear screen projection, one fixed grabbed anchor and a cached exclusion
 set. Ten index constructions are measured separately; 100 warmups precede 1,000
 indexed queries and selected-only translation previews. Each query asserts a
@@ -504,7 +505,7 @@ selection-only previews and the installed-consumer latency/lifecycle budgets.
 
 ## Group duplication
 
-Run `npm run benchmark:duplication`. Fixed mixed two-point lines/four-corner
+Run `npm run benchmark -- duplication`. Fixed mixed two-point lines/four-corner
 polygons, 10 warmups and 50 samples. Each sample duplicates a selected group with
 an offset, undoes it, redoes it with the same IDs, and undoes again for cleanup.
 The benchmark includes generated string IDs, snapshots, transaction validation,
@@ -529,7 +530,7 @@ stored features, and MapLibre worker/GPU work and host callbacks are excluded.
 
 ## Polygon holes
 
-Run `npm run benchmark:holes`. Fixtures contain one square exterior and 1, 25,
+Run `npm run benchmark -- holes`. Fixtures contain one square exterior and 1, 25,
 100 or 400 disjoint square holes. Five warmups and 30 samples measure a complete
 core import, and a move/save of one hole vertex. Selection, entering editing,
 export and Undo assertions are outside the timed sections. The assertions verify
@@ -555,7 +556,7 @@ ring still copies/renders all rings of its polygon, preserving the visible holes
 
 ## Multipart geometries
 
-Run `npm run benchmark:multipart`. One MultiPolygon contains 1, 25, 100 or 400
+Run `npm run benchmark -- multipart`. One MultiPolygon contains 1, 25, 100 or 400
 separated square components, each with one square hole. Five warmups precede 30
 samples. Timed operations are complete import, moving/saving one vertex in the
 last component's hole, and constructing the snapping index (fixed projection,
@@ -583,7 +584,7 @@ are excluded. These core measurements are not a browser interaction budget.
 
 ## Polygon union
 
-`npm run benchmark:union` measures the complete session preview (including result
+`npm run benchmark -- union` measures the complete session preview (including result
 validation), transaction confirmation, and Undo. Fixed datasets contain 2, 25, 100
 or 400 axis-aligned squares, each with four unique vertices. Grid spacing is 0.1°
 for overlapping 0.15° squares and 0.2° for disjoint squares. There are at most 20
@@ -617,7 +618,7 @@ grids and explicit workload budgets remain future work.
 
 ## Polygon difference
 
-`npm run benchmark:difference` measures session preview (filled-area intersection,
+`npm run benchmark -- difference` measures session preview (filled-area intersection,
 subtraction and result validation), transaction confirmation and Undo. The fixed
 target is the rectangle from (-1, -1) to (41, 5). Each dataset has 1, 25, 100 or 400
 cutters. The holes layout uses 0.1° squares with 0.2° grid spacing and 20 columns;
@@ -651,7 +652,7 @@ future work.
 
 ## Polygon intersection
 
-`npm run benchmark:intersection` measures session preview (overlay plus validation),
+`npm run benchmark -- intersection` measures session preview (overlay plus validation),
 transaction confirmation and Undo. The overlap datasets contain 2, 25, 100 or 400
 2° squares, shifted by 0.001° longitude per input. Their shared result is one
 rectangle. The multipart datasets intersect one MultiPolygon of 2, 25, 100 or 400
@@ -684,7 +685,7 @@ can block the UI. Workers, precision grids and workload budgets remain future wo
 
 ## Polygon reshape
 
-`npm run benchmark:reshape` measures complete session path validation/preview,
+`npm run benchmark -- reshape` measures complete session path validation/preview,
 transaction confirmation and Undo. Fixed inputs are regular 10-, 100- and
 1,000-corner polygons centred at (4.895, 52.372) with radius 0.01°. The route joins
 vertex 0 to vertex `corners / 5`, using 3 or 25 points along their chord with a
@@ -716,7 +717,7 @@ or poorly conditioned shapes; workload caps and worker execution remain future w
 
 ## Boundary tracing
 
-Run `npm run benchmark:trace`. Fixed regular source rings centered at
+Run `npm run benchmark -- trace`. Fixed regular source rings centered at
 `[4.895, 52.372]`, radius 0.01 degrees, have 10, 100 or 1,000 corners. Each sample
 traces half the ring into a line or polygon draft (6, 51 or 501 points), confirms
 and verifies exact Undo/Redo and unchanged source data. Five warmups precede 30
@@ -743,7 +744,7 @@ size/frame-rate guarantees or CI budgets. See the snapping baseline for index co
 
 ## Shared-boundary editing
 
-Run `npm run benchmark:shared-boundary`. Two adjoining rectangles share a straight
+Run `npm run benchmark -- shared-boundary`. Two adjoining rectangles share a straight
 chain with 10, 100 or 1,000 segments near `[4.895, 52.375]`. Each sample enters the
 tool, moves the middle shared vertex 0.001 degrees east, confirms both results and
 undoes. Five warmups precede 30 samples. Import, selection, snapshots and assertions
@@ -771,7 +772,7 @@ check.
 
 ## Selection rotation
 
-Run `npm run benchmark:rotation`. Regular polygons near `[4.895, 52.372]` have
+Run `npm run benchmark -- rotation`. Regular polygons near `[4.895, 52.372]` have
 10, 100 or 1,000 corners at radius 0.002°. A fourth case selects 100 ten-corner
 polygons on a 0.01° grid. Each iteration computes the default pivot, previews an
 absolute 30° rotation, confirms, undoes and verifies exact Redo. Five warmups
@@ -800,7 +801,7 @@ need workload-specific measurement.
 
 ## Selection scaling
 
-Run `npm run benchmark:scaling`. The same regular polygon/group fixtures as the
+Run `npm run benchmark -- scaling`. The same regular polygon/group fixtures as the
 rotation benchmark use 10, 100 or 1,000 corners and a group of 100 ten-corner
 polygons. Each iteration enters scaling with the default pivot, previews factor
 1.5, confirms, undoes and verifies exact Redo. Five warmups precede 30 measured
@@ -826,7 +827,7 @@ or supported-size guarantees. Large complex workloads need separate measurement.
 
 ## Drawing constraints
 
-Run `npm run benchmark:constraints`. Each sample resolves 10,000 pointers with a
+Run `npm run benchmark -- constraints`. Each sample resolves 10,000 pointers with a
 45° constraint and a constant-time last-point snapshot from a line draft with
 10, 1,000 or 100,000 vertices. Coordinates stay near the Netherlands. Five warmup
 samples precede 30 measured samples. Draft construction and assertions are excluded.
@@ -858,7 +859,7 @@ median/p95 of 0.021/0.097 ms (1 × 10 corners), 0.058/0.113 ms (1 × 100),
 0.302/0.453 ms (1 × 1,000) and 0.763/1.148 ms (100 × 10). The core algorithm
 is unchanged; these observations are not a UI latency guarantee.
 
-Run `npm run benchmark:simplification`. Regular polygons near `[4.895, 52.372]`
+Run `npm run benchmark -- simplification`. Regular polygons near `[4.895, 52.372]`
 have 10, 100 or 1,000 corners at radius 0.002°. A fourth case selects 100 ten-corner
 polygons on a 0.01° grid. Each iteration enters the tool, previews tolerance 100
 Mercator meters, confirms, undoes and verifies exact Redo. Five warmups precede
@@ -884,7 +885,7 @@ guarantees. No worker offloading is implemented; large inputs can block the UI.
 
 ## Selection buffers
 
-Run `npm run benchmark:buffer`. The same regular polygons used for simplification
+Run `npm run benchmark -- buffer`. The same regular polygons used for simplification
 have 10, 100 or 1,000 corners near `[4.895, 52.372]` at radius 0.002°. A fourth
 case selects 100 ten-corner polygons on a 0.01° grid. Each iteration enters with
 10 Mercator meters, previews 20 meters, confirms, undoes and verifies exact Redo.
@@ -915,7 +916,7 @@ resolution are not implemented in this version.
 
 ## Line offsets
 
-Run `npm run benchmark:offset`. Source lines start near `[4.895, 52.372]` and have
+Run `npm run benchmark -- offset`. Source lines start near `[4.895, 52.372]` and have
 10, 100 or 1,000 vertices. Longitude increases by 0.00001° per vertex; latitude
 varies by `0.00002 × sin(i / 10)` degrees. The group case selects 100 ten-vertex
 lines separated by 0.001° latitude. Each iteration enters at zero, previews +10
@@ -950,24 +951,24 @@ geometry. Prepared commits inspect only changed existing features. A history
 entry is checked against locks at most once per policy version; its cached result
 is reused by pointer-state reads. Replacing policy invalidates that cache and
 does not upload committed geometry or rebuild snapping. These are work bounds,
-not measured browser-latency guarantees; see the separate [beta budgets](beta-budgets.md).
+not measured browser-latency guarantees; see the [performance budgets](testing.md#performance-budgets).
 
 ## Object styling and overlap partitioning
 
 See the [styling cost, limits and local baseline](feature-styling.md#cost-limits-and-checks)
-for `npm run benchmark:styling`. The optional overlay uses cached Mercator cells
+for `npm run benchmark -- styling`. The optional overlay uses cached Mercator cells
 and bounded synchronous work; unchanged defaults are covered by installed-consumer
 latency and lifecycle gates.
 
 ## Keyboard vertex controls
 
-`npm run benchmark:vertex-keyboard` measures synchronous navigation and nudge
+`npm run benchmark -- vertex-keyboard` measures synchronous navigation and nudge
 coordination for 100, 1,000 and 10,000 line vertices. See the
 [keyboard baseline and limits](keyboard-vertices.md#verification). It asserts one
 focusable control at every size and checks DOM cleanup on destruction.
 
 ## Touch and pen acquisition
 
-`npm run benchmark:direct-picking` measures handle generation and nearest-corner
+`npm run benchmark -- direct-picking` measures handle generation and nearest-corner
 acquisition on 100, 1,000 and 10,000 vertices with a deterministic projection.
 See the [baseline and exclusions](touch-pen-vertices.md#verification-and-cost).

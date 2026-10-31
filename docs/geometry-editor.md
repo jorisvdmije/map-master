@@ -1,11 +1,34 @@
-# GeometryEditor: markers, lines and polygons
+# GeometryEditor API
 
-Status: experimental. Supports 2D Point, LineString, Polygon (including holes), MultiLineString and MultiPolygon
-features on a flat Mercator MapLibre GL JS 6.15 map. Desktop mouse and keyboard
-input, selection, group translation/duplication, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing/movement snapping are tested in Chromium.
-See the [multipart guide](multipart.md) for component editing and topology constraints.
+`GeometryEditor` is the library's single entry point. It supports 2D Point, LineString,
+Polygon (including holes), MultiLineString and MultiPolygon features on a flat
+Mercator MapLibre GL JS map. See [compatibility and limits](compatibility.md) for
+the tested browsers and input methods, the [multipart guide](multipart.md) for
+component editing and [point markers](markers.md) for one-click placement.
 
-For one-click marker placement and point editing, see [Point markers](markers.md).
+## Setup
+
+Install the library next to MapLibre GL JS, which your application owns:
+
+```sh
+npm install @jorisvdmije/map-master maplibre-gl
+```
+
+MapLibre 6 loads its web worker from a separate file that your bundler must serve.
+With Vite:
+
+```ts
+import { setWorkerUrl } from 'maplibre-gl';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+import 'maplibre-gl/dist/maplibre-gl.css';
+
+setWorkerUrl(workerUrl);
+```
+
+Other bundlers must copy `maplibre-gl/dist/maplibre-gl-worker.mjs` and pass its URL
+to `setWorkerUrl`; see the [MapLibre documentation](https://maplibre.org/maplibre-gl-js/docs/).
+The page must be served over HTTPS or from `localhost`, because new feature IDs
+use `crypto.randomUUID()`.
 
 ## One editor API
 
@@ -38,14 +61,13 @@ map.once('style.load', () => {
 });
 ```
 
-For host worker configuration and local package installation, see the
-[integration setup](line-editor.md#integrate) and [working demo](../examples/basic/main.ts).
-Install the published beta with `npm install @jorisvdmije/map-master@0.1.0-beta.0`.
-For a complete runnable application, follow the [quickstart](https://github.com/jorisvdmije/map-master/blob/main/website/content/quickstart.md).
+For a complete runnable application, follow the [quickstart](https://github.com/jorisvdmije/map-master/blob/main/website/content/quickstart.md);
+the [playground source](../examples/basic/main.ts) uses every feature. To save and
+restore data, see [saving and loading](persistence.md).
 
 | Member | Contract |
 | --- | --- |
-| `new GeometryEditor(map, options?)` | Attach after `style.load` or `load`. One editor per map, including the LineEditor facade. `historyLimit` defaults to 100; `snapping.enabled` defaults to false. |
+| `new GeometryEditor(map, options?)` | Attach after `style.load` or `load`. One editor per map. `historyLimit` defaults to 100; `snapping.enabled` defaults to false. |
 | `getLockedFeatureIds()` / `setLockedFeatureIds(ids)` / `isFeatureLocked(id)` | Read/replace the host-owned set of read-only IDs; also constructor `lockedFeatureIds`. Locked targets reject mutations, block applicable history and remain snap references. See [feature locks](feature-locks.md). |
 | `getAppearance()` / `setAppearance(patch)` | Read an independent complete appearance / atomically patch presentation fields. Also available as constructor `appearance`. Live updates survive style reloads without changing geometry, drafts or history. See [appearance](appearance.md). |
 | `draw('Point' \| 'LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
@@ -109,6 +131,8 @@ For a complete runnable application, follow the [quickstart](https://github.com/
 | `toggleSelection(id)` | Add/remove one existing feature from the selection. |
 | `queryFeatures({ x, y })` | Independent committed snapshots at a canvas-relative CSS-pixel point, in picking order. Idle only; no selection/data/history changes. |
 | `getSelection()` | Independent snapshots of all selected features in acquisition order. |
+| `getFeature(id)` | Independent snapshot of one committed feature, or `null` for an unknown ID. Numeric `7` and string `"7"` are different IDs. |
+| `getDraft()` | Independent coordinates of the active draft (the open ring for polygons), or an empty array. |
 | `editSelected(ringIndex = 0, partIndex = 0)` | Begin editing one component/ring of the selected feature; ring 0 is the exterior for polygons. |
 | `selectVertices(indices)` | Select unique corners in acquisition order within the active edit draft. Empty array clears selection. |
 | `moveVertices(updates)` | Atomically apply absolute `{ index, coordinate }` updates and select those indices. Coordinates are copied; duplicate indices are rejected. |
@@ -123,6 +147,7 @@ For a complete runnable application, follow the [quickstart](https://github.com/
 | `exportGeoJSON()` | Independent `GeometryFeatureCollection` snapshot containing committed markers, lines and polygons. |
 | `importGeoJSON(input)` | Append a parsed Feature/FeatureCollection atomically; return an independent collection of imported features. Idle only. |
 | `applyTransaction({ create?, update?, delete? })` | Validate and commit a mixed batch atomically. Full features with explicit IDs; idle only. Return a TransactionEvent or null for no change. |
+| `onDataChange(listener)` | One event per committed data change from any source: drawing (`create`), saved edits and holes (`update`), `deleteSelected` (`delete`), imports (`import`), transactions and geometry tools (`transaction`), and `undo`/`redo`. Carries `source`, before/after `changes` and the new `dataRevision`. Use it for persistence. Returns an unsubscribe function. |
 | `onTransaction(listener)` | One complete change batch per successful applyTransaction, confirmed offsetting/buffering/simplification/scaling/rotation/shared-boundary edit/split/union/intersection/reshape or changed difference, deleteSelection, group translation, duplication or hole deletion. Returns an unsubscribe function. |
 | `onImport(listener)` | One notification per nonempty imported batch. Returns an unsubscribe function. |
 | `onUpdate(listener)` | One notification per changed saved edit. Returns an unsubscribe function. |
@@ -142,12 +167,14 @@ For a complete runnable application, follow the [quickstart](https://github.com/
 `feature.geometry.type` to narrow coordinates in TypeScript. `GeometryFeatureCollection`
 is a GeoJSON FeatureCollection containing all five geometry types. New drawings receive a UUID and empty properties. Imported features preserve
 string or numeric IDs and JSON properties (including null). Coordinates are
-`[longitude, latitude]`. Properties can be imported but there is no property-editing API yet.
+`[longitude, latitude]`. Change properties with `applyTransaction({ update: [...] })`.
 
-Modes are `idle`, `draw-point`, `edit-point`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, `union-polygons`, `difference-polygons`, `intersection-polygons`, `reshape-polygon`, `edit-shared-boundary`, `rotate-features`, `scale-features`, `simplify-features`, `buffer-features`, and `offset-lines`. `validationError` is `null`
+Modes (the `EditorMode` type) are `idle`, `draw-point`, `edit-point`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, `union-polygons`, `difference-polygons`, `intersection-polygons`, `reshape-polygon`, `edit-shared-boundary`, `rotate-features`, `scale-features`, `simplify-features`, `buffer-features`, and `offset-lines`. `validationError` is `null`
 when idle or when the current draft is valid. Check `canFinish` to enable Finish;
 an idle editor cannot finish even though it has no validation error.
 
+Each committed change emits its specific event (`onCreate`, `onUpdate`, `onDelete`,
+`onImport`, `onTransaction` or `onHistory`), then `onDataChange`, then `onChange`.
 Callbacks run synchronously. Exceptions are reported asynchronously without
 interrupting a commit or other observers. MapLibre renders committed data
 asynchronously; listen to the map's `error` event for rendering failures.
@@ -237,8 +264,7 @@ gesture and duplicates the committed selection; its later pointer release is ign
 A successful operation selects only the new copies before callbacks run, increments
 `dataRevision` once and emits one `onTransaction`, then one `onChange`. Every change
 has `before: null` and the complete copy in `after`. There are no per-feature
-`onCreate` events. The committed map source is uploaded once. Both `GeometryEditor`
-and the `LineEditor` facade expose the same method.
+`onCreate` events. The committed map source is uploaded once.
 
 Undo removes the copied batch; Redo restores its exact geometry, properties, IDs
 and order without generating new IDs. Selection remains transient UI state:
@@ -468,8 +494,7 @@ Selection survives style replacement and updates/imports. Transactions, deletion
 and history replay prune only IDs that no longer exist. Undo restores deleted
 features, but does not restore selection: selection is transient UI state.
 Starting a drawing clears it. Destroy clears it without callbacks. Getters remain
-readable after destroy; commands and subscriptions throw. `LineEditor` exposes
-these same selection methods and returns `LineFeature[]` from `getSelection()`.
+readable after destroy; commands and subscriptions throw.
 
 ### Delete the complete selection
 
@@ -492,8 +517,7 @@ existing `GeometryFeature | null` result and `onDelete` event. With multiple
 selected features it throws `RangeError` directing callers to `deleteSelection()`;
 it never silently deletes an arbitrary member. The demo's Delete button and
 focused Delete/Backspace use the single method for one selection, and the batch
-method for multiple selections. LineEditor forwards `deleteSelection()` and
-`onTransaction()` too. Group movement and duplication are later milestones.
+method for multiple selections.
 
 ## Deletion
 
@@ -629,8 +653,7 @@ indices and out-of-bounds/nonfinite coordinates reject the whole batch. Invalid
 topology stays as a repairable draft and cannot be saved. A pointer group outside
 coordinate bounds keeps the last in-bounds preview with a not-allowed cursor;
 releasing there restores the whole gesture. Returning exactly to its starting
-position restores the frozen baseline. The API methods are available on both
-`GeometryEditor` and the `LineEditor` facade.
+position restores the frozen baseline.
 
 `onUpdate(listener)` fires once for a changed saved geometry, with the same ID
 and properties. It returns an unsubscribe function. Cancel and unchanged saves
@@ -711,8 +734,7 @@ codes below. The first detected error aborts the batch. Lifecycle/mode errors
 remain ordinary Error objects. Unsupported data is never silently skipped.
 
 Export/import round trips preserve supported IDs, properties, coordinates, and
-feature order after polygon winding normalization. Import only exists on
-GeometryEditor; the earlier LineEditor remains a drawing compatibility facade.
+feature order after polygon winding normalization.
 
 **Experimental type change:** IDs previously had type `string`. Feature IDs and
 `selectedFeatureId` now use exported `FeatureId` (`string | number`). Properties
@@ -841,7 +863,7 @@ full collection after replay.
 and preserves data, revision, and selection. Style changes preserve history.
 Destroy/map removal clears history without emitting history events. History is
 local to one editor instance and is not included in GeoJSON or persisted across
-reloads. LineEditor supports the same history methods, options, and events.
+reloads.
 
 ## Snapping while drawing
 
@@ -906,7 +928,6 @@ undo/redo. The target geometry is unchanged: snapping to an edge does not insert
 a vertex into the target, link geometries, or trace its boundary. Snap state is
 cleared on drawing pointer leave, window blur, finish, cancel, and destruction.
 Style replacement restores drawing indicators; camera/data changes invalidate the cache.
-LineEditor exposes the same snapping options, getters, setter, and event.
 
 ### Snapping during vertex editing
 
@@ -941,9 +962,10 @@ cancellation, lost capture, blur and style replacement roll back the active gest
 Earlier completed gestures remain in the draft. Escape during a drag restores that
 gesture; a subsequent Escape or Cancel discards the entire session. Destroy discards the draft and removes the gesture and snap handlers.
 
-This milestone supports the canonical world copy of a flat Mercator map, including
+Vertex editing supports the canonical world copy of a flat Mercator map, including
 zoom, bearing, and pitch. Repeated world copies, dateline/polar geometry, globe,
-terrain, touch, topology linking, and boundary tracing are outside this contract.
+terrain and topology linking are outside this contract. Touch and pen input is
+described in [touch/pen vertex editing](touch-pen-vertices.md).
 
 ## Polygon contract
 
@@ -974,12 +996,8 @@ the previous cursor and double-click zoom setting are restored on exit.
 
 ## Compatibility and ownership
 
-The existing `LineEditor` remains available as a small facade around the same
-engine: `startLine()` forwards to `draw('LineString')`, with line-only return and
-event types. New integrations should use `GeometryEditor` for both shape types.
-There is no second implementation of drawing behind the facade.
-The facade also supports `select(id | null)`, line-only `getSelected()` and
-`deleteSelected()` return types, and line-only `onDelete` callbacks.
+The deprecated [`LineEditor`](line-editor.md) is a thin line-only facade around
+the same engine and will be removed in a future release. Use `GeometryEditor`.
 
 The editor does not extend MapLibre's prototype or attach custom methods to
 `map`. Using `map.flyTo(...)` for the camera and `editor.draw(...)` for geometry
@@ -1017,9 +1035,9 @@ The encoding is never written into the core, public events, or exports. See MapL
 [query and feature-state API](https://maplibre.org/maplibre-gl-js/docs/API/classes/Map/).
 
 The repeatable [benchmarks](performance.md) characterize core validation and
-selection, deletion/export, vertex movement, import, undo/export, and snapping index/query costs. Large-dataset rendering,
-interaction latency, memory, touch input, and
-other browser engines still require measurement before production-scale claims.
+selection, deletion/export, vertex movement, import, undo/export, and snapping index/query costs.
+Installed-browser latency and memory budgets are summarized in
+[compatibility and limits](compatibility.md).
 
 ## Boundary tracing
 

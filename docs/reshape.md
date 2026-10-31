@@ -101,7 +101,6 @@ or `longer`; it recalculates the preview without changing stored data.
 incomplete/invalid/inactive reshape. `reshapeError` and `reshapeSide` are null
 outside this tool. `validationError` and `splitError` stay null during reshape.
 Getters remain readable after destruction; commands/subscriptions throw.
-LineEditor does not expose reshape.
 
 `finishReshape()` commits one update through the transaction boundary and returns
 its complete event. Inactive/invalid review returns null; invalid review stays

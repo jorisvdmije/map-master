@@ -181,4 +181,4 @@ Try the [import and export example](geojson.md), then explore [editing and Undo]
 - Coordinates are `[longitude, latitude]` in 2D WGS84. Review the supported geometry and projection limits.
 - Use a basemap style of your choice in place of the plain background; its licensing and access requirements are separate.
 - This quickstart uses Vite. Other bundlers must also serve and configure the MapLibre worker.
-- Read [compatibility and performance scope](../../docs/beta-budgets.md) before promising support for a browser, device or large dataset.
+- Read [compatibility and limits](../../docs/compatibility.md) before promising support for a browser, device or large dataset.

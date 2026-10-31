@@ -23,7 +23,7 @@ const editor = new GeometryEditor(map, {
 });
 ```
 
-`GeometryEditor` and the `LineEditor` facade expose:
+`GeometryEditor` exposes:
 
 - `setStyling(options: EditorStylingOptions)`: **replace** the complete ruleset.
   Unlike `setAppearance`, this is not a field patch. `{}` restores global themes
@@ -175,7 +175,7 @@ produces a diagnostic and ordinary fills, never partial or outdated stripes.
 These bounds are resource policies, not a guarantee of frame-time performance
 for every geometry. A worker-based solution for larger datasets is future work.
 
-`npm run benchmark:styling` measures uncached partitioning and cached restyling
+`npm run benchmark -- styling` measures uncached partitioning and cached restyling
 on fixed disjoint, three-member-group and dense workloads. It excludes source
 workers/GPU rendering; the full `npm run check` also covers the installed-consumer
 latency/lifecycle budgets with default styling. Unit tests cover topology,

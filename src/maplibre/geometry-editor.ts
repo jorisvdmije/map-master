@@ -5,7 +5,7 @@ import { constrainDrawingPoint, drawingConstraintsOptions } from '../core/drawin
 import { copyAppearance, resolveAppearance, type EditorAppearance, type EditorAppearanceOptions } from '../core/appearance.js';
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { DrawingSession } from '../core/drawing-session.js';
-import type { Coordinate, CutFeedback, VertexUpdate, DrawingConstraintsOptions, SharedBoundaryPreview, TraceTarget, TraceSide, TracingOptions, ReshapePreview, ReshapeSide, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType } from '../core/types.js';
+import type { Coordinate, CutFeedback, VertexUpdate, DrawingConstraintsOptions, SharedBoundaryPreview, TraceTarget, TraceSide, TracingOptions, ReshapePreview, ReshapeSide, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, DataChangeEvent, DataChangeSource, FeatureChange } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
 import { BoundarySnapping } from './boundary-snapping.js';
 import { MapLibreSnapping } from './snapping.js';
@@ -23,7 +23,23 @@ import { KeyboardInteraction } from './keyboard-interaction.js';
 import { GeoJSONImportError } from '../core/geojson-import.js';
 
 const editors = new WeakSet<MapLibreMap>();
-/** Public drawing API. MapLibre input and rendering stay behind this boundary. */
+
+/**
+ * Interactive geometry editor for one MapLibre map.
+ *
+ * The editor owns drawing, selection, vertex editing, validation, undo/redo and its
+ * own map layers. The application owns the map, its controls and persistence.
+ * Coordinates are WGS84 `[longitude, latitude]`; data is exchanged as GeoJSON.
+ *
+ * @example
+ * ```ts
+ * map.once('load', () => {
+ *   const editor = new GeometryEditor(map, { snapping: { enabled: true } });
+ *   editor.onDataChange(() => save(editor.exportGeoJSON()));
+ *   editor.draw('Polygon'); // Click on the map; Enter finishes, Escape cancels.
+ * });
+ * ```
+ */
 export class GeometryEditor {
   private appearance: EditorAppearance;
   private drawingConstraints: DrawingConstraintsOptions;
@@ -55,6 +71,11 @@ export class GeometryEditor {
   private restoreDoubleClickZoom = false;
   private destroyed = false;
 
+  /**
+   * Attach an editor to a map whose style has loaded, for example in a `load` handler.
+   * @throws Error if the map already has an editor or its style has not loaded, or if
+   * the page is not a secure context (HTTPS or localhost) able to generate feature IDs.
+   */
   constructor(private readonly map: MapLibreMap, options: EditorOptions = {}) {
     if (editors.has(map)) throw new Error('Only one geometry editor can be attached to a map.');
     // getStyle() is available once the style is initialized, even if background
@@ -211,14 +232,23 @@ export class GeometryEditor {
 
   // Public API: application controls and subscriptions.
 
+  /** A fresh snapshot of the active mode, selection, history availability and tool state. */
   getState(): EditorState {
     return this.session.state;
   }
 
+  /** IDs the host has made read-only; see {@link GeometryEditor.setLockedFeatureIds}. */
   getLockedFeatureIds(): FeatureId[] { return this.session.getLockedFeatureIds(); }
+  /** Whether a feature is currently locked against changes. */
   isFeatureLocked(id: FeatureId): boolean { return this.session.isFeatureLocked(id); }
 
-  /** Replace host locks atomically. Policy is separate from GeoJSON and history. */
+  /**
+   * Replace the set of read-only feature IDs.
+   *
+   * Locked features cannot be edited, moved or deleted and history entries touching them
+   * are blocked, but they remain snapping and tracing targets. An active tool that changes
+   * a newly locked feature is cancelled. Locks are UI policy, not authorization.
+   */
   setLockedFeatureIds(ids: readonly FeatureId[]): void {
     this.assertAlive();
     const next = lockedFeatureIds(ids);
@@ -234,10 +264,14 @@ export class GeometryEditor {
     this.emitChange();
   }
 
-  /** Independent snapshot; changing it never changes the editor. */
+  /** A copy of the complete resolved appearance: colors, outlines and marker sizes. */
   getAppearance(): EditorAppearance { return copyAppearance(this.appearance); }
 
-  /** Atomically validate a presentation patch. No data upload, draft cancellation or history action. */
+  /**
+   * Patch presentation settings. The patch is validated atomically; data, drafts and
+   * history are never affected, and the settings survive map style changes.
+   * @throws TypeError if a value is invalid; the appearance is then unchanged.
+   */
   setAppearance(patch: EditorAppearanceOptions): void {
     this.assertAlive();
     const next = resolveAppearance(patch, this.appearance);
@@ -249,16 +283,18 @@ export class GeometryEditor {
     this.emitChange();
   }
 
+  /** The current per-feature styling options. */
   getStyling(): EditorStylingOptions { return this.renderer.getStyling(); }
+  /** Problems found while applying styling rules, such as a resolver that threw. */
   getStylingIssues(): StylingIssue[] { return this.renderer.getStylingIssues(); }
-  /** Replace optional style rules. Presentation only; no history or data mutation. */
+  /** Replace the per-feature styling rules. Presentation only: no data or history change. */
   setStyling(options: EditorStylingOptions): void {
     this.assertAlive();
     const next = resolveStyling(options);
     this.renderer.setStyling(next);
     this.emitChange();
   }
-  /** Re-evaluate rules after external application state changes. */
+  /** Re-run the styling rules after application state they depend on has changed. */
   refreshStyling(): void {
     this.assertAlive(); this.renderer.refreshStyling(); this.emitChange();
   }
@@ -269,7 +305,12 @@ export class GeometryEditor {
     return options;
   }
 
+  /** The current boundary-tracing options. */
   getTracing(): TracingOptions { return { ...this.tracing }; }
+  /**
+   * Update boundary tracing: while drawing, clicking along an existing line or ring
+   * follows its corners. Pointer tracing requires snapping to be enabled.
+   */
   setTracing(update: Partial<TracingOptions>): void {
     this.assertAlive();
     const next = this.tracingOptions(update, this.tracing);
@@ -279,7 +320,11 @@ export class GeometryEditor {
     this.schedulePreview(); this.emitChange();
   }
 
-  /** Programmatic tracing does not require mouse snapping or the tracing toggle. */
+  /**
+   * Append the section of an existing line or ring between two points to the active
+   * line, polygon or hole draft. Works without the tracing toggle or pointer snapping.
+   * @returns false when no draft accepts the section.
+   */
   traceBoundary(target: TraceTarget, from: Coordinate, to: Coordinate, side: TraceSide = this.tracing.side): boolean {
     this.assertAlive();
     const changed = this.session.traceBoundary(target, from, to, side);
@@ -291,6 +336,11 @@ export class GeometryEditor {
     this.draftChanged(changed); return changed;
   }
 
+  /**
+   * Undo the last click while drawing a line, polygon or hole; a traced section
+   * counts as one step.
+   * @returns false when there is nothing to remove.
+   */
   removeLastDrawStep(): boolean {
     this.assertAlive();
     const changed = this.session.removeLastDrawStep();
@@ -303,7 +353,10 @@ export class GeometryEditor {
     this.draftChanged(changed); return changed;
   }
 
-  /** Prospective source route only; pointer motion never changes draft validity or stored data. */
+  /**
+   * The route a click at the current pointer position would trace, or null.
+   * Reading it never changes the draft.
+   */
   getTracePreview(): Coordinate[] | null {
     if (!this.pointer || !this.canTracePointer() || !this.traceAnchor || this.altPressed) return null;
     const resolved = this.resolvePointer(this.pointer);
@@ -323,7 +376,12 @@ export class GeometryEditor {
       && (mode === 'draw-line' || mode === 'draw-polygon' || mode === 'draw-hole');
   }
 
+  /** The current angle-constraint options. */
   getDrawingConstraints(): DrawingConstraintsOptions { return { ...this.drawingConstraints }; }
+  /**
+   * Update the optional 45°/90° direction grid for new line, polygon and hole
+   * segments. Exact snaps, tracing and closing a ring take priority; holding Alt bypasses it.
+   */
   setDrawingConstraints(update: Partial<DrawingConstraintsOptions>): void {
     this.assertAlive();
     const next = drawingConstraintsOptions(update, this.drawingConstraints);
@@ -332,7 +390,12 @@ export class GeometryEditor {
     this.schedulePreview(); this.emitChange();
   }
 
+  /** The current snapping options. */
   getSnapping(): SnappingOptions { return this.snapping.getOptions(); }
+  /**
+   * Update snapping for drawing, vertex dragging and moving shapes. Vertices take
+   * priority over edges; holding Alt places freely.
+   */
   setSnapping(options: Partial<SnappingOptions>): void {
     this.assertAlive();
     if (!this.snapping.setOptions(options)) return;
@@ -348,13 +411,21 @@ export class GeometryEditor {
     this.schedulePreview();
     this.emitChange();
   }
+  /** The snap target currently under the pointer, or null. */
   getSnap(): SnapResult | null { return this.snap ? { ...this.snap, coordinate: [...this.snap.coordinate] } : null; }
+  /**
+   * Subscribe to changes of the acquired snap target.
+   * @returns A function that unsubscribes.
+   */
   onSnap(listener: (result: SnapResult | null) => void): () => void {
     this.assertAlive();
     return this.events.on('snap', listener);
   }
 
-  /** Select one committed feature, or pass null to clear selection. */
+  /**
+   * Select one committed feature, or pass null to clear the selection. Only while idle.
+   * @throws RangeError if the ID is unknown.
+   */
   select(id: FeatureId | null): void {
     this.assertAlive();
     this.cancelIdleGestures();
@@ -363,7 +434,10 @@ export class GeometryEditor {
     this.emitChange();
   }
 
-  /** Replace the selection; unknown IDs reject the entire update. */
+  /**
+   * Replace the selection with these features, in order; duplicates are ignored.
+   * @throws RangeError if any ID is unknown; the selection is then unchanged.
+   */
   selectMany(ids: readonly FeatureId[]): void {
     this.assertAlive(); this.cancelIdleGestures();
     if (!this.session.selectMany(ids)) return;
@@ -371,6 +445,10 @@ export class GeometryEditor {
     this.emitChange();
   }
 
+  /**
+   * Add a feature to the selection, or remove it if it is already selected.
+   * @throws RangeError if the ID is unknown.
+   */
   toggleSelection(id: FeatureId): void {
     this.assertAlive(); this.cancelIdleGestures();
     this.session.toggleSelection(id);
@@ -378,10 +456,10 @@ export class GeometryEditor {
     this.emitChange();
   }
 
-  /** Independent snapshots in selection acquisition order. */
+  /** Copies of all selected features, in the order they were selected. */
   getSelection(): GeometryFeature[] { return this.session.getSelection(); }
 
-  /** An independent snapshot when exactly one feature is selected, otherwise null. */
+  /** A copy of the selected feature when exactly one is selected, otherwise null. */
   getSelected(): GeometryFeature | null {
     return this.session.getSelected();
   }
@@ -401,17 +479,31 @@ export class GeometryEditor {
     });
   }
 
+  /** A copy of one committed feature, or null if the ID is unknown. */
+  getFeature(id: FeatureId): GeometryFeature | null { return this.session.getFeature(id); }
+
+  /** A copy of the active draft's coordinates (the open ring for polygons), or an empty array. */
   getDraft(): Coordinate[] { return this.session.getDraft(); }
 
-  /** Preview the union of at least two selected Polygon/MultiPolygon features. */
+  /**
+   * Preview the union of two or more selected polygons. Confirm with
+   * {@link GeometryEditor.finish} or {@link GeometryEditor.finishUnion}; discard with {@link GeometryEditor.cancel}.
+   * @returns false if the selection does not qualify.
+   */
   unionSelection(): boolean {
     this.assertAlive(); this.cancelIdleGestures();
     if (!this.session.unionSelection()) return false;
     this.enterInteraction('default'); this.schedulePreview(); return true;
   }
 
+  /** The merged geometry while a union is active and valid, otherwise null. */
   getUnionPreview(): UnionPreview | null { return this.session.getUnionPreview(); }
 
+  /**
+   * Commit the union as one undo step. The first selected feature keeps its ID and
+   * properties; the other inputs are deleted.
+   * @returns null when no valid union is active.
+   */
   finishUnion(): TransactionEvent | null {
     this.assertAlive();
     const event = this.session.finishUnion();
@@ -420,15 +512,27 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
-  /** Preview the area common to all selected Polygon/MultiPolygon features. */
+  /**
+   * Preview the area shared by all selected polygons.
+   * @returns false if the selection does not qualify.
+   */
   intersectionSelection(): boolean {
     this.assertAlive(); this.cancelIdleGestures();
     if (!this.session.intersectionSelection()) return false;
     this.enterInteraction('default'); this.schedulePreview(); return true;
   }
 
+  /**
+   * The intersection while active and valid, otherwise null. A null `geometry`
+   * means the result is empty.
+   */
   getIntersectionPreview(): IntersectionPreview | null { return this.session.getIntersectionPreview(); }
 
+  /**
+   * Commit the intersection into the first selected feature and delete the other
+   * inputs, as one undo step. An empty result deletes every input.
+   * @returns null when no valid intersection is active.
+   */
   finishIntersection(): TransactionEvent | null {
     this.assertAlive();
     const event = this.session.finishIntersection();
@@ -437,15 +541,27 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
-  /** Subtract the remaining selected polygons from the first, preserving cutters. */
+  /**
+   * Preview subtracting the other selected polygons from the first one.
+   * The cutters are kept.
+   * @returns false if the selection does not qualify.
+   */
   differenceSelection(): boolean {
     this.assertAlive(); this.cancelIdleGestures();
     if (!this.session.differenceSelection()) return false;
     this.enterInteraction('default'); this.schedulePreview(); return true;
   }
 
+  /**
+   * The subtraction result while active and valid, otherwise null. A null
+   * `geometry` means the target would be deleted.
+   */
   getDifferencePreview(): DifferencePreview | null { return this.session.getDifferencePreview(); }
 
+  /**
+   * Commit the subtraction to the first selected feature as one undo step.
+   * @returns null when inactive, invalid or unchanged.
+   */
   finishDifference(): TransactionEvent | null {
     this.assertAlive();
     const state = this.session.state;
@@ -456,7 +572,11 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
-  /** Replace one arc of the selected single-ring polygon with a boundary-to-boundary path. */
+  /**
+   * Start replacing one boundary section of the selected single-ring polygon with a
+   * new path drawn from boundary to boundary.
+   * @returns false if the selection does not qualify.
+   */
   reshapeSelected(): boolean {
     this.assertAlive();
     this.cancelIdleGestures();
@@ -467,19 +587,29 @@ export class GeometryEditor {
     this.enterInteraction(); this.schedulePreview(); return true;
   }
 
+  /** Replace the reshape route; its endpoints must lie on the original boundary. */
   setReshapePath(coordinates: Coordinate[]): void {
     this.assertAlive(); this.session.setReshapePath(coordinates);
     this.pointer = undefined; this.cursor = undefined; this.setSnap(null);
     this.schedulePreview(); this.emitChange();
   }
 
+  /**
+   * Remove the last reshape route point.
+   * @returns false if the route is empty.
+   */
   removeReshapePoint(): boolean {
     this.assertAlive(); const changed = this.session.removeReshapePoint();
     this.draftChanged(changed); return changed;
   }
 
+  /** The reshaped polygon geometry while the route is valid, otherwise null. */
   getReshapePreview(): ReshapePreview | null { return this.session.getReshapePreview(); }
 
+  /**
+   * Commit the reshape as one update and undo step.
+   * @returns null when inactive, invalid or unchanged.
+   */
   finishReshape(): TransactionEvent | null {
     this.assertAlive();
     if (this.session.state.mode !== 'reshape-polygon' || !this.session.state.canFinish) return null;
@@ -489,11 +619,16 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
+  /** Choose which boundary arc between the route endpoints is replaced; default `'shorter'`. */
   setReshapeSide(side: ReshapeSide): void {
     this.assertAlive(); this.draftChanged(this.session.setReshapeSide(side));
   }
 
-  /** Start a cut with endpoints on or outside the selected polygon; cuts must avoid holes. */
+  /**
+   * Start cutting the selected polygon in two. The cutting line must start and end on
+   * or outside the boundary and may not cross holes.
+   * @returns false if the selection does not qualify.
+   */
   splitSelected(): boolean {
     this.assertAlive();
     this.cancelIdleGestures();
@@ -504,21 +639,36 @@ export class GeometryEditor {
     this.enterInteraction(); this.schedulePreview(); return true;
   }
 
+  /** Replace the cutting line with these coordinates. */
   setSplitLine(coordinates: Coordinate[]): void {
     this.assertAlive(); this.session.setSplitLine(coordinates);
     this.pointer = undefined; this.cursor = undefined; this.setSnap(null);
     this.schedulePreview(); this.emitChange();
   }
 
+  /**
+   * Remove the last cutting-line point.
+   * @returns false if the line is empty.
+   */
   removeSplitPoint(): boolean {
     this.assertAlive(); const changed = this.session.removeSplitPoint();
     this.draftChanged(changed); return changed;
   }
 
+  /**
+   * Split/reshape diagnostics for the placed points: boundary contacts and localized
+   * problems. Null outside those tools.
+   */
   getCutFeedback(): CutFeedback | null { return this.session.getCutFeedback(); }
 
+  /** Both resulting polygons while the cut is valid, otherwise null. */
   getSplitPreview(): SplitPreview | null { return this.session.getSplitPreview(); }
 
+  /**
+   * Commit the split as one undo step: the original feature keeps one part and a new
+   * feature with copied properties receives the other.
+   * @returns null when no valid split is active.
+   */
   finishSplit(): TransactionEvent | null {
     this.assertAlive();
     const event = this.session.finishSplit();
@@ -527,13 +677,20 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
-  /** Begin a cancellable rotation of the selection around a Mercator pivot. */
+  /**
+   * Start rotating the selection around a pivot; by default the centre of its bounds.
+   * @returns false if the selection does not qualify.
+   */
   rotateSelection(pivot?: Coordinate): boolean {
     this.assertAlive(); this.cancelIdleGestures();
     if (!this.session.rotateSelection(pivot)) return false;
     this.enterInteraction('default'); this.schedulePreview(); return true;
   }
 
+  /**
+   * Set the absolute clockwise angle in degrees, relative to the original geometry.
+   * @returns whether the preview changed.
+   */
   setRotationAngle(degrees: number): boolean {
     this.assertAlive();
     this.rotation.stop(); this.pivot.stop();
@@ -541,15 +698,20 @@ export class GeometryEditor {
     this.draftChanged(changed); return changed;
   }
 
-  /** Change the pivot while retaining the current absolute angle; omit to reset to centre. */
+  /** Move the pivot while keeping the current angle; omit it to reset to the centre. */
   setRotationPivot(pivot?: Coordinate): boolean {
     this.assertAlive(); this.rotation.stop(); this.pivot.stop();
     const changed = this.session.setRotationPivot(pivot);
     this.draftChanged(changed); return changed;
   }
 
+  /** The rotated features while the preview is valid, otherwise null. */
   getRotationPreview(): GeometryFeatureCollection | null { return this.session.getRotationPreview(); }
 
+  /**
+   * Commit the rotation as one undo step.
+   * @returns null when inactive, invalid or unchanged.
+   */
   finishRotation(): TransactionEvent | null {
     this.assertAlive();
     this.rotation.stop(); this.pivot.stop();
@@ -560,13 +722,20 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
-  /** Begin a cancellable scaling of the selection around a Mercator pivot. */
+  /**
+   * Start scaling the selection around a pivot; by default the centre of its bounds.
+   * @returns false if the selection does not qualify.
+   */
   scaleSelection(pivot?: Coordinate): boolean {
     this.assertAlive(); this.cancelIdleGestures();
     if (!this.session.scaleSelection(pivot)) return false;
     this.enterInteraction('default'); this.schedulePreview(); return true;
   }
 
+  /**
+   * Set one positive factor for both axes, relative to the original geometry.
+   * @returns whether the preview changed.
+   */
   setScaleFactor(factor: number): boolean {
     this.assertAlive();
     this.scaling.stop(); this.pivot.stop();
@@ -574,22 +743,30 @@ export class GeometryEditor {
     this.draftChanged(changed); return changed;
   }
 
-  /** Set independent horizontal and vertical Mercator scale factors. */
+  /**
+   * Set independent positive horizontal and vertical factors.
+   * @returns whether the preview changed.
+   */
   setScaleFactors(horizontal: number, vertical: number): boolean {
     this.assertAlive(); this.scaling.stop(); this.pivot.stop();
     const changed = this.session.setScaleFactors(horizontal, vertical);
     this.draftChanged(changed); return changed;
   }
 
-  /** Change the pivot while retaining absolute factors; omit to reset to centre. */
+  /** Move the pivot while keeping the current factors; omit it to reset to the centre. */
   setScalePivot(pivot?: Coordinate): boolean {
     this.assertAlive(); this.scaling.stop(); this.pivot.stop();
     const changed = this.session.setScalePivot(pivot);
     this.draftChanged(changed); return changed;
   }
 
+  /** The scaled features while the preview is valid, otherwise null. */
   getScalePreview(): GeometryFeatureCollection | null { return this.session.getScalePreview(); }
 
+  /**
+   * Commit the scaling as one undo step.
+   * @returns null when inactive, invalid or unchanged.
+   */
   finishScale(): TransactionEvent | null {
     this.assertAlive(); this.scaling.stop(); this.pivot.stop();
     if (this.session.state.mode !== 'scale-features' || !this.session.state.canFinish) return null;
@@ -599,21 +776,33 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
-  /** Begin a cancellable simplification of the selection with a Mercator-plane distance tolerance. */
+  /**
+   * Start simplifying the selected lines and polygons; the tolerance starts at 0.
+   * @returns false if the selection does not qualify.
+   */
   simplifySelection(): boolean {
     this.assertAlive(); this.cancelIdleGestures();
     if (!this.session.simplifySelection()) return false;
     this.enterInteraction('default'); this.schedulePreview(); return true;
   }
 
+  /**
+   * Set the non-negative tolerance in Mercator meters, applied to the original geometry.
+   * @returns whether the preview changed.
+   */
   setSimplificationTolerance(meters: number): boolean {
     this.assertAlive();
     const changed = this.session.setSimplificationTolerance(meters);
     this.draftChanged(changed); return changed;
   }
 
+  /** The simplified features while the preview is valid, otherwise null. */
   getSimplificationPreview(): GeometryFeatureCollection | null { return this.session.getSimplificationPreview(); }
 
+  /**
+   * Commit the simplification as one undo step.
+   * @returns null when inactive, invalid or unchanged.
+   */
   finishSimplification(): TransactionEvent | null {
     this.assertAlive();
     if (this.session.state.mode !== 'simplify-features' || !this.session.state.canFinish) return null;
@@ -623,21 +812,34 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
-  /** Begin a cancellable offset of the selection with a signed Mercator-plane distance. */
+  /**
+   * Start offsetting the selected simple open lines; the distance starts at 0.
+   * @returns false if the selection does not qualify.
+   */
   offsetSelection(): boolean {
     this.assertAlive(); this.cancelIdleGestures();
     if (!this.session.offsetSelection()) return false;
     this.enterInteraction('default'); this.schedulePreview(); return true;
   }
 
+  /**
+   * Set the signed offset in Mercator meters: positive is left of the line direction,
+   * negative is right.
+   * @returns whether the preview changed.
+   */
   setOffsetDistance(meters: number): boolean {
     this.assertAlive(); this.distance.stop();
     const changed = this.session.setOffsetDistance(meters);
     this.draftChanged(changed); return changed;
   }
 
+  /** The offset lines while the preview is valid, otherwise null. */
   getOffsetPreview(): GeometryFeatureCollection | null { return this.session.getOffsetPreview(); }
 
+  /**
+   * Commit the offset as one undo step.
+   * @returns null when inactive, invalid or unchanged.
+   */
   finishOffset(): TransactionEvent | null {
     this.assertAlive(); this.distance.stop();
     if (this.session.state.mode !== 'offset-lines' || !this.session.state.canFinish) return null;
@@ -647,21 +849,34 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
-  /** Begin a cancellable buffer of the selection with a positive Mercator-plane distance. */
+  /**
+   * Start buffering the selected lines and polygons outward by a positive distance in
+   * Mercator meters.
+   * @returns false if the selection does not qualify.
+   */
   bufferSelection(distance = 10): boolean {
     this.assertAlive(); this.cancelIdleGestures();
     if (!this.session.bufferSelection(distance)) return false;
     this.enterInteraction('default'); this.schedulePreview(); return true;
   }
 
+  /**
+   * Set the positive buffer distance in Mercator meters.
+   * @returns whether the preview changed.
+   */
   setBufferDistance(meters: number): boolean {
     this.assertAlive(); this.distance.stop();
     const changed = this.session.setBufferDistance(meters);
     this.draftChanged(changed); return changed;
   }
 
+  /** The buffered features while the preview is valid, otherwise null. */
   getBufferPreview(): GeometryFeatureCollection | null { return this.session.getBufferPreview(); }
 
+  /**
+   * Commit the buffer as one undo step.
+   * @returns null when inactive, invalid or unchanged.
+   */
   finishBuffer(): TransactionEvent | null {
     this.assertAlive(); this.distance.stop();
     if (this.session.state.mode !== 'buffer-features' || !this.session.state.canFinish) return null;
@@ -671,7 +886,11 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
-  /** Edit the common boundary of two selected single-ring polygons, keeping junctions fixed. */
+  /**
+   * Edit the common boundary of two selected single-ring polygons together; the
+   * junctions stay fixed.
+   * @returns false if the selection has no exactly shared boundary.
+   */
   editSharedBoundary(): boolean {
     this.assertAlive(); this.cancelIdleGestures();
     if (!this.session.editSharedBoundary()) return false;
@@ -679,8 +898,13 @@ export class GeometryEditor {
     this.enterInteraction(); this.schedulePreview(); return true;
   }
 
+  /** Both updated polygons while the edit is valid, otherwise null. */
   getSharedBoundaryPreview(): SharedBoundaryPreview | null { return this.session.getSharedBoundaryPreview(); }
 
+  /**
+   * Save both polygons as one undo step.
+   * @returns null when inactive, invalid or unchanged.
+   */
   finishSharedBoundary(): TransactionEvent | null {
     this.assertAlive();
     const initial = this.session.state;
@@ -695,7 +919,13 @@ export class GeometryEditor {
     return this.publishTransaction(event);
   }
 
-  /** Begin a cancellable edit of the selected feature; false with no selection/already editing. */
+  /**
+   * Start editing the vertices of the selected feature. Choose a ring for polygons
+   * (0 is the exterior) and a part for multipart features. Save with {@link GeometryEditor.finish}
+   * and discard with {@link GeometryEditor.cancel}.
+   * @returns false without a single unlocked selected feature.
+   * @throws RangeError if the ring or part index does not exist.
+   */
   editSelected(ringIndex = 0, partIndex = 0): boolean {
     this.assertAlive();
     this.cancelIdleGestures();
@@ -706,7 +936,11 @@ export class GeometryEditor {
     return true;
   }
 
-  /** Begin drawing an interior ring; Finish saves, Cancel restores the original. */
+  /**
+   * Start drawing a hole in the selected polygon (or one part of a multipolygon).
+   * {@link GeometryEditor.finish} saves it; {@link GeometryEditor.cancel} discards it.
+   * @returns false if the selection does not qualify.
+   */
   drawHole(partIndex = 0): boolean {
     this.assertAlive(); this.cancelIdleGestures();
     if (!this.session.drawHole(partIndex)) return false;
@@ -714,46 +948,67 @@ export class GeometryEditor {
     this.enterInteraction(); this.schedulePreview(); return true;
   }
 
+  /**
+   * Remove an interior ring (index 1 or higher) from the selected polygon as one undo step.
+   * @returns null if the selection does not qualify.
+   */
   deleteHole(ringIndex: number, partIndex = 0): TransactionEvent | null {
     this.assertAlive(); this.cancelIdleGestures();
     return this.publishTransaction(this.session.deleteHole(ringIndex, partIndex));
   }
 
+  /** Select one vertex of the edit draft by index, or clear the vertex selection with null. */
   selectVertex(index: number | null): void {
     this.assertAlive(); this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.selectVertex(index));
   }
 
+  /** Select several vertices of the edit draft; an empty array clears the selection. */
   selectVertices(indices: readonly number[]): void {
     this.assertAlive(); this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.selectVertices(indices));
   }
 
+  /** Move several vertices of the edit draft to absolute coordinates at once and select them. */
   moveVertices(updates: readonly VertexUpdate[]): void {
     this.assertAlive(); this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.moveVertices(updates));
   }
 
+  /**
+   * Move the selected vertices by a `[longitude, latitude]` offset in degrees,
+   * without snapping.
+   */
   translateSelectedVertices(delta: Coordinate): void {
     this.assertAlive(); this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.translateSelectedVertices(delta));
   }
 
+  /**
+   * Remove every selected vertex.
+   * @returns false if the geometry would become too small or a fixed junction is selected.
+   */
   removeSelectedVertices(): boolean {
     this.assertAlive(); this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     const changed = this.session.removeSelectedVertices(); this.draftChanged(changed); return changed;
   }
 
+  /** Move one vertex of the edit draft to an absolute coordinate and select it. */
   moveVertex(index: number, coordinate: Coordinate): void {
     this.assertAlive(); this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.moveVertex(index, coordinate));
   }
 
+  /** Insert a vertex at a draft index, shifting later vertices, and select it. */
   insertVertex(index: number, coordinate: Coordinate): void {
     this.assertAlive(); this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     this.draftChanged(this.session.insertVertex(index, coordinate));
   }
 
+  /**
+   * Remove one vertex of the edit draft.
+   * @returns false if the geometry would become too small.
+   */
   removeVertex(index: number): boolean {
     this.assertAlive(); this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     const changed = this.session.removeVertex(index);
@@ -761,7 +1016,11 @@ export class GeometryEditor {
     return changed;
   }
 
-  /** Delete the selected feature and return its snapshot, or null if nothing is selected. */
+  /**
+   * Delete the single selected feature as one undo step.
+   * @returns The deleted feature, or null when nothing is selected or it is locked.
+   * @throws RangeError when several features are selected; use {@link GeometryEditor.deleteSelection}.
+   */
   deleteSelected(): GeometryFeature | null {
     this.assertAlive();
     this.cancelIdleGestures();
@@ -770,32 +1029,48 @@ export class GeometryEditor {
     this.renderer.renderSelection([]);
     this.renderer.renderCommitted(this.exportGeoJSON());
     this.events.emit('delete', () => structuredClone(feature));
+    this.emitData('delete', [{ before: feature, after: null }]);
     this.emitChange();
     return feature;
   }
 
-  /** Delete all selected features as one transaction, including a single selection. */
+  /**
+   * Delete every selected feature as one undo step.
+   * @returns The committed changes, or null when nothing was deleted.
+   */
   deleteSelection(): TransactionEvent | null {
     this.assertAlive();
     this.cancelIdleGestures();
     return this.publishTransaction(this.session.deleteSelection());
   }
 
-  /** Translate the current selection in longitude/latitude degrees, atomically. */
+  /**
+   * Move the selection by a `[longitude, latitude]` offset in degrees as one undo step.
+   * @returns The committed changes, or null when nothing moved.
+   */
   translateSelection(delta: Coordinate): TransactionEvent | null {
     this.assertAlive();
     this.cancelIdleGestures();
     return this.publishTransaction(this.session.translateSelection(delta));
   }
 
-  /** Create and select independent copies, optionally translated in degrees. */
+  /**
+   * Copy the selection with new IDs, optionally offset in degrees, and select the copies.
+   * One undo step.
+   * @returns The committed changes, or null when nothing is selected.
+   */
   duplicateSelection(delta: Coordinate = [0, 0]): TransactionEvent | null {
     this.assertAlive();
     this.cancelIdleGestures();
     return this.publishTransaction(this.session.duplicateSelection(delta));
   }
 
-  /** Start drawing. Finish/cancel the current draft before changing geometry type. */
+  /**
+   * Start drawing a new feature and focus the map. Users click to add points;
+   * {@link GeometryEditor.finish} (or Enter) commits and {@link GeometryEditor.cancel} (or Escape) discards.
+   * Calling it again with the active type keeps the draft.
+   * @throws Error when another tool is active; finish or cancel it first.
+   */
   draw(kind: DrawGeometryType): void {
     this.assertAlive();
     this.cancelIdleGestures();
@@ -804,7 +1079,11 @@ export class GeometryEditor {
     this.enterInteraction();
   }
 
-  /** Confirm a valid tool; null also represents a successfully committed empty overlay. */
+  /**
+   * Confirm the active tool: commit the drawing or edit, or apply the active geometry operation.
+   * @returns The created or updated feature, or null when nothing valid is active. A valid
+   * difference or intersection with an empty result also returns null after committing.
+   */
   finish(): GeometryFeature | null {
     this.assertAlive();
     if (this.session.state.mode === 'offset-lines') {
@@ -872,17 +1151,24 @@ export class GeometryEditor {
     if (this.session.state.mode === 'split-polygon') return this.finishSplit()?.changes[0]?.after ?? null;
     this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     const before = this.session.state;
+    const editing = before.mode.startsWith('edit-') || before.mode === 'draw-hole';
+    const original = editing && before.selectedFeatureId !== null ? this.session.getFeature(before.selectedFeatureId) : null;
     const feature = this.session.finish();
     if (!feature) return null;
     this.leaveDrawing();
     if (this.session.state.dataRevision !== before.dataRevision) {
       this.renderer.renderCommitted(this.exportGeoJSON());
-      this.events.emit(before.mode.startsWith('edit-') || before.mode === 'draw-hole' ? 'update' : 'create', () => structuredClone(feature));
+      this.events.emit(editing ? 'update' : 'create', () => structuredClone(feature));
+      this.emitData(editing ? 'update' : 'create', [{ before: original, after: feature }]);
     }
     this.emitChange();
     return feature;
   }
 
+  /**
+   * Discard the active draft, edit or preview without changing data. Also stops a
+   * selection rectangle or drag in progress.
+   */
   cancel(): void {
     this.assertAlive();
     this.cancelIdleGestures();
@@ -892,12 +1178,20 @@ export class GeometryEditor {
     this.emitChange();
   }
 
-  /** An independent snapshot of committed features, also readable after destroy(). */
+  /**
+   * A copy of all committed features as a FeatureCollection. Drafts are not included.
+   * Also readable after {@link GeometryEditor.destroy}.
+   */
   exportGeoJSON(): GeometryFeatureCollection {
     return this.session.exportGeoJSON();
   }
 
-  /** Atomically append a parsed Feature or FeatureCollection. Existing IDs cannot be overwritten. */
+  /**
+   * Validate and append a parsed GeoJSON Feature or FeatureCollection as one undo step.
+   * Features without an ID receive a generated UUID; existing IDs cannot be overwritten.
+   * @returns The imported features as stored.
+   * @throws GeoJSONImportError if any feature is invalid; nothing is imported then.
+   */
   importGeoJSON(input: unknown): GeometryFeatureCollection {
     this.assertAlive();
     this.cancelIdleGestures();
@@ -905,62 +1199,120 @@ export class GeometryEditor {
     if (imported.features.length === 0) return imported;
     this.renderer.renderCommitted(this.exportGeoJSON());
     this.events.emit('import', () => structuredClone(imported));
+    this.emitData('import', imported.features.map((after) => ({ before: null, after })));
     this.emitChange();
     return imported;
   }
 
-  /** Apply a mixed batch atomically; callbacks receive the complete committed changes. */
+  /**
+   * Create, update and delete features atomically as one undo step.
+   * @returns The committed changes, or null if nothing changed.
+   * @throws GeoJSONImportError, TypeError or RangeError if the batch is invalid; nothing is applied then.
+   * @throws FeatureLockedError if the batch changes a locked feature.
+   */
   applyTransaction(input: FeatureTransaction): TransactionEvent | null {
     this.assertAlive();
     this.cancelIdleGestures();
     return this.publishTransaction(this.session.applyTransaction(input));
   }
 
+  /**
+   * Subscribe to every committed change of the stored features in one stream: drawing,
+   * editing, deletion, import, transactions, geometry tools and undo/redo. Use it to save data.
+   * Drafts and previews never trigger it.
+   * @returns A function that unsubscribes.
+   */
+  onDataChange(listener: (event: DataChangeEvent) => void): () => void {
+    this.assertAlive();
+    return this.events.on('data', listener);
+  }
+
+  /**
+   * Subscribe to committed transactions, including those made by geometry tools.
+   * @returns A function that unsubscribes.
+   */
   onTransaction(listener: (event: TransactionEvent) => void): () => void {
     this.assertAlive();
     return this.events.on('transaction', listener);
   }
 
+  /**
+   * Subscribe to successful imports.
+   * @returns A function that unsubscribes.
+   */
   onImport(listener: (collection: GeometryFeatureCollection) => void): () => void {
     this.assertAlive();
     return this.events.on('import', listener);
   }
 
+  /**
+   * Revert the last committed action.
+   * @returns false if nothing can be undone, including while a tool is active.
+   */
   undo(): boolean { return this.replayHistory('undo'); }
+  /**
+   * Re-apply the last undone action.
+   * @returns false if nothing can be redone.
+   */
   redo(): boolean { return this.replayHistory('redo'); }
 
+  /** Forget all undo and redo steps, for example after loading saved data. */
   clearHistory(): void {
     this.assertAlive();
     this.translation.cancel();
     if (this.session.clearHistory()) this.emitChange();
   }
 
+  /**
+   * Subscribe to undo and redo.
+   * @returns A function that unsubscribes.
+   */
   onHistory(listener: (event: HistoryEvent) => void): () => void {
     this.assertAlive();
     return this.events.on('history', listener);
   }
 
+  /**
+   * Subscribe to features created by drawing.
+   * @returns A function that unsubscribes.
+   */
   onCreate(listener: (feature: GeometryFeature) => void): () => void {
     this.assertAlive();
     return this.events.on('create', listener);
   }
 
+  /**
+   * Subscribe to deletions made with {@link GeometryEditor.deleteSelected}.
+   * @returns A function that unsubscribes.
+   */
   onDelete(listener: (feature: GeometryFeature) => void): () => void {
     this.assertAlive();
     return this.events.on('delete', listener);
   }
 
+  /**
+   * Subscribe to features saved after vertex editing or hole drawing.
+   * @returns A function that unsubscribes.
+   */
   onUpdate(listener: (feature: GeometryFeature) => void): () => void {
     this.assertAlive();
     return this.events.on('update', listener);
   }
 
+  /**
+   * Subscribe to state changes (mode, selection, drafts and data), for example to update
+   * a toolbar.
+   * @returns A function that unsubscribes.
+   */
   onChange(listener: (state: EditorState) => void): () => void {
     this.assertAlive();
     return this.events.on('change', listener);
   }
 
-  /** Idempotently remove this editor's handlers and map resources. */
+  /**
+   * Remove this editor's event handlers, layers and sources. Safe to call more than once;
+   * removing the map destroys the editor automatically.
+   */
   destroy(): void {
     this.dispose(true);
   }
@@ -1128,6 +1480,7 @@ export class GeometryEditor {
     this.renderer.renderSelection(this.session.state.selectedFeatureIds);
     this.renderer.renderCommitted(this.exportGeoJSON());
     this.events.emit('transaction', () => structuredClone(event));
+    this.emitData('transaction', event.changes);
     this.emitChange();
     return event;
   }
@@ -1140,6 +1493,7 @@ export class GeometryEditor {
     this.renderer.renderSelection(this.session.state.selectedFeatureIds);
     this.renderer.renderCommitted(this.exportGeoJSON());
     this.events.emit('history', () => structuredClone(event));
+    this.emitData(direction, event.changes);
     this.emitChange();
     return true;
   }
@@ -1153,6 +1507,11 @@ export class GeometryEditor {
 
   private assertAlive(): void {
     if (this.destroyed) throw new Error('This GeometryEditor has been destroyed.');
+  }
+
+  private emitData(source: DataChangeSource, changes: FeatureChange[]): void {
+    const dataRevision = this.session.state.dataRevision;
+    this.events.emit('data', (): DataChangeEvent => ({ source, changes: structuredClone(changes), dataRevision }));
   }
 
   private emitChange(): void {

@@ -22,7 +22,6 @@ editor.setAppearance(original); // Restore the complete captured appearance.
 ```
 
 Create the editor after the MapLibre style has initialized, as usual.
-`LineEditor` accepts the same constructor option and exposes the same methods.
 
 ## Patch and event contract
 

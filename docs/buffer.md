@@ -136,9 +136,8 @@ if (editor.bufferSelection(10)) {
 - `finish()` takes the same commit path and returns the first preview feature,
   including unchanged confirmation. Use `finishBuffer()` for the complete batch.
 
-Consumers with exhaustive state/mode switches must handle these additions. The
-LineEditor compatibility facade does not expose buffering. Getters remain readable
-after destruction; commands/subscriptions throw.
+Consumers with exhaustive state/mode switches must handle these additions.
+Getters remain readable after destruction; commands/subscriptions throw.
 
 ## Rendering, history and lifecycle
 

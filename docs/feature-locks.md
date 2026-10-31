@@ -1,6 +1,6 @@
 # Feature locks
 
-Milestone 18c adds host-defined read-only feature IDs. Locked features remain
+Feature locks make host-defined feature IDs read-only. Locked features remain
 visible, selectable, exportable, available for snapping/tracing and usable as
 subtraction cutters. Existing geometry and properties cannot be changed or deleted.
 The default is no locks. Locks cover whole features, including all multipart
@@ -28,7 +28,6 @@ try {
 editor.setLockedFeatureIds([]); // Unlock all features.
 ```
 
-These three methods and the constructor option also work on `LineEditor`.
 String and numeric IDs are distinct: `0` does not lock `"0"`. Duplicates are
 removed. Unknown IDs are allowed so the host can configure policy before import.
 Inputs must be arrays of strings or finite numbers; invalid input throws
@@ -73,8 +72,8 @@ from GeoJSON and set locks during editor construction or after loading.
 
 This is editor interaction policy, not authorization. The host can unlock IDs;
 a server must validate its own permissions. There are no per-operation roles,
-user accounts, per-ring locks, or restrictions on copying/exporting reference data
-in this milestone. The library does not change locked-feature colors automatically;
+user accounts, per-ring locks, or restrictions on copying/exporting reference data.
+The library does not change locked-feature colors automatically;
 host controls indicate protection in the demos.
 
 ## Implementation and checks

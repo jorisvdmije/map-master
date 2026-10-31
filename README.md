@@ -1,287 +1,248 @@
-<img src="assets/icon.svg" width="64" height="64" alt="">
+<p align="center">
+  <img src="assets/icon.svg" width="72" height="72" alt="">
+</p>
 
-# Map Master
+<h1 align="center">Map Master</h1>
 
-[Point markers](docs/markers.md) support one-click placement, selection, movement, import/export, locks and Undo/Redo. Choose **Marker** in the playground or **+ Marker** in the workspace.
+<p align="center">
+  Interactive geometry editing for <a href="https://maplibre.org/maplibre-gl-js/docs/">MapLibre GL JS</a>.<br>
+  Draw, select, edit, snap, split, merge and transform GeoJSON features, with validation and undo/redo built in.
+</p>
 
-A TypeScript library in development for drawing and editing geometry on web maps.
+<p align="center">
+  <a href="https://www.npmjs.com/package/@jorisvdmije/map-master"><img src="https://img.shields.io/npm/v/@jorisvdmije/map-master/beta?label=npm" alt="npm version"></a>
+  <a href="https://github.com/jorisvdmije/map-master/actions/workflows/ci.yml"><img src="https://github.com/jorisvdmije/map-master/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
+  <img src="https://img.shields.io/badge/types-TypeScript-3178c6" alt="TypeScript types included">
+  <a href="LICENSE"><img src="https://img.shields.io/npm/l/@jorisvdmije/map-master" alt="MIT license"></a>
+</p>
 
-[Documentation and interactive examples](https://jorisvdmije.github.io/map-master/)
+<p align="center">
+  <a href="https://jorisvdmije.github.io/map-master/">Documentation</a> ·
+  <a href="https://jorisvdmije.github.io/map-master/guides/quickstart.html">Quickstart</a> ·
+  <a href="https://jorisvdmije.github.io/map-master/guides/examples.html">Live examples</a> ·
+  <a href="docs/geometry-editor.md">API reference</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
 
-## Status
+---
 
-[Beta compatibility and performance gates](docs/beta-budgets.md) now check a fixed
-1,000-feature installed-consumer workload and repeated map/editor teardown. The
-verified target is desktop Chromium with mouse/keyboard and MapLibre 6.15.0.
-[Firefox/WebKit investigation](docs/browser-compatibility.md) adds passing local
-installed-workspace workflows; full cross-engine qualification remains open.
-[Touch/pen vertex editing](docs/touch-pen-vertices.md) additionally has Chromium
-input-emulation coverage; physical tablets and other touch tools remain unqualified.
+## Features
 
-Marker placement and line/polygon drawing (including holes), single and multiple feature selection, group movement and duplication, deletion, vertex editing, GeoJSON import, undo/redo, and drawing/editing/movement snapping are implemented:
-preview, validate, finish or cancel, select/deselect, delete, select groups of vertices with Shift+click or a rectangle, move/remove corners together, drag whole edges, insert vertices, and export committed features together
-as GeoJSON through one GeometryEditor API.
-[Atomic transactions](docs/transactions.md) can create, update, and delete multiple
-features as one validated batch and one undo action.
-[Polygon union](docs/union.md) previews and merges selected polygons into one feature with atomic Undo.
-[Fixed drawing angles](docs/drawing-constraints.md) optionally constrain free pointer placement to 45° or 90° map directions, with Alt bypass and exact snapping priority.
-[Line offsets](docs/offset.md) move open lines left/right with a signed Mercator-meter distance, limited miter joins, validated preview and atomic Undo.
-[Selection buffers](docs/buffer.md) turn selected lines/polygons into outward zones with a positive Mercator-meter distance, validated preview and atomic Undo.
-[Selection simplification](docs/simplification.md) removes detail with a tolerance slider or exact Mercator-meter input, vertex reduction counts, an original-outline comparison and atomic Undo.
-[Selection scaling](docs/scaling.md) resizes mixed selections around a movable pivot, with proportional corner handles, independent horizontal/vertical side handles, numeric preview and atomic Undo.
-[Selection rotation](docs/rotation.md) rotates mixed selections by dragging a handle or entering an angle, with a screen-aligned selection frame, movable snapping pivot, Shift angle steps and atomic Undo.
+- **Draw** markers, lines and polygons, including holes. Enter finishes, Escape cancels and Backspace removes the last point.
+- **Select** by click, Shift+click or Shift+drag rectangle, and list every shape under a point to choose between overlaps.
+- **Edit vertices** with mouse, keyboard, touch or pen: drag corners and whole edges, insert midpoints, select and move groups.
+- **Snap** to vertices and edges, **trace** existing boundaries and constrain new segments to **45°/90°** directions.
+- **Move, duplicate and delete** single features or whole selections.
+- **Geometry tools**: split, reshape, union, difference, intersection, buffer, line offset, simplification, rotation, scaling and shared-boundary editing, each with a live preview.
+- **Validation**: self-intersecting, degenerate or otherwise invalid geometry is never committed.
+- **Undo/redo** for every committed change, plus atomic multi-feature **transactions**.
+- **GeoJSON in and out**, with stable feature IDs and preserved properties, including MultiLineString and MultiPolygon.
+- **Styling**: theme the editor, style each feature from its properties and stripe overlapping areas.
+- **Feature locks** keep reference geometry read-only while it stays usable for snapping.
+- **Framework-agnostic** TypeScript with full type declarations. Your application owns the map, the UI and persistence.
 
-[Shared-boundary editing](docs/shared-boundaries.md) updates two adjacent single-ring polygons together, with fixed junctions and atomic Undo.
-
-[Boundary tracing](docs/tracing.md) follows existing lines and rings while drawing, with route preview and whole-section correction.
-
-[Polygon reshape](docs/reshape.md) replaces one boundary section of a single-ring polygon, with side choice, preview and atomic Undo.
-[Polygon intersection](docs/intersection.md) keeps the common filled area of all selected polygons, with a cancellable preview and atomic Undo.
-[Polygon difference](docs/difference.md) subtracts selected cutting shapes from the first selected target, preserving cutters and supporting empty results.
-[Split Features](docs/splitting.md) divides a selected polygon into two independent features.
-Split and reshape show boundary contacts, localized error markers and an original-outline comparison.
-[Group movement](docs/geometry-editor.md#move-selected-shapes) snaps a fixed anchor to other shapes, supports Shift axis locking and a live displacement ruler, and records the move as one undoable action.
-[Duplication](docs/geometry-editor.md#duplicate-selected-shapes) creates independent copies with new IDs and one Undo for the whole group.
-[Multipart geometry](docs/multipart.md) supports imported or transaction-created MultiLineString/MultiPolygon features, with component/ring editing and whole-feature history.
-The API is experimental. Code and contributor documentation use English.
-
-[Editor appearance](docs/appearance.md) configures feature/selection colors,
-outlines, draft fills and editing/snap/pivot markers through constructor options
-or live `setAppearance()` patches. Both demos have a **Map colors** selector.
-Settings survive map style changes and leave GeoJSON and Undo history unchanged.
-
-[Feature locks](docs/feature-locks.md) protect reference geometry across editing,
-transactions, pointer/keyboard actions and Undo/Redo while retaining snapping.
-Both demos offer session lock/unlock controls.
-
-## Install the public beta
+## Installation
 
 ```sh
-npm install @jorisvdmije/map-master@0.1.0-beta.0 maplibre-gl@6.15.0
+npm install @jorisvdmije/map-master maplibre-gl
 ```
 
-Start with the [complete quickstart](https://jorisvdmije.github.io/map-master/guides/quickstart.html), then try
-[drawing](https://jorisvdmije.github.io/map-master/guides/draw.html), [editing and Undo](https://jorisvdmije.github.io/map-master/guides/edit.html),
-and [GeoJSON exchange](https://jorisvdmije.github.io/map-master/guides/geojson.html). Run the searchable documentation
-site locally with `npm ci --prefix website` and `npm run dev:docs`.
-See [documentation site development](https://github.com/jorisvdmije/map-master/blob/main/website/README.md).
+[MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/) 6.15 or later is a peer dependency that
+your application installs and configures. The package is ESM-only and ships its own type declarations.
 
-The [0.1.0-beta.0 prerelease](https://github.com/jorisvdmije/map-master/releases/tag/v0.1.0-beta.0)
-includes the verified archive, checksums and test evidence. Both npm tags `beta`
-and `latest` currently point to this prerelease; pin an exact version while
-integrating. The API remains experimental.
+## Quick start
 
-## Try the demo
+```ts
+import { Map, setWorkerUrl } from 'maplibre-gl';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+import { GeometryEditor } from '@jorisvdmije/map-master';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
-The playground keeps Finish/Apply, Cancel and Undo/Redo in a fixed action bar,
-groups selection tools by task and explains unavailable actions. **How to use**
-opens a step-by-step guide; **Add example** loads sample geometry directly.
-See [playground workflows](docs/playground-workflow.md).
+setWorkerUrl(workerUrl); // MapLibre 6 loads its worker separately; this is the Vite syntax.
 
-For the smaller **Area workspace** application, run `npm run dev:workspace`
-after `npm ci` and open <http://127.0.0.1:5174>. Draw/edit areas and routes,
-change names, save/reopen locally, and exchange GeoJSON files. It installs a
-fresh npm archive outside this checkout and uses only public APIs. See the
-[beta integration guide](docs/beta.md) for acceptance checks and release gates.
-The workspace is a local example; the library is published as `0.1.0-beta.0`.
-The [release guide](docs/releases.md), [changelog](CHANGELOG.md) and
-[migration policy](docs/migration.md) cover preparation for the public beta.
+const map = new Map({
+  container: 'map',
+  style: 'https://demotiles.maplibre.org/style.json',
+  center: [4.9, 52.37],
+  zoom: 12,
+});
 
-For the full geometry playground:
+const drawButton = document.querySelector<HTMLButtonElement>('#draw')!;
+const finishButton = document.querySelector<HTMLButtonElement>('#finish')!;
+const undoButton = document.querySelector<HTMLButtonElement>('#undo')!;
 
-```sh
-npm ci
-npm run dev
+map.once('load', () => {
+  const editor = new GeometryEditor(map, { snapping: { enabled: true } });
+
+  // Restore saved features, then start with an empty undo history.
+  const saved = localStorage.getItem('features');
+  if (saved) editor.importGeoJSON(JSON.parse(saved));
+  editor.clearHistory();
+
+  // Save after every committed change: drawing, edits, deletions, imports and undo/redo.
+  editor.onDataChange(() => {
+    localStorage.setItem('features', JSON.stringify(editor.exportGeoJSON()));
+  });
+
+  // Keep your own toolbar in sync with the editor.
+  editor.onChange((state) => {
+    undoButton.disabled = !state.canUndo;
+    finishButton.disabled = !state.canFinish;
+  });
+
+  drawButton.onclick = () => editor.draw('Polygon');
+  finishButton.onclick = () => editor.finish();
+  undoButton.onclick = () => editor.undo();
+});
 ```
 
-Open <http://localhost:5173>. Choose **Draw a line**, click at least two different
-positions, and press **Enter** or **Finish**. Press **Escape** or **Cancel** to
-discard the current draft. Choose **Polygon** for an outline with at least three
-corners; Enter, Finish, or clicking the first corner closes a valid ring.
-Under **Try an example**, choose **Edit multipart geometry** and click **Add example**. Select a feature and use **Part to edit** to choose a component.
-Select a polygon and choose **Draw a hole** to create an interior ring; choose a ring to edit or delete it.
-The map selection toolbar offers **Edit**, **Copy**, **Delete**, and **More tools**.
-Click an overlap and open **shapes here** to choose an underlying shape; checkboxes
-build a group. See [overlap selection](docs/geometry-editor.md#choosing-overlapping-shapes).
-Choose **Duplicate** to copy the selection with a small offset; the copies become selected.
-Drag any selected shape to move the selection together; release saves, Escape cancels, and Undo restores the whole group.
-**Export GeoJSON** downloads committed markers, lines and polygons.
-The map can still be dragged and zoomed while drawing.
-**Snap to vertices & edges** is enabled in the demo: drawing within 18 CSS pixels
-of an existing corner or edge shows a purple indicator and places the point there.
-Corners take priority. This also works while dragging existing corners or new
-midpoints in **Edit vertices**. The edited shape is excluded as a target. Hold
-**Alt** to place freely or turn off the checkbox.
-Library integrations opt in with `{ snapping: { enabled: true } }`; see the
-[snapping API](docs/geometry-editor.md#snapping-while-drawing).
-When idle, click a marker, line or polygon to select it in blue. Click empty space, press
-Escape with map focus, or choose **Deselect** to clear selection. Selection never
-changes the exported geometry. **Shift+click** toggles a shape; **Shift+drag**
-adds shapes intersecting the blue rectangle. The Delete button removes a group
-as one undoable action. Edit vertices and Split polygon require one selected shape.
-See the [selection API](docs/geometry-editor.md#selection).
-To remove the selected shape, use **Delete** or press Delete/Backspace with map
-focus. Remaining geometry stays intact. Undo restores a deleted shape while its action remains in history.
+The [complete quickstart](https://jorisvdmije.github.io/map-master/guides/quickstart.html) builds this
+into a runnable Vite project step by step.
 
-Select two or more polygons with **Shift+click**, choose **Merge polygons**, review
-the preview, then **Apply merge**. Escape cancels; Undo restores every original.
-The first selected feature supplies the retained ID and properties.
+## Usage
 
-Select a polygon and choose **Split polygon**. Start and end the cutting line on
-its edges/corners or outside, passing through its interior. Review the two colored
-parts, then press Enter or **Apply split**. Backspace removes the last cut point;
-Escape cancels. Nearby target edges take priority over neighbouring shapes, which
-remain unchanged. Following an edge or touching it midway is unsupported.
+### Drawing
 
-Select a shape and choose **Edit vertices**. Drag a corner to move it, click a
-small midpoint to insert one, and use **Remove vertex** or Delete/Backspace to
-remove the selected corner. **Save** or Enter commits valid changes; **Cancel**
-or Escape restores the original. Export keeps the saved version during editing.
+```ts
+editor.draw('Point');      // one click places a marker
+editor.draw('LineString'); // click to add points
+editor.draw('Polygon');    // click the first corner again, press Enter or call finish()
 
-Use **Import GeoJSON** to add a `.geojson`/`.json` file with supported lines and
-polygons (up to 5 MB in the demo). IDs and properties are preserved. Invalid
-files and duplicate IDs leave current data untouched. The map fits imported shapes.
-
-Use **Undo**/**Redo** to reverse or replay saved actions, including an entire
-import. With map focus: Ctrl/Cmd+Z undoes; Ctrl/Cmd+Shift+Z or Ctrl+Y redoes.
-Finish or cancel an active drawing/edit first. The default history retains
-100 actions; applications can configure `historyLimit` or clear it explicitly.
-
-The demo uses OpenStreetMap tiles with attribution. Tiles are optional and load
-after drawing is ready; use <http://localhost:5173/?basemap=off> for a demo with no
-external map requests. Use an appropriate map provider for your own application.
-The editor itself does not fetch map tiles or send geometry to a service.
-
-See the [GeometryEditor API guide](docs/geometry-editor.md) and
-[code walkthrough](docs/code-walkthrough.md). The earlier LineEditor API remains
-available as a compatibility facade.
-
-See [Object colors and overlap stripes](docs/feature-styling.md) for per-feature styling,
-selection overrides, drawing order and automatic/custom striped overlap.
-
-Existing points and corners support [keyboard editing](docs/keyboard-vertices.md):
-Home on the map focuses a vertex; Page Up/Down chooses, arrows move, and Enter saves.
-
-## Development
-
-Use Node.js 22.13+ within the 22.x series, or Node.js 24.x, with npm. If you use
-nvm, run `nvm use` to select the development major from `.nvmrc`.
-
-```sh
-npm ci
-npx playwright install chromium
-npm run check
+editor.finish(); // commit a valid draft and return the new feature
+editor.cancel(); // discard the draft
 ```
 
-| Command | Purpose |
+### Selecting and editing
+
+```ts
+editor.select('parcel-12');             // or let users click shapes on the map
+editor.selectMany(['parcel-12', 'road-3']);
+
+editor.editSelected();                  // drag vertices, click midpoints to insert
+editor.finish();                        // save, or cancel() to restore the original
+
+editor.translateSelection([0.001, 0]);  // move by a longitude/latitude offset
+editor.duplicateSelection([0.001, 0]);  // copy with new IDs
+editor.deleteSelection();
+```
+
+### Geometry tools
+
+Every tool starts from the current selection, shows a live preview and commits as a single undo step
+with `finish()`, or is discarded with `cancel()`.
+
+| Tool | Start | Adjust |
+| --- | --- | --- |
+| [Split](docs/splitting.md) a polygon in two | `splitSelected()` | draw a cutting line |
+| [Reshape](docs/reshape.md) part of a boundary | `reshapeSelected()` | draw a new boundary section |
+| [Union](docs/union.md) of polygons | `unionSelection()` | |
+| [Difference](docs/difference.md) | `differenceSelection()` | first selected polygon is the target |
+| [Intersection](docs/intersection.md) | `intersectionSelection()` | |
+| [Buffer](docs/buffer.md) | `bufferSelection(meters)` | `setBufferDistance(meters)` |
+| [Offset](docs/offset.md) a line | `offsetSelection()` | `setOffsetDistance(meters)` |
+| [Simplify](docs/simplification.md) | `simplifySelection()` | `setSimplificationTolerance(meters)` |
+| [Rotate](docs/rotation.md) | `rotateSelection(pivot?)` | drag the handle or `setRotationAngle(degrees)` |
+| [Scale](docs/scaling.md) | `scaleSelection(pivot?)` | drag the handles or `setScaleFactor(factor)` |
+| [Edit a shared boundary](docs/shared-boundaries.md) | `editSharedBoundary()` | drag the common vertices |
+| [Draw a hole](docs/geometry-editor.md#polygon-holes) | `drawHole()` | click the hole's corners |
+
+### Data and events
+
+```ts
+const data = editor.exportGeoJSON();   // committed features as a FeatureCollection
+editor.importGeoJSON(featureCollection); // validated, appended atomically
+editor.getFeature('parcel-12');         // one feature by ID
+
+// Create, update and delete several features as one undo step.
+editor.applyTransaction({
+  update: [{ ...parcel, properties: { ...parcel.properties, owner: 'City' } }],
+  delete: ['road-3'],
+});
+
+// One stream of committed changes, with before/after snapshots.
+editor.onDataChange(({ source, changes }) => {
+  for (const { before, after } of changes) {
+    if (!before) api.create(after!);
+    else if (!after) api.remove(before.id);
+    else api.update(after);
+  }
+});
+
+editor.undo();
+editor.redo();
+```
+
+Invalid input throws a `GeoJSONImportError` with a machine-readable `code` and a JSON `path`, and leaves
+the stored data unchanged. See [transactions and events](docs/transactions.md).
+
+### Appearance and styling
+
+```ts
+const editor = new GeometryEditor(map, {
+  appearance: {
+    feature: { fillColor: '#2563eb', lineColor: '#1d4ed8' },
+    selected: { lineWidth: 4 },
+  },
+  styling: {
+    feature: (feature) => ({ shape: { fillColor: feature.properties?.zone === 'park' ? '#16a34a' : '#64748b' } }),
+  },
+});
+
+editor.setAppearance({ vertex: { radius: 7 } }); // change it at any time
+```
+
+See [appearance](docs/appearance.md) and [feature styling](docs/feature-styling.md).
+
+### Keyboard and mouse
+
+| Input | Action |
 | --- | --- |
-| `npm run dev` | Start the demo with live library source updates. |
-| `npm run dev:workspace` | Pack and install the library in a standalone area-workspace app on port 5174. |
-| `npm run dev:workspace:published` | Start the same workspace using the integrity-pinned published npm beta. |
-| `npm run test:workspace:published` | Verify the published beta through full workspace acceptance, budgets and development rendering; retain evidence in `artifacts/published-workspace/`. |
-| `npm run test:compatibility` | Run the installed candidate's functional workspace checks in Chromium, Firefox and WebKit; accept optional engine names after `--`. |
-| `npm run test:compatibility:published` | Run the same functional investigation against the integrity-pinned npm beta. |
-| `npm run test:budgets` | Run installed-browser latency and lifecycle-memory gates; write `artifacts/beta-budgets.json`. |
-| `npm run test:workspace` | Build an isolated installed consumer; exercise production CRUD/storage/recovery and development rendering in Chromium. |
-| `npm run lock:workspace` | Refresh the example lockfile after dependency/version changes; review before committing. |
-| `npm run release:prepare` | Pack once, run the full checks against that candidate and retain its archive, checksum and reports. |
-| `npm run typecheck` | Check library, browser-independent core, tests, demo, and configuration. |
-| `npm run lint` | Run ESLint with type-aware rules and no warnings allowed. |
-| `npm run build` | Clean `dist/` and emit ESM JavaScript and declarations. |
-| `npm test` | Run core behavior tests and test the packed library in an isolated consumer. |
-| `npm run test:browser` | Build the package and run real Chromium interaction and demo tests. |
-| `npm run build:demo` | Build the library and a deployable demo in `examples/basic/dist/`. |
-| `npm run benchmark:styling` | Measure overlap partitioning and cached per-feature/palette restyling. |
-| `npm run benchmark:offset` | Measure line-offset entry, validated preview, commit and Undo. |
-| `npm run benchmark:buffer` | Measure buffer entry, validated preview, commit and Undo. |
-| `npm run benchmark:simplification` | Measure simplification entry, validated preview, commit and Undo. |
-| `npm run benchmark:constraints` | Measure angle resolution and anchor lookup across draft sizes. |
-| `npm run benchmark:scaling` | Measure scale entry, validated preview, commit and Undo for polygons and groups. |
-| `npm run benchmark:rotation` | Measure rotation entry, validated preview, commit and Undo for polygons and groups. |
-| `npm run benchmark:shared-boundary` | Measure shared-chain entry, two-polygon preview validation, atomic commit and Undo. |
-| `npm run benchmark:trace` | Measure source-route preview, batch append/validation, confirmation and Undo. |
-| `npm run benchmark:reshape` | Measure route validation, reshape confirmation and Undo for increasing polygon sizes. |
-| `npm run benchmark:intersection` | Measure common-area preview, commit and Undo for large selections and multipart results. |
-| `npm run benchmark:difference` | Measure subtraction preview, commit and Undo with holes and multipart results. |
-| `npm run benchmark:union` | Measure polygon union preview, atomic commit and Undo on overlapping/disjoint selections. |
-| `npm run benchmark:multipart` | Measure import, component editing and snapping index construction for multipart polygons. |
-| `npm run benchmark:holes` | Measure import and ring edits on polygons with fixed hole counts. |
-| `npm run benchmark:polygon` | Measure validation on fixed polygon fixtures; see [baseline and limits](docs/performance.md). |
-| `npm run benchmark:duplication` | Measure group duplication and exact undo/redo on fixed datasets. |
-| `npm run benchmark:translation` | Measure group preview, validated commit, and undo on fixed datasets. |
-| `npm run benchmark:selection` | Measure core ID lookup and selected snapshots on fixed datasets. |
-| `npm run benchmark:deletion` | Measure one core deletion plus export of all surviving features. |
-| `npm run benchmark:editing` | Measure atomic movement of corner groups in fixed polygon drafts. |
-| `npm run benchmark:direct-picking` | Measure touch/pen handle acquisition on fixed line sizes. |
-| `npm run benchmark:vertex-keyboard` | Measure keyboard vertex navigation and nudge coordination for large drafts. |
-| `npm run benchmark:vertex-selection` | Measure draft rectangle picking and selection with a deterministic projection. |
-| `npm run benchmark:import` | Measure atomic imports of fixed line and polygon datasets. |
-| `npm run benchmark:history` | Measure undoing a middle deletion, with and without export. |
-| `npm run benchmark:snapping` | Measure projected index building and nearby-point queries on fixed polygon grids. |
-| `npm run benchmark:transactions` | Measure mixed batch commits and exact undo on fixed datasets. |
-| `npm run benchmark:split` | Measure splitting and result validation on fixed polygon fixtures. |
-| `npm run check` | Run all type checks, linting, tests, the demo build and isolated workspace acceptance. |
-| `npm pack` | Build and create a local installable archive. |
+| <kbd>Enter</kbd> | Finish the active drawing, edit or tool |
+| <kbd>Escape</kbd> | Cancel the active tool, or clear the selection |
+| <kbd>Delete</kbd> / <kbd>Backspace</kbd> | Delete the selection, remove the last drawn point or the selected vertices |
+| <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Z</kbd> | Undo |
+| <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd>, <kbd>Ctrl</kbd>+<kbd>Y</kbd> | Redo |
+| <kbd>Shift</kbd>+click / drag | Add shapes or vertices to the selection; drag a rectangle |
+| <kbd>Alt</kbd> (hold) | Place freely, without snapping or angle constraints |
 
-Build output lives in `dist/`. MapLibre GL JS is a host-supplied peer dependency,
-not bundled into the editor. Version 6.15.0 is tested; the peer range is `^6.15.0`.
-The editor requires a modern browser with WebGL and a secure context (HTTPS or
-localhost) for feature UUIDs. Desktop mouse and keyboard input in Chromium is
-tested; touch/pen vertex editing has Chromium input-emulation coverage, while
-physical devices and other browser engines remain unqualified. The package is
-`@jorisvdmije/map-master`, licensed under MIT. Version `0.1.0-beta.0` is
-published on npm; see the [release record and procedure](docs/releases.md).
+Shortcuts apply while the map has keyboard focus. Vertices can also be
+[edited entirely with the keyboard](docs/keyboard-vertices.md).
 
-The tests install an actual npm archive into a temporary directory, import it in
-Node.js, and compile a consumer in both NodeNext and Bundler resolution modes.
-They also check that internal build paths are not public imports and development
-files are excluded from the archive. Temporary consumer files are removed after
-the tests. Chromium tests exercise real MapLibre rendering, pointer and keyboard
-input, cancellation, map gestures, style replacement, event isolation, teardown,
-and the demo's export controls. Tests use local styles and need no tile service.
+## Compatibility
 
-CI installs Chromium and runs `npm ci` and `npm run release:prepare` (including
-`npm run check`) on Node.js 22 and 24 for
-pull requests and pushes to `main`. The public GitHub repository requires both
-checks before merging into protected `main`; hosted results must pass on the
-actual release commit. See [repository integration](docs/repository-integration.md).
-On Linux, `npx playwright install --with-deps chromium`
-also installs the system libraries needed by the browser.
+- MapLibre GL JS `^6.15.0` on a flat (Mercator) map, with 2D WGS84 coordinates.
+- A modern browser with WebGL, in a secure context (HTTPS or `localhost`).
+- Continuously tested in Chromium with mouse and keyboard, including emulated touch/pen vertex editing.
+  The example application is also tested in Firefox and WebKit.
 
-MapLibre 6.15's transitive declarations currently contain NodeNext import errors.
-The browser build and consumer fixtures use `skipLibCheck` to skip checking
-dependency declarations; our source and API usage remain strictly checked. The
-core has its own check without DOM types or `skipLibCheck`.
+See [compatibility and limits](docs/compatibility.md) for the exact scope and performance profile.
 
-## Finding your way around
+## Documentation
 
-- **Use the library:** [GeometryEditor API](docs/geometry-editor.md) and the
-  [integration example](examples/basic/main.ts).
-- **Understand or extend it:** [code map](docs/code-walkthrough.md#where-to-make-a-change),
-  [architecture](docs/architecture.md) and [contribution guide](CONTRIBUTING.md).
-- **Find a contract or measurement:** [documentation index](docs/README.md).
-- **Choose the next feature:** [incremental roadmap](docs/roadmap.md).
+- [Documentation site](https://jorisvdmije.github.io/map-master/) with a quickstart and live examples
+- [GeometryEditor API reference](docs/geometry-editor.md)
+- [All guides](docs/README.md): markers, multipart geometry, snapping, tracing, locks, styling and every geometry tool
+- [Migration guide](docs/migration.md) and [changelog](CHANGELOG.md)
 
-## Direction
+## Examples
 
-- Build one small, tested capability at a time.
-- Keep geometry and editing state independent of the map renderer and UI framework.
-- Start with one package and one MapLibre example.
-- Use GeoJSON for data exchange; applications own persistence and authorization.
-- Measure performance and document supported behavior before claiming production readiness.
+Clone the repository and run:
 
-See the [architecture guide](docs/architecture.md), [incremental roadmap](docs/roadmap.md),
-and [contribution workflow](CONTRIBUTING.md).
+```sh
+npm ci
+npm run dev            # full geometry playground on http://localhost:5173
+npm run dev:workspace  # small app with saving, import/export, on http://127.0.0.1:5174
+```
+
+The [playground](docs/playground-workflow.md) demonstrates every tool. The
+[area workspace](examples/workspace/README.md) shows a complete application with local persistence.
+
+## Contributing
+
+Bug reports and pull requests are welcome. Read the [contribution guide](CONTRIBUTING.md) for the
+development setup, the checks to run and the architecture. Report security issues privately as described
+in the [security policy](SECURITY.md).
 
 ## License
 
-Map Master is licensed under the [MIT License](LICENSE), copyright 2026
-jorisvdmije. See [third-party notices](THIRD_PARTY_NOTICES.md) for runtime dependencies.
-
-## Maintainer and support
-
-Maintained by [@jorisvdmije](https://github.com/jorisvdmije). Use
-[GitHub Issues](https://github.com/jorisvdmije/map-master/issues) for ordinary bug
-reports and feature requests. Report vulnerabilities confidentially through the
-channel and setup status in [SECURITY.md](SECURITY.md). The repository and its
-reporting channels must still be activated before public distribution.
+[MIT](LICENSE) © jorisvdmije. See [third-party notices](THIRD_PARTY_NOTICES.md) for runtime dependencies.

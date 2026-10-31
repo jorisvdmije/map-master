@@ -52,7 +52,6 @@ events for persistence; a null `finish()` return alone does not mean failure.
 `difference-failed` means the overlay engine threw; `difference-invalid-result`
 means its nonempty result violates the supported coordinate or topology policy.
 Getters remain readable after destruction; commands and subscriptions throw.
-LineEditor does not expose subtraction.
 
 ## Geometry and numerical contract
 

@@ -1,0 +1,11 @@
+# npm dependencies are pinned and updated deliberately: the example application's
+# lockfile must stay aligned with the root lockfile for offline installation.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ['*']
