@@ -71,6 +71,8 @@
     "dev:workspace": "node scripts/workspace.mjs dev",
     "dev:workspace:published": "node scripts/published-workspace.mjs dev",
     "test:workspace:published": "node --test scripts/published-workspace.test.mjs && node scripts/published-workspace.mjs check",
+    "test:compatibility": "node --test scripts/workspace-compatibility.test.mjs && node scripts/workspace.mjs compatibility",
+    "test:compatibility:published": "node --test scripts/workspace-compatibility.test.mjs && node scripts/published-workspace.mjs compatibility",
     "test:budgets": "node --test scripts/beta-budget-policy.test.mjs && node scripts/workspace.mjs budgets",
     "test:workspace": "node --test scripts/beta-budget-policy.test.mjs && node scripts/workspace.mjs check",
     "lock:workspace": "node scripts/workspace.mjs lock",

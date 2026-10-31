@@ -8,7 +8,7 @@ import { fileURLToPath, URL } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const mode = process.argv[2] ?? 'check';
-if (!['check', 'budgets', 'dev', 'lock'].includes(mode)) throw new Error('Use check, budgets, dev or lock.');
+if (!['check', 'budgets', 'dev', 'lock', 'compatibility'].includes(mode)) throw new Error('Use check, budgets, dev, lock or compatibility.');
 const npm = process.env.npm_execpath;
 if (!npm) throw new Error('Run this script through npm run dev:workspace or npm run test:workspace.');
 const workspace = mkdtempSync(join(tmpdir(), 'geo-area-workspace-'));
@@ -63,6 +63,10 @@ try {
       child.once('error', reject);
       child.once('exit', (code, signal) => code && !signal ? reject(new Error(`App exited with ${code}`)) : resolve());
     });
+  } else if (mode === 'compatibility') {
+    const { checkCompatibility } = await import('./workspace-compatibility.mjs');
+    await checkCompatibility(workspace, process.env.GEO_BETA_REPORT_DIR
+      ? resolve(root, process.env.GEO_BETA_REPORT_DIR) : join(root, 'artifacts/browser-compatibility'), process.argv.slice(3), root);
   } else {
     // Test-only second entry: same installed package and production bundler as the app.
     cpSync(join(root, 'tests/fixtures/budgets'), join(workspace, 'budgets'), { recursive: true });

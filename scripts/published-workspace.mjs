@@ -7,7 +7,7 @@ import { fileURLToPath, URL } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const mode = process.argv[2];
-if (!['check', 'dev'].includes(mode) || process.argv.length !== 3) throw new Error('Use check or dev.');
+if (!['check', 'dev', 'compatibility'].includes(mode) || (mode !== 'compatibility' && process.argv.length !== 3)) throw new Error('Use check, dev or compatibility [chromium firefox webkit].');
 const npm = process.env.npm_execpath;
 if (!npm) throw new Error('Run through npm run test:workspace:published or npm run dev:workspace:published.');
 if (process.env.GEO_RELEASE_ARCHIVE) throw new Error('Published verification cannot use GEO_RELEASE_ARCHIVE. Use the candidate workspace command instead.');
@@ -44,7 +44,7 @@ try {
   report.archive = { filename: packed.filename, sha256: createHash('sha256').update(bytes).digest('hex'), integrity };
   writeFileSync(join(output, 'pack.json'), `${JSON.stringify(packed, null, 2)}\n`);
   process.stdout.write(`Verified published archive; evidence: ${output}\n`);
-  child = spawn(process.execPath, [join(root, 'scripts/workspace.mjs'), mode], {
+  child = spawn(process.execPath, [join(root, 'scripts/workspace.mjs'), mode, ...process.argv.slice(3)], {
     cwd: root, stdio: 'inherit',
     env: { ...process.env, GEO_RELEASE_ARCHIVE: archive, GEO_BETA_REPORT_DIR: output },
   });
@@ -57,10 +57,11 @@ try {
       else reject(new Error(`Published workspace ${mode} failed (${signal ?? code}).`));
     });
   });
-  if (mode === 'check') {
-    const budgets = JSON.parse(readFileSync(join(output, 'beta-budgets.json'), 'utf8'));
-    if (!budgets.passed || budgets.errors.length || budgets.environment.archiveSha256 !== report.archive.sha256) {
-      throw new Error('Missing passing budget evidence for the published archive.');
+  if (mode === 'check' || mode === 'compatibility') {
+    const evidence = JSON.parse(readFileSync(join(output, mode === 'check' ? 'beta-budgets.json' : 'workspace-compatibility.json'), 'utf8'));
+    if (!evidence.passed || (mode === 'check' ? evidence.errors.length : evidence.error)
+      || evidence.environment.archiveSha256 !== report.archive.sha256) {
+      throw new Error('Missing passing verification evidence for the published archive.');
     }
     report.checksPassed = true;
   }

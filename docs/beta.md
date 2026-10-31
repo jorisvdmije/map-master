@@ -129,6 +129,11 @@ Evidence is retained in a fresh `artifacts/published-workspace/run-*/` directory
 including the downloaded archive, SHA-256/SHA-512 checksums and verification result.
 This check does not expand the supported browser/device matrix.
 
+The separate [Firefox/WebKit investigation](browser-compatibility.md) reuses the
+desktop acceptance with explicit engine selection and per-phase diagnostics.
+Use `npm run test:compatibility:published -- firefox webkit` after installing those
+browsers. The existing Chromium/CDP touch and budget checks remain separate.
+
 The candidate `test:workspace` command is included in `npm run check`, and therefore in CI.
 Install Chromium using the repository's usual Playwright setup first. The check
 type-checks and builds the isolated installed consumer, then runs real Chromium

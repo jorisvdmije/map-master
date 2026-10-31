@@ -13,6 +13,7 @@ separately so consumers can integrate without depending on internal modules.
 | Run a standalone installed-package app with saving and recovery | [Beta integration milestone](beta.md) |
 | Protect reference geometry from editing while retaining snapping | [Feature locks](feature-locks.md) |
 | Check beta browser/input scope and performance gates | [Beta budgets](beta-budgets.md) |
+| Inspect Firefox/WebKit workflows, evidence and remaining gaps | [Browser compatibility investigation](browser-compatibility.md) |
 | Inspect passing hosted checks and matching candidate archives | [Initial hosted qualification](release-evidence/2026-10-28-main/README.md) |
 | Prepare and verify a public beta candidate | [Release procedure](releases.md), [changelog](../CHANGELOG.md), [migration policy](migration.md) |
 | Find the license or report a vulnerability | [MIT license](../LICENSE), [third-party notices](../THIRD_PARTY_NOTICES.md), [security policy](../SECURITY.md) |

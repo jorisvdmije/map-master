@@ -1,0 +1,35 @@
+{
+  "browserName": "webkit",
+  "headless": true,
+  "phase": "production",
+  "startedAt": "2026-10-31T00:18:42.685Z",
+  "passed": true,
+  "scenarios": [
+    "draw, render, pick on the map and export the installed package’s geometry",
+    "rename is safe text, keeps IDs, and participates in Undo/Redo",
+    "cancel discards drafts; applied edits survive save/reload without restoring old history",
+    "keyboard vertex focus, group movement, cancellation and one-step Undo/Redo",
+    "live appearance presets preserve saved geometry, drafts and history",
+    "session locks protect editing, names and keyboard deletion without changing saved data",
+    "delete/Undo/Redo and saving an empty workspace",
+    "markers: single-click placement, map picking, naming, save/reload, cancel and delete/Undo/Redo",
+    "atomic import, typed identities, nested properties and actionable invalid-file errors",
+    "storage quota errors preserve in-memory work and the old saved copy",
+    "corrupt saved data remains downloadable until explicitly discarded",
+    "valid JSON with invalid saved geometry is protected too",
+    "a stale tab cannot overwrite a newer saved copy"
+  ],
+  "excluded": [
+    "Chromium CDP touch emulation; no cross-engine touch claim"
+  ],
+  "browserVersion": "27.2",
+  "rendering": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15",
+    "webgl2": true,
+    "renderer": "WebKit WebGL",
+    "version": "WebGL 2.0"
+  },
+  "errors": [],
+  "external": [],
+  "finishedAt": "2026-10-31T00:18:49.080Z"
+}

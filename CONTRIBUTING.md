@@ -87,6 +87,11 @@ CI retains the result and archive under `artifacts/published-workspace/`.
 After publishing a new beta, explicitly update that version and integrity pin and
 verify the complete consumer before merging; never substitute `latest` or a local archive.
 
+For changes to workspace controls or the compatibility harness, run
+`npm run test:compatibility` after `npx playwright install chromium firefox webkit`.
+See [cross-engine scope and reports](docs/browser-compatibility.md). These checks
+do not substitute for the existing Chromium suite or establish shipping Safari support.
+
 Add behavior tests under `tests/` using Vitest. Consumer fixtures are checked
 inside their isolated installation instead of against repository source files.
 The package integration test uses npm's CLI path, so invoke it through `npm test`.
