@@ -11,7 +11,7 @@ part of the API and are blocked by the package `exports`.
 
 ## Upgrading from 0.1.0-beta.0
 
-No changes are required. The release is backwards compatible.
+No changes are required: 0.1.0 is backwards compatible with 0.1.0-beta.0.
 
 - **New:** `onDataChange(listener)` reports every committed change (drawing, edits,
   deletions, imports, transactions, geometry tools and undo/redo) in one stream with

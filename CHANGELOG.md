@@ -4,7 +4,10 @@ All notable changes to `@jorisvdmije/map-master` are recorded here. The project
 follows [semantic versioning](https://semver.org/); see the
 [migration guide](docs/migration.md) for upgrade steps.
 
-## Unreleased
+## 0.1.0 — 2026-11-01
+
+First regular release. It is backwards compatible with 0.1.0-beta.0; see the
+[migration guide](docs/migration.md#upgrading-from-010-beta0).
 
 ### Added
 

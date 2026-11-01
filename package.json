@@ -1,6 +1,6 @@
 {
   "name": "@jorisvdmije/map-master",
-  "version": "0.1.0-beta.0",
+  "version": "0.1.0",
   "description": "Interactive geometry editor for MapLibre GL JS: draw, select, edit, snap, split, merge and transform GeoJSON features with undo/redo.",
   "keywords": [
     "maplibre",
@@ -107,6 +107,6 @@
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public",
-    "tag": "beta"
+    "tag": "latest"
   }
 }

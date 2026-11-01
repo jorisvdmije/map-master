@@ -96,7 +96,7 @@ Getters remain readable after destroy; commands and subscriptions throw.
 While splitting, selection changes, import, transactions, history, deletion and
 switching to other tools throw. `canUndo` and `canRedo` are false until the mode
 ends. Normal `validationError` remains null; use the separate `splitError` field.
-The new mode and field are additive changes to the experimental EditorState API.
+The new mode and field are additive changes to the EditorState API.
 
 ## Supported geometry and numerical policy
 
