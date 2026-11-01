@@ -4,429 +4,290 @@ import {
   setWorkerUrl,
   type StyleSpecification,
 } from "maplibre-gl";
-import type * as GeoJSON from "geojson";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import {
+  EditorToolbar,
+  GeoJSONImportError,
   GeometryEditor,
+  type DataChangeEvent,
+  type EditorAppearanceOptions,
   type EditorState,
+  type GeometryFeature,
   type GeometryFeatureCollection,
+  type ToolbarTool,
 } from "@jorisvdmije/map-master";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { center, demos, type DemoConfig } from "./demos";
 
 setWorkerUrl(workerUrl);
-// This small fictional neighborhood is bundled; no tile provider or token is needed.
-const center: [number, number] = [4.9, 52.37];
-const coordinate = (x: number, y: number): [number, number] => [
-  center[0] + x * 0.001,
-  center[1] + y * 0.0006,
-];
-const ring = (points: number[][]) => points.map(([x, y]) => coordinate(x, y));
-const sample: GeometryFeatureCollection = {
-  type: "FeatureCollection",
-  features: [
-    {
-      type: "Feature",
-      id: "garden",
-      properties: { name: "Community garden" },
-      geometry: {
-        type: "Polygon",
-        coordinates: [
-          ring([
-            [-1.1, -0.7],
-            [0.7, -0.9],
-            [1.25, 0.5],
-            [-0.5, 1.15],
-            [-1.1, -0.7],
-          ]),
-        ],
-      },
-    },
-    {
-      type: "Feature",
-      id: "route",
-      properties: { name: "Walking route" },
-      geometry: {
-        type: "LineString",
-        coordinates: ring([
-          [-2.6, -1.8],
-          [-2, -0.15],
-          [-1.35, 1.6],
-          [0.1, 2.1],
-        ]),
-      },
-    },
-  ],
+
+// OpenFreeMap serves OpenStreetMap vector tiles without an account or API key.
+export const basemapUrl = "https://tiles.openfreemap.org/styles/liberty";
+const fallbackStyle: StyleSpecification = {
+  version: 8,
+  sources: {},
+  layers: [{ id: "background", type: "background", paint: { "background-color": "#eef0e8" } }],
 };
-const importExample: GeometryFeatureCollection = {
-  type: "FeatureCollection",
-  features: [
-    {
-      type: "Feature",
-      id: "meeting-point",
-      properties: { name: "Meeting point" },
-      geometry: { type: "Point", coordinates: coordinate(1.7, -1.1) },
-    },
-  ],
+let basemap: Promise<StyleSpecification> | undefined;
+// Editing keeps working on a plain background when the tile service is unreachable.
+const loadBasemap = () =>
+  (basemap ??= fetch(basemapUrl, { signal: AbortSignal.timeout(8000) })
+    .then((response) => {
+      if (!response.ok) throw new Error(`Basemap ${response.status}`);
+      return response.json() as Promise<StyleSpecification>;
+    })
+    .catch(() => fallbackStyle));
+
+const themes: Record<string, EditorAppearanceOptions> = {
+  "Blue & orange": {
+    feature: { fillColor: "#3b5bdb", fillOpacity: 0.22, lineColor: "#364fc7", lineWidth: 2.5 },
+    selected: { fillColor: "#f59f00", fillOpacity: 0.28, lineColor: "#e8590c", lineWidth: 3 },
+    draft: { fillColor: "#f59f00", fillOpacity: 0.2, lineColor: "#e8590c", lineWidth: 2.5 },
+    marker: { color: "#3b5bdb", radius: 7, strokeColor: "#ffffff", strokeWidth: 2 },
+    selectedMarker: { color: "#e8590c", radius: 8, strokeColor: "#ffffff", strokeWidth: 2 },
+    vertex: { color: "#ffffff", strokeColor: "#e8590c", radius: 5, activeColor: "#e8590c" },
+  },
+  Forest: {
+    feature: { fillColor: "#2b8a3e", fillOpacity: 0.25, lineColor: "#1b5e20", lineWidth: 2 },
+    selected: { fillColor: "#94d82d", fillOpacity: 0.35, lineColor: "#2b8a3e", lineWidth: 3.5 },
+    draft: { fillColor: "#94d82d", fillOpacity: 0.25, lineColor: "#2b8a3e", lineWidth: 2.5 },
+    marker: { color: "#2b8a3e", radius: 7, strokeColor: "#ffffff", strokeWidth: 2 },
+    selectedMarker: { color: "#94d82d", radius: 8, strokeColor: "#1b5e20", strokeWidth: 2 },
+    vertex: { color: "#ffffff", strokeColor: "#1b5e20", radius: 5, activeColor: "#94d82d" },
+  },
+  "High contrast": {
+    feature: { fillColor: "#000000", fillOpacity: 0.15, lineColor: "#000000", lineWidth: 3 },
+    selected: { fillColor: "#ffd43b", fillOpacity: 0.45, lineColor: "#000000", lineWidth: 4 },
+    draft: { fillColor: "#ffd43b", fillOpacity: 0.35, lineColor: "#000000", lineWidth: 3 },
+    marker: { color: "#000000", radius: 8, strokeColor: "#ffd43b", strokeWidth: 3 },
+    selectedMarker: { color: "#ffd43b", radius: 9, strokeColor: "#000000", strokeWidth: 3 },
+    vertex: { color: "#ffd43b", strokeColor: "#000000", radius: 6, activeColor: "#000000" },
+  },
 };
-function style(): StyleSpecification {
-  const roads: GeoJSON.Feature[] = [];
-  for (let i = -8; i <= 8; i++) {
-    roads.push({
-      type: "Feature",
-      properties: {},
-      geometry: {
-        type: "LineString",
-        coordinates: ring([
-          [-10, i * 1.8 - 3],
-          [10, i * 1.8 + 3],
-        ]),
-      },
-    });
-    roads.push({
-      type: "Feature",
-      properties: {},
-      geometry: {
-        type: "LineString",
-        coordinates: ring([
-          [i * 1.8 - 3, -10],
-          [i * 1.8 + 3, 10],
-        ]),
-      },
-    });
-  }
-  const parks: GeoJSON.FeatureCollection = {
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties: {},
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            ring([
-              [-4, 1],
-              [-1.8, 1.7],
-              [-0.8, 4],
-              [-3, 3.3],
-              [-4, 1],
-            ]),
-          ],
-        },
-      },
-      {
-        type: "Feature",
-        properties: {},
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            ring([
-              [2, -4],
-              [4, -3.4],
-              [4.7, -1.5],
-              [2.6, -2.1],
-              [2, -4],
-            ]),
-          ],
-        },
-      },
-    ],
-  };
-  return {
-    version: 8,
-    sources: {
-      streets: {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: roads },
-      },
-      parks: { type: "geojson", data: parks },
-      canal: {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          properties: {},
-          geometry: {
-            type: "LineString",
-            coordinates: ring([
-              [-8, -5],
-              [-3, -3.7],
-              [2.5, -1.9],
-              [5, 1],
-              [8, 8],
-            ]),
-          },
-        },
-      },
-    },
-    layers: [
-      {
-        id: "base",
-        type: "background",
-        paint: { "background-color": "#e9e7df" },
-      },
-      {
-        id: "parks",
-        type: "fill",
-        source: "parks",
-        paint: { "fill-color": "#d5dfcf" },
-      },
-      {
-        id: "road-edge",
-        type: "line",
-        source: "streets",
-        paint: { "line-color": "#dcd9d0", "line-width": 18 },
-      },
-      {
-        id: "roads",
-        type: "line",
-        source: "streets",
-        paint: { "line-color": "#faf9f5", "line-width": 14 },
-      },
-      {
-        id: "canal-bank",
-        type: "line",
-        source: "canal",
-        paint: { "line-color": "#d2ded7", "line-width": 33 },
-        layout: { "line-cap": "round", "line-join": "round" },
-      },
-      {
-        id: "canal",
-        type: "line",
-        source: "canal",
-        paint: { "line-color": "#b7d3d1", "line-width": 26 },
-        layout: { "line-cap": "round", "line-join": "round" },
-      },
-    ],
-  };
+const defaultTheme = themes["Blue & orange"]!;
+
+const instructions: Partial<Record<EditorState["mode"], string>> = {
+  "draw-point": "Click the map to place a marker.",
+  "draw-line": "Click to add points. Finish or Enter completes the line.",
+  "draw-polygon": "Click to add corners. Click the first corner, press Enter or choose Finish.",
+  "draw-hole": "Click inside the selected polygon to outline the hole, then Finish.",
+  "edit-point": "Drag the marker to move it, then Save.",
+  "edit-line": "Drag a point, or click a small midpoint to add one. Save or Cancel.",
+  "edit-polygon": "Drag a corner or an edge, or click a small midpoint to add a corner. Save or Cancel.",
+  "split-polygon": "Draw a line that crosses the polygon. Apply splits it in two.",
+  "reshape-polygon": "Draw a new boundary section that starts and ends on the outline.",
+  "edit-shared-boundary": "Drag the common corners. Both polygons change together.",
+  "union-polygons": "Preview of the merged shape. Apply merges the selection.",
+  "difference-polygons": "The first selected shape minus the others. Apply subtracts them.",
+  "intersection-polygons": "Only the area common to all shapes remains. Apply keeps it.",
+  "rotate-features": "Drag the round handle or type an angle.",
+  "scale-features": "Drag a corner handle or type a factor.",
+  "buffer-features": "Drag the handle or type a distance in meters.",
+  "offset-lines": "Drag the handle or type a distance. Positive is left of the line.",
+  "simplify-features": "Type a tolerance in meters. Corners closer to the line disappear.",
+};
+const name = (feature: GeometryFeature | null) =>
+  typeof feature?.properties?.name === "string" ? feature.properties.name : (feature?.geometry.type ?? "shape");
+const words = (code: string) => code.replaceAll("-", " ");
+
+function describe(editor: GeometryEditor, state: EditorState): string {
+  const problem =
+    (state.validationError !== "too-few-vertices" ? state.validationError : null) ??
+    state.splitError ?? state.reshapeError ?? state.unionError ?? state.differenceError ??
+    state.intersectionError ?? state.bufferError ?? state.offsetError ??
+    state.simplificationError ?? state.scaleError ?? state.rotationError ?? state.sharedBoundaryError;
+  const note = problem ? ` Not possible yet: ${words(problem)}.` : "";
+  if (state.mode !== "idle") return `${instructions[state.mode] ?? ""}${note}`;
+  const selected = state.selectedFeatureIds.map((id) => name(editor.getFeature(id)));
+  if (selected.length) return `Selected: ${selected.join(", ")}. Shift+click adds more shapes.`;
+  return `${state.featureCount} ${state.featureCount === 1 ? "feature" : "features"}. Click a shape to select it, or choose a tool.`;
 }
+
+const isPair = (tools: DemoConfig["tools"]): tools is readonly [readonly ToolbarTool[], readonly ToolbarTool[]] =>
+  typeof tools[0] !== "string";
+
+function element<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text = "") {
+  const node = document.createElement(tag);
+  node.className = className;
+  node.textContent = text;
+  return node;
+}
+
 export async function mountDemo(container: HTMLElement): Promise<void> {
-  const kind = container.dataset.demo!;
+  const config: DemoConfig = demos[container.dataset.demo!] ?? demos.home!;
   const status = container.querySelector<HTMLElement>(".demo-status")!;
-  const list = container.querySelector<HTMLElement>(".demo-feature-list")!;
-  const buttons = new globalThis.Map(
-    Array.from(
-      container.querySelectorAll<HTMLButtonElement>("[data-action]"),
-    ).map((button) => [button.dataset.action!, button]),
-  );
-  let editor: GeometryEditor | undefined;
-  let disposed = false;
-  let notice = "";
-  let revision = -1;
-  let selected = "";
+  const reset = container.querySelector<HTMLButtonElement>(".demo-reset")!;
+  const style = await loadBasemap();
   const map = new Map({
     container: container.querySelector<HTMLElement>(".demo-map")!,
-    style: style(),
+    style,
     center,
-    zoom: 15.7,
+    zoom: config.zoom ?? 15.6,
     minZoom: 12,
-    maxZoom: 19,
-    attributionControl: false,
-    scrollZoom: false,
+    maxZoom: 20,
+    cooperativeGestures: true,
     dragRotate: false,
     pitchWithRotate: false,
+    touchPitch: false,
     fadeDuration: 0,
+    attributionControl: { compact: true },
   });
-  map.addControl(new NavigationControl({ showCompass: false }), "top-right");
-  map.on("error", () => {
-    status.textContent =
-      "The map could not render. Check WebGL support and reload to try again.";
-  });
-  const resize = new ResizeObserver(() => {
-    if (!disposed) map.resize();
-  });
-  resize.observe(container);
+  map.touchZoomRotate.disableRotation();
+  map.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
+  let disposed = false;
   window.addEventListener(
     "pagehide",
     () => {
       disposed = true;
-      resize.disconnect();
-      editor?.destroy();
       map.remove();
     },
     { once: true },
   );
+  map.on("error", (event) => {
+    if (!map.loaded() && !(event.error?.message ?? "").includes("tiles"))
+      status.textContent = "The map could not load. Check that WebGL is available and reload the page.";
+  });
   await map.once("load");
   if (disposed) return;
-  editor = new GeometryEditor(map, {
-    snapping: { enabled: true, distance: 16 },
-    appearance: {
-      feature: {
-        fillColor: "#3e8b67",
-        fillOpacity: 0.25,
-        lineColor: "#246648",
-        lineWidth: 2.5,
-      },
-      selected: {
-        fillColor: "#55a87a",
-        fillOpacity: 0.3,
-        lineColor: "#174b35",
-        lineWidth: 3,
-      },
-      draft: { fillColor: "#63a483", lineColor: "#174b35", fillOpacity: 0.2 },
-      vertex: { color: "#ffffff", strokeColor: "#174b35", radius: 5 },
-    },
+
+  const options = config.options ?? {};
+  const editor = new GeometryEditor(map, {
+    ...options,
+    snapping: { enabled: true, ...options.snapping },
+    appearance: { ...defaultTheme, ...options.appearance },
   });
-  const instance = editor;
+  // Large tool sets are split over a toolbar on each side of the map.
+  const [left, right] = isPair(config.tools) ? config.tools : [config.tools, undefined];
+  container.classList.toggle("demo--tall", right !== undefined);
+  map.addControl(new EditorToolbar(editor, { tools: left }), "top-left");
+  if (right) map.addControl(new EditorToolbar(editor, { tools: right }), "top-right");
+
+  let message = "";
+  const extras = new Set(config.extras ?? []);
+  const log = extras.has("events") ? element("ol", "demo-log") : null;
+  const output = extras.has("geojson") ? element("pre", "geojson-output") : null;
+  function restore() {
+    editor.cancel();
+    editor.setLockedFeatureIds([]);
+    const ids = editor.exportGeoJSON().features.map((feature) => feature.id!);
+    if (ids.length) editor.applyTransaction({ delete: ids });
+    if (config.features.length)
+      editor.importGeoJSON({ type: "FeatureCollection", features: config.features });
+    if (config.locked) editor.setLockedFeatureIds(config.locked);
+    editor.selectMany(config.select ?? []);
+    editor.clearHistory();
+    log?.replaceChildren();
+    message = "";
+    render(editor.getState());
+  }
   function render(state: EditorState) {
-    const idle = state.mode === "idle";
-    const drawing = state.mode.startsWith("draw");
-    buttons.get("reset")!.disabled = false;
-    const exportButton = buttons.get("export");
-    if (exportButton) exportButton.disabled = false;
-    buttons.get("finish")!.disabled = !state.canFinish;
-    buttons.get("finish")!.textContent = state.mode.startsWith("edit")
-      ? "Save edit"
-      : "Finish";
-    buttons.get("cancel")!.disabled = idle;
-    buttons.get("undo")!.disabled = !state.canUndo;
-    buttons.get("edit")!.disabled =
-      !idle || state.selectedFeatureIds.length !== 1;
-    buttons.get("delete")!.disabled =
-      !idle || state.selectedFeatureIds.length === 0;
-    for (const action of ["polygon", "line", "marker", "sample", "import"]) {
-      const button = buttons.get(action);
-      if (button) button.disabled = !idle;
-    }
-    for (const action of ["polygon", "line", "marker"])
-      buttons
-        .get(action)!
-        .setAttribute(
-          "aria-pressed",
-          String(
-            state.mode === `draw-${action === "marker" ? "point" : action}`,
-          ),
-        );
-    const validation =
-      state.validationError && state.validationError !== "too-few-vertices"
-        ? ` Cannot finish: ${state.validationError.replaceAll("-", " ")}.`
-        : "";
-    status.textContent =
-      notice ||
-      (drawing
-        ? state.mode === "draw-point"
-          ? "Click the map to place a marker."
-          : `${state.vertexCount} points · click to add, Enter to finish, Escape to cancel.${validation}`
-        : !idle
-          ? `Drag a corner, then Save edit. Escape discards changes.${validation}`
-          : `${state.featureCount} feature${state.featureCount === 1 ? "" : "s"} · ${state.selectedFeatureIds.length ? "Selection ready to edit or delete." : "Choose a drawing tool or select a shape."}`);
+    status.textContent = message || describe(editor, state);
     container.dataset.mode = state.mode;
     container.dataset.featureCount = String(state.featureCount);
-    const key = JSON.stringify(state.selectedFeatureIds);
-    if (revision !== state.dataRevision || selected !== key) {
-      revision = state.dataRevision;
-      selected = key;
-      list.replaceChildren();
-      for (const [index, feature] of instance
-        .exportGeoJSON()
-        .features.entries()) {
-        const button = document.createElement("button");
-        button.textContent =
-          typeof feature.properties?.name === "string"
-            ? feature.properties.name
-            : `${feature.geometry.type} ${index + 1}`;
-        button.setAttribute(
-          "aria-pressed",
-          String(state.selectedFeatureIds.includes(feature.id!)),
-        );
-        button.addEventListener("click", () => {
-          if (instance.getState().mode === "idle") {
-            notice = "";
-            instance.select(feature.id!);
-          }
-        });
-        list.append(button);
-      }
-      const output = container.querySelector<HTMLElement>(".geojson-output");
-      if (output)
-        output.textContent = JSON.stringify(instance.exportGeoJSON(), null, 2);
+    if (output) output.textContent = JSON.stringify(editor.exportGeoJSON(), null, 2);
+    for (const button of container.querySelectorAll<HTMLButtonElement>(".demo-panel button"))
+      button.disabled = state.mode !== "idle" || button.dataset.requires?.split(" ").some((id) => !editor.getFeature(id)) === true;
+  }
+  editor.onChange((state) => {
+    message = "";
+    render(state);
+  });
+  if (log)
+    editor.onDataChange((event: DataChangeEvent) => {
+      const item = element("li", "", `${event.source} · ${event.changes
+        .map(({ before, after }) => `${!before ? "+" : !after ? "−" : "~"} ${name(after ?? before)}`)
+        .join(", ")}`);
+      const revision = element("span", "", `revision ${event.dataRevision}`);
+      item.append(revision);
+      log.prepend(item);
+      while (log.children.length > 6) log.lastElementChild!.remove();
+    });
+
+  const caption = container.querySelector(".demo-caption")!;
+  if (extras.has("transaction")) {
+    const panel = element("div", "demo-panel");
+    const run = element("button", "button small", "Rename the lawn and remove the kiosk");
+    run.type = "button";
+    run.dataset.requires = "lawn kiosk";
+    run.addEventListener("click", () => {
+      const lawn = editor.getFeature("lawn")!;
+      editor.applyTransaction({
+        update: [{ ...lawn, properties: { ...lawn.properties, name: "Picnic lawn" } }],
+        delete: ["kiosk"],
+      });
+    });
+    panel.append(run, element("span", "", "One transaction, one Undo step."));
+    caption.after(panel);
+  }
+  if (log) {
+    const panel = element("div", "demo-panel demo-events");
+    panel.append(element("strong", "", "onDataChange events"), log);
+    (container.querySelector(".demo-panel") ?? caption).after(panel);
+  }
+  if (extras.has("appearance")) {
+    const panel = element("div", "demo-panel");
+    panel.append(element("span", "", "Theme:"));
+    for (const theme of Object.keys(themes)) {
+      const button = element("button", "", theme);
+      button.type = "button";
+      button.setAttribute("aria-pressed", String(theme === "Blue & orange"));
+      button.addEventListener("click", () => {
+        editor.setAppearance(themes[theme]!);
+        for (const other of panel.querySelectorAll("button"))
+          other.setAttribute("aria-pressed", String(other === button));
+      });
+      panel.append(button);
     }
-    list.querySelectorAll("button").forEach((button) => {
-      button.disabled = !idle;
-    });
+    caption.after(panel);
   }
-  instance.onChange(render);
-  const clear = () => {
-    instance.cancel();
-    const ids = instance.exportGeoJSON().features.map((f) => f.id!);
-    if (ids.length) instance.applyTransaction({ delete: ids });
-    instance.clearHistory();
-    map.jumpTo({ center, zoom: 15.7 });
-  };
-  function loadSample() {
-    clear();
-    instance.importGeoJSON(sample);
-    instance.clearHistory();
-    instance.select("garden");
-  }
-  for (const [action, button] of buttons)
-    button.addEventListener("click", () => {
-      notice = "";
+  if (output) {
+    const panel = element("div", "demo-panel demo-data");
+    const input = element("textarea", "geojson-input");
+    input.rows = 6;
+    input.spellcheck = false;
+    input.setAttribute("aria-label", "GeoJSON to import");
+    input.value = JSON.stringify(
+      {
+        type: "FeatureCollection",
+        features: [{ type: "Feature", id: "meeting-point", properties: { name: "Meeting point" }, geometry: { type: "Point", coordinates: [4.8692, 52.3586] } }],
+      },
+      null,
+      2,
+    );
+    const importButton = element("button", "button small", "Import GeoJSON");
+    importButton.type = "button";
+    importButton.addEventListener("click", () => {
       try {
-        switch (action) {
-          case "polygon":
-            instance.draw("Polygon");
-            break;
-          case "line":
-            instance.draw("LineString");
-            break;
-          case "marker":
-            instance.draw("Point");
-            break;
-          case "finish":
-            instance.finish();
-            break;
-          case "cancel":
-            instance.cancel();
-            break;
-          case "edit":
-            instance.editSelected();
-            break;
-          case "delete":
-            instance.deleteSelection();
-            break;
-          case "undo":
-            instance.undo();
-            break;
-          case "sample":
-            loadSample();
-            break;
-          case "reset":
-            clear();
-            break;
-          case "import": {
-            const input =
-              container.querySelector<HTMLTextAreaElement>(".geojson-input")!;
-            const added = instance.importGeoJSON(JSON.parse(input.value));
-            notice = `Imported ${added.features.length} feature${added.features.length === 1 ? "" : "s"}. Existing features are preserved.`;
-            break;
-          }
-          case "export": {
-            const url = URL.createObjectURL(
-              new Blob([JSON.stringify(instance.exportGeoJSON(), null, 2)], {
-                type: "application/geo+json",
-              }),
-            );
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "map-master.geojson";
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
-            notice = "GeoJSON downloaded. Only committed geometry is exported.";
-            break;
-          }
-        }
+        const added = editor.importGeoJSON(JSON.parse(input.value));
+        message = `Imported ${added.features.length} feature${added.features.length === 1 ? "" : "s"}; existing features are kept.`;
       } catch (error) {
-        notice =
-          error instanceof Error
-            ? error.message
-            : "The operation could not be completed.";
+        message = error instanceof GeoJSONImportError
+          ? `Import rejected (${error.code}${error.path ? ` at ${error.path}` : ""}). Nothing changed.`
+          : error instanceof SyntaxError ? "That is not valid JSON. Nothing changed." : String(error);
       }
-      render(instance.getState());
+      render(editor.getState());
     });
-  const input = container.querySelector<HTMLTextAreaElement>(".geojson-input");
-  if (input) input.value = JSON.stringify(importExample, null, 2);
-  // A visual starting point on the overview; the drawing guide starts empty.
-  if (kind === "edit" || kind === "geojson" || document.querySelector(".home"))
-    loadSample();
-  render(instance.getState());
+    const download = element("button", "", "Download GeoJSON ↓");
+    download.type = "button";
+    download.addEventListener("click", () => {
+      const data: GeometryFeatureCollection = editor.exportGeoJSON();
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/geo+json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "map-master.geojson";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+    const actions = element("div", "demo-data-actions");
+    actions.append(importButton, download);
+    const details = element("details", "");
+    details.append(element("summary", "", "Current GeoJSON"), output);
+    panel.append(input, actions, details);
+    caption.after(panel);
+  }
+
+  reset.addEventListener("click", restore);
+  reset.disabled = false;
+  restore();
   container.dataset.ready = "true";
 }

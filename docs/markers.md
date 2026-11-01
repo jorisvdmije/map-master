@@ -41,7 +41,7 @@ editor.finish(); // One update, retaining the ID and properties.
   a marker unchanged; `removeVertex(0)` returns false. Use deletion to remove the feature.
 - Transactions, import/export, typed IDs, nested properties, duplication,
   deletion, Undo/Redo and host-owned locks have the same contracts as other
-  features. Both demos expose markers; the workspace also names and saves them.
+  features. The playground and the area workspace expose markers; the workspace also names and saves them.
 - Rotation/scaling transform marker positions with the selection. Simplification
   leaves points unchanged. A positive buffer replaces a marker with the existing
   32-sided Mercator polygonal disk approximation; Undo restores the point.

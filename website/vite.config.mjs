@@ -6,8 +6,14 @@ export default defineConfig({
   root: ".generated",
   base: "./",
   publicDir: "public",
-  // HTML lives in .generated; source URLs must resolve outside that dev root.
-  resolve: { alias: { "/src": resolve("src") } },
+  resolve: {
+    alias: {
+      // HTML lives in .generated; source URLs must resolve outside that dev root.
+      "/src": resolve("src"),
+      // The live examples run this repository's library build (`npm run build`).
+      "@jorisvdmije/map-master": resolve("../dist/index.js"),
+    },
+  },
   build: {
     outDir: "../dist",
     emptyOutDir: true,

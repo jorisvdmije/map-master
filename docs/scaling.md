@@ -1,12 +1,13 @@
 # Scale selected shapes
 
-Select one shape, or several with Shift+click, and choose **Scale selection**.
+Scaling resizes the selected shapes around a pivot. Select one shape, or several
+with Shift+click, and start `scaleSelection()` or the toolbar's **Scale** button.
 The frame has eight mouse handles, all scaling around the chosen white pivot:
 
 - Drag a **corner** to scale both axes proportionally, preserving the current aspect ratio.
 - Drag the **left or right side** to change only the horizontal size.
 - Drag the **top or bottom side** to change only the vertical size.
-- Release to review. **Apply scale** or Enter saves the entire selection in one Undo step.
+- Release to review. `finish()` or Enter saves the entire selection in one Undo step.
 - Escape during dragging restores the factors at the start of that drag. Escape again cancels the session.
 
 The frame and handles stay attached to the preview. The faint outline shows the
@@ -23,14 +24,14 @@ pixels of the pivot, are disabled. A side handle aligned with the pivot on its
 scaling axis is also disabled; use the opposite side or numeric input. For very small or off-screen shapes, zoom/pan
 or use the numeric inputs. Mouse dragging is supported; touch dragging is not.
 
-**Scale factor** sets both axes to the same positive value: 1 keeps the original
+`setScaleFactor(factor)` and the **Scale factor** field set both axes to the same positive value: 1 keeps the original
 size, 0.5 halves it, and 2 doubles it. **Horizontal scale factor** and **Vertical
 scale factor** change each axis independently. The uniform field shows “Mixed axes”
 when the factors differ. Half size / Double size multiply both current factors,
 keeping their ratio. Invalid/incomplete input blocks Apply until corrected or
 restored on blur. Shortcuts do not intercept text entry.
 
-Drag **⊕** to move the pivot. The demo's **Fixed scale anchor** selector can fix
+Drag **⊕** to move the pivot. The playground's **Fixed scale anchor** selector can fix
 a corner of the original Mercator bounding box: drag the opposite handle to
 resize around it. North/south/east/west refer to map axes even with bearing/pitch.
 The anchor stays fixed until explicitly changed. Reflection remains unsupported.
@@ -40,7 +41,7 @@ The anchor stays fixed until explicitly changed. Reflection remains unsupported.
 Drag **⊕** to choose a new geographic pivot, or Tab to it and use arrow keys for
 1 screen-pixel steps (Shift: 10 pixels). **Home** restores the original bounds
 centre. Keyboard nudges bypass snapping for precise placement. The pivot may lie
-outside the selection; off-screen pivots can be recovered with the demo's centre
+outside the selection; off-screen pivots can be recovered with the playground's centre
 control or the API.
 
 Moving the pivot retains the current factors and recomputes the preview from

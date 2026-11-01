@@ -3,7 +3,7 @@
 `GeometryEditor` accepts touch contacts and pen tips
 in an existing vertex editing session. Enter Edit through your application's
 controls or `editSelected(ringIndex, partIndex)` / `editSharedBoundary()`.
-No new option is required. Both demos describe the interaction.
+No new option is required.
 
 Touch and pen input covers **existing vertex and midpoint handles**. Automated evidence uses Chromium-dispatched touch and pen input.
 Physical tablets, styluses, palm rejection and Safari/Firefox have not been

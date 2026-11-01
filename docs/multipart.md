@@ -9,7 +9,7 @@ interior rings clockwise, preserving each first corner.
 
 ## Try it
 
-In the demo, choose **Edit multipart geometry** under **Try an example**, then **Add example**.
+In the playground, choose **Edit multipart geometry** under **Try an example**, then **Add example**.
 Click either garden to select the complete `MultiPolygon`. Choose **Part to edit**,
 then **Ring to edit** when the component contains holes, and choose **Edit vertices**.
 Only that component/ring gets handles; the remaining components stay visible.
@@ -100,7 +100,7 @@ Moving an exterior or hole validates the complete `MultiPolygon` after each
 vertex change. Invalid drafts stay editable; Finish returns null, and Cancel
 preserves saved data. Deleting a hole containing an island would fill the area
 around that island and cause overlap: the transaction throws and changes nothing.
-The demo displays that failure. Imported batches and transactions fail atomically,
+The playground displays that failure. Imported batches and transactions fail atomically,
 retaining selection, data revision and Undo/Redo on error.
 
 A changed saved component edit or drawn hole emits one `onUpdate`, then

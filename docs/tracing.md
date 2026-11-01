@@ -1,12 +1,12 @@
 # Trace existing boundaries while drawing
 
-Enable **Snap to vertices & edges** and **Trace existing boundaries** in the demo.
-Start a line or polygon, click an existing boundary, then move to another point
-on the same boundary. The orange preview follows its intervening corners. Click
-to insert the entire section. Mix traced sections with ordinary free drawing;
-**Other trace route** chooses the other arc of a polygon ring before the next click.
-Choose **Trace an existing boundary** under **Try an example**, then **Add example**
-to load a stepped boundary for trying this out.
+Tracing follows an existing boundary while you draw. Turn on snapping and tracing
+with `setSnapping({ enabled: true })` and `setTracing({ enabled: true })`, or the
+toolbar's **Snapping** and **Trace boundaries** buttons. Start a line or polygon,
+click an existing boundary, then move to another point on the same boundary. The
+orange preview follows its intervening corners; click to insert the entire section.
+Mix traced sections with ordinary free drawing. `setTracing({ side: 'longer' })`
+chooses the other arc of a polygon ring before the next click.
 
 Backspace/Delete removes the last drawing step, including every corner inserted
 by one trace click. Enter/Finish saves the whole draft; Escape/Cancel discards it.

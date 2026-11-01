@@ -30,6 +30,18 @@ to `setWorkerUrl`; see the [MapLibre documentation](https://maplibre.org/maplibr
 The page must be served over HTTPS or from `localhost`, because new feature IDs
 use `crypto.randomUUID()`.
 
+Create the editor once the map has loaded. For a complete interface without UI code,
+add the [toolbar](toolbar.md):
+
+```ts
+import { EditorToolbar, GeometryEditor } from '@jorisvdmije/map-master';
+
+map.once('load', () => {
+  const editor = new GeometryEditor(map, { snapping: { enabled: true } });
+  map.addControl(new EditorToolbar(editor), 'top-left');
+});
+```
+
 ## One editor API
 
 The application owns the MapLibre map: its container, worker, stylesheet,
@@ -184,7 +196,7 @@ drawing, selecting, deleting, and subscribing throw.
 ## Polygon holes
 
 A Polygon stores the exterior at `coordinates[0]` and holes at subsequent indices.
-In the demo, select a polygon and choose **Draw a hole**. Place corners strictly
+In the playground, select a polygon and choose **Draw a hole**. Place corners strictly
 inside the filled area, then press Enter, Finish, or click the first corner.
 Escape cancels. Use **Ring to edit** to choose the outer boundary or a hole before
 **Edit vertices**; **Delete hole** removes the chosen interior ring.
@@ -272,7 +284,7 @@ Undo prunes removed copies from selection and does not reselect originals. Redo
 does not restore a previous selection. A subsequent move of the copies is its
 own Undo action. With `historyLimit: 0`, duplication still works without history.
 
-In the demo, select shapes and click **Duplicate**. The demo derives a small degree
+In the playground, select shapes and click **Duplicate**. The playground derives a small degree
 offset from a point 24 CSS pixels right and down from the map center, making the
 copies visible at different zoom levels. This is one shared geographic offset;
 it does not guarantee a 24-pixel displacement at every vertex on a pitched map.
@@ -515,13 +527,13 @@ Listen to `onTransaction` for group deletion and `onHistory` for its undo/redo.
 For compatibility, `deleteSelected()` remains the single-feature method with its
 existing `GeometryFeature | null` result and `onDelete` event. With multiple
 selected features it throws `RangeError` directing callers to `deleteSelection()`;
-it never silently deletes an arbitrary member. The demo's Delete button and
+it never silently deletes an arbitrary member. The playground's Delete button and
 focused Delete/Backspace use the single method for one selection, and the batch
 method for multiple selections.
 
 ## Deletion
 
-Call `deleteSelected()` or use the demo's **Delete** button after selecting a
+Call `deleteSelected()` or use the playground's **Delete** button after selecting a
 line or polygon. Delete/Backspace also remove the selection while the map canvas
 is focused. Modified, repeated, composing, or already-prevented key events are
 ignored, as are shortcuts in inputs and other elements. With no selection, the
@@ -626,7 +638,7 @@ midpoint insertion remains available. Edge movement is a degree translation, not
 a perpendicular offset tool or a screen-parallel constraint. All operations are
 scoped to one active component/ring; they do not link separate features.
 
-Delete/Backspace and the demo's Remove control remove the entire corner selection
+Delete/Backspace and the playground's Remove control remove the entire corner selection
 only while editing. If fewer than two line points or three polygon corners would
 remain, nothing is removed. Shared-boundary junctions cannot be moved or removed;
 a group containing a fixed junction is rejected in full.
@@ -690,7 +702,7 @@ const unsubscribe = editor.onImport((collection) => {
 The method accepts a **parsed Feature or FeatureCollection** and appends it to
 the current collection. JSON parsing, files, fetch, and backend storage belong
 to the host application. It rejects raw geometry objects and JSON strings.
-The demo offers a file picker (5 MB limit), readable errors, and fits the camera
+The playground offers a file picker (5 MB limit), readable errors, and fits the camera
 to imported shapes. The library has no file-size limit and never moves the camera.
 
 The entire batch is validated and copied before any stored feature changes.
@@ -837,7 +849,7 @@ With canvas focus, Ctrl/Cmd+Z undoes; Ctrl/Cmd+Shift+Z or Ctrl+Y redoes. Shortcu
 in form fields or other elements are untouched. Repeats, composing events,
 already-prevented events, Alt combinations, Ctrl+Meta combinations, unavailable
 actions, and active drafts are ignored without preventing browser defaults.
-The demo buttons call the same API and return focus to the map after success.
+The playground buttons call the same API and return focus to the map after success.
 
 A successful undo/redo increments `dataRevision` once, refreshes selection and the
 committed source once, emits one `onHistory` event, then `onChange`. Existing
@@ -881,7 +893,7 @@ const unsubscribe = editor.onSnap((snap) => {
 });
 ```
 
-Snapping is opt-in in the library and enabled by default in the demo. The
+Snapping is opt-in in the library and enabled by default in the playground. The
 behavior takes inspiration from [Geoman's snapping helper](https://geoman.io/docs/maplibre/helper-modes/helper-snapping)
 (pixel tolerance and vertex priority) and its [Alt bypass](https://geoman.io/docs/leaflet/options/snapping).
 The implementation is independent; it does not depend on Geoman or copy Pro code.

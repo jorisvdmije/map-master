@@ -1,22 +1,20 @@
 # Simplify selected geometry
 
-Select one or more lines/polygons and choose **Simplify selection**. Drag the
-**Adjust tolerance** slider or enter a nonnegative **Tolerance (Mercator meters)**.
-Zero preserves every vertex; a larger tolerance removes small details. A summary
-such as **10 → 4 vertices · 60% fewer vertices** counts all selected components and
-holes, excluding polygon closure copies. The faint solid contour is the original;
-the dotted contour and fill show the result. Try the detailed polygon/line fixture
-with tolerance 5.
+Simplification removes corners that add little detail. Select one or more lines or
+polygons and start `simplifySelection()` or the toolbar's **Simplify** button, then
+set a nonnegative tolerance in Mercator meters with
+`setSimplificationTolerance(meters)`. Zero preserves every vertex; a larger tolerance
+removes small details. The faint solid contour is the original; the dotted contour
+and fill show the result. The [playground](playground-workflow.md) adds a tolerance
+slider and a summary such as **10 → 4 vertices · 60% fewer vertices**.
 
-**Apply simplification** saves the complete selection; Cancel discards the preview.
-With the map focused, Enter applies and Escape cancels. One Undo restores every
-original coordinate. Invalid or incomplete numeric input disables Apply; leaving
-the field restores the last accepted tolerance. Typing is not intercepted by map
-shortcuts.
+`finish()` saves the complete selection and `cancel()` discards the preview. With
+the map focused, Enter applies and Escape cancels. One Undo restores every original
+coordinate.
 
 ## Slider and comparison controls
 
-The demo's slider starts at 0 and uses 10% of the selection's Mercator bounding-box
+The playground's slider starts at 0 and uses 10% of the selection's Mercator bounding-box
 diagonal as its maximum (at least 1 meter). Its range stays fixed while dragging;
 typing a larger value expands it. Lowering the value does not shrink the range.
 A new session resets the range from its selected originals. This range is a
@@ -135,7 +133,7 @@ Valid preview geometry hides the ordinary selected rendering and displays its
 original outlines at 30% of the configured feature line opacity underneath the
 preview. Color and width follow the feature appearance (minimum width 1 pixel).
 This comparison reuses the committed source and preserves holes/components; it
-is available to library consumers as well as the demo. An invalid result displays
+is available to library consumers as well as the playground. An invalid result displays
 the ordinary originals without a duplicate comparison outline. There is no pivot
 marker. Changing tolerance never uploads the committed
 feature source. Camera changes and style replacement retain/reconstruct the same

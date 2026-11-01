@@ -1,12 +1,12 @@
 # Edit a shared polygon boundary
 
-Select two adjoining polygons with Shift+click, then choose **Edit shared boundary**.
-Click or drag a small midpoint to insert a corner, drag an interior corner to move
-it, and use **Remove vertex** or Delete/Backspace to remove a selected corner.
-The grey endpoints stay fixed. Both polygon previews change together.
-**Save both polygons** or Enter commits; Cancel/Escape discards the draft.
-One Undo restores both originals. The demo's shared-boundary example supplies two
-eligible parcels; download and import it to try this workflow.
+Two adjoining polygons can share a boundary that should move as one. Select both
+with Shift+click and start `editSharedBoundary()` or the toolbar's **Edit shared
+boundary** button. Click or drag a small midpoint to insert a corner, drag an
+interior corner to move it, and press Delete/Backspace to remove a selected corner.
+The grey endpoints stay fixed and both polygon previews change together. `finish()`
+or Enter commits; `cancel()` or Escape discards the draft. One Undo restores both
+originals.
 
 ## Supported geometry
 
@@ -35,7 +35,7 @@ dateline, globe or terrain guarantees.
 ```ts
 editor.selectMany(['west', 'east']);
 if (editor.editSharedBoundary()) {
-  // Coordinates for the demo fixture; index 1 lies between the fixed endpoints.
+  // Coordinates for the playground fixture; index 1 lies between the fixed endpoints.
   editor.insertVertex(1, [4.891, 52.3725]);
   const preview = editor.getSharedBoundaryPreview();
   if (editor.getState().canFinish) {

@@ -144,7 +144,7 @@ committed geometry. New drawings use the global draft theme until committed.
 To save a user's chosen color, the **application** updates a property through
 `applyTransaction`, then maps that property in its resolver. That is a document
 change with normal lock validation and Undo. A theme/palette change is presentation
-only. The demo uses its own `demoColor` and `demoOrder` properties; these names have
+only. The playground uses its own `demoColor` and `demoOrder` properties; these names have
 no special meaning in the library. External ID-to-style maps are another option;
 call `refreshStyling` when their entries change and manage new IDs yourself.
 

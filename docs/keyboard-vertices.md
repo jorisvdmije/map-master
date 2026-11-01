@@ -4,7 +4,6 @@ Keyboard controls are built into `GeometryEditor`.
 Start a normal `editSelected(ringIndex, partIndex)` or `editSharedBoundary()` session
 through your application's controls. No additional option or callback is required.
 The library adds one focusable vertex control inside the map's canvas container.
-Both demos explain this interaction during editing.
 
 From the focused map canvas, press **Home** to focus the first vertex. **Tab** also
 reaches the vertex control in normal DOM order. The control displays the focused

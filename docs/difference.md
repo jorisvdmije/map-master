@@ -1,14 +1,13 @@
 # Subtract selected polygons (difference)
 
-Select the **target first**, then Shift+click one or more cutting polygons. Choose
-**Subtract polygons**, inspect the orange remaining target area and choose **Apply
-subtraction** (or Enter with map focus). The blue cutting polygons are kept.
-Cancel or Escape leaves all originals untouched. The demo includes a downloadable
-subtraction example with a target hole.
+Difference subtracts cutting polygons from a target. Select the **target first**,
+then Shift+click one or more cutting polygons, and start `differenceSelection()` or
+the toolbar's **Subtract polygons** button. The orange preview shows the remaining
+target area; `finish()` (or Enter with map focus) commits it and keeps the blue
+cutting polygons. `cancel()` or Escape leaves all originals untouched.
 
-Selection order matters: `A − B` is different from `B − A`. The demo shows the first
-selected ID before entry and identifies it as the target during review. If all
-area is removed, the demo explicitly says confirmation will delete that target.
+Selection order matters: `A − B` is different from `B − A`. The first selected
+feature is the target. If all of its area is removed, confirming deletes the target.
 
 ## Public API
 

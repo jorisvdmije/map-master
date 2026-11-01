@@ -1,0 +1,270 @@
+import { Map, setWorkerUrl } from 'maplibre-gl';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+import { afterEach, beforeEach, expect, it } from 'vitest';
+import { userEvent } from 'vitest/browser';
+import {
+  EditorToolbar, GeometryEditor, type FeatureId, type GeometryFeature, type LineFeature, type PolygonFeature, type ToolbarTool,
+} from '../../src/index.js';
+import 'maplibre-gl/dist/maplibre-gl.css';
+
+setWorkerUrl(workerUrl);
+let container: HTMLDivElement;
+let map: Map;
+let editor: GeometryEditor;
+// The toolbar injects its styles and places its panel once MapLibre has inserted it.
+const settle = () => new Promise<void>((resolve) => { queueMicrotask(resolve); });
+const button = (tool: ToolbarTool) => container.querySelector<HTMLButtonElement>(`.mm-toolbar-button[data-tool="${tool}"]`)!;
+const panel = () => container.querySelector<HTMLElement>('.mm-toolbar-actions')!;
+const action = (text: string) => [...container.querySelectorAll<HTMLButtonElement>('.mm-toolbar-action')].find((b) => b.textContent === text)!;
+const shown = (element: Element) => element.checkVisibility();
+const field = () => container.querySelector<HTMLInputElement>('.mm-toolbar-field input')!;
+const enabled = () => [...container.querySelectorAll<HTMLButtonElement>('.mm-toolbar-button')].filter((b) => !b.disabled).map((b) => b.dataset.tool);
+const click = (x: number, y: number) => userEvent.click(map.getCanvas(), { position: { x, y } });
+const at = (x: number, y: number) => map.unproject([x, y]).toArray();
+const line = (id: FeatureId, y: number): LineFeature => ({ type: 'Feature', id, properties: {},
+  geometry: { type: 'LineString', coordinates: [at(250, y), at(550, y)] },
+});
+const square = (id: FeatureId, x: number, y: number, size = 100): PolygonFeature => ({ type: 'Feature', id, properties: {},
+  geometry: { type: 'Polygon', coordinates: [[at(x, y + size), at(x + size, y + size), at(x + size, y), at(x, y), at(x, y + size)]] },
+});
+const load = (...features: GeometryFeature[]) => { editor.importGeoJSON({ type: 'FeatureCollection', features }); editor.clearHistory(); };
+const add = async (toolbar: EditorToolbar, position?: 'top-left' | 'top-right' | 'bottom-left') => {
+  map.addControl(toolbar, position); await settle(); return toolbar;
+};
+
+beforeEach(async () => {
+  container = document.createElement('div'); container.style.cssText = 'width:700px;height:500px;position:relative;';
+  document.body.append(container);
+  map = new Map({ container, center: [4.895, 52.372], zoom: 13, fadeDuration: 0,
+    style: { version: 8, sources: {}, layers: [{ id: 'background', type: 'background' }] } });
+  await new Promise<void>((resolve) => { map.once('load', () => { resolve(); }); });
+  editor = new GeometryEditor(map);
+});
+afterEach(() => { editor.destroy(); map.remove(); container.remove(); });
+
+it('renders the default tools as a styled, labelled MapLibre control', async () => {
+  await add(new EditorToolbar(editor));
+  const root = container.querySelector<HTMLElement>('.maplibregl-ctrl-top-left .mm-toolbar')!;
+  expect(root.getAttribute('role')).toBe('toolbar');
+  expect(root.getAttribute('aria-label')).toBe('Geometry tools');
+  expect([...root.querySelectorAll<HTMLButtonElement>('.mm-toolbar-button')].map((b) => b.dataset.tool)).toEqual(EditorToolbar.defaultTools);
+  expect([...root.querySelectorAll('.mm-toolbar-group')].map((group) => group.children.length)).toEqual([3, 7, 2]);
+  expect(button('polygon').getAttribute('aria-label')).toBe('Draw polygon');
+  expect(button('polygon').getAttribute('aria-pressed')).toBe('false');
+  expect(button('undo').hasAttribute('aria-pressed')).toBe(false);
+  expect(button('polygon').querySelector('svg')!.childElementCount).toBeGreaterThan(0);
+  expect(getComputedStyle(button('polygon')).width).toBe('32px');
+  expect(shown(panel())).toBe(false);
+  expect(enabled()).toEqual(['point', 'line', 'polygon']);
+  expect(new EditorToolbar(editor).getDefaultPosition()).toBe('top-left');
+  expect(document.adoptedStyleSheets.filter((sheet) => [...sheet.cssRules].some((rule) => rule.cssText.includes('.mm-toolbar')))).toHaveLength(1);
+});
+
+it('draws, removes the last point, finishes and replays history from the toolbar', async () => {
+  await add(new EditorToolbar(editor));
+  await userEvent.click(button('polygon'));
+  expect(editor.getState().mode).toBe('draw-polygon');
+  expect(button('polygon').getAttribute('aria-pressed')).toBe('true');
+  expect(document.activeElement).toBe(map.getCanvas());
+  expect(shown(panel())).toBe(true);
+  expect(action('Finish').disabled).toBe(true);
+  expect(action('Remove last point').disabled).toBe(true);
+  expect(panel().getBoundingClientRect().left).toBeGreaterThan(button('polygon').getBoundingClientRect().right);
+
+  await click(150, 150); await click(350, 150); await click(350, 350); await click(200, 380);
+  expect(button('line').disabled).toBe(true);
+  await userEvent.click(action('Remove last point'));
+  expect(editor.getState().vertexCount).toBe(3);
+  await userEvent.click(action('Finish'));
+  expect(editor.getState()).toMatchObject({ mode: 'idle', featureCount: 1, canUndo: true });
+  expect(shown(panel())).toBe(false);
+  expect(button('polygon').getAttribute('aria-pressed')).toBe('false');
+
+  await userEvent.click(button('undo'));
+  expect(editor.getState().featureCount).toBe(0);
+  await userEvent.click(button('redo'));
+  expect(editor.getState().featureCount).toBe(1);
+  expect(button('redo').disabled).toBe(true);
+});
+
+it('switches drawing tools while no point is placed and cancels the active tool when pressed again', async () => {
+  await add(new EditorToolbar(editor));
+  await userEvent.click(button('polygon'));
+  await userEvent.click(button('line'));
+  expect(editor.getState().mode).toBe('draw-line');
+  expect(shown(action('Finish'))).toBe(true);
+  expect(shown(container.querySelector('.mm-toolbar-field')!)).toBe(false);
+  await userEvent.click(button('line'));
+  expect(editor.getState().mode).toBe('idle');
+
+  await userEvent.click(button('point'));
+  expect(shown(action('Finish'))).toBe(false);
+  expect(shown(action('Remove last point'))).toBe(false);
+  expect(shown(action('Cancel'))).toBe(true);
+  await click(300, 300);
+  expect(editor.getState()).toMatchObject({ mode: 'idle', featureCount: 1 });
+});
+
+it('enables each tool only for a qualifying, unlocked selection', async () => {
+  load(square('a', 100, 100), square('b', 150, 150), line('l', 400));
+  await add(new EditorToolbar(editor, { tools: EditorToolbar.allTools }));
+  const aids = ['snapping', 'constraints', 'tracing'];
+  expect(enabled()).toEqual(['point', 'line', 'polygon', ...aids]);
+  editor.select('a');
+  expect(enabled()).toEqual(['point', 'line', 'polygon', 'hole', 'edit', 'split', 'reshape', 'rotate', 'scale', 'buffer', 'simplify', 'duplicate', 'delete', ...aids]);
+  editor.selectMany(['a', 'b']);
+  expect(enabled()).toEqual(['point', 'line', 'polygon', 'shared-boundary', 'union', 'difference', 'intersection', 'rotate', 'scale', 'buffer', 'simplify', 'duplicate', 'delete', ...aids]);
+  editor.select('l');
+  expect(enabled()).toEqual(['point', 'line', 'polygon', 'edit', 'rotate', 'scale', 'buffer', 'offset', 'simplify', 'duplicate', 'delete', ...aids]);
+  editor.setLockedFeatureIds(['l']);
+  expect(enabled()).toEqual(['point', 'line', 'polygon', 'duplicate', ...aids]);
+
+  editor.setLockedFeatureIds([]); editor.selectMany(['a', 'b']);
+  await userEvent.click(button('union'));
+  expect(editor.getState().mode).toBe('union-polygons');
+  expect(action('Apply').disabled).toBe(false);
+  // A preview discards no input, so another qualifying tool takes over directly.
+  await userEvent.click(button('intersection'));
+  expect(editor.getState().mode).toBe('intersection-polygons');
+  await userEvent.click(action('Cancel'));
+  expect(editor.getState()).toMatchObject({ mode: 'idle', featureCount: 3 });
+});
+
+it('applies a buffer distance from the panel and blocks invalid values', async () => {
+  load(square('a', 250, 150));
+  editor.select('a');
+  await add(new EditorToolbar(editor, { tools: ['buffer', 'undo'] }));
+  await userEvent.click(button('buffer'));
+  expect(editor.getState().mode).toBe('buffer-features');
+  expect(container.querySelector('.mm-toolbar-field')!.textContent).toBe('Distancem');
+  expect(shown(action('Remove last point'))).toBe(false);
+  expect(shown(field())).toBe(true);
+  expect(field().value).toBe('10');
+  await userEvent.fill(field(), '25');
+  expect(editor.getState().bufferDistance).toBe(25);
+  await userEvent.fill(field(), '-5');
+  expect(field().getAttribute('aria-invalid')).toBe('true');
+  expect(action('Apply').disabled).toBe(true);
+  expect(editor.getState().bufferDistance).toBe(25);
+  await userEvent.fill(field(), '30');
+  expect(field().getAttribute('aria-invalid')).toBe('false');
+  await userEvent.click(action('Apply'));
+  expect(editor.getState()).toMatchObject({ mode: 'idle', canUndo: true });
+  const ring = (editor.getFeature('a') as PolygonFeature).geometry.coordinates[0]!;
+  expect(ring.length).toBeGreaterThan(5);
+});
+
+it('rotates with the angle field, applying with Enter and cancelling with Escape', async () => {
+  load(square('a', 250, 150));
+  editor.select('a');
+  await add(new EditorToolbar(editor, { tools: ['rotate'] }));
+  const original = editor.getFeature('a');
+  await userEvent.click(button('rotate'));
+  expect(field().value).toBe('0');
+  await userEvent.fill(field(), '45');
+  expect(editor.getState().rotationAngle).toBe(45);
+  await userEvent.keyboard('{Enter}');
+  expect(editor.getState().mode).toBe('idle');
+  const rotated = editor.getFeature('a');
+  expect(rotated).not.toEqual(original);
+
+  await userEvent.click(button('rotate'));
+  await userEvent.fill(field(), '30');
+  await userEvent.keyboard('{Escape}');
+  expect(editor.getState().mode).toBe('idle');
+  expect(editor.getFeature('a')).toEqual(rotated);
+});
+
+it('toggles snapping, angle constraints and tracing and reflects changes made through the API', async () => {
+  await add(new EditorToolbar(editor, { tools: ['snapping', 'constraints', 'tracing'] }));
+  expect(button('snapping').getAttribute('aria-pressed')).toBe('false');
+  editor.setSnapping({ enabled: true });
+  expect(button('snapping').getAttribute('aria-pressed')).toBe('true');
+  editor.setSnapping({ enabled: false });
+  await userEvent.click(button('tracing'));
+  expect(editor.getTracing().enabled).toBe(true);
+  expect(editor.getSnapping().enabled).toBe(true);
+  expect(button('snapping').getAttribute('aria-pressed')).toBe('true');
+  await userEvent.click(button('constraints'));
+  expect(editor.getDrawingConstraints().enabled).toBe(true);
+  expect(document.activeElement).toBe(button('constraints'));
+});
+
+it('duplicates the selection beside the original and deletes it', async () => {
+  load(square('a', 250, 150));
+  editor.select('a');
+  await add(new EditorToolbar(editor, { tools: ['duplicate', 'delete'] }));
+  await userEvent.click(button('duplicate'));
+  expect(editor.getState().featureCount).toBe(2);
+  const [copy] = editor.getSelection() as PolygonFeature[];
+  const corner = map.project(copy!.geometry.coordinates[0]![0] as [number, number]);
+  expect(corner.x).toBeCloseTo(274, 0);
+  expect(corner.y).toBeCloseTo(274, 0);
+  await userEvent.click(button('delete'));
+  expect(editor.getState()).toMatchObject({ featureCount: 1, selectedFeatureIds: [] });
+  expect(editor.getFeature('a')).not.toBeNull();
+});
+
+it('opens the panel towards the map centre when placed on the right', async () => {
+  await add(new EditorToolbar(editor, { tools: ['point', 'line', 'polygon'] }), 'top-right');
+  await userEvent.click(button('polygon'));
+  expect(container.querySelector('.mm-toolbar')!.classList.contains('mm-toolbar--end')).toBe(true);
+  const panelBox = panel().getBoundingClientRect();
+  const buttonBox = button('polygon').getBoundingClientRect();
+  expect(panelBox.right).toBeLessThan(buttonBox.left);
+  expect(Math.abs(panelBox.top - buttonBox.top)).toBeLessThan(1);
+});
+
+it('moves focus with arrow keys and keeps one tab stop', async () => {
+  await add(new EditorToolbar(editor));
+  const tabStops = () => [...container.querySelectorAll<HTMLButtonElement>('.mm-toolbar-button')].filter((b) => b.tabIndex === 0);
+  expect(tabStops()).toEqual([button('point')]);
+  button('point').focus();
+  await userEvent.keyboard('{ArrowDown}');
+  expect(document.activeElement).toBe(button('line'));
+  await userEvent.keyboard('{End}');
+  expect(document.activeElement).toBe(button('polygon'));
+  await userEvent.keyboard('{ArrowDown}');
+  expect(document.activeElement).toBe(button('point'));
+});
+
+it('accepts translated labels and rejects invalid options', async () => {
+  await add(new EditorToolbar(editor, { tools: ['polygon'], labels: { polygon: 'Vlak tekenen', finish: 'Klaar', toolbar: 'Gereedschap' } }));
+  expect(button('polygon').getAttribute('aria-label')).toBe('Vlak tekenen');
+  expect(button('polygon').dataset.tooltip).toBe('Vlak tekenen');
+  expect(container.querySelector('.mm-toolbar')!.getAttribute('aria-label')).toBe('Gereedschap');
+  await userEvent.click(button('polygon'));
+  expect(action('Klaar')).toBeDefined();
+
+  expect(() => new EditorToolbar(editor, { tools: [] })).toThrow(TypeError);
+  expect(() => new EditorToolbar(editor, { tools: ['polygon', 'polygon'] })).toThrow('Repeated toolbar tool: polygon');
+  expect(() => new EditorToolbar(editor, { tools: ['circle' as ToolbarTool] })).toThrow('Unknown toolbar tool: circle');
+  expect(() => new EditorToolbar(editor, { labels: { circle: 'Circle' } as never })).toThrow('Unknown toolbar label: circle');
+  expect(() => new EditorToolbar(editor, { labels: { polygon: 1 as unknown as string } })).toThrow(TypeError);
+});
+
+it('removes its element and stops following the editor', async () => {
+  const first = await add(new EditorToolbar(editor));
+  await add(new EditorToolbar(editor, { tools: ['undo'] }), 'bottom-left');
+  map.removeControl(first);
+  expect(container.querySelectorAll('.mm-toolbar')).toHaveLength(1);
+  editor.draw('Polygon');
+  editor.cancel();
+  expect(container.querySelectorAll('.mm-toolbar')).toHaveLength(1);
+});
+
+it('shows the action panel only on the toolbar that holds the active tool', async () => {
+  load(square('a', 250, 150));
+  await add(new EditorToolbar(editor, { tools: ['polygon', 'edit'] }));
+  await add(new EditorToolbar(editor, { tools: ['rotate', 'undo'] }), 'top-right');
+  const [left, right] = [...container.querySelectorAll<HTMLElement>('.mm-toolbar-actions')];
+  await userEvent.click(button('polygon'));
+  expect([shown(left!), shown(right!)]).toEqual([true, false]);
+  await userEvent.click(button('polygon'));
+  editor.select('a');
+  await userEvent.click(button('rotate'));
+  expect([shown(left!), shown(right!)]).toEqual([false, true]);
+  editor.cancel();
+  editor.draw('LineString');
+  expect([shown(left!), shown(right!)]).toEqual([false, false]);
+});

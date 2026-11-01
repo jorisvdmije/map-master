@@ -61,6 +61,16 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const stored: editor.GeometryFeature | null = tool.getFeature('reference');
   const mode: editor.EditorMode = tool.getState().mode;
   void [stored, mode];
+  const tools: editor.ToolbarTool[] = ['polygon', 'edit', 'buffer', 'undo'];
+  const labels: Partial<editor.ToolbarLabels> = { polygon: 'Vlak tekenen', finish: 'Klaar' };
+  const toolbarOptions: editor.ToolbarOptions = { tools, labels };
+  const toolbar = new editor.EditorToolbar(tool, toolbarOptions);
+  map.addControl(toolbar, 'top-left'); map.removeControl(toolbar);
+  const allTools: readonly editor.ToolbarTool[] = editor.EditorToolbar.allTools;
+  const labelKey: editor.ToolbarLabelKey = 'removeLastPoint';
+  void [allTools, labelKey, editor.EditorToolbar.defaultTools];
+  // @ts-expect-error tools are a closed set
+  void new editor.EditorToolbar(tool, { tools: ['circle'] });
   void committed;
   const target: editor.TraceTarget = { featureId: 'boundary', partIndex: 0, ringIndex: 0 };
   const side: editor.TraceSide = 'shorter';

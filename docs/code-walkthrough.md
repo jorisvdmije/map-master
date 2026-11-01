@@ -54,6 +54,9 @@ src/
     vertex-interaction.ts    Mouse edges; mouse/touch/pen vertex capture, map gesture separation and rollback
     vertex-keyboard.ts       Single-tab-stop vertex navigation, group nudges and movement rollback
     vertex-handles.ts        Shared screen-space corner/midpoint definitions and edge picking
+    toolbar.ts               EditorToolbar MapLibre control; only calls the public API
+    toolbar-icons.ts         Toolbar SVG icons, built with DOM methods
+    toolbar-styles.ts        Scoped toolbar stylesheet, adopted once per document
     line-editor.ts           Deprecated line-only facade over GeometryEditor
 examples/basic/              Consumer UI; calls the same API as another app would
 examples/workspace/          Installed consumer with storage and host-owned appearance presets
@@ -66,6 +69,8 @@ tests/                       Core behavior, boundary checks and packed-package i
 | Task | Start here | Verification |
 | --- | --- | --- |
 | Integrate into an application | [API guide](geometry-editor.md), `examples/basic/main.ts` | `tests/fixtures/consumer/`, demo browser tests |
+| Change the toolbar | `maplibre/toolbar.ts` | `tests/browser/toolbar.test.ts`, `npm run test:docs` |
+| Change a live documentation example | `website/src/demos.ts`, hints in `website/scripts/content.mjs` | `npm run test:docs` |
 | Add a geometry operation | `core/` algorithm, then `DrawingSession` | Core behavior tests, operation benchmark |
 | Change committed data or Undo | `core/transaction.ts`, `drawing-session.ts`, `history.ts` | Transaction/history tests, mixed selections and failure cases |
 | Add a mouse gesture | Corresponding `maplibre/*-interaction.ts`, wired in `GeometryEditor` | Browser tests for release, Escape, blur, style changes and destruction |

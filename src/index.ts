@@ -2,6 +2,8 @@ export type { FeatureStyle, FeatureStyleResolver, SelectionStyle, OverlapMember,
 export { FeatureLockedError } from './core/feature-locks.js';
 export { GeometryEditor } from './maplibre/geometry-editor.js';
 export { LineEditor } from './maplibre/line-editor.js';
+export { EditorToolbar } from './maplibre/toolbar.js';
+export type { ToolbarLabelKey, ToolbarLabels, ToolbarOptions, ToolbarTool } from './maplibre/toolbar.js';
 export type { EditorAppearance, EditorAppearanceOptions, ShapeAppearance, DraftAppearance, PointAppearance, VertexAppearance, SnapAppearance } from './core/appearance.js';
 export type {
   // Geometry and identity.

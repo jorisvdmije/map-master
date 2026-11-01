@@ -74,7 +74,7 @@ This is editor interaction policy, not authorization. The host can unlock IDs;
 a server must validate its own permissions. There are no per-operation roles,
 user accounts, per-ring locks, or restrictions on copying/exporting reference data.
 The library does not change locked-feature colors automatically;
-host controls indicate protection in the demos.
+host controls indicate protection in the examples.
 
 ## Implementation and checks
 

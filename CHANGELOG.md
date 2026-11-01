@@ -11,6 +11,12 @@ First regular release. It is backwards compatible with 0.1.0-beta.0; see the
 
 ### Added
 
+- `EditorToolbar`: a ready-made MapLibre control with buttons for drawing, editing,
+  every geometry tool, snapping, angle constraints, tracing and Undo/Redo. Buttons
+  enable themselves for qualifying selections, and an action panel beside the active
+  tool offers Finish/Apply, Remove last point, Cancel and the tool's distance, angle
+  or factor. Choose and translate the buttons with the `tools` and `labels` options;
+  theme it with CSS custom properties. See the [toolbar guide](docs/toolbar.md).
 - `GeometryEditor.onDataChange(listener)`: one stream of every committed data change
   (drawing, edits, deletions, imports, transactions, geometry tools and undo/redo)
   with its `source`, before/after `changes` and the new `dataRevision`. Applications
@@ -21,8 +27,8 @@ First regular release. It is backwards compatible with 0.1.0-beta.0; see the
   and IDEs.
 - Guides for [saving and loading data](docs/persistence.md),
   [compatibility and limits](docs/compatibility.md) and [testing](docs/testing.md).
-- Searchable documentation website with a complete quickstart and three interactive
-  examples.
+- Searchable documentation website with syntax-highlighted code, a complete
+  quickstart and a live example on a real OpenStreetMap basemap for every feature.
 - Verification of the published release in the example application, and
   Firefox/WebKit checks of its workflows on Linux and macOS.
 

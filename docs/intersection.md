@@ -1,10 +1,10 @@
 # Keep the common area (intersection)
 
-Select at least two Polygon/MultiPolygon features and choose **Intersect polygons**.
-The orange preview shows the filled area shared by **every** selected feature.
-**Apply intersection** or Enter with map focus replaces the inputs with that area.
-Cancel or Escape preserves the originals. The demo includes a downloadable
-three-polygon example; select all three with Shift+click.
+Intersection keeps only the area shared by **every** selected Polygon or
+MultiPolygon. Select two or more and start `intersectionSelection()` or the
+toolbar's **Intersect polygons** button. The orange preview shows the common area;
+`finish()` (or Enter with map focus) replaces the inputs with it, and `cancel()` or
+Escape preserves the originals.
 
 The first selected feature retains its ID, properties and collection position.
 Other selected features are deleted on confirmation. If there is no common area,
