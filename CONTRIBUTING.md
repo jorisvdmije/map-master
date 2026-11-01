@@ -1,163 +1,127 @@
 # Contributing
 
-## Small changes, short-lived branches
+Thank you for helping improve Map Master. Bug reports and feature requests go to
+[GitHub Issues](https://github.com/jorisvdmije/map-master/issues); report
+vulnerabilities privately as described in the [security policy](SECURITY.md).
 
-Use one branch for one reviewable change, including its relevant tests and docs.
-A feature may need several sequential changes. Branches are temporary; completed
-features live together on `main`.
+## Development setup
 
-1. Define the behavior and acceptance criteria in an issue or the roadmap.
-2. Create a branch from the latest `main`, such as `feat/draw-line` or `fix/cancel-drawing`.
-3. Implement the smallest complete change. Include validation of failure and cancellation paths.
-4. Open a pull request describing the behavior, validation performed, and known limitations.
-5. Review the change and require passing checks before merging into `main`.
-6. Delete the merged branch. Start the next change from the updated `main`.
+Use Node.js 22.13 or later within 22.x, or Node.js 24 (`nvm use` selects the version
+in `.nvmrc`), with npm.
 
-Prefer squash merges for a single logical change. Use release tags for versions.
-Create branches as work starts; do not create all roadmap branches in advance.
-For a solo maintainer, use the same PR checklist and review the diff before merging.
+```sh
+git clone https://github.com/jorisvdmije/map-master.git
+cd map-master
+npm ci
+npm ci --prefix website
+npx playwright install chromium   # on Linux: npx playwright install --with-deps chromium
+npm run check
+```
+
+## Commands
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the playground on <http://localhost:5173> with live library source. Add `?basemap=off` to avoid tile requests. |
+| `npm run dev:workspace` | Pack the library and run the [area workspace](examples/workspace/README.md) on <http://127.0.0.1:5174>. |
+| `npm run dev:docs` | Start the documentation site on <http://127.0.0.1:5180>. |
+| `npm run typecheck` | Type-check the library, the browser-independent core, tests, examples and configuration. |
+| `npm run lint` | ESLint with type-aware rules and architectural import rules; no warnings allowed. |
+| `npm test` | Core tests in Node.js, plus packing and installing the library in an isolated consumer. |
+| `npm run test:browser` | Build, then run the real MapLibre interaction and demo tests in Chromium. |
+| `npm run test:workspace` | Install the packed library in the example application and run its acceptance tests and performance budgets. |
+| `npm run test:docs` | Build and check the documentation site. |
+| `npm run check` | All of the above plus the production demo build. Run it before opening a pull request. |
+| `npm run build` | Emit ESM JavaScript and declarations to `dist/`. |
+| `npm run benchmark -- <name>` | Run operation benchmarks; without a name it lists them. |
+| `npm run release:prepare` | Pack one candidate archive and run the full checks against it. |
+
+[Testing](docs/testing.md) describes every test level, the cross-browser and
+published-release checks and the performance budgets.
+
+## Workflow
+
+1. Describe the behavior and acceptance criteria in an issue.
+2. Create a short-lived branch from the latest `main`, such as `feat/trim-lines` or
+   `fix/cancel-drawing`.
+3. Implement the smallest complete change, including tests for failure and
+   cancellation paths and the documentation it affects.
+4. Open a pull request that describes the behavior, the validation performed and
+   known limitations, and add user-visible changes to the **Unreleased** section of
+   the [changelog](CHANGELOG.md).
+5. `main` is protected: both required checks (Node.js 22 and 24) must pass on the
+   latest commit and conversations must be resolved. Squash-merge one logical change.
 
 This follows [GitHub flow](https://docs.github.com/en/get-started/using-github/github-flow).
-The configured remote is `https://github.com/jorisvdmije/map-master.git`.
-The public repository and protection of `main` were configured on 2026-10-28.
-Pull requests require up-to-date `Check (Node 22)` and `Check (Node 24)` results
-and resolved conversations, including for administrators. Force pushes and
-deletion of `main` are disabled. The current solo-maintainer policy requires a
-PR but no second approving reviewer; raise that requirement when another
-maintainer joins. See [repository integration](docs/repository-integration.md)
-for the initial history import and remaining release gates.
-Maintainer: [@jorisvdmije](https://github.com/jorisvdmije). Use
-[Issues](https://github.com/jorisvdmije/map-master/issues) for non-sensitive bugs
-and feature requests; follow [SECURITY.md](SECURITY.md) for vulnerabilities.
 
-## Finding the right place to change
+## Where to make a change
 
-Start with the [code map](docs/code-walkthrough.md#where-to-make-a-change) and
-[current architecture](docs/architecture.md). Use the [documentation index](docs/README.md)
-to find integration contracts and performance baselines.
+Start with the [architecture](docs/architecture.md) and the
+[code walkthrough](docs/code-walkthrough.md#where-to-make-a-change). For a new operation:
 
-For a new operation:
+1. Define its input, output, failure conditions and undo behavior in a guide under `docs/`.
+2. Put geometry calculations in a pure module in `src/core/`. Add coordination to
+   `DrawingSession` only where selection, drafts or committed data are involved, and
+   commit changes through the transaction boundary. Previews never mutate stored features.
+3. Expose the public method on `GeometryEditor` with TSDoc, and put pointer or keyboard
+   handling in a focused module in `src/maplibre/`. Every gesture owns its cancellation
+   and cleanup.
+4. Emit events after committing, through `EditorEvents`. Export new public types from
+   `src/index.ts` and use them in the consumer fixture in `tests/fixtures/consumer/`.
+5. Demonstrate the capability in the playground (`examples/basic`) through the public
+   API, and add core and browser tests, plus a benchmark for performance-sensitive work.
 
-1. Define its input, output, failure conditions and Undo behavior in the relevant
-   API guide. Check the supported geometry subset before adding a new shape type.
-2. Put geometry calculations in a pure core module. Add session coordination only
-   where selection, drafts or committed data are involved. Reuse the transaction
-   boundary for group changes; previews must not mutate stored features.
-3. Wire the public method through `GeometryEditor`. Add pointer/keyboard handling
-   in the appropriate input module. Each gesture owns cancellation and cleanup.
-4. Choose the documented event contract and notify through `EditorEvents` after
-   committing. Update public types/exports and the consumer fixture when needed.
-5. Demonstrate the capability through the same public API in `examples/basic`,
-   and add core/browser tests plus a benchmark for performance-sensitive work.
+`src/core/` must not import MapLibre, the DOM or the public entry point, and examples
+must use only the public package entry; ESLint enforces both rules.
 
-Keep a single package and the current two source directories until a concrete
-integration needs a new boundary. Extract modules by responsibility, such as
-keyboard input or transaction validation; do not create a folder per button or
-one branch per file. Finish one reviewable behavior before starting the next.
+## Definition of done
 
-## Definition of done for code changes
+- Public behavior and limitations are documented, with an example where useful.
+- `npm run check` passes.
+- Tests cover observable behavior and regressions, including invalid input.
+- Interaction changes are exercised in a real browser, including cancel and cleanup.
+- The package exposes only the intended API and its declarations.
+- New dependencies have a documented purpose and a compatible license, and are added
+  to [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) when they ship at runtime.
+- Performance-sensitive changes include measurements on a fixed dataset.
 
-- Public behavior and limitations are documented, with a usable example when applicable.
-- Type checking, linting, relevant tests, and the package build pass.
-- Tests cover observable behavior and regressions, including invalid inputs where relevant.
-- Interaction changes are exercised in a real browser, including cancel and cleanup paths.
-- The package exposes only the intended API and its TypeScript declarations.
-- New dependencies have a documented purpose and compatible licensing.
-- Performance-sensitive changes include comparable measurements on a fixed dataset.
+Documentation-only changes need a link check (`npm run test:docs` for pages rendered
+on the site), not the full suite.
 
-Run `npm ci`, `npm ci --prefix website` and `npx playwright install chromium` after cloning, then
-`npm run check` before submitting a code change. On Linux, use
-`npx playwright install --with-deps chromium` to include system dependencies.
-The check command includes type checking, linting, core/package/browser tests,
-the production demo build, standalone installed-consumer acceptance, and
-[browser latency/lifecycle budgets](docs/beta-budgets.md). Review
-`artifacts/beta-budgets.json` on budget failures; do not raise thresholds or retry
-until green without investigating the recorded conditions.
-Package tests build through the `prepack` hook. See the
-[README](README.md#development) for individual commands and supported Node versions.
-Documentation-only changes need link and diff checks, not application tests.
-Website changes also run `npm run test:docs`: it builds the site, validates local
-links/anchors, checks browser workflows and compiles/runs the exact quickstart.
-See [website development](https://github.com/jorisvdmije/map-master/blob/main/website/README.md).
+## Testing tips
 
-Changes to the standalone consumer or its published launcher also run
-`npm run test:workspace:published`. This verifies the exact npm release pinned in
-`examples/workspace/published-release.json`, separately from candidate checks.
-CI retains the result and archive under `artifacts/published-workspace/`.
-After publishing a new beta, explicitly update that version and integrity pin and
-verify the complete consumer before merging; never substitute `latest` or a local archive.
+- Put Node.js tests in `tests/` and real MapLibre tests in `tests/browser/`. Use local
+  styles, never tile services.
+- Wait for rendered geometry before picking it: subscribe to the map's `idle` event
+  before importing, await it, then assert the rendered features. Raising timeouts
+  does not make a map ready.
+- The browser suite runs at most four workers to limit competition between
+  software-rendered WebGL maps.
+- Run the package test through `npm test`; it needs npm's CLI path. It installs the
+  archive offline with the example application's lockfile, so the root `npm ci`
+  must have cached the same third-party versions.
+- After changing the library's dependencies or version, run `npm run lock:workspace`
+  and review the example lockfile.
+- On a budget failure, read `artifacts/beta-budgets.json` before changing anything;
+  never raise a threshold or retry until green without understanding the cause.
 
-For changes to workspace controls or the compatibility harness, run
-`npm run test:compatibility` after `npx playwright install chromium firefox webkit`.
-See [cross-engine scope and reports](docs/browser-compatibility.md). These checks
-do not substitute for the existing Chromium suite or establish shipping Safari support.
+## Dependencies
 
-Add behavior tests under `tests/` using Vitest. Consumer fixtures are checked
-inside their isolated installation instead of against repository source files.
-The package integration test uses npm's CLI path, so invoke it through `npm test`.
-It reuses the standalone example's manifest and lockfile to install the archive
-offline with `npm ci --omit=dev`; the root `npm ci` supplies the cached third-party tarballs.
-No prior registry metadata cache is required. Use `CI=true npm test` when checking
-CI-specific behavior, including architecture tests that lint virtual source text.
-Put real MapLibre interaction tests in `tests/browser/`, run with
-`npm run test:browser`. Use local styles so tests do not depend on tile services.
-The browser suite caps parallel workers at four to limit competition between
-software-rendered WebGL maps. Wait for rendered geometry before picking it;
-increasing test timeouts alone does not establish that the map is ready.
-For an imported fixture on a static map, subscribe to MapLibre's `idle` event
-before import, await it, then assert the expected rendered feature identities.
-Keep latency measurements separate from this setup synchronization.
-The complete demo test consumes the built package and checks its buttons and
-download payload. During development, `npm run dev` resolves the editor to source
-for live updates; the production demo resolves it through package exports.
+Development tools are pinned in `package.json` and `package-lock.json`. Update
+TypeScript and typescript-eslint together. MapLibre is a pinned development
+dependency for testing and a peer dependency for consumers.
 
-`npm run test:workspace` installs a fresh archive into an independent copy of
-`examples/workspace` outside the checkout, builds it, and runs Playwright acceptance
-against its production UI plus a development render/pick smoke check. This is the
-documented workflow for verifying application integration. Run `npm run dev:workspace`
-to inspect that consumer manually; restart it after changes. See [beta integration](docs/beta.md).
-The example has a separate lockfile; refresh it with `npm run lock:workspace` when
-library metadata/dependencies or consumer dependencies change, and keep shared
-third-party versions aligned with the root cache. Commit the reviewed lockfile.
+Runtime dependencies are deliberately few:
 
-Tool dependencies are pinned in `package.json` and `package-lock.json`. TypeScript
-6.0 is intentionally used because the installed typescript-eslint release does
-not yet support TypeScript 7. Update the compiler and lint tooling together.
-TypeScript builds the package, ESLint/typescript-eslint check code, Vitest runs
-tests, and `@types/node` supplies types for development tools only. These are
-development dependencies, not runtime dependencies for consumers. Vite serves
-and builds the demo, and Playwright plus the Vitest browser provider exercise
-real Chromium interactions. MapLibre is both a pinned development dependency
-for verification and a peer dependency supplied by consuming applications;
-`@types/geojson` provides the namespace expected by its declarations.
+- [`robust-predicates`](https://github.com/mourner/robust-predicates) (Unlicense)
+  provides exact orientation tests for polygon validation and winding.
+- [`polygon-clipping`](https://github.com/mfogel/polygon-clipping) (MIT) provides the
+  polygon overlay behind union, difference, intersection, buffer, shared-boundary
+  checks and overlap stripes. Every result must still pass the library's own,
+  stricter topology validation.
 
-The runtime dependency `robust-predicates` (3.0.3, Unlicense) supplies robust
-orientation predicates for polygon validation and winding. Its purpose and the
-validation policy are described in the [GeometryEditor guide](docs/geometry-editor.md).
+## Releases
 
-The runtime dependency `polygon-clipping` (0.15.7, MIT) supplies polygon overlay
-behind `core/union.ts`, `core/difference.ts` and `core/intersection.ts`, sharing `core/polygon-overlay.ts` validation. `core/shared-boundary.ts` also uses
-its intersection calculation to reject overlapping input/output polygon pairs. It adds `splaytree` (MIT) and reuses `robust-predicates`.
-`core/buffer.ts` also uses polygon-clipping union for positive projected dilation; see the [buffer contract](docs/buffer.md).
-`core/overlap-regions.ts` additionally uses polygon-clipping for bounded display-only
-partitions; these are never committed to the document. Geometry-operation
-results must pass our stricter topology validator; see the [union](docs/union.md), [difference](docs/difference.md) and [intersection](docs/intersection.md) contracts.
-
-## Public API and releases
-
-Start with prereleases and explicitly document that the API is experimental.
-Record user-visible changes and migration steps. Define a compatibility policy
-before 1.0, including supported browsers, MapLibre versions, and deprecation rules.
-
-The MIT license, maintainer routes, security policy and archive verification
-workflow are included. Before publishing, activate the GitHub reporting channels
-and hosted checks. A completed milestone is not automatically a
-production-readiness claim.
-
-Use `npm run release:prepare` to verify one candidate archive through the full
-checks and retain its checksum and reports. CI runs this on Node 22 and 24.
-Follow the [release checklist](docs/releases.md), record user-visible changes in
-the [changelog](CHANGELOG.md), and document upgrades in the
-[migration guide](docs/migration.md). Preparation does not publish the package;
-passing hosted checks on the release commit, configured security notifications and
-registry access remain prerequisites for distribution.
+Maintainers follow the [release process](docs/releases.md). Record user-visible
+changes in the [changelog](CHANGELOG.md) and breaking changes in the
+[migration guide](docs/migration.md).

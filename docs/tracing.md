@@ -77,8 +77,7 @@ editor.cancel();
   drawing clicks as well. It never modifies committed history.
 
 All commands throw after destruction; snapshots remain readable. There is no new
-editor mode or committed event type. The LineEditor compatibility facade does not
-expose tracing commands; use GeometryEditor for new integrations.
+editor mode or committed event type.
 
 ## Mouse acquisition, rendering and lifecycle
 

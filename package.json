@@ -1,29 +1,51 @@
 {
   "name": "@jorisvdmije/map-master",
   "version": "0.1.0-beta.0",
-  "description": "Map Master: a TypeScript geometry editor for MapLibre web maps.",
+  "description": "Interactive geometry editor for MapLibre GL JS: draw, select, edit, snap, split, merge and transform GeoJSON features with undo/redo.",
+  "keywords": [
+    "maplibre",
+    "maplibre-gl",
+    "map",
+    "geojson",
+    "geometry",
+    "editor",
+    "draw",
+    "drawing",
+    "edit",
+    "polygon",
+    "linestring",
+    "snapping",
+    "undo",
+    "typescript"
+  ],
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
-    "assets/icon.svg",
-    "docs",
-    "CONTRIBUTING.md",
     "CHANGELOG.md",
-    "LICENSE",
     "SECURITY.md",
     "THIRD_PARTY_NOTICES.md"
   ],
-  "engines": {
-    "node": "^22.13.0 || ^24.0.0"
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "^22.13.0 || ^24.0.0",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "npm",
+      "onFail": "warn"
+    }
   },
   "scripts": {
     "clean": "node --input-type=module -e \"import { rmSync } from 'node:fs'; rmSync('dist', { recursive: true, force: true });\"",
@@ -36,38 +58,7 @@
     "test:browser": "npm run build && vitest run --config vitest.browser.config.ts",
     "dev": "npm run build && vite",
     "build:demo": "npm run build && vite build",
-    "benchmark:markers": "npm run build && node scripts/benchmark-markers.mjs",
-    "benchmark:multipart": "npm run build && node scripts/benchmark-multipart.mjs",
-    "benchmark:holes": "npm run build && node scripts/benchmark-holes.mjs",
-    "benchmark:polygon": "npm run build && node scripts/benchmark-polygon.mjs",
-    "benchmark:duplication": "npm run build && node scripts/benchmark-duplication.mjs",
-    "benchmark:translation-snapping": "npm run build && node scripts/benchmark-translation-snapping.mjs",
-    "benchmark:translation": "npm run build && node scripts/benchmark-translation.mjs",
-    "benchmark:styling": "npm run build && node scripts/benchmark-styling.mjs",
-    "benchmark:selection-picking": "node scripts/benchmark-selection-picking.mjs",
-    "benchmark:selection": "npm run build && node scripts/benchmark-selection.mjs",
-    "benchmark:deletion": "npm run build && node scripts/benchmark-deletion.mjs",
-    "benchmark:editing": "npm run build && node scripts/benchmark-editing.mjs",
-    "benchmark:direct-picking": "npm run build && node scripts/benchmark-direct-picking.mjs",
-    "benchmark:vertex-keyboard": "node scripts/benchmark-vertex-keyboard.mjs",
-    "benchmark:vertex-selection": "npm run build && node scripts/benchmark-vertex-selection.mjs",
-    "benchmark:import": "npm run build && node scripts/benchmark-import.mjs",
-    "benchmark:history": "npm run build && node scripts/benchmark-history.mjs",
-    "benchmark:snapping": "npm run build && node scripts/benchmark-snapping.mjs",
-    "benchmark:transactions": "npm run build && node scripts/benchmark-transactions.mjs",
-    "benchmark:split": "npm run build && node scripts/benchmark-split.mjs",
-    "benchmark:union": "npm run build && node scripts/benchmark-union.mjs",
-    "benchmark:offset": "npm run build && node scripts/benchmark-offset.mjs",
-    "benchmark:buffer": "npm run build && node scripts/benchmark-buffer.mjs",
-    "benchmark:simplification": "npm run build && node scripts/benchmark-simplification.mjs",
-    "benchmark:constraints": "npm run build && node scripts/benchmark-constraints.mjs",
-    "benchmark:scaling": "npm run build && node scripts/benchmark-scaling.mjs",
-    "benchmark:rotation": "npm run build && node scripts/benchmark-rotation.mjs",
-    "benchmark:shared-boundary": "npm run build && node scripts/benchmark-shared-boundary.mjs",
-    "benchmark:trace": "npm run build && node scripts/benchmark-trace.mjs",
-    "benchmark:reshape": "npm run build && node scripts/benchmark-reshape.mjs",
-    "benchmark:intersection": "npm run build && node scripts/benchmark-intersection.mjs",
-    "benchmark:difference": "npm run build && node scripts/benchmark-difference.mjs",
+    "benchmark": "npm run build && node benchmarks/run.mjs",
     "dev:workspace": "node scripts/workspace.mjs dev",
     "dev:workspace:published": "node scripts/published-workspace.mjs dev",
     "test:workspace:published": "node --test scripts/published-workspace.test.mjs && node scripts/published-workspace.mjs check",

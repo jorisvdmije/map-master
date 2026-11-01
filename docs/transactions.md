@@ -1,7 +1,8 @@
 # Atomic feature transactions
 
-Status: implemented in milestone 10. Transactions provide a commit boundary for
-split, reshape, union, difference, intersection, and other operations affecting several features. The [split tool](splitting.md) introduced in milestone 11 builds on this boundary.
+Transactions are the commit boundary for every change that affects several
+features at once: your own batches, and tools such as [split](splitting.md),
+reshape, union, difference and intersection.
 
 ## Public API
 
@@ -30,10 +31,10 @@ editor.redo(); // Restore it, including the same IDs and feature order.
 ```
 
 `editor` is an existing idle GeometryEditor; `persistBatch` represents the host's
-persistence function. Register observers before applying a batch when the host
-needs to persist it. Subscribe to `onHistory` as well to persist undo/redo changes.
+persistence function. To persist every change, including drawing, imports and
+undo/redo, subscribe to `onDataChange` instead; see
+[saving and loading data](persistence.md).
 The library does not implement network/database transactions or concurrent edits.
-The LineEditor compatibility facade does not expose this mixed-geometry API.
 
 ## Input and identity
 
@@ -70,8 +71,8 @@ normalization, not a geometric equivalence test for alternate ring start points.
 ## Commit and events
 
 A nonempty batch increments dataRevision once, records one `transaction` history
-action, uploads the committed source once, and emits one `onTransaction`, then
-one `onChange`. Callbacks see the fully committed state; MapLibre paints
+action, uploads the committed source once, and emits one `onTransaction`, one
+`onDataChange` with `source: 'transaction'`, then one `onChange`. Callbacks see the fully committed state; MapLibre paints
 asynchronously. Selection is retained if its ID survives, otherwise cleared.
 Undo does not restore past selection. The next snap query uses the new revision.
 
@@ -85,8 +86,22 @@ listeners. Unsubscribe and editor/map destruction clean up subscriptions.
 `onCreate`, `onUpdate`, `onDelete`, and `onImport` are not emitted for explicit
 transactions. Existing individual methods retain their current events.
 `onTransaction` reports explicit transactions, confirmed splits, reshapes, unions, intersections and changed differences, deleteSelection(), group translations, duplicateSelection() and deleteHole(); it is not a
-universal change stream. Undo/redo emits only `onHistory` with `action: 'transaction'`, followed by
-`onChange`. Update exhaustive switches over HistoryAction for the new member.
+universal change stream. Undo/redo emits `onHistory` with `action: 'transaction'`, then
+`onDataChange` with `source: 'undo'` or `'redo'`, followed by `onChange`.
+
+## Events at a glance
+
+| Committed by | Specific event | `onDataChange` source |
+| --- | --- | --- |
+| Finishing a new drawing | `onCreate` | `create` |
+| Saving a vertex edit or a new hole | `onUpdate` | `update` |
+| `deleteSelected()` | `onDelete` | `delete` |
+| `importGeoJSON()` | `onImport` | `import` |
+| `applyTransaction()`, geometry tools, moving, duplicating, `deleteSelection()`, `deleteHole()` | `onTransaction` | `transaction` |
+| `undo()` / `redo()` | `onHistory` | `undo` / `redo` |
+
+Each row emits its specific event first, then `onDataChange`, then `onChange`.
+Previews, drafts and cancellations emit only `onChange`. Update exhaustive switches over HistoryAction for the new member.
 The existing history limit applies per batch, not per changed feature or byte.
 
 ## Internal boundary

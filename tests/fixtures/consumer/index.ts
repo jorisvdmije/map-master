@@ -53,6 +53,14 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const transaction: editor.FeatureTransaction = { create: [], update: [], delete: [] };
   const committed: editor.TransactionEvent | null = tool.applyTransaction(transaction);
   tool.onTransaction((event: editor.TransactionEvent) => { const changes: editor.FeatureChange[] = event.changes; void changes; });
+  tool.onDataChange((event: editor.DataChangeEvent) => {
+    const source: editor.DataChangeSource = event.source;
+    const revision: number = event.dataRevision;
+    void [source, revision, event.changes];
+  });
+  const stored: editor.GeometryFeature | null = tool.getFeature('reference');
+  const mode: editor.EditorMode = tool.getState().mode;
+  void [stored, mode];
   void committed;
   const target: editor.TraceTarget = { featureId: 'boundary', partIndex: 0, ringIndex: 0 };
   const side: editor.TraceSide = 'shorter';

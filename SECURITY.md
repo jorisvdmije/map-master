@@ -1,42 +1,32 @@
 # Security policy
 
-Map Master (`@jorisvdmije/map-master`) is maintained by
-[@jorisvdmije](https://github.com/jorisvdmije).
-
 ## Reporting a vulnerability
 
-The designated confidential channel is
-[GitHub Private Vulnerability Reporting](https://github.com/jorisvdmije/map-master/security/advisories/new).
-On the repository, choose **Security → Advisories → Report a vulnerability**.
+Please report vulnerabilities privately through
+[GitHub Private Vulnerability Reporting](https://github.com/jorisvdmije/map-master/security/advisories/new):
+on the repository, choose **Security → Advisories → Report a vulnerability**.
 Do not disclose vulnerability details, exploit code, credentials or sensitive
-geometry in public issues or feature requests.
+geometry in public issues.
 
-**Setup status (2026-10-28):** the public repository exists and GitHub's API
-confirms private vulnerability reporting is enabled. On this date the maintainer
-confirmed configuring repository security alerts and email notifications.
-Actual notification delivery has not been tested; no test vulnerability report
-has been sent. A synthetic vulnerability report is not required for release.
-If the form is unavailable, do not post the report publicly;
-a public issue may request activation of the private channel without including
-any vulnerability details.
+Include the affected package version or commit, a minimal reproduction using
+synthetic data, the expected and observed behavior, the potential impact and the
+browser and MapLibre versions involved. The maintainer,
+[@jorisvdmije](https://github.com/jorisvdmije), coordinates the investigation and
+disclosure through the private advisory. This is a volunteer project without a
+guaranteed response time.
 
-Include the affected package version or source commit, a minimal reproduction
-using synthetic data, expected versus observed behavior, potential impact and
-relevant browser/MapLibre versions. Submit only information needed to reproduce
-the issue. The maintainer will coordinate investigation and disclosure through
-the private advisory. No guaranteed response time or paid support SLA is offered.
+If the reporting form is unavailable, open a public issue asking for a private
+contact channel, without any vulnerability details.
 
 ## Supported versions
 
-The first public version is `0.1.0-beta.0`. Reports about this beta and the current
-source are welcome through the private reporting channel above. During beta,
-security fixes target the latest published beta;
-earlier candidates and unpublished snapshots receive no backport commitment.
-Applications should upgrade to the fixed candidate when one is released.
+Security fixes are released for the latest published version only. Upgrade to the
+newest release to receive them; the [changelog](CHANGELOG.md) lists every fix.
 
-## Ordinary bugs and feature requests
+## Scope
 
-Use [GitHub Issues](https://github.com/jorisvdmije/map-master/issues) for
-non-sensitive bugs and feature requests.
-Feature locks are editor interaction policy; applications must enforce their
-own server-side authorization and protect stored geometry.
+The library runs entirely in the browser. It does not fetch map tiles or send
+geometry anywhere; the host application controls all network access and storage.
+[Feature locks](docs/feature-locks.md) are editor interaction policy, not access
+control: applications must enforce authorization on their server and validate data
+they receive from users.

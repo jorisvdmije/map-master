@@ -9,10 +9,10 @@ export type {
   GeometryFeature, GeometryFeatureCollection, GeometryType, DrawGeometryType,
   PointFeature, LineCollection, LineFeature, PolygonFeature, MultiLineFeature, MultiPolygonFeature,
   // Editor state and configuration.
-  DrawingConstraintsOptions, EditorOptions, EditorState, VertexUpdate, ValidationError,
+  DrawingConstraintsOptions, EditorMode, EditorOptions, EditorState, VertexUpdate, ValidationError,
   OffsetError, BufferError, SimplificationError, ScaleError, RotationError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, TracingOptions, SnappingOptions, SnapResult, ReshapePreview, ReshapeError, ReshapeSide, SplitPreview, SplitError, UnionPreview, UnionError, DifferencePreview, DifferenceError, IntersectionPreview, IntersectionError,
   // Committed changes and history.
-  FeatureChange, FeatureTransaction, TransactionEvent, HistoryAction, HistoryEvent,
+  DataChangeEvent, DataChangeSource, FeatureChange, FeatureTransaction, TransactionEvent, HistoryAction, HistoryEvent,
 } from './core/types.js';
 export { GeoJSONImportError } from './core/geojson-import.js';
 export type { ImportErrorCode } from './core/geojson-import.js';

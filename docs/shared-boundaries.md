@@ -72,8 +72,7 @@ if (editor.editSharedBoundary()) {
 
 `validationError` remains null in this mode; use `sharedBoundaryError`. That field
 is null outside shared editing and for valid drafts. Consumers with exhaustive
-state switches must handle the new mode and field. The LineEditor compatibility
-facade does not expose these commands. Getters remain readable after destruction;
+state switches must handle the new mode and field. Getters remain readable after destruction;
 commands and subscriptions throw.
 
 | Diagnostic | Meaning |

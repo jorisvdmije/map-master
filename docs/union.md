@@ -34,7 +34,7 @@ snapshot without an ID. Reading state or moving the pointer never recalculates t
 overlay. `finishUnion()` returns null unless a valid union preview is active.
 `finish()` also confirms and returns the retained feature. Prefer `finishUnion()`
 when synchronizing every change. Getters remain readable after destruction;
-commands and subscriptions throw. LineEditor does not expose polygon union.
+commands and subscriptions throw.
 
 During review, selection, import, history, deletion and other editing tools are
 locked. `canUndo`/`canRedo` are false, `getDraft()` is empty and clicks do not add

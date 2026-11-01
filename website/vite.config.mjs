@@ -11,6 +11,8 @@ export default defineConfig({
   build: {
     outDir: "../dist",
     emptyOutDir: true,
+    // The interactive examples bundle MapLibre GL JS (about 1.3 MB minified).
+    chunkSizeWarningLimit: 1500,
     rollupOptions: {
       input: [
         resolve(".generated/index.html"),

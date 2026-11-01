@@ -1,6 +1,6 @@
 # Split one polygon into two features
 
-Milestone 11 adds an interactive Split Features tool for one selected polygon
+The interactive Split Features tool divides one selected polygon
 with optional holes, provided the cut avoids them. This creates two independent features, not parts of one multipart
 feature. Line splitting, cuts through holes and multipart splitting remain future work.
 
@@ -84,7 +84,7 @@ the placed cutting-line coordinates. `setSplitLine()` validates coordinate struc
 and bounds before replacing the cut; invalid input throws without changing it.
 Geometrically unsuitable cuts are retained for correction, with `splitError`.
 `removeSplitPoint()` returns whether a point was removed. Both setters require
-an active split. There is no dragging of cutting-line vertices in this milestone.
+an active split. Cutting-line vertices cannot be dragged after placement.
 
 `getSplitPreview()` returns independent `retained` and `created` Polygon geometries
 without feature IDs. No ID is allocated during preview. `finishSplit()` returns
@@ -92,7 +92,6 @@ null unless a valid split is active. `finish()` also commits a valid split, retu
 only the retained PolygonFeature to preserve its existing return type. Prefer
 `finishSplit()` when the caller needs both changes. `cancel()` discards the cut.
 Getters remain readable after destroy; commands and subscriptions throw.
-The LineEditor compatibility facade does not expose the split tool.
 
 While splitting, selection changes, import, transactions, history, deletion and
 switching to other tools throw. `canUndo` and `canRedo` are false until the mode
@@ -130,7 +129,7 @@ conditioned cuts can be rejected instead of approximated silently.
 
 The preview uses MapLibre's Mercator rendering of those coordinates. At large
 extents a planar longitude/latitude segment can differ from a straight displayed
-Mercator segment; this milestone does not promise screen-perfect cutting under
+Mercator segment; the tool does not promise screen-perfect cutting under
 all projections. Dateline-crossing segments, polar geometry, terrain/globe and
 alternative projections remain outside the editor's supported scope.
 

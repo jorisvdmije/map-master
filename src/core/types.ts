@@ -6,9 +6,12 @@ export type Coordinate = [longitude: number, latitude: number];
 
 /** GeoJSON identity; numeric 7 and string "7" are distinct. */
 export type FeatureId = string | number;
+/** Any JSON-serializable value, as allowed in feature properties. */
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+/** GeoJSON feature properties: a plain JSON object or null. */
 export type FeatureProperties = { [key: string]: JsonValue } | null;
 
+/** A GeoJSON Point feature (a marker). */
 export interface PointFeature {
   type: 'Feature';
   id: FeatureId;
@@ -16,6 +19,7 @@ export interface PointFeature {
   properties: FeatureProperties;
 }
 
+/** A GeoJSON LineString feature. */
 export interface LineFeature {
   type: 'Feature';
   id: FeatureId;
@@ -23,11 +27,13 @@ export interface LineFeature {
   properties: FeatureProperties;
 }
 
+/** A FeatureCollection containing only lines, as returned by the deprecated `LineEditor`. */
 export interface LineCollection {
   type: 'FeatureCollection';
   features: LineFeature[];
 }
 
+/** A GeoJSON Polygon feature. Ring 0 is the exterior; later rings are holes. */
 export interface PolygonFeature {
   type: 'Feature';
   id: FeatureId;
@@ -35,6 +41,7 @@ export interface PolygonFeature {
   properties: FeatureProperties;
 }
 
+/** A GeoJSON MultiLineString feature. */
 export interface MultiLineFeature {
   type: 'Feature';
   id: FeatureId;
@@ -42,6 +49,7 @@ export interface MultiLineFeature {
   properties: FeatureProperties;
 }
 
+/** A GeoJSON MultiPolygon feature. */
 export interface MultiPolygonFeature {
   type: 'Feature';
   id: FeatureId;
@@ -49,15 +57,20 @@ export interface MultiPolygonFeature {
   properties: FeatureProperties;
 }
 
+/** Geometry types that can be drawn interactively with `GeometryEditor.draw()`. */
 export type DrawGeometryType = 'Point' | 'LineString' | 'Polygon';
+/** Every geometry type the editor can store, import and export. */
 export type GeometryType = DrawGeometryType | 'MultiLineString' | 'MultiPolygon';
+/** Any feature stored by the editor. Coordinates are WGS84 `[longitude, latitude]`. */
 export type GeometryFeature = PointFeature | LineFeature | PolygonFeature | MultiLineFeature | MultiPolygonFeature;
 
+/** A GeoJSON FeatureCollection of editor features. */
 export interface GeometryFeatureCollection {
   type: 'FeatureCollection';
   features: GeometryFeature[];
 }
 
+/** Why a drawn or edited geometry cannot be committed. */
 export type ValidationError = 'too-few-vertices' | 'duplicate-vertex'
   | 'zero-area' | 'self-intersection' | 'antimeridian-crossing'
   | 'ring-intersection' | 'hole-outside' | 'nested-holes' | 'part-intersection' | 'part-overlap';
@@ -133,6 +146,7 @@ export interface DrawingConstraintsOptions {
   angleStep: 45 | 90;
 }
 
+/** Snapping settings; see `EditorOptions.snapping`. */
 export interface SnappingOptions {
   enabled: boolean;
   /** Acquisition radius in CSS pixels, default 18, range (0, 100]. */
@@ -140,6 +154,7 @@ export interface SnappingOptions {
   vertices: boolean;
   edges: boolean;
 }
+/** The snap target currently acquired by the pointer. */
 export interface SnapResult {
   kind: 'vertex' | 'edge';
   /** null identifies the current polygon's first corner (click to close). */
@@ -154,6 +169,7 @@ export interface SnapResult {
   distance: number;
 }
 
+/** Options for `new GeometryEditor(map, options)`. Every option is optional. */
 export interface EditorOptions {
   /** Host-owned read-only IDs. Initial imports are allowed; existing features cannot change. */
   lockedFeatureIds?: readonly FeatureId[];
@@ -177,15 +193,19 @@ export interface FeatureTransaction {
   update?: GeometryFeature[];
   delete?: FeatureId[];
 }
+/** The committed result of a transaction or transactional tool. */
 export interface TransactionEvent {
   changes: FeatureChange[];
 }
 
+/** The kind of action recorded in undo/redo history. */
 export type HistoryAction = 'create' | 'edit' | 'delete' | 'import' | 'transaction';
+/** One feature before and after a committed change: `before: null` is a creation, `after: null` a deletion. */
 export interface FeatureChange {
   before: GeometryFeature | null;
   after: GeometryFeature | null;
 }
+/** Emitted by `onHistory` after a successful undo or redo. */
 export interface HistoryEvent {
   direction: 'undo' | 'redo';
   /** The original action being reversed or replayed. */
@@ -194,11 +214,29 @@ export interface HistoryEvent {
   changes: FeatureChange[];
 }
 
+/** What produced a committed data change reported by `onDataChange`. */
+export type DataChangeSource = 'create' | 'update' | 'delete' | 'import' | 'transaction' | 'undo' | 'redo';
+
+/** Every committed change to the stored features, from any tool, import, transaction or undo/redo. */
+export interface DataChangeEvent {
+  source: DataChangeSource;
+  /** Committed snapshots in application order; `before: null` is a creation, `after: null` a deletion. */
+  changes: FeatureChange[];
+  /** `EditorState.dataRevision` after this change. */
+  dataRevision: number;
+}
+
 /** An absolute coordinate update in the active open edit draft. */
 export interface VertexUpdate { index: number; coordinate: Coordinate; }
 
+/** The active tool. `idle` means no draft, edit or preview is in progress. */
+export type EditorMode = 'idle' | 'draw-point' | 'edit-point' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon'
+  | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon'
+  | 'edit-shared-boundary' | 'rotate-features' | 'scale-features' | 'simplify-features' | 'buffer-features' | 'offset-lines';
+
+/** A snapshot of the editor, returned by `getState()` and emitted by `onChange`. */
 export interface EditorState {
-  mode: 'idle' | 'draw-point' | 'edit-point' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon' | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon' | 'edit-shared-boundary' | 'rotate-features' | 'scale-features' | 'simplify-features' | 'buffer-features' | 'offset-lines';
+  mode: EditorMode;
   vertexCount: number;
   featureCount: number;
   /** The sole selected ID, or null for zero/multiple selections. */

@@ -158,7 +158,7 @@ if (editor.scaleSelection()) { // Optional explicit pivot: [4.895, 52.372].
 
 Consumers with exhaustive mode/state switches must handle `scale-features` and
 its fields. Getters remain readable after destruction; commands and subscriptions
-throw. The LineEditor compatibility facade does not expose scaling.
+throw.
 
 ## Rendering, transactions and lifecycle
 

@@ -12,7 +12,7 @@ The examples use a bundled, fictional neighborhood. There is no basemap service,
 
 The [quickstart](quickstart.md) includes every file needed for a minimal Vite application. The examples below show the additional calls for one workflow, assuming `editor` is already attached to a loaded map.
 
-For a larger application, the repository also includes an [area workspace](../../docs/beta.md) with local saving, recovery and validation, and a [full playground](../../docs/playground-workflow.md).
+For a larger application, the repository also includes an [area workspace](../../examples/workspace/README.md) with local saving, recovery and validation, and a [full playground](../../docs/playground-workflow.md).
 
 ## Where your application takes over
 

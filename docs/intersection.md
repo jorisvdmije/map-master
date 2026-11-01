@@ -49,7 +49,7 @@ one selected feature is deleted, even for identical or contained inputs.
 `finish()` also confirms, returning the retained feature or null for valid empty
 output. Use transaction/history events for persistence: a null `finish()` return
 alone does not indicate failure. Getters remain readable after destruction;
-commands and subscriptions throw. LineEditor does not expose intersection.
+commands and subscriptions throw.
 
 | `intersectionError` | Meaning |
 | --- | --- |

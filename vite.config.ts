@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 
 export default defineConfig(({ command }) => ({
   root: 'examples/basic',
-  build: { rollupOptions: { input: {
+  // The demo bundles MapLibre GL JS (about 1.3 MB minified).
+  build: { chunkSizeWarningLimit: 1500, rollupOptions: { input: {
     playground: fileURLToPath(new URL('./examples/basic/index.html', import.meta.url)),
     guide: fileURLToPath(new URL('./examples/basic/guide.html', import.meta.url)),
   } } },

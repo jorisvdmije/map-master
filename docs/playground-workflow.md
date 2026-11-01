@@ -81,4 +81,4 @@ Apply/Undo/Redo, selection/lock reasons, repeatable imports and every example.
 Existing demo tests continue exercising actual draw/edit/transform controls.
 The guide is included in the production build and checked through its served URL.
 Viewport tests check responsive layout, not qualification of physical touch devices.
-See [input scope](beta-budgets.md) for those limits.
+See [compatibility and limits](compatibility.md) for the tested input methods.

@@ -1,12 +1,11 @@
 # Touch and pen vertex editing
 
-`GeometryEditor` and the `LineEditor` facade accept touch contacts and pen tips
+`GeometryEditor` accepts touch contacts and pen tips
 in an existing vertex editing session. Enter Edit through your application's
 controls or `editSelected(ringIndex, partIndex)` / `editSharedBoundary()`.
 No new option is required. Both demos describe the interaction.
 
-This is the first touch/pen milestone, covering **existing vertex and midpoint
-handles**. Automated evidence uses Chromium-dispatched touch and pen input.
+Touch and pen input covers **existing vertex and midpoint handles**. Automated evidence uses Chromium-dispatched touch and pen input.
 Physical tablets, styluses, palm rejection and Safari/Firefox have not been
 qualified. Drawing, whole-feature dragging, rectangle group selection and
 transform/distance handles still need their own touch workflow and qualification.
@@ -74,7 +73,7 @@ permanent touch-action override or new exported geometry fields are introduced.
 
 ```sh
 npm run test:browser -- tests/browser/touch-pen-vertices.test.ts tests/browser/demo-touch-vertices.test.ts
-npm run benchmark:direct-picking
+npm run benchmark -- direct-picking
 npm run test:workspace
 ```
 

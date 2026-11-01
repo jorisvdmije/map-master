@@ -366,7 +366,7 @@ try {
         passed: true,
         pages: htmlFiles.length,
         browser: browser.version(),
-        publishedPackage: "0.1.0-beta.0",
+        publishedPackage: JSON.parse(readFileSync(resolve(site, "package.json"), "utf8")).dependencies["@jorisvdmije/map-master"],
         checks: [
           "links-and-anchors",
           "copy",

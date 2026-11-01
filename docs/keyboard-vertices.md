@@ -1,6 +1,6 @@
 # Keyboard vertex editing
 
-Keyboard controls are built into `GeometryEditor` and its `LineEditor` facade.
+Keyboard controls are built into `GeometryEditor`.
 Start a normal `editSelected(ringIndex, partIndex)` or `editSharedBoundary()` session
 through your application's controls. No additional option or callback is required.
 The library adds one focusable vertex control inside the map's canvas container.
@@ -103,7 +103,7 @@ pan to see it. There is no automatic camera recentering. The control's colors ar
 fixed UI focus/validation colors; geometry and ordinary handles retain the configured
 appearance.
 
-This milestone covers navigation, selection, movement and removal **inside an
+Keyboard editing covers navigation, selection, movement and removal **inside an
 existing editing session**. Keyboard-only feature acquisition and drawing/inserting
 new vertices remain separate work; applications can already expose their own
 feature lists and coordinate inputs through the public API. Screen-reader behavior
@@ -118,7 +118,7 @@ for the targeted controls and demo. Cases cover screen movement at different zoo
 bearing/pitch, groups, auto-repeat, modifiers, typed inputs, cancellation and late
 events, fixed endpoints, bounds, invalid geometry, holes/multipart/markers, one-step
 Undo/Redo, lock/style/removal cleanup, large drafts and synchronous host callbacks.
-`npm run benchmark:vertex-keyboard` measures navigation and nudge coordination on
+`npm run benchmark -- vertex-keyboard` measures navigation and nudge coordination on
 fixed line sizes; full checks retain the installed-consumer latency/lifecycle gates.
 
 Local baseline (2026-10-26, Node 22.23.1, Chromium 156.0.8078.4, Apple M2 Pro):

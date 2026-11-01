@@ -67,6 +67,6 @@ try {
 
 ## Connect persistent storage
 
-Your application can send the exported collection to its own API or store it locally. It must handle authentication, concurrent edits, save failures and recovery. The [standalone workspace example](../../docs/beta.md) demonstrates these concerns for browser-local storage.
+Your application can send the exported collection to its own API or store it locally. It must handle authentication, concurrent edits, save failures and recovery. [Saving and loading data](../../docs/persistence.md) shows the patterns, and the [area workspace example](../../examples/workspace/README.md) implements them for browser storage.
 
 See the [GeometryEditor reference](../../docs/geometry-editor.md) for supported geometries and the [multipart guide](../../docs/multipart.md) for imported MultiLineString and MultiPolygon data.

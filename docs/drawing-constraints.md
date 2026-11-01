@@ -54,7 +54,6 @@ A changed `setDrawingConstraints` emits `onChange` and schedules a preview refre
 An identical update emits nothing. Changing options does not alter dataRevision,
 geometry, selection or history. Settings persist across tools, cancellation and
 style replacement. Commands throw after destruction; the getter stays readable.
-The LineEditor facade exposes the same options and getter/setter.
 
 ## Geometry and supported area
 

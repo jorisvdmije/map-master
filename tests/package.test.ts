@@ -62,18 +62,18 @@ describe('packed package', () => {
 
   it('ships JavaScript and declarations without development files', () => {
     expect(packedFiles).toEqual(expect.arrayContaining([
-      'package.json', 'README.md', 'CHANGELOG.md', 'docs/migration.md',
+      'package.json', 'README.md', 'CHANGELOG.md',
       'LICENSE', 'SECURITY.md', 'THIRD_PARTY_NOTICES.md',
       'dist/index.js', 'dist/index.d.ts',
     ]));
-    expect(packedFiles.some((file) => /^(src|tests|node_modules|\.github)\//u.test(file)))
-      .toBe(false);
+    // Library users receive the build and legal notices; guides stay online.
+    expect(packedFiles.filter((file) => !/^(dist\/|[A-Z_]+\.md$|LICENSE$|package\.json$)/u.test(file))).toEqual([]);
   });
 
   it('ships the agreed package identity, license and support routes', () => {
     const manifest = JSON.parse(readFileSync(
       join(consumer, 'node_modules/@jorisvdmije/map-master/package.json'), 'utf8',
-    )) as { name: string; version: string; license: string; author: { url: string };
+    )) as { name: string; version: string; license: string; author: { url: string }; sideEffects: boolean;
       repository: { url: string }; bugs: { url: string }; publishConfig: { tag: string; access: string } };
     expect(manifest.name).toBe('@jorisvdmije/map-master');
     const source = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { version: string };
@@ -83,6 +83,9 @@ describe('packed package', () => {
     expect(manifest.repository.url).toBe('git+https://github.com/jorisvdmije/map-master.git');
     expect(manifest.bugs.url).toBe('https://github.com/jorisvdmije/map-master/issues');
     expect(manifest.publishConfig).toMatchObject({ tag: 'beta', access: 'public' });
+    // Bundlers may tree-shake unused exports; consumers' Node versions are not restricted.
+    expect(manifest).toMatchObject({ sideEffects: false });
+    expect(manifest).not.toHaveProperty('engines');
     const security = readFileSync(join(consumer, 'node_modules/@jorisvdmije/map-master/SECURITY.md'), 'utf8');
     expect(security).toContain('https://github.com/jorisvdmije/map-master/security/advisories/new');
   });

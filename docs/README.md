@@ -1,52 +1,54 @@
 # Documentation
 
-The editor is experimental. Public usage and internal implementation are described
-separately so consumers can integrate without depending on internal modules.
+The [documentation site](https://jorisvdmije.github.io/map-master/) renders these
+guides with search and live examples. New users should start with the
+[quickstart](https://github.com/jorisvdmije/map-master/blob/main/website/content/quickstart.md).
 
-| Goal | Guide |
+## Using the library
+
+| Topic | Guide |
 | --- | --- |
-| Build a first editable map with the published npm beta | [Complete quickstart](https://github.com/jorisvdmije/map-master/blob/main/website/content/quickstart.md) |
-| Try drawing, editing and GeoJSON workflows | [Interactive examples](https://github.com/jorisvdmije/map-master/blob/main/website/content/examples.md) |
-| Run or build the searchable documentation site | [Website development](https://github.com/jorisvdmije/map-master/blob/main/website/README.md) |
-| Follow the initial history import and protected-branch workflow | [Repository integration](repository-integration.md) |
-| Use the playground controls, direct examples and step-by-step guide | [Playground workflows](playground-workflow.md) |
-| Run a standalone installed-package app with saving and recovery | [Beta integration milestone](beta.md) |
-| Protect reference geometry from editing while retaining snapping | [Feature locks](feature-locks.md) |
-| Check beta browser/input scope and performance gates | [Beta budgets](beta-budgets.md) |
-| Inspect Firefox/WebKit workflows, evidence and remaining gaps | [Browser compatibility investigation](browser-compatibility.md) |
-| Inspect passing hosted checks and matching candidate archives | [Initial hosted qualification](release-evidence/2026-10-28-main/README.md) |
-| Prepare and verify a public beta candidate | [Release procedure](releases.md), [changelog](../CHANGELOG.md), [migration policy](migration.md) |
-| Find the license or report a vulnerability | [MIT license](../LICENSE), [third-party notices](../THIRD_PARTY_NOTICES.md), [security policy](../SECURITY.md) |
-| Customize colors, outlines, previews and editing markers | [Editor appearance](appearance.md) |
-| Set up a MapLibre host and use the editor | [GeometryEditor API](geometry-editor.md), [integration setup](line-editor.md#integrate) |
-| Apply atomic create/update/delete batches | [Transactions and event semantics](transactions.md) |
-| Place, move and save point markers | [Point markers](markers.md) |
-| Import and edit multipart lines/polygons | [Multipart geometry](multipart.md) |
-| Draw with fixed 45°/90° directions | [Drawing constraints](drawing-constraints.md) |
-| Offset open lines left or right | [Line offsets](offset.md) |
-| Buffer selected lines and polygons | [Selection buffers](buffer.md) |
-| Simplify lines and polygons | [Selection simplification](simplification.md) |
-| Scale lines and polygons together | [Selection scaling](scaling.md) |
-| Rotate lines and polygons together | [Selection rotation](rotation.md) |
-| Edit two adjoining polygons together | [Shared boundaries](shared-boundaries.md) |
-| Follow existing edges while drawing | [Boundary tracing](tracing.md) |
-| Replace part of a polygon boundary | [Polygon reshape](reshape.md) |
-| Keep the common area of selected polygons | [Polygon intersection](intersection.md) |
-| Merge selected polygons | [Polygon union](union.md) |
-| Subtract cutting polygons from a target | [Polygon difference](difference.md) |
-| Split a supported polygon | [Polygon splitting](splitting.md) |
-| Maintain an older line-only integration | [LineEditor compatibility facade](line-editor.md) |
-| Set per-object colors, order and overlap stripes | [Feature styling](feature-styling.md) |
-| Edit existing vertices with the keyboard | [Keyboard vertex editing](keyboard-vertices.md) |
-| Edit existing corners with touch or pen | [Touch/pen vertex editing](touch-pen-vertices.md) |
-| Locate code for a change | [Code map and walkthrough](code-walkthrough.md) |
-| Understand ownership and dependency rules | [Current architecture](architecture.md) |
-| Add or review a capability | [Contribution workflow](../CONTRIBUTING.md) |
-| Reproduce performance measurements | [Performance baselines and limits](performance.md) |
-| See what is implemented and planned | [Incremental roadmap](roadmap.md) |
+| Installation, setup and every public method | [GeometryEditor API](geometry-editor.md) |
+| Loading saved data and saving every change | [Saving and loading data](persistence.md) |
+| Browsers, input methods, data limits and performance | [Compatibility and limits](compatibility.md) |
+| Batches of creates, updates and deletes; event order | [Transactions and events](transactions.md) |
+| Placing and moving point markers | [Point markers](markers.md) |
+| MultiLineString and MultiPolygon features | [Multipart geometry](multipart.md) |
+| Read-only reference geometry | [Feature locks](feature-locks.md) |
+| Colors, outlines and editing markers | [Appearance](appearance.md) |
+| Per-feature colors, drawing order and overlap stripes | [Feature styling](feature-styling.md) |
+| Editing vertices with the keyboard | [Keyboard vertex editing](keyboard-vertices.md) |
+| Editing vertices with touch or pen | [Touch and pen vertex editing](touch-pen-vertices.md) |
+| Upgrading between versions | [Migration guide](migration.md) |
 
-Start development with `npm ci`, `npm ci --prefix website` and `npm run dev` from the repository root.
-Install Chromium with `npx playwright install chromium` before browser testing.
-Run `npm run check` before committing code changes; it includes type checks,
-architectural lint rules, core/package/browser tests, the demo build and isolated
-workspace acceptance against both production and development servers.
+## Drawing aids and geometry tools
+
+| Topic | Guide |
+| --- | --- |
+| Snapping to vertices and edges | [Snapping](geometry-editor.md#snapping-while-drawing) |
+| Following existing boundaries while drawing | [Boundary tracing](tracing.md) |
+| 45° and 90° drawing directions | [Drawing constraints](drawing-constraints.md) |
+| Cutting a polygon in two | [Splitting](splitting.md) |
+| Replacing part of a polygon boundary | [Reshape](reshape.md) |
+| Merging polygons | [Union](union.md) |
+| Subtracting polygons | [Difference](difference.md) |
+| Keeping the common area | [Intersection](intersection.md) |
+| Growing lines and polygons into areas | [Buffer](buffer.md) |
+| Moving lines sideways | [Line offset](offset.md) |
+| Removing detail | [Simplification](simplification.md) |
+| Rotating and scaling selections | [Rotation](rotation.md), [scaling](scaling.md) |
+| Editing the border between two polygons | [Shared boundaries](shared-boundaries.md) |
+
+## Contributing
+
+| Topic | Guide |
+| --- | --- |
+| Workflow, setup and definition of done | [Contribution guide](../CONTRIBUTING.md) |
+| Ownership and dependency rules | [Architecture](architecture.md) |
+| Where to make a change | [Code walkthrough](code-walkthrough.md) |
+| Test levels, budgets and cross-browser checks | [Testing](testing.md) |
+| Benchmark results and their conditions | [Performance notes](performance.md) |
+| The demo playground | [Playground workflows](playground-workflow.md) |
+| Publishing a version | [Release process](releases.md) |
+| Planned work | [Roadmap](roadmap.md) |
+| The deprecated line-only facade | [LineEditor](line-editor.md) |

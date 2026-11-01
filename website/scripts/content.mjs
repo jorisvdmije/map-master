@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { resolve, dirname, relative, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { marked } from "marked";
@@ -6,6 +6,8 @@ import { marked } from "marked";
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repo = resolve(site, "..");
 const output = resolve(site, ".generated");
+// Start clean so pages of removed or renamed guides are never published.
+rmSync(output, { recursive: true, force: true });
 mkdirSync(resolve(output, "guides"), { recursive: true });
 mkdirSync(resolve(output, "public"), { recursive: true });
 const escape = (value) =>
@@ -17,6 +19,10 @@ const escape = (value) =>
       ],
   );
 const github = "https://github.com/jorisvdmije/map-master";
+// The site documents the published package it installs; keep one source of truth.
+const version = JSON.parse(readFileSync(resolve(site, "package.json"), "utf8"))
+  .dependencies["@jorisvdmije/map-master"];
+const prerelease = version.includes("-");
 const pages = [
   ...readdirSync(resolve(site, "content"))
     .filter((f) => f.endsWith(".md"))
@@ -46,6 +52,7 @@ const groups = [
       ["draw", "Draw geometry"],
       ["edit", "Edit & undo"],
       ["geojson", "Import & export"],
+      ["persistence", "Save & load data"],
       ["markers", "Point markers"],
       ["appearance", "Appearance"],
       ["snapping", "Snapping"],
@@ -83,8 +90,7 @@ const groups = [
   [
     "Project",
     [
-      ["beta-budgets", "Compatibility & budgets"],
-      ["browser-compatibility", "Browser investigation"],
+      ["compatibility", "Compatibility & limits"],
       ["touch-pen-vertices", "Touch & pen"],
       ["migration", "Migration"],
       ["changelog", "Changelog"],
@@ -122,7 +128,7 @@ function shell({
   const root = home ? "./" : "../";
   return `<!doctype html><html lang="en" data-root="${root}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#153b32"><meta name="description" content="${escape(description)}"><title>${home ? "Map Master — Geometry editing for MapLibre" : `${escape(title)} · Map Master`}</title><link rel="icon" href="${root}favicon.svg" type="image/svg+xml"></head><body>
 <a class="skip-link" href="#main">Skip to content</a>
-<header class="topbar"><a class="brand" href="${root}index.html">${mark}<span>Map Master<span class="brand-label">DOCS</span></span></a><button class="search-trigger" aria-haspopup="dialog">${searchIcon}<span>Search documentation</span><kbd>/</kbd></button><nav class="header-links" aria-label="Project links"><a class="version" href="${root}guides/changelog.html"><span></span>0.1.0-beta.0</a><a href="${github}" target="_blank" rel="noreferrer">GitHub ↗</a><button class="menu-button" aria-expanded="false" aria-controls="sidebar" aria-label="Open navigation">☰</button></nav></header>
+<header class="topbar"><a class="brand" href="${root}index.html">${mark}<span>Map Master<span class="brand-label">DOCS</span></span></a><button class="search-trigger" aria-haspopup="dialog">${searchIcon}<span>Search documentation</span><kbd>/</kbd></button><nav class="header-links" aria-label="Project links"><a class="version" href="${root}guides/changelog.html"><span></span>${version}</a><a href="${github}" target="_blank" rel="noreferrer">GitHub ↗</a><button class="menu-button" aria-expanded="false" aria-controls="sidebar" aria-label="Open navigation">☰</button></nav></header>
 <div class="sidebar-shade" hidden></div><aside class="sidebar" id="sidebar" aria-label="Documentation navigation">${nav(slug, root)}<div class="sidebar-footer"><span class="status-dot"></span> Open source · MIT licensed</div></aside>
 <div class="page ${home ? "home" : "guide"}"><main id="main" tabindex="-1">${home ? "" : `<div class="breadcrumbs"><a href="${root}index.html">Documentation</a><span>/</span>${escape(title)}</div>`}${body}<footer class="page-footer"><span>Map Master <span class="muted">/</span> Built for MapLibre · <a href="${root}licenses.txt">Licenses</a></span><a href="${github}/issues" target="_blank" rel="noreferrer">Suggest an improvement ↗</a></footer></main>${
     !home && headings.length
@@ -143,7 +149,7 @@ const demo = (kind) =>
     "$& disabled",
   );
 const cards = `<div class="example-cards"><a href="ROOTguides/draw.html"><span class="card-number">01 / DRAW</span><h3>From clicks to geometry <span>↗</span></h3><p>Place a marker, trace a line or draw a polygon. Finish when you are ready.</p><span class="card-link">Try drawing →</span></a><a href="ROOTguides/edit.html"><span class="card-number">02 / EDIT</span><h3>Make every change reversible <span>↗</span></h3><p>Select a shape, move its corners and save. Undo brings the original back.</p><span class="card-link">Try editing →</span></a><a href="ROOTguides/geojson.html"><span class="card-number">03 / EXCHANGE</span><h3>Your data, in and out <span>↗</span></h3><p>Import a GeoJSON collection, edit it on the map and download the result.</p><span class="card-link">Try GeoJSON →</span></a></div>`;
-const homeBody = `<div class="home-intro"><span class="eyebrow"><span class="status-dot"></span> A GEOMETRY EDITOR FOR MAPLIBRE</span><div class="hero-grid"><div class="hero-copy"><h1>Your map.<br>Ready to <em>edit.</em></h1><p>Draw, reshape and manage geometry with a TypeScript API. Built-in snapping, validation and Undo keep every edit under control.</p><div class="hero-buttons"><a class="button" href="./guides/quickstart.html">Start building <span>→</span></a><a class="text-button" href="./guides/examples.html">Explore examples ↗</a></div><div class="install-command"><code>npm i @jorisvdmije/map-master@beta</code><button data-copy="npm i @jorisvdmije/map-master@beta" aria-label="Copy install command">Copy</button></div><div class="hero-meta"><span>TypeScript</span><span>GeoJSON</span><span>MIT license</span></div></div>${demo("draw")}</div></div><section class="home-workflows"><div class="section-heading"><div><span class="eyebrow">LEARN BY DOING</span><h2>Three paths to your first integration.</h2></div><a href="./guides/geometry-editor.html">Explore the API →</a></div>${cards.replaceAll("ROOT", "./")}</section><section class="home-bottom"><div><span class="eyebrow">SMALL API. ROOM TO GROW.</span><h2>Start with a polygon.<br>Build a complete workflow.</h2><p>Go from simple drawing to splitting, merging, shared boundaries and transactional updates. Add the tools your application needs.</p><a class="text-button" href="./guides/geometry-editor.html">Browse GeometryEditor →</a></div><div class="beta-note"><span class="version"><span></span> PUBLIC BETA</span><h3>Clear about what is tested.</h3><p>Published as 0.1.0-beta.0. The API is experimental. Current qualification covers the documented Chromium and MapLibre 6.15.0 profile.</p><a href="./guides/beta-budgets.html">Compatibility & limitations →</a></div></section>`;
+const homeBody = `<div class="home-intro"><span class="eyebrow"><span class="status-dot"></span> A GEOMETRY EDITOR FOR MAPLIBRE</span><div class="hero-grid"><div class="hero-copy"><h1>Your map.<br>Ready to <em>edit.</em></h1><p>Draw, reshape and manage geometry with a TypeScript API. Built-in snapping, validation and Undo keep every edit under control.</p><div class="hero-buttons"><a class="button" href="./guides/quickstart.html">Start building <span>→</span></a><a class="text-button" href="./guides/examples.html">Explore examples ↗</a></div><div class="install-command"><code>npm i @jorisvdmije/map-master maplibre-gl</code><button data-copy="npm i @jorisvdmije/map-master maplibre-gl" aria-label="Copy install command">Copy</button></div><div class="hero-meta"><span>TypeScript</span><span>GeoJSON</span><span>MIT license</span></div></div>${demo("draw")}</div></div><section class="home-workflows"><div class="section-heading"><div><span class="eyebrow">LEARN BY DOING</span><h2>Three paths to your first integration.</h2></div><a href="./guides/geometry-editor.html">Explore the API →</a></div>${cards.replaceAll("ROOT", "./")}</section><section class="home-bottom"><div><span class="eyebrow">SMALL API. ROOM TO GROW.</span><h2>Start with a polygon.<br>Build a complete workflow.</h2><p>Go from simple drawing to splitting, merging, shared boundaries and transactional updates. Add the tools your application needs.</p><a class="text-button" href="./guides/geometry-editor.html">Browse GeometryEditor →</a></div><div class="beta-note"><span class="version"><span></span> ${prerelease ? "PUBLIC BETA" : "LATEST RELEASE"}</span><h3>Clear about what is tested.</h3><p>Version ${version}. Every change is tested in a real browser with MapLibre 6.15, and checked against latency and memory budgets.</p><a href="./guides/compatibility.html">Compatibility & limits →</a></div></section>`;
 writeFileSync(
   resolve(output, "index.html"),
   shell({

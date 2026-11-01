@@ -75,7 +75,7 @@ compatibility. Real Chromium tests cover cursor preview, placement, selection,
 rectangle selection, dragging, cancellation, snapping, style reload and teardown.
 The playground and installed workspace exercise markers through public controls.
 
-`npm run benchmark:markers` measures fixed grids of 1,000 and 10,000 points:
+`npm run benchmark -- markers` measures fixed grids of 1,000 and 10,000 points:
 import, snapping-index construction, indexed lookup and one-marker translation.
 It excludes map rendering and is a core baseline, not a browser performance budget.
 

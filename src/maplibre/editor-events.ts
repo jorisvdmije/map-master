@@ -1,5 +1,5 @@
 import type {
-  EditorState, GeometryFeature, GeometryFeatureCollection, HistoryEvent, SnapResult, TransactionEvent,
+  DataChangeEvent, EditorState, GeometryFeature, GeometryFeatureCollection, HistoryEvent, SnapResult, TransactionEvent,
 } from '../core/types.js';
 
 interface EventPayloads {
@@ -9,6 +9,7 @@ interface EventPayloads {
   import: GeometryFeatureCollection;
   transaction: TransactionEvent;
   history: HistoryEvent;
+  data: DataChangeEvent;
   change: EditorState;
   snap: SnapResult | null;
 }
@@ -20,7 +21,7 @@ interface EventPayloads {
 export class EditorEvents {
   private readonly listeners: { [K in keyof EventPayloads]: Set<(value: EventPayloads[K]) => void> } = {
     create: new Set(), delete: new Set(), update: new Set(), import: new Set(),
-    transaction: new Set(), history: new Set(), change: new Set(), snap: new Set(),
+    transaction: new Set(), history: new Set(), data: new Set(), change: new Set(), snap: new Set(),
   };
 
   constructor(private readonly reportError: (error: unknown) => void) {}

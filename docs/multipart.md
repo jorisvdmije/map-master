@@ -120,7 +120,6 @@ contains only the two drawing-tool types. Consumers that previously used
 handle the new variants in exhaustive geometry switches. Existing numeric
 `editSelected(ringIndex)` calls still address component 0.
 
-The legacy `LineEditor` facade remains a simple-LineString interface. Use
-`GeometryEditor` for multipart integrations. See the
+See the
 [multipart benchmark](performance.md#multipart-geometries) for measured core costs
 and the remaining performance limits.

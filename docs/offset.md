@@ -145,8 +145,7 @@ if (editor.offsetSelection()) {
   for unchanged confirmation. Use `finishOffset()` for the complete batch.
 
 Consumers with exhaustive state/mode switches must handle the new fields and
-mode. The LineEditor compatibility facade does not expose offsetting. Getters
-remain readable after destruction; commands/subscriptions throw.
+mode. Getters remain readable after destruction; commands/subscriptions throw.
 
 ## History, rendering and lifecycle
 
