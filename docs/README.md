@@ -9,6 +9,8 @@ guides with search and live examples. New users should start with the
 | Topic | Guide |
 | --- | --- |
 | Installation, setup and every public method | [GeometryEditor API](geometry-editor.md) |
+| Mapbox setup, tokens, CSS, workers and tested versions | [Mapbox GL JS adapter](mapbox.md) |
+| Blank maps, disabled tools, imports and framework lifecycle | [Troubleshooting](../website/content/troubleshooting.md) |
 | A ready-made toolbar with every tool | [Toolbar](toolbar.md) |
 | Using the editor in React, Vue, Svelte or Angular | [Frameworks](frameworks.md) |
 | Rectangles, circles and freehand outlines | [Shapes](shapes.md) |
@@ -17,11 +19,18 @@ guides with search and live examples. New users should start with the
 | Browsers, input methods, data limits and performance | [Compatibility and limits](compatibility.md) |
 | Batches of creates, updates and deletes; event order | [Transactions and events](transactions.md) |
 | Placing and moving point markers | [Point markers](markers.md) |
+| Creating and editing styled map labels | [Text markers](text-markers.md) |
+| Placing arrows, stars and reusable GeoJSON groups | [Shape templates](shape-templates.md) |
+| Named editable, reference and hidden datasets | [Data layers](data-layers.md) |
+| Allowed and excluded areas for geometry changes | [Geofencing](geofencing.md) |
+| Linking shared corners across features | [Pin shared vertices](vertex-pinning.md) |
+| Aligning drawings, vertices and moving shapes | [Alignment guides](alignment-guides.md) |
 | MultiLineString and MultiPolygon features; adding, separating and combining parts | [Multipart geometry](multipart.md) |
 | Read-only reference geometry | [Feature locks](feature-locks.md) |
 | Colors, outlines and editing markers | [Appearance](appearance.md) |
 | Per-feature colors, drawing order and overlap stripes | [Feature styling](feature-styling.md) |
 | Editing vertices with the keyboard | [Keyboard vertex editing](keyboard-vertices.md) |
+| Remapping or disabling map command keys | [Keyboard shortcuts](keyboard-shortcuts.md) |
 | Editing vertices with touch or pen | [Touch and pen vertex editing](touch-pen-vertices.md) |
 | Upgrading between versions | [Migration guide](migration.md) |
 
@@ -34,6 +43,8 @@ guides with search and live examples. New users should start with the
 | 45° and 90° drawing directions | [Drawing constraints](drawing-constraints.md) |
 | Cutting a polygon in two | [Splitting](splitting.md) |
 | Cutting a drawn area out of features | [Cut](cut.md) |
+| Filling a polygon or multipolygon hole | [Remove hole](remove-hole.md) |
+| Freehand selection with replace/add/remove and intersects/contains | [Lasso selection](lasso.md) |
 | Replacing part of a polygon boundary | [Reshape](reshape.md) |
 | Merging polygons | [Union](union.md) |
 | Subtracting polygons | [Difference](difference.md) |
@@ -56,4 +67,5 @@ guides with search and live examples. New users should start with the
 | The demo playground | [Playground workflows](playground-workflow.md) |
 | Publishing a version | [Release process](releases.md) |
 | Planned work | [Roadmap](roadmap.md) |
+| Ordered plan for the ten remaining comparison gaps | [Geoman comparison plan](geoman-parity-plan.md) |
 | The deprecated line-only facade | [LineEditor](line-editor.md) |

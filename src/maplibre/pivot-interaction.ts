@@ -1,4 +1,5 @@
-import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { ShortcutBindings } from './shortcut-bindings.js';
+import type { EditorMap as MapLibreMap } from '../gl/map.js';
 import { SnapIndex, type ScreenPoint } from '../core/snapping.js';
 import { mercatorLatitudeLimit, transformPivot } from '../core/mercator-transform.js';
 import type { EditorAppearance } from '../core/appearance.js';
@@ -35,7 +36,7 @@ export class PivotInteraction {
   private pivotColor = '#1e293b';
   private snapColor = '#7c3aed';
 
-  constructor(private readonly map: MapLibreMap, private readonly actions: Actions) {
+  constructor(private readonly map: MapLibreMap, private readonly actions: Actions, private readonly shortcuts: ShortcutBindings) {
     this.canvas = map.getCanvas(); const doc = this.canvas.ownerDocument; this.view = doc.defaultView!;
     this.root = doc.createElement('div'); this.root.dataset.geoPivot = '';
     this.root.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:3;';
@@ -65,7 +66,7 @@ export class PivotInteraction {
       this.map.getCanvasContainer().append(this.root);
     }
     this.handle.setAttribute('aria-label', `Move ${current.kind} pivot`);
-    this.handle.title = 'Drag pivot; Alt bypasses snapping. Arrows: 1 pixel; Shift: 10 pixels. Home: original centre. Enter applies; Escape cancels.';
+    this.shortcuts.describeControl(this.handle, 'Drag pivot; Alt bypasses snapping. Arrows: 1 pixel; Shift: 10 pixels. Home: original centre.', 'ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight Shift+ArrowUp Shift+ArrowDown Home');
     this.handle.style.backgroundColor = appearance.pivot.color;
     this.handle.style.color = appearance.pivot.strokeColor;
     this.pivotColor = appearance.pivot.strokeColor; this.snapColor = appearance.snap.color;
@@ -155,15 +156,19 @@ export class PivotInteraction {
   private readonly interrupt = (event: PointerEvent): void => { if (this.gesture?.id === event.pointerId) this.stop(true); };
   private readonly click = (event: MouseEvent): void => { event.preventDefault(); event.stopPropagation(); };
   private readonly key = (event: KeyboardEvent): void => {
-    if (!this.gesture || event.isComposing) return;
+    if (!this.gesture || event.isComposing || event.defaultPrevented || event.target !== this.canvas) return;
     if (event.key === 'Alt') { this.gesture.alt = event.type === 'keydown'; this.flush(); }
-    if (event.type !== 'keydown' || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key === 'Escape' || event.key === 'Enter') {
-      event.preventDefault(); event.stopImmediatePropagation(); if (event.key === 'Escape') this.stop(true);
+    if (event.type !== 'keydown' || event.repeat) return;
+    const cancel = this.shortcuts.matches('cancel', event, ['Alt']);
+    if (cancel || this.shortcuts.matches('finish', event, ['Alt'])) {
+      event.preventDefault(); event.stopImmediatePropagation(); if (cancel) this.stop(true);
     }
   };
   private readonly handleKey = (event: KeyboardEvent): void => {
-    if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+    const cancel = this.shortcuts.matches('cancel', event);
+    const finish = this.shortcuts.matches('finish', event);
+    if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || event.repeat && !event.key.startsWith('Arrow') || event.getModifierState('AltGraph')
+      || !cancel && !finish && (event.ctrlKey || event.metaKey || event.altKey)) return;
     const current = this.current(); if (!current) return;
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home'].includes(event.key)) {
       event.preventDefault(); event.stopPropagation(); this.actions.start(); this.stop();
@@ -172,9 +177,9 @@ export class PivotInteraction {
       point.x += event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0;
       point.y += event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0;
       const next = this.coordinate(point); if (next) this.actions.pivot(current.kind, next);
-    } else if (event.key === 'Enter' || event.key === 'Escape') {
+    } else if (finish || cancel) {
       event.preventDefault(); event.stopPropagation(); this.canvas.focus({ preventScroll: true });
-      if (event.key === 'Enter') this.actions.finish(current.kind); else this.actions.cancel();
+      if (finish) this.actions.finish(current.kind); else this.actions.cancel();
     }
   };
 }

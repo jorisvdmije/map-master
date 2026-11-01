@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { marked } from "marked";
 import { createHighlighter } from "shiki";
 import { codeTheme } from "./code-theme.mjs";
+import { renderDocsIsland, renderDocsAlert } from "../src/components/render-ui.tsx";
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repo = resolve(site, "..");
@@ -24,25 +25,20 @@ const github = "https://github.com/jorisvdmije/map-master";
 // The guides and live examples document the library in this repository.
 const version = JSON.parse(readFileSync(resolve(repo, "package.json"), "utf8")).version;
 const prerelease = version.includes("-");
+const logo = readFileSync(resolve(repo, "assets/icon.svg"), "utf8");
 const highlighter = await createHighlighter({
   themes: [codeTheme],
   langs: ["ts", "tsx", "js", "html", "css", "sh", "json", "vue", "svelte"],
 });
 const languageNames = { ts: "TypeScript", tsx: "TSX", vue: "Vue", svelte: "Svelte", js: "JavaScript", html: "HTML", css: "CSS", sh: "Shell", json: "JSON", text: "Text", mermaid: "Mermaid" };
 const highlight = (code, lang) => {
-  if (!highlighter.getLoadedLanguages().includes(lang)) return escape(code);
-  return highlighter
-    .codeToTokens(code, { lang, theme: codeTheme.name })
-    .tokens.map((line) =>
-      line
-        .map(({ content, color, fontStyle }) => {
-          const italic = fontStyle && fontStyle & 1 ? ";font-style:italic" : "";
-          return color ? `<span style="color:${color}${italic}">${escape(content)}</span>` : escape(content);
-        })
-        .join(""),
-    )
-    .join("\n");
+  if (!highlighter.getLoadedLanguages().includes(lang)) {
+    return code.split("\n").map((content) => [{ content }]);
+  }
+  return highlighter.codeToTokens(code, { lang, theme: codeTheme.name }).tokens
+    .map((line) => line.map(({ content, color, fontStyle }) => ({ content, color, fontStyle })));
 };
+let codeBlockId = 0;
 const pages = [
   ...readdirSync(resolve(site, "content"))
     .filter((f) => f.endsWith(".md"))
@@ -64,7 +60,9 @@ const groups = [
       ["index", "Overview"],
       ["quickstart", "Quickstart"],
       ["examples", "Interactive examples"],
-      ["frameworks", "React, Vue & Svelte"],
+      ["frameworks", "Framework integrations"],
+      ["mapbox", "Mapbox GL JS"],
+      ["troubleshooting", "Troubleshooting"],
     ],
   ],
   [
@@ -77,10 +75,17 @@ const groups = [
       ["geojson", "Import & export"],
       ["persistence", "Save & load data"],
       ["markers", "Point markers"],
+      ["text-markers", "Text markers"],
+      ["shape-templates", "Shape templates"],
+      ["alignment-guides", "Alignment guides"],
+      ["vertex-pinning", "Pin shared vertices"],
+      ["geofencing", "Geofencing"],
+      ["data-layers", "Data layers"],
       ["appearance", "Appearance"],
       ["measurements", "Measurements"],
       ["snapping", "Snapping"],
       ["keyboard-vertices", "Keyboard editing"],
+      ["keyboard-shortcuts", "Keyboard shortcuts"],
     ],
   ],
   [
@@ -98,6 +103,8 @@ const groups = [
     [
       ["splitting", "Split"],
       ["cut", "Cut"],
+      ["remove-hole", "Remove hole"],
+      ["lasso", "Lasso selection"],
       ["union", "Union"],
       ["difference", "Difference"],
       ["intersection", "Intersection"],
@@ -131,8 +138,6 @@ const route = (slug, root) =>
     : slug === "snapping"
       ? `${root}guides/geometry-editor.html#snapping-while-drawing`
       : `${root}guides/${slug}.html`;
-const mark =
-  '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 8 24 5 27 23 12 27Z" fill="currentColor" fill-opacity=".12" stroke="currentColor" stroke-width="1.8"/><path d="m7 8 20 15M24 5 12 27" stroke="currentColor" stroke-width="1" opacity=".35"/><g fill="currentColor"><circle cx="7" cy="8" r="2.8"/><circle cx="24" cy="5" r="2.8"/><circle cx="27" cy="23" r="2.8"/><circle cx="12" cy="27" r="2.8"/></g></svg>';
 const searchIcon =
   '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>';
 const nav = (slug, root) =>
@@ -149,20 +154,21 @@ function shell({
   body,
   headings = [],
   home = false,
+  sourcePath = "website/scripts/content.mjs",
 }) {
   const root = home ? "./" : "../";
-  return `<!doctype html><html lang="en" data-root="${root}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#153b32"><meta name="description" content="${escape(description)}"><title>${home ? "Map Master — Geometry editing for MapLibre" : `${escape(title)} · Map Master`}</title><link rel="icon" href="${root}favicon.svg" type="image/svg+xml"></head><body>
+  return `<!doctype html><html lang="en" data-root="${root}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#153b32"><meta name="description" content="${escape(description)}"><title>${home ? "Map Master — Geometry editing for MapLibre and Mapbox" : `${escape(title)} · Map Master`}</title><link rel="icon" href="${root}favicon.svg" type="image/svg+xml"><noscript><style>.docs-island .docs-code-collapsed{max-height:none;overflow:auto}.docs-code-footer,[data-slot=code-block-actions],[data-slot=tabs-list]{display:none}</style></noscript></head><body>
 <a class="skip-link" href="#main">Skip to content</a>
-<header class="topbar"><a class="brand" href="${root}index.html">${mark}<span>Map Master<span class="brand-label">DOCS</span></span></a><button class="search-trigger" aria-haspopup="dialog">${searchIcon}<span>Search documentation</span><kbd>/</kbd></button><nav class="header-links" aria-label="Project links"><a class="version" href="${root}guides/changelog.html"><span></span>${version}</a><a href="${github}" target="_blank" rel="noreferrer">GitHub ↗</a><button class="menu-button" aria-expanded="false" aria-controls="sidebar" aria-label="Open navigation">☰</button></nav></header>
+<header class="topbar"><a class="brand" href="${root}index.html"><img src="${root}logo.svg" width="38" height="38" alt=""><span>Map Master<span class="brand-label">DOCS</span></span></a><button class="search-trigger" aria-haspopup="dialog">${searchIcon}<span>Search documentation</span><kbd>/</kbd></button><nav class="header-links" aria-label="Project links"><a class="version" href="${root}guides/changelog.html"><span></span>${version}</a><a href="${github}" target="_blank" rel="noreferrer">GitHub ↗</a><button class="menu-button" aria-expanded="false" aria-controls="sidebar" aria-label="Open navigation">☰</button></nav></header>
 <div class="sidebar-shade" hidden></div><aside class="sidebar" id="sidebar" aria-label="Documentation navigation">${nav(slug, root)}<div class="sidebar-footer"><span class="status-dot"></span> Open source · MIT licensed</div></aside>
-<div class="page ${home ? "home" : "guide"}"><main id="main" tabindex="-1">${home ? "" : `<div class="breadcrumbs"><a href="${root}index.html">Documentation</a><span>/</span>${escape(title)}</div>`}${body}<footer class="page-footer"><span>Map Master <span class="muted">/</span> Built for MapLibre · <a href="${root}licenses.txt">Licenses</a></span><a href="${github}/issues" target="_blank" rel="noreferrer">Suggest an improvement ↗</a></footer></main>${
+<div class="page ${home ? "home" : "guide"}"><main id="main" tabindex="-1">${home ? "" : `<div class="breadcrumbs"><a href="${root}index.html">Documentation</a><span>/</span>${escape(title)}</div>`}${body}<footer class="page-footer"><span>Map Master <span class="muted">/</span> MapLibre &amp; Mapbox · <a href="${root}licenses.txt">Licenses</a></span><a href="${github}/issues" target="_blank" rel="noreferrer">Suggest an improvement ↗</a></footer></main>${
     !home && headings.length
       ? `<aside class="toc" aria-label="On this page"><h2>On this page</h2>${headings
           .filter((h) => h.depth === 2)
           .map((h) => `<a href="#${h.id}">${escape(h.text)}</a>`)
           .join(
             "",
-          )}<a class="toc-source" href="${github}/tree/main" target="_blank" rel="noreferrer">View source ↗</a></aside>`
+          )}<a class="toc-source" href="${github}/blob/main/${escape(sourcePath)}" target="_blank" rel="noreferrer">View source ↗</a></aside>`
       : ""
   }</div>
 <dialog class="search-dialog" aria-labelledby="search-title"><div class="search-top"><label id="search-title" for="search-input">${searchIcon}<span class="sr-only">Search documentation</span></label><input id="search-input" type="search" placeholder="Search guides, methods, examples…" autocomplete="off"><button class="search-close" aria-label="Close search">Esc</button></div><div id="search-results" aria-live="polite"></div><div class="search-footer"><span><kbd>↑</kbd><kbd>↓</kbd> navigate <kbd>↵</kbd> open</span><span>Searches all guides</span></div></dialog>
@@ -179,12 +185,21 @@ const demoHints = {
   shapes: "Rectangle: click two corners. Circle and ellipse: click the center, then the edge. Freehand: press and drag. Measurements show the size as you draw.",
   measurements: "The lawn is selected and shows its area and perimeter. Draw a line or polygon to see segment lengths, or choose Edit and drag a corner.",
   cut: "Choose Cut and draw a polygon across the lawn, the garden and the route. Close it on its first corner: everything inside is removed.",
+  "remove-hole": "The two garden areas are one MultiPolygon with three holes. Choose Remove hole, click a hole or use the dropdown, then Apply. Undo restores it.",
+  lasso: "Choose Lasso selection and drag a loop around the shapes. Switch between Touches and Fully inside; the two garden areas are one feature, and their holes stay empty. Add/Remove changes the selection only.",
   edit: "The lawn is selected. Choose Edit, drag a corner or click a small midpoint, then Save. Undo restores it.",
   geojson: "Draw or edit shapes, import the GeoJSON below and download the result.",
   persistence: "Every committed change appears below as one onDataChange event: the moment to save.",
+  "data-layers": "Open Data layers. Draw in Parcels or Notes, hide a dataset, toggle reference snapping, change colors/order or move the selection to another layer. Reference is read-only and Archive starts hidden. GeoJSON below retains memberships and hidden features; Undo restores membership moves.",
+  geofencing: "The green dashed border is the allowed park; the red dashed pond is excluded. Edit the marker or draw a shape. Forbidden previews stay visible and Save is blocked. Correct the shape or Cancel. F toggles the policy; Undo and Redo obey the current areas. Reference areas are absent from exported GeoJSON.",
+  "vertex-pinning": "The parcels, path and junction are selected. Choose Pin shared vertices (P), select the junction marker and choose Edit vertices. Drag the corner: all participants follow. Save commits one Undo step. Unpin vertices (Shift+P) removes the links; download GeoJSON to keep them.",
+  "alignment-guides": "Draw a line near the reference corners to align horizontally or vertically, or extend the slanted edge. Choose Edit to align corners, or drag the selected marker. Alt bypasses guides; G toggles them. Snapping can be enabled separately.",
+  "shape-templates": "Choose Place template, select Arrow, Star or Booth and entrance, and click the map. Change size and rotation before Finish. The booth places two features in one Undo step; the GeoJSON and event log below show the result.",
+  "text-markers": "Select a label and choose Edit to change text and appearance, or choose Draw text to place one. Finish saves text and position together; Escape cancels. Try dragging, duplicating, Undo and the GeoJSON export below.",
   markers: "Place markers with the marker tool, or select one and choose Edit to drag it.",
   appearance: "Switch themes below the map; shapes, selection and handles restyle at once.",
   "keyboard-vertices": "Choose Edit, focus the map, press Page Down to pick a corner and the arrow keys to move it (Shift: 10 pixels). Enter saves.",
+  "keyboard-shortcuts": "Choose a shortcut preset, then Focus map. P starts a polygon in Standard; G does so in Alternative. Change bindings during drawing, or turn commands off. The toolbar and reference update immediately; text fields keep normal typing.",
   "touch-pen-vertices": "On a touch screen or with a pen: choose Edit, then drag a corner or tap a small midpoint.",
   transactions: "Run the transaction below, then Undo: both changes are reverted together.",
   "feature-styling": "Each zone is colored from its kind property, and overlapping areas are striped.",
@@ -215,12 +230,21 @@ const gallery = [
   ["geojson", "GeoJSON", "Import, edit and download data."],
   ["toolbar", "Toolbar", "The ready-made MapLibre control."],
   ["markers", "Markers", "Place, move and duplicate points."],
+  ["text-markers", "Text markers", "Create and edit styled, multiline labels stored in GeoJSON."],
+  ["shape-templates", "Shape templates", "Place reusable arrows, stars and custom GeoJSON groups."],
+  ["alignment-guides", "Alignment guides", "Align drawings, vertices and moving shapes with visible references."],
+  ["vertex-pinning", "Pin shared vertices", "Link shared corners and move markers, lines and polygons together."],
+  ["geofencing", "Geofencing", "Keep drawings and changes inside allowed areas and clear of exclusions."],
+  ["data-layers", "Data layers", "Manage editable, reference and hidden datasets with stable memberships."],
   ["appearance", "Appearance", "Switch editor themes live."],
   ["feature-styling", "Feature styling", "Colors from properties, striped overlaps."],
   ["feature-locks", "Feature locks", "Read-only reference geometry."],
   ["multipart", "Multipart & holes", "Add, separate and combine parts."],
   ["splitting", "Split", "Cut a polygon in two."],
   ["cut", "Cut", "Cut a drawn area out of everything."],
+  ["remove-hole", "Remove hole", "Preview filling a hole, then apply or cancel."],
+  ["lasso", "Lasso selection", "Draw a loop to replace, add to or remove from the selection."],
+  ["keyboard-shortcuts", "Keyboard shortcuts", "Remap or disable map commands while the editor is running."],
   ["union", "Union", "Merge overlapping polygons."],
   ["difference", "Difference", "Subtract one shape from another."],
   ["intersection", "Intersection", "Keep only the common area."],
@@ -243,14 +267,14 @@ const galleryCards = `<div class="gallery">${gallery
   )
   .join("")}</div>`;
 const cards = `<div class="example-cards"><a href="ROOTguides/draw.html"><span class="card-number">01 / DRAW</span><h3>From clicks to geometry <span>↗</span></h3><p>Place a marker, trace a line or draw a polygon. Finish when you are ready.</p><span class="card-link">Try drawing →</span></a><a href="ROOTguides/edit.html"><span class="card-number">02 / EDIT</span><h3>Make every change reversible <span>↗</span></h3><p>Select a shape, move its corners and save. Undo brings the original back.</p><span class="card-link">Try editing →</span></a><a href="ROOTguides/geojson.html"><span class="card-number">03 / EXCHANGE</span><h3>Your data, in and out <span>↗</span></h3><p>Import a GeoJSON collection, edit it on the map and download the result.</p><span class="card-link">Try GeoJSON →</span></a></div>`;
-const homeBody = `<div class="home-intro"><span class="eyebrow"><span class="status-dot"></span> A GEOMETRY EDITOR FOR MAPLIBRE</span><div class="hero-grid"><div class="hero-copy"><h1>Your map.<br>Ready to <em>edit.</em></h1><p>Draw, reshape and manage geometry with a TypeScript API. Built-in snapping, validation and Undo keep every edit under control.</p><div class="hero-buttons"><a class="button" href="./guides/quickstart.html">Start building <span>→</span></a><a class="text-button" href="./guides/examples.html">Explore ${gallery.length} examples ↗</a></div><div class="install-command"><code>npm i @jorisvdmije/map-master maplibre-gl</code><button data-copy="npm i @jorisvdmije/map-master maplibre-gl" aria-label="Copy install command">Copy</button></div><div class="hero-meta"><span>TypeScript</span><span>GeoJSON</span><span>MIT license</span></div></div>${demo("home")}</div></div><section class="home-workflows"><div class="section-heading"><div><span class="eyebrow">LEARN BY DOING</span><h2>Three paths to your first integration.</h2></div><a href="./guides/geometry-editor.html">Explore the API →</a></div>${cards.replaceAll("ROOT", "./")}</section><section class="home-bottom"><div><span class="eyebrow">SMALL API. ROOM TO GROW.</span><h2>Start with a polygon.<br>Build a complete workflow.</h2><p>Go from simple drawing to splitting, merging, shared boundaries and transactional updates. Add the tools your application needs.</p><a class="text-button" href="./guides/geometry-editor.html">Browse GeometryEditor →</a></div><div class="beta-note"><span class="version"><span></span> ${prerelease ? "PUBLIC BETA" : "LATEST RELEASE"}</span><h3>Clear about what is tested.</h3><p>Version ${version}. Every change is tested in a real browser with MapLibre 6.15, and checked against latency and memory budgets.</p><a href="./guides/compatibility.html">Compatibility & limits →</a></div></section>`;
+const homeBody = `<div class="home-intro"><span class="eyebrow"><span class="status-dot"></span> GEOMETRY EDITING FOR MAPLIBRE &amp; MAPBOX</span><div class="hero-grid"><div class="hero-copy"><h1>Your map.<br>Ready to <em>edit.</em></h1><p>Draw, reshape and manage geometry with a TypeScript API. Built-in snapping, validation and Undo keep every edit under control.</p><div class="hero-buttons"><a class="button" href="./guides/quickstart.html">Start building <span>→</span></a><a class="text-button" href="./guides/examples.html">Explore ${gallery.length} examples ↗</a></div>${renderDocsIsland({ kind: "install", id: "docs-install" })}<div class="renderer-note">Using Mapbox GL JS? <a href="./guides/mapbox.html">Mapbox setup →</a></div><div class="hero-meta"><span>TypeScript</span><span>GeoJSON</span><span>MIT license</span></div></div>${demo("home")}</div></div><section class="home-workflows"><div class="section-heading"><div><span class="eyebrow">LEARN BY DOING</span><h2>Three paths to your first integration.</h2></div><a href="./guides/geometry-editor.html">Explore the API →</a></div>${cards.replaceAll("ROOT", "./")}</section><section class="home-bottom"><div><span class="eyebrow">SMALL API. ROOM TO GROW.</span><h2>Start with a polygon.<br>Build a complete workflow.</h2><p>Go from simple drawing to splitting, merging, shared boundaries and transactional updates. Add the tools your application needs.</p><a class="text-button" href="./guides/geometry-editor.html">Browse GeometryEditor →</a></div><div class="beta-note"><span class="version"><span></span> ${prerelease ? "PUBLIC BETA" : "LATEST RELEASE"}</span><h3>Clear about what is tested.</h3><p>Version ${version}. MapLibre 6.15 is checked against browser, latency and memory budgets. Mapbox 3.34 runs shared adapter scenarios in Chromium.</p><a href="./guides/compatibility.html">Compatibility & limits →</a></div></section>`;
 writeFileSync(
   resolve(output, "index.html"),
   shell({
     slug: "index",
     title: "Overview",
     description:
-      "Draw, edit and manage geometry on MapLibre maps. Get started with Map Master, an open-source TypeScript geometry editor.",
+      "Draw, edit and manage geometry on MapLibre and Mapbox maps. Get started with Map Master, an open-source TypeScript geometry editor.",
     body: homeBody,
     home: true,
   }),
@@ -259,8 +283,8 @@ const search = [
   {
     title: "Overview",
     slug: "index",
-    description: "Map Master, an open-source geometry editor for MapLibre.",
-    text: "drawing polygons lines markers TypeScript GeoJSON snapping undo",
+    description: "Map Master, an open-source geometry editor for MapLibre and Mapbox.",
+    text: "drawing polygons lines markers TypeScript GeoJSON snapping undo MapLibre Mapbox",
   },
 ];
 for (const page of pages) {
@@ -302,8 +326,23 @@ for (const page of pages) {
     }
     return `<a href="${escape(url)}"${title ? ` title="${escape(title)}"` : ""}${/^https?:/.test(url) ? ' target="_blank" rel="noreferrer"' : ""}>${this.parser.parseInline(tokens)}</a>`;
   };
-  renderer.code = ({ text, lang }) =>
-    `<div class="code-block"><div class="code-top"><span>${escape(languageNames[lang] ?? (lang || "Code"))}</span><button class="copy-code" aria-label="Copy code example">Copy</button></div><pre><code>${highlight(text, lang)}</code></pre></div>`;
+  renderer.code = ({ text, lang }) => {
+    const language = (lang || "text").split(/\s+/)[0];
+    const title = lang?.match(/\btitle="([^"]+)"/)?.[1] ?? languageNames[language] ?? language;
+    return renderDocsIsland({
+      kind: "code", id: `docs-code-${++codeBlockId}`,
+      code: text, language, title, lines: highlight(text, language),
+    });
+  };
+  renderer.blockquote = function ({ tokens }) {
+    const body = this.parser.parse(tokens);
+    const marker = body.match(/^<p>\[!(NOTE|TIP|IMPORTANT|WARNING)\](?:\s+([^<]+))?<\/p>\n?/);
+    if (!marker) return `<blockquote>${body}</blockquote>`;
+    return renderDocsAlert({
+      kind: marker[1], title: marker[2]?.trim() ?? marker[1],
+      html: body.slice(marker[0].length),
+    });
+  };
   let html = marked.parse(source, { renderer, gfm: true });
   let placed = false;
   html = html.replace(/<p>\[\[demo:([a-z-]+)\]\]<\/p>/g, (_, id) => {
@@ -333,6 +372,7 @@ for (const page of pages) {
       description,
       body: `<article class="article">${html}</article>`,
       headings,
+      sourcePath: relative(repo, page.path).split("\\").join("/"),
     }),
   );
   search.push({
@@ -363,9 +403,10 @@ writeFileSync(
   }),
 );
 writeFileSync(resolve(output, "public/search.json"), JSON.stringify(search));
+writeFileSync(resolve(output, "public/logo.svg"), logo);
 writeFileSync(
   resolve(output, "public/favicon.svg"),
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#153b32"/><path d="m8 9 15-3 3 17-15 3Z" fill="none" stroke="#a3e3b0" stroke-width="2"/><g fill="#a3e3b0"><circle cx="8" cy="9" r="2"/><circle cx="23" cy="6" r="2"/><circle cx="26" cy="23" r="2"/><circle cx="11" cy="26" r="2"/></g></svg>`,
+  logo.replace("</title>", "</title><style>@media(prefers-color-scheme:dark){svg{color:#83D8B1}}</style>"),
 );
 console.log(`Generated overview and ${pages.length + 1} documentation pages.`);
 
@@ -373,6 +414,14 @@ writeFileSync(
   resolve(output, "public/licenses.txt"),
   [
     ["Map Master", resolve(repo, "LICENSE")],
+    ["shadcn/ui components (MIT)", resolve(site, "SHADCN-LICENSE.md")],
+    ["React", resolve(site, "node_modules/react/LICENSE")],
+    ["React DOM", resolve(site, "node_modules/react-dom/LICENSE")],
+    ["Base UI", resolve(site, "node_modules/@base-ui/react/LICENSE")],
+    ["Lucide icons", resolve(site, "node_modules/lucide-react/LICENSE")],
+    ["Class Variance Authority", resolve(site, "node_modules/class-variance-authority/LICENSE")],
+    ["clsx", resolve(site, "node_modules/clsx/license")],
+    ["tailwind-merge", resolve(site, "node_modules/tailwind-merge/LICENSE.md")],
     [
       "Map Master runtime dependency notices",
       resolve(repo, "THIRD_PARTY_NOTICES.md"),

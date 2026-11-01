@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Map Master · Mapbox GL JS</title>
+    <link rel="icon" href="../../assets/icon.svg" type="image/svg+xml" />
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; color: #20352f; background: #f4f6f1; font: 15px/1.5 system-ui, sans-serif; }
+      header { padding: 20px 24px; border-bottom: 1px solid #d9dfd5; }
+      h1 { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font-size: 24px; }
+      h1 img { flex-shrink: 0; }
+      p { margin: 6px 0; }
+      a { color: #146651; }
+      main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; height: calc(100dvh - 138px); min-height: 480px; }
+      #map { min-width: 0; }
+      main[hidden] { display: none; }
+      aside { padding: 20px; border-left: 1px solid #d9dfd5; overflow: auto; }
+      button { padding: 8px 12px; margin-bottom: 12px; font: inherit; }
+      textarea { width: 100%; min-height: 280px; font: 12px/1.5 monospace; }
+      #setup { padding: 24px; }
+      @media (max-width: 700px) { main { grid-template-columns: 1fr; height: auto; } #map { height: 65dvh; } aside { border: 0; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1><img src="../../assets/icon.svg" width="38" height="38" alt="" />Map Master · Mapbox GL JS</h1>
+      <p>Draw with the toolbar. Select a shape to edit or move it. Enter saves; Escape cancels.</p>
+      <a href="./index.html">MapLibre playground</a>
+    </header>
+    <p id="setup" role="status">Loading the map…</p>
+    <main hidden>
+      <div id="map" role="region" aria-label="Mapbox geometry editor"></div>
+      <aside>
+        <p id="status" role="status"></p>
+        <button id="reload" type="button">Reload map style</button>
+        <p>Style reload keeps drawings and selection. Data layers control which dataset receives new shapes.</p>
+        <label for="geojson">GeoJSON</label>
+        <textarea id="geojson" readonly spellcheck="false"></textarea>
+      </aside>
+    </main>
+    <script type="module" src="/mapbox.ts"></script>
+  </body>
+</html>

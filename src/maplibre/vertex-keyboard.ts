@@ -1,4 +1,5 @@
-import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { ShortcutBindings } from './shortcut-bindings.js';
+import type { EditorMap as MapLibreMap } from '../gl/map.js';
 import type { Coordinate, EditorState, VertexUpdate } from '../core/types.js';
 
 interface Actions {
@@ -23,7 +24,7 @@ interface Movement {
   session: string;
 }
 const directions: Record<string, Coordinate> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
-const instructions = 'Page Up / Page Down: previous / next vertex. Home / End: first / last. Space: select; Shift+Space: toggle. Arrows: move 1 pixel; Shift: 10 pixels. Delete: remove selected vertices. Enter: save. Escape while holding an arrow: undo that movement; otherwise cancel editing.';
+const navigationInstructions = 'Page Up / Page Down: previous / next vertex. Home / End: first / last. Space: select; Shift+Space: toggle. Arrows: move 1 pixel; Shift: 10 pixels. ';
 const sessionKey = (state: EditorState): string => JSON.stringify([state.mode, state.selectedFeatureIds, state.activePartIndex, state.activeRingIndex]);
 
 /** One tab stop for any draft size. Focus and selection are separate; movement
@@ -42,18 +43,21 @@ export class VertexKeyboard {
   private movement: Movement | undefined;
   private blocked = new Set<string>();
   private destroyed = false;
+  private readonly canvasContainer: HTMLElement;
 
-  constructor(private readonly map: MapLibreMap, private readonly actions: Actions) {
+  constructor(private readonly map: MapLibreMap, private readonly actions: Actions, private readonly shortcuts: ShortcutBindings) {
     this.canvas = map.getCanvas(); this.view = this.canvas.ownerDocument.defaultView!;
+    // Mapbox releases its container before firing remove. Retain the element
+    // used for registration so teardown never asks an already removed map.
+    this.canvasContainer = map.getCanvasContainer();
     const doc = this.canvas.ownerDocument;
     this.root = doc.createElement('div'); this.root.dataset.geoVertexKeyboard = '';
     this.root.style.cssText = 'position:absolute;z-index:2;left:10px;bottom:40px;max-width:min(390px,calc(100% - 20px));pointer-events:none;font:12px/1.5 system-ui;color:#172b25;';
     this.button = doc.createElement('button'); this.button.type = 'button'; this.button.dataset.geoVertexFocus = '';
     this.button.style.cssText = 'pointer-events:auto;border:1px solid #64748b;border-radius:6px;background:white;color:#172b25;padding:7px 12px;min-height:36px;font:inherit;cursor:pointer;';
-    this.button.title = instructions;
-    this.button.setAttribute('aria-keyshortcuts', 'PageUp PageDown Home End Space Shift+Space ArrowLeft ArrowRight ArrowUp ArrowDown Enter Escape Delete');
+
     this.help = doc.createElement('div'); this.help.id = `geo-vertex-help-${this.view.crypto.randomUUID()}`;
-    this.help.textContent = instructions; this.help.style.cssText = 'background:white;padding:8px;border:1px solid #64748b;border-radius:6px;margin-top:4px;'; this.help.hidden = true;
+    this.help.style.cssText = 'background:white;padding:8px;border:1px solid #64748b;border-radius:6px;margin-top:4px;'; this.help.hidden = true;
     this.button.setAttribute('aria-describedby', this.help.id);
     this.status = doc.createElement('div'); this.status.dataset.geoVertexKeyboardStatus = '';
     this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite'); this.status.setAttribute('aria-atomic', 'true');
@@ -66,7 +70,7 @@ export class VertexKeyboard {
     this.view.addEventListener('keydown', this.key, true); this.view.addEventListener('keyup', this.up, true);
     this.view.addEventListener('blur', this.interrupt);
     // Capture a new pointer interaction before vertex/rectangle handlers mutate the draft.
-    map.getCanvasContainer().addEventListener('pointerdown', this.interrupt, true);
+    this.canvasContainer.addEventListener('pointerdown', this.interrupt, true);
     map.on('move', this.camera); map.on('resize', this.camera);
   }
 
@@ -81,7 +85,10 @@ export class VertexKeyboard {
       this.index = state.selectedVertexIndex ?? (state.mode === 'edit-shared-boundary' && draft.length > 2 ? 1 : 0);
     } else if (!this.focused() && !this.movement && state.selectedVertexIndex !== null) this.index = state.selectedVertexIndex;
     this.index = Math.min(this.index, draft.length - 1);
-    const layoutKey = JSON.stringify([session, this.index, draft.length, state.selectedVertexIndices, state.canFinish, state.validationError, state.sharedBoundaryError, this.focused(), draft[this.index]]);
+    const instructions = `${navigationInstructions}${this.shortcuts.label('delete') || 'No shortcut'}: remove selected vertices. ${this.shortcuts.label('finish') || 'No shortcut'}: save. ${this.shortcuts.label('cancel') || 'No shortcut'} while holding an arrow: undo that movement; otherwise cancel editing.`;
+    this.button.title = instructions; this.help.textContent = instructions;
+    this.button.setAttribute('aria-keyshortcuts', ['PageUp PageDown Home End Space Shift+Space ArrowLeft ArrowRight ArrowUp ArrowDown', ...(['finish', 'cancel', 'delete'] as const).map(action => this.shortcuts.aria(action))].filter(Boolean).join(' '));
+    const layoutKey = JSON.stringify([session, instructions, this.index, draft.length, state.selectedVertexIndices, state.canFinish, state.validationError, state.sharedBoundaryError, this.focused(), draft[this.index]]);
     if (layoutKey === this.layoutKey) return;
     this.layoutKey = layoutKey;
     if (!this.root.isConnected) this.map.getCanvasContainer().append(this.root, this.marker);
@@ -131,7 +138,7 @@ export class VertexKeyboard {
     this.destroyed = true; this.clear(); this.blocked.clear();
     this.button.removeEventListener('focus', this.focus); this.button.removeEventListener('blur', this.blur); this.button.removeEventListener('click', this.click);
     this.view.removeEventListener('keydown', this.key, true); this.view.removeEventListener('keyup', this.up, true); this.view.removeEventListener('blur', this.interrupt);
-    this.map.getCanvasContainer().removeEventListener('pointerdown', this.interrupt, true);
+    this.canvasContainer.removeEventListener('pointerdown', this.interrupt, true);
     this.map.off('move', this.camera); this.map.off('resize', this.camera);
   }
 
@@ -151,18 +158,20 @@ export class VertexKeyboard {
     if (this.movement && this.movement.keys.size === 0) {
       this.movement = undefined; this.render();
       const coordinate = this.actions.draft()[this.index];
-      if (coordinate && this.actions.state().canFinish && this.focused()) this.announce(`Movement previewed. Longitude ${coordinate[0].toFixed(6)}, latitude ${coordinate[1].toFixed(6)}. Enter saves; Escape cancels editing.`);
+      if (coordinate && this.actions.state().canFinish && this.focused()) this.announce(`Movement previewed. Longitude ${coordinate[0].toFixed(6)}, latitude ${coordinate[1].toFixed(6)}. ${this.shortcuts.label('finish') || 'Save button'} saves; ${this.shortcuts.label('cancel') || 'Cancel button'} cancels editing.`);
     }
   };
 
   private readonly key = (event: KeyboardEvent): void => {
-    if (this.destroyed || event.defaultPrevented || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (this.destroyed || event.defaultPrevented || event.isComposing || event.keyCode === 229 || event.getModifierState('AltGraph')) return;
     const onCanvas = event.target === this.canvas; const onButton = event.target === this.button;
     const state = this.actions.state();
     if (!state.mode.startsWith('edit-') || !onCanvas && !onButton) return;
+    const command = (['finish', 'cancel', 'delete'] as const).find(action => this.shortcuts.matches(action, event, this.movement ? ['Shift'] : []));
+    if (!command && (event.ctrlKey || event.metaKey || event.altKey)) return;
     const navigation = ['PageUp', 'PageDown', 'Home', 'End'].includes(event.key);
     if (onCanvas && !navigation) return;
-    if (!navigation && !directions[event.key] && ![' ', 'Enter', 'Escape', 'Delete', 'Backspace'].includes(event.key)) return;
+    if (!navigation && !directions[event.key] && event.key !== ' ' && !command) return;
     event.preventDefault(); event.stopImmediatePropagation();
     if (navigation) {
       if (event.repeat || event.shiftKey) return;
@@ -177,15 +186,15 @@ export class VertexKeyboard {
       if (this.blocked.has(event.key) || event.repeat && !this.movement) return;
       this.nudge(event.key, event.shiftKey ? 10 : 1); return;
     }
-    if (event.repeat || event.shiftKey && event.key !== ' ') return;
-    if (event.key === 'Escape') {
+    if (event.repeat || event.shiftKey && event.key !== ' ' && !command) return;
+    if (command === 'cancel') {
       if (this.movement) { this.stop(true); this.announce('Movement cancelled. Earlier edits retained.'); }
       else this.actions.cancel();
       return;
     }
     if (this.movement) return; // Release arrows before saving/deleting/changing selection.
-    if (event.key === 'Enter') { if (state.canFinish) this.actions.finish(); else this.announce('Cannot save this shape. Correct the invalid geometry or press Escape to cancel.'); return; }
-    if (event.key === 'Delete' || event.key === 'Backspace') {
+    if (command === 'finish') { if (state.canFinish) this.actions.finish(); else this.announce('Cannot save this shape. Correct the invalid geometry or cancel editing.'); return; }
+    if (command === 'delete') {
       const removed = this.actions.remove(); this.render();
       if (!removed) this.announce('Cannot remove this selection: minimum vertex count or fixed endpoint.');
       return;

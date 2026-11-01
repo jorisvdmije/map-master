@@ -44,6 +44,10 @@ Splitting a multipart feature with `splitSelected()` is not supported; it return
 false. Transactions can replace the complete geometry, including changing its type
 or component count, subject to validation.
 
+To fill a hole in any polygon component, use [Remove hole](remove-hole.md).
+Choose the part and ring from the toolbar dropdown or click inside the hole.
+Filling a hole occupied by another component is rejected to preserve topology.
+
 ## Add a part
 
 `drawPart()` draws a new component for the selected line or polygon. Finishing

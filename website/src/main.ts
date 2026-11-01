@@ -1,4 +1,9 @@
 import "./style.css";
+import "./components.css";
+
+if (document.querySelector("[data-ui-root]")) {
+  void import("./components/hydrate-ui").then(({ hydrateDocsComponents }) => hydrateDocsComponents());
+}
 
 const root = document.documentElement.dataset.root ?? "./";
 const menu = document.querySelector<HTMLButtonElement>(".menu-button")!;
@@ -26,31 +31,6 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeMenu();
 });
 
-async function copy(button: HTMLButtonElement, value: string) {
-  const before = button.textContent;
-  try {
-    await navigator.clipboard.writeText(value);
-    button.textContent = "Copied!";
-  } catch {
-    button.textContent = "Select & copy";
-  }
-  setTimeout(() => {
-    button.textContent = before;
-  }, 1800);
-}
-document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) =>
-  button.addEventListener("click", () => {
-    void copy(button, button.dataset.copy!);
-  }),
-);
-document.querySelectorAll<HTMLButtonElement>(".copy-code").forEach((button) =>
-  button.addEventListener("click", () => {
-    void copy(
-      button,
-      button.closest(".code-block")!.querySelector("code")!.textContent!,
-    );
-  }),
-);
 // Keep wide API tables contained without shrinking the rest of the article.
 document.querySelectorAll(".article table").forEach((table) => {
   const wrapper = document.createElement("div");

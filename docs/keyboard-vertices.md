@@ -24,10 +24,16 @@ selection, draft, export or history.
 | Escape | Cancel the editing session, or roll back a currently held movement |
 | Tab / Shift+Tab | Leave the control normally; there is no focus trap |
 
+The table shows the defaults. Save, cancel and deletion follow the configured
+[keyboard shortcuts](keyboard-shortcuts.md), including runtime changes and
+disabling. The control's instructions and `aria-keyshortcuts` update with them.
+Navigation, selection and vertex-movement keys keep the fixed control semantics
+above; idle feature-nudge bindings are configured separately.
+
 Page Up/Down and Home/End also enter vertex focus from the map canvas. While editing,
 arrows on the canvas keep their normal MapLibre camera behavior; arrows on the vertex
 control edit the geometry. Outside editing, arrows on the canvas
-[move selected shapes](geometry-editor.md#move-selected-shapes). Ctrl/Meta/Alt combinations, composition events and keys
+[move selected shapes](geometry-editor.md#move-selected-shapes). Unbound Ctrl/Meta/Alt combinations, composition events and keys
 in other controls are left to the application/browser. Navigation and destructive
 keys ignore auto-repeat. Arrow repeat is supported.
 

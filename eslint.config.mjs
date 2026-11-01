@@ -32,12 +32,24 @@ export default defineConfig(
     },
   },
   {
+    files: ['src/gl/**/*.ts', 'src/maplibre/**/*.ts', 'src/mapbox/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: builtinModules,
+        patterns: [{
+          group: ['maplibre-gl', 'maplibre-gl/**', 'mapbox-gl', 'mapbox-gl/**', 'node:*', '**/examples/**', '**/tests/**'],
+          message: 'Shared GL editing uses the renderer-independent map boundary. The application supplies its renderer.',
+        }],
+      }],
+    },
+  },
+  {
     files: ['src/core/**/*.ts'],
     rules: {
       'no-restricted-imports': ['error', {
         paths: builtinModules,
         patterns: [{
-          group: ['maplibre-gl', 'maplibre-gl/**', '**/maplibre/**', '**/index.js', 'node:*', '**/examples/**', '**/tests/**'],
+          group: ['maplibre-gl', 'maplibre-gl/**', 'mapbox-gl', 'mapbox-gl/**', '**/gl/**', '**/mapbox/**', '**/maplibre/**', '**/index.js', 'node:*', '**/examples/**', '**/tests/**'],
           message: 'The core may depend on its own modules and geometry dependencies, never the map adapter, public entry point, browser, or application.',
         }],
       }],
@@ -48,7 +60,7 @@ export default defineConfig(
     rules: {
       'no-restricted-imports': ['error', {
         patterns: [{
-          group: ['**/src/**', '../**/dist/**', './dist/**', '@jorisvdmije/map-master/*'],
+          group: ['**/src/**', '../**/dist/**', './dist/**', '@jorisvdmije/map-master/src/**', '@jorisvdmije/map-master/dist/**'],
           message: 'Examples consume the public @jorisvdmije/map-master entry point, just like an installed application.',
         }],
       }],

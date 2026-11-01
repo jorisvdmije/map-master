@@ -1,4 +1,5 @@
-import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { ShortcutBindings } from './shortcut-bindings.js';
+import type { EditorMap as MapLibreMap } from '../gl/map.js';
 import { geometryParts } from '../core/geometry.js';
 import { project, unproject } from '../core/mercator-transform.js';
 import type { EditorAppearance } from '../core/appearance.js';
@@ -48,7 +49,7 @@ export class ScalingInteraction {
   private gesture: Gesture | undefined;
   private frame: number | undefined;
 
-  constructor(private readonly map: MapLibreMap, private readonly actions: Actions) {
+  constructor(private readonly map: MapLibreMap, private readonly actions: Actions, private readonly shortcuts: ShortcutBindings) {
     this.canvas = map.getCanvas();
     const doc = this.canvas.ownerDocument; this.view = doc.defaultView!;
     this.root = doc.createElement('div'); this.root.dataset.geoScaling = '';
@@ -84,7 +85,10 @@ export class ScalingInteraction {
     if (!this.root.isConnected) this.map.getCanvasContainer().append(this.root);
     const color = this.actions.state().scaleError ? '#b91c1c' : appearance.selected.lineColor;
     this.box.setAttribute('stroke', color); this.cross.setAttribute('stroke', appearance.pivot.strokeColor);
-    for (const grip of this.grips) grip.button.style.backgroundColor = color;
+    for (const grip of this.grips) {
+      grip.button.style.backgroundColor = color;
+      this.shortcuts.describeControl(grip.button, 'Drag to scale. Arrows: 1%; Shift+arrows: 10%.', 'ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight Shift+ArrowUp Shift+ArrowDown');
+    }
     this.layout();
   }
 
@@ -201,21 +205,26 @@ export class ScalingInteraction {
   private readonly blur = (): void => { this.stop(true); };
   private readonly camera = (): void => { this.stop(true); this.layout(); };
   private readonly key = (event: KeyboardEvent): void => {
-    if (!this.gesture || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key === 'Escape' || event.key === 'Enter') {
-      event.preventDefault(); event.stopImmediatePropagation(); if (event.key === 'Escape') this.stop(true);
+    if (!this.gesture || event.repeat || event.target !== this.canvas) return;
+    const cancel = this.shortcuts.matches('cancel', event, ['Shift']);
+    if (cancel || this.shortcuts.matches('finish', event, ['Shift'])) {
+      event.preventDefault(); event.stopImmediatePropagation();
+      if (cancel) this.stop(true);
     }
   };
   private readonly handleKey = (event: KeyboardEvent): void => {
-    if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+    const cancel = this.shortcuts.matches('cancel', event);
+    const finish = this.shortcuts.matches('finish', event);
+    if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || event.repeat && !event.key.startsWith('Arrow') || event.getModifierState('AltGraph')
+      || !cancel && !finish && (event.ctrlKey || event.metaKey || event.altKey)) return;
     const state = this.actions.state(); if (!state.scalePivot) return;
     if (['ArrowLeft', 'ArrowDown', 'ArrowRight', 'ArrowUp'].includes(event.key)) {
       event.preventDefault(); event.stopPropagation(); const grip = this.grips.find(g => g.button === event.currentTarget)!;
       const step = event.shiftKey ? 1.1 : 1.01; const ratio = event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? 1 / step : step;
       this.actions.factors(state.scaleFactorX! * (grip.axis === 'y' ? 1 : ratio), state.scaleFactorY! * (grip.axis === 'x' ? 1 : ratio));
-    } else if (event.key === 'Enter' || event.key === 'Escape') {
+    } else if (finish || cancel) {
       event.preventDefault(); event.stopPropagation(); this.canvas.focus({ preventScroll: true });
-      if (event.key === 'Enter') this.actions.finish(); else this.actions.cancel();
+      if (finish) this.actions.finish(); else this.actions.cancel();
     }
   };
 }

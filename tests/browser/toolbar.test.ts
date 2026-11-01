@@ -27,6 +27,11 @@ const line = (id: FeatureId, y: number): LineFeature => ({ type: 'Feature', id, 
 const square = (id: FeatureId, x: number, y: number, size = 100): PolygonFeature => ({ type: 'Feature', id, properties: {},
   geometry: { type: 'Polygon', coordinates: [[at(x, y + size), at(x + size, y + size), at(x + size, y), at(x, y), at(x, y + size)]] },
 });
+const courtyards = (): PolygonFeature => ({ ...square('courtyards', 100, 100, 300), properties: { name: 'Courtyards' },
+  geometry: { type: 'Polygon', coordinates: [square('outer', 100, 100, 300).geometry.coordinates[0]!,
+    square('hole-a', 150, 150, 50).geometry.coordinates[0]!, square('hole-b', 300, 300, 50).geometry.coordinates[0]!] },
+});
+const holeChoice = () => container.querySelector<HTMLSelectElement>('.mm-toolbar-hole select')!;
 const load = (...features: GeometryFeature[]) => { editor.importGeoJSON({ type: 'FeatureCollection', features }); editor.clearHistory(); };
 const add = async (toolbar: EditorToolbar, position?: 'top-left' | 'top-right' | 'bottom-left') => {
   map.addControl(toolbar, position); await settle(); return toolbar;
@@ -108,17 +113,17 @@ it('switches drawing tools while no point is placed and cancels the active tool 
 it('enables each tool only for a qualifying, unlocked selection', async () => {
   load(square('a', 100, 100), square('b', 150, 150), line('l', 400));
   await add(new EditorToolbar(editor, { tools: EditorToolbar.allTools }));
-  const shapes = ['point', 'line', 'polygon', 'rectangle', 'circle', 'ellipse', 'freehand'];
-  const aids = ['snapping', 'constraints', 'tracing', 'measure', 'zoom'];
-  expect(enabled()).toEqual([...shapes, 'cut', ...aids]);
+  const shapes = ['point', 'text', 'template', 'line', 'polygon', 'rectangle', 'circle', 'ellipse', 'freehand'];
+  const aids = ['guides', 'snapping', 'constraints', 'tracing', 'measure', 'zoom'];
+  expect(enabled()).toEqual([...shapes, 'lasso', 'cut', ...aids]);
   editor.select('a');
-  expect(enabled()).toEqual([...shapes, 'hole', 'part', 'edit', 'split', 'cut', 'reshape', 'rotate', 'scale', 'buffer', 'simplify', 'duplicate', 'delete', ...aids]);
+  expect(enabled()).toEqual([...shapes, 'hole', 'part', 'lasso', 'edit', 'split', 'cut', 'reshape', 'rotate', 'scale', 'buffer', 'simplify', 'duplicate', 'delete', ...aids]);
   editor.selectMany(['a', 'b']);
-  expect(enabled()).toEqual([...shapes, 'cut', 'shared-boundary', 'union', 'difference', 'intersection', 'combine', 'rotate', 'scale', 'buffer', 'simplify', 'duplicate', 'delete', ...aids]);
+  expect(enabled()).toEqual([...shapes, 'lasso', 'cut', 'shared-boundary', 'union', 'difference', 'intersection', 'combine', 'rotate', 'scale', 'buffer', 'simplify', 'duplicate', 'delete', ...aids]);
   editor.select('l');
-  expect(enabled()).toEqual([...shapes, 'part', 'edit', 'cut', 'rotate', 'scale', 'buffer', 'offset', 'simplify', 'duplicate', 'delete', ...aids]);
+  expect(enabled()).toEqual([...shapes, 'part', 'lasso', 'edit', 'cut', 'rotate', 'scale', 'buffer', 'offset', 'simplify', 'duplicate', 'delete', ...aids]);
   editor.setLockedFeatureIds(['l']);
-  expect(enabled()).toEqual([...shapes, 'duplicate', ...aids]);
+  expect(enabled()).toEqual([...shapes, 'lasso', 'duplicate', ...aids]);
 
   editor.setLockedFeatureIds([]); editor.selectMany(['a', 'b']);
   await userEvent.click(button('union'));
@@ -129,6 +134,88 @@ it('enables each tool only for a qualifying, unlocked selection', async () => {
   expect(editor.getState().mode).toBe('intersection-polygons');
   await userEvent.click(action('Cancel'));
   expect(editor.getState()).toMatchObject({ mode: 'idle', featureCount: 3 });
+});
+
+it('chooses an original hole on the map and applies one transaction with exact undo/redo', async () => {
+  load(courtyards()); editor.select('courtyards');
+  const before = editor.exportGeoJSON(); const changes: string[] = [];
+  editor.onDataChange((event) => { changes.push(event.source); });
+  map.getCanvas().style.cursor = 'help'; map.doubleClickZoom.disable();
+  await add(new EditorToolbar(editor, { tools: ['remove-hole', 'undo', 'redo'] }));
+  await userEvent.click(button('remove-hole'));
+  expect(editor.getState()).toMatchObject({ mode: 'remove-hole', activeRingIndex: 1, canFinish: true });
+  expect(button('remove-hole').getAttribute('aria-pressed')).toBe('true');
+  expect(holeChoice().value).toBe('0:1');
+  expect([...holeChoice().options].map((option) => option.text)).toEqual(['Part 1 · Hole 1', 'Part 1 · Hole 2']);
+  await click(325, 325);
+  expect(holeChoice().value).toBe('0:2');
+  await click(450, 450);
+  expect(editor.getState().activeRingIndex).toBe(2);
+  await click(175, 175); // The first hole is still selectable from the original geometry.
+  expect(editor.getState().activeRingIndex).toBe(1);
+  expect(editor.exportGeoJSON()).toEqual(before); expect(changes).toEqual([]);
+  await userEvent.click(action('Apply'));
+  expect(editor.getState()).toMatchObject({ mode: 'idle', selectedFeatureIds: ['courtyards'], canUndo: true });
+  expect(changes).toEqual(['transaction']);
+  const after = editor.exportGeoJSON();
+  expect((editor.getSelected() as PolygonFeature).geometry.coordinates).toHaveLength(2);
+  expect(map.getCanvas().style.cursor).toBe('help'); expect(map.doubleClickZoom.isEnabled()).toBe(false);
+  await userEvent.click(button('undo')); expect(editor.exportGeoJSON()).toEqual(before);
+  await userEvent.click(button('redo')); expect(editor.exportGeoJSON()).toEqual(after);
+});
+
+it('selects a hole by keyboard, cancels without changes and respects selection and locks', async () => {
+  load(courtyards(), square('solid', 450, 150));
+  await add(new EditorToolbar(editor, { tools: ['remove-hole', 'undo'] }));
+  expect(button('remove-hole').disabled).toBe(true);
+  editor.select('solid'); expect(button('remove-hole').disabled).toBe(true);
+  editor.selectMany(['solid', 'courtyards']); expect(button('remove-hole').disabled).toBe(true);
+  editor.select('courtyards'); editor.setLockedFeatureIds(['courtyards']);
+  expect(button('remove-hole').disabled).toBe(true);
+  editor.setLockedFeatureIds([]); const before = editor.exportGeoJSON();
+  editor.removeHole();
+  await userEvent.selectOptions(holeChoice(), '0:2');
+  expect(editor.getState().activeRingIndex).toBe(2);
+  holeChoice().focus(); await userEvent.keyboard('{Escape}');
+  expect(editor.getState().mode).toBe('idle'); expect(editor.exportGeoJSON()).toEqual(before);
+  expect(editor.getState().canUndo).toBe(false);
+  editor.removeHole(); editor.setLockedFeatureIds(['courtyards']);
+  expect(editor.getState().mode).toBe('idle'); expect(shown(panel())).toBe(false);
+  expect(editor.exportGeoJSON()).toEqual(before);
+  editor.setLockedFeatureIds([]); editor.removeHole();
+  container.style.width = '320px'; map.resize();
+  const panelBounds = panel().getBoundingClientRect(); const mapBounds = map.getCanvas().getBoundingClientRect();
+  expect(panelBounds.right).toBeLessThanOrEqual(mapBounds.right);
+  expect(panelBounds.height).toBeGreaterThan(32);
+  await userEvent.click(button('remove-hole'));
+  expect(editor.getState().mode).toBe('idle');
+  editor.removeHole(); map.getCanvas().focus(); await userEvent.keyboard('{Enter}');
+  expect((editor.getSelected() as PolygonFeature).geometry.coordinates).toHaveLength(2);
+});
+
+it('explains invalid multipolygon filling and lets a different ring be applied', async () => {
+  const feature = courtyards();
+  load({ ...feature, geometry: { type: 'MultiPolygon', coordinates: [feature.geometry.coordinates,
+    square('island', 160, 160, 20).geometry.coordinates,
+    [square('second', 450, 150, 100).geometry.coordinates[0]!, square('third-hole', 470, 170, 40).geometry.coordinates[0]!],
+  ] } });
+  editor.select('courtyards'); const before = editor.exportGeoJSON();
+  await add(new EditorToolbar(editor, { tools: ['remove-hole'], labels: { holeChoice: 'Gat', holeNumber: 'Gat', partNumber: 'Deel' } }));
+  editor.removeHole();
+  expect(holeChoice().options[2]!.text).toBe('Deel 3 · Gat 1');
+  expect(action('Apply').disabled).toBe(true);
+  expect(holeChoice().getAttribute('aria-invalid')).toBe('true');
+  expect(shown(container.querySelector('.mm-toolbar-notice')!)).toBe(true);
+  expect(editor.finish()).toBeNull(); expect(editor.exportGeoJSON()).toEqual(before);
+  await click(490, 190);
+  expect(holeChoice().value).toBe('2:1');
+  expect(action('Apply').disabled).toBe(false);
+  expect(shown(container.querySelector('.mm-toolbar-notice')!)).toBe(false);
+  holeChoice().focus(); await userEvent.keyboard('{Enter}');
+  const after = editor.getSelected()!;
+  if (after.geometry.type !== 'MultiPolygon') throw new Error('Expected MultiPolygon');
+  expect(after.geometry.coordinates[0]).toEqual((before.features[0]!.geometry as typeof after.geometry).coordinates[0]);
+  expect(after.geometry.coordinates[2]).toHaveLength(1);
 });
 
 it('applies a buffer distance from the panel and blocks invalid values', async () => {
@@ -272,14 +359,14 @@ it('shows the action panel only on the toolbar that holds the active tool', asyn
 
 it('offers shape, part, cut, multipart, measurement and zoom tools', async () => {
   await add(new EditorToolbar(editor, { tools: EditorToolbar.allTools }));
-  expect(enabled()).toEqual(['point', 'line', 'polygon', 'rectangle', 'circle', 'ellipse', 'freehand', 'snapping', 'constraints', 'tracing', 'measure']);
+  expect(enabled()).toEqual(['point', 'text', 'template', 'line', 'polygon', 'rectangle', 'circle', 'ellipse', 'freehand', 'lasso', 'guides', 'snapping', 'constraints', 'tracing', 'measure']);
   await userEvent.click(button('rectangle'));
   expect(editor.getState().mode).toBe('draw-rectangle');
   expect(shown(action('Cancel'))).toBe(true);
   expect(shown(action('Finish'))).toBe(false);
-  await click(150, 150);
+  await click(400, 250); // Keep canvas clicks to the right of every tool panel.
   expect(action('Remove last point').disabled).toBe(false);
-  await click(250, 220);
+  await click(500, 320);
   expect(editor.getState()).toMatchObject({ mode: 'idle', featureCount: 1 });
 
   load(square('a', 300, 100), square('b', 450, 100), line('route', 400));

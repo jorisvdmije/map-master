@@ -14,6 +14,9 @@ remain in [GeometryEditor](geometry-editor.md) and the individual operation guid
 
 ## Finding tools
 
+The map control below the zoom buttons starts [Lasso selection](lasso.md).
+Choose Replace/Add/Remove and Touches/Fully inside, then drag a loop and release.
+
 - **Draw geometry:** choose Line, Marker or Polygon, then start drawing.
 - **Selection / Edit shape:** vertices, holes, reshape, split and shared boundaries.
 - **Selection / Transform:** rotate, scale, simplify, buffer and line offsets.

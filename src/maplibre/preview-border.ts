@@ -1,4 +1,4 @@
-import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { EditorMap as MapLibreMap } from '../gl/map.js';
 import { geometryParts, type Geometry } from '../core/geometry.js';
 import type { Coordinate } from '../core/types.js';
 import { resolveAppearance, type PointAppearance, type DraftAppearance } from '../core/appearance.js';

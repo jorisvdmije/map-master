@@ -3,7 +3,7 @@
   "compilerOptions": {
     "noEmit": true,
     "types": ["node", "geojson", "vite/client"],
-    "paths": { "@jorisvdmije/map-master": ["./src/index.ts"] }
+    "paths": { "@jorisvdmije/map-master": ["./src/index.ts"], "@jorisvdmije/map-master/mapbox": ["./src/mapbox/index.ts"] }
   },
   "include": ["tests/**/*.ts", "vitest*.config.ts", "vite.config.ts"],
   "exclude": ["tests/fixtures"]

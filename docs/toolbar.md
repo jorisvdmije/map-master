@@ -1,5 +1,9 @@
 # Toolbar
 
+Tooltips and `aria-keyshortcuts` reflect the editor's
+[keyboard shortcut configuration](keyboard-shortcuts.md), including runtime
+changes. Binding a tool does not require showing its toolbar button.
+
 `EditorToolbar` is a ready-made MapLibre control with buttons for drawing, editing,
 the geometry tools, drawing aids, measurements and Undo/Redo. Add it to the map and users can
 work with the whole editor without any UI code of your own.
@@ -24,8 +28,14 @@ map.addControl(new EditorToolbar(editor), 'top-left');
   or scale factor. In the field, Enter applies and Escape cancels.
 - Rectangles, circles, ellipses, freehand shapes and markers complete themselves on the last
   click or when the pointer is released, so their panel has no Finish button.
+- **Remove hole** has a ring chooser for polygons and multipolygons. Click inside
+  a hole or choose it from the list, then Apply or Cancel. A hole containing
+  another polygon part cannot be filled. See [hole removal](remove-hole.md).
+- **Lasso selection** offers Replace/Add/Remove and Touches/Fully inside. Drag a
+  loop and release to select once; its panel has Cancel and no Finish button.
+  Locked features remain selectable. See [lasso selection](lasso.md).
 - Pressing the active button again cancels the tool. Before the first point is
-  placed, or during a union, difference or intersection preview, another tool can
+  placed, or during a union, difference, intersection or hole-removal preview, another tool can
   be chosen directly; otherwise finish or cancel first.
 - The toolbar is one Tab stop. The arrow keys, Home and End move between buttons.
   The editor's map shortcuts (Enter, Escape, Delete, Ctrl+Z) work when the map has
@@ -55,7 +65,11 @@ Without `tools`, the toolbar shows `EditorToolbar.defaultTools`: `point`, `line`
 | `ellipse` | Draw ellipse | `draw('Ellipse')` | always |
 | `freehand` | Draw freehand | `draw('Freehand')` | always |
 | `hole` | Draw hole | `drawHole()` | one polygon or multipolygon is selected |
+| `remove-hole` | Remove hole | `removeHole()` | one unlocked polygon or multipolygon with holes is selected |
+| `lasso` | Lasso selection | `lasso()` | always; selection may include locked features |
 | `part` | Add part | `drawPart()` | one line or polygon is selected |
+| `pin` | Pin shared vertices | `pinSharedVertices()` | selected features share exact vertex positions and all participants are unlocked |
+| `unpin` | Unpin vertices | `unpinSelection()` | selected features have pin memberships and all participants are unlocked |
 | `edit` | Edit vertices | `editSelected()` | one feature is selected |
 | `split` | Split polygon | `splitSelected()` | one polygon is selected |
 | `cut` | Cut | `drawCut()` | there are features; cuts the selection, or everything when nothing is selected |
@@ -73,6 +87,8 @@ Without `tools`, the toolbar shows `EditorToolbar.defaultTools`: `point`, `line`
 | `simplify` | Simplify | `simplifySelection()` | a line or polygon is selected |
 | `duplicate` | Duplicate | `duplicateSelection()` | something is selected; locked features may be copied |
 | `delete` | Delete | `deleteSelection()` | something is selected |
+| `geofencing` | Geofencing | `setGeofencing()` | reference areas are configured; toggles enforcement and overlays |
+| `guides` | Alignment guides | `setAlignmentGuides()` | always; shows whether [alignment guides](alignment-guides.md) are on |
 | `snapping` | Snapping | `setSnapping()` | always; shows whether snapping is on |
 | `constraints` | 45° angles | `setDrawingConstraints()` | always; shows whether constraints are on |
 | `tracing` | Trace boundaries | `setTracing()` | always; turning it on also turns on snapping |
@@ -80,6 +96,17 @@ Without `tools`, the toolbar shows `EditorToolbar.defaultTools`: `point`, `line`
 | `zoom` | Zoom to features | `zoomToFeatures()` | there are features; shows the selection, or everything |
 | `undo` | Undo | `undo()` | `canUndo` |
 | `redo` | Redo | `redo()` | `canRedo` |
+
+For dataset controls, add the separate [DataLayerControl](data-layers.md#optional-layer-control).
+It provides keyboard-accessible layer settings and atomic membership moves.
+
+The `geofencing` toggle is optional. Its accessible notice identifies forbidden
+previews, and Save/Apply stays disabled until corrected. See [geofencing](geofencing.md).
+
+The `pin` and `unpin` commands preserve links in GeoJSON and support configurable
+keyboard shortcuts. Shape-changing tools that cannot remap pins stay disabled for
+pinned selections; unpin first. See [pin shared vertices](vertex-pinning.md) for linking,
+unlinking and atomic editing.
 
 Editing tools stay disabled while the selection contains a
 [locked feature](feature-locks.md). Duplicates are placed 24 pixels to the right of
@@ -209,3 +236,17 @@ your application. Render from `editor.getState()` in an `onChange` listener, and
 the methods from the [table](#tools). [Drawing](../website/content/draw.md) shows the
 pattern for a few buttons, and the [GeometryEditor reference](geometry-editor.md)
 lists every method.
+
+## Text markers
+
+Add the `text` tool to place and style [text markers](text-markers.md). The panel
+provides multiline text, size, foreground/background colors, weight and alignment.
+Finish saves the label after placement; Edit opens the same fields for a selected
+label, and Save commits text, style and position together.
+
+## Shape templates
+
+Add the `template` tool to choose and place [reusable GeoJSON templates](shape-templates.md).
+Its panel provides a template dropdown, size, rotation and longitude/latitude,
+plus Finish and Cancel. `templatePicker` lets an application choose the initial
+definition; returning null keeps the current tool intact.

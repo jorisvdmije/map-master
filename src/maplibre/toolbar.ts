@@ -1,24 +1,27 @@
-import type { ControlPosition, IControl, Map as MapLibreMap } from 'maplibre-gl';
-import type { Coordinate, EditorMode, EditorState, GeometryFeature } from '../core/types.js';
+import type { ShapeTemplate } from '../core/shape-templates.js';
+import { TemplateControls, type TemplateLabelKey } from './template-controls.js';
+import { defaultTextMarkerStyle, type TextMarkerOptions } from '../core/text-marker.js';
+import type { KeyboardTool } from '../core/keyboard-shortcuts.js';
+import { toolAvailable, runTool } from './editor-tools.js';
+import type { ControlPosition, IControl, EditorMap as MapLibreMap } from '../gl/map.js';
+import type { Coordinate, EditorMode, EditorState, GeometryFeature, LassoOptions } from '../core/types.js';
 import type { GeometryEditor } from './geometry-editor.js';
+import { geometryParts } from '../core/geometry.js';
 import { toolbarIcon } from './toolbar-icons.js';
 import { toolbarStyles } from './toolbar-styles.js';
 import { adoptStyles } from './adopt-styles.js';
 
 /** A button that {@link EditorToolbar} can show. */
-export type ToolbarTool =
-  | 'point' | 'line' | 'polygon' | 'rectangle' | 'circle' | 'ellipse' | 'freehand' | 'hole' | 'part'
-  | 'edit' | 'split' | 'cut' | 'reshape' | 'shared-boundary'
-  | 'union' | 'difference' | 'intersection' | 'combine' | 'explode'
-  | 'rotate' | 'scale' | 'buffer' | 'offset' | 'simplify'
-  | 'duplicate' | 'delete'
-  | 'snapping' | 'constraints' | 'tracing' | 'measure' | 'zoom'
-  | 'undo' | 'redo';
+export type ToolbarTool = KeyboardTool;
 
 /** Texts the toolbar shows: one per tool, plus the action panel and its fields. */
-export type ToolbarLabelKey = ToolbarTool
-  | 'toolbar' | 'finish' | 'save' | 'apply' | 'cancel' | 'removeLastPoint'
-  | 'distance' | 'tolerance' | 'angle' | 'factor' | 'collapse' | 'expand';
+export type ToolbarLabelKey = ToolbarTool | TemplateLabelKey
+  | 'layerHistoryBlocked' | 'outsideAllowed' | 'intersectsExcluded' | 'insideExcluded' | 'geofencingFailed' | 'pinInvalid' | 'toolbar' | 'finish' | 'save' | 'apply' | 'cancel' | 'removeLastPoint'
+  | 'distance' | 'tolerance' | 'angle' | 'factor' | 'collapse' | 'expand'
+  | 'holeChoice' | 'holeNumber' | 'partNumber' | 'holeOverlap'
+  | 'lassoOperation' | 'replaceSelection' | 'addToSelection' | 'subtractFromSelection'
+  | 'lassoMatch' | 'intersects' | 'contains' | 'lassoInvalid'
+  | 'labelText' | 'fontSize' | 'textColor' | 'textBackground' | 'fontWeight' | 'normal' | 'bold' | 'textAlign' | 'left' | 'center' | 'right';
 
 /** Every toolbar text, keyed by tool or action. */
 export type ToolbarLabels = Record<ToolbarLabelKey, string>;
@@ -49,6 +52,8 @@ export interface ToolbarOptions {
    * drawing aids, history) share a group. Defaults to {@link EditorToolbar.defaultTools}.
    */
   tools?: readonly ToolbarTool[];
+  /** Choose the initial template with an application-owned picker; null keeps the current tool. */
+  templatePicker?: (templates: readonly ShapeTemplate[], editor: GeometryEditor) => string | null;
   /** Replace button tooltips and action texts, for example to translate the toolbar. */
   labels?: Partial<ToolbarLabels>;
   /** Application buttons, shown in their own group after the built-in tools. */
@@ -70,10 +75,10 @@ interface Field {
 }
 
 const allTools: readonly ToolbarTool[] = Object.freeze<ToolbarTool[]>([
-  'point', 'line', 'polygon', 'rectangle', 'circle', 'ellipse', 'freehand', 'hole', 'part',
-  'edit', 'split', 'cut', 'reshape', 'shared-boundary', 'union', 'difference', 'intersection', 'combine', 'explode',
+  'point', 'text', 'template', 'line', 'polygon', 'rectangle', 'circle', 'ellipse', 'freehand', 'hole', 'part',
+  'pin', 'unpin', 'lasso', 'edit', 'remove-hole', 'split', 'cut', 'reshape', 'shared-boundary', 'union', 'difference', 'intersection', 'combine', 'explode',
   'rotate', 'scale', 'buffer', 'offset', 'simplify', 'duplicate', 'delete',
-  'snapping', 'constraints', 'tracing', 'measure', 'zoom',
+  'geofencing', 'guides', 'snapping', 'constraints', 'tracing', 'measure', 'zoom',
   'undo', 'redo',
 ]);
 const defaultTools: readonly ToolbarTool[] = Object.freeze<ToolbarTool[]>([
@@ -81,14 +86,25 @@ const defaultTools: readonly ToolbarTool[] = Object.freeze<ToolbarTool[]>([
 ]);
 
 const defaultLabels: ToolbarLabels = {
+  layerHistoryBlocked: 'History is blocked by data layer settings.',
+  geofencing: 'Geofencing', outsideAllowed: 'Keep the complete shape inside the allowed area.', intersectsExcluded: 'Keep the shape clear of the excluded area, including its boundary.', insideExcluded: 'The shape must not be contained in the excluded area.', geofencingFailed: 'The area check failed. Correct the shape or cancel.',
+  pin: 'Pin shared vertices', unpin: 'Unpin vertices', pinInvalid: 'A linked feature is locked or would become invalid. Move the vertex back or cancel.',
+  template: 'Place template', templateChoice: 'Template', templateSize: 'Size (Mercator m)', templateRotation: 'Rotation (°)',
+  templateLongitude: 'Longitude', templateLatitude: 'Latitude', templateInvalid: 'Enter valid placement values. Keep the complete shape inside the supported Mercator world.',
+  text: 'Draw text', labelText: 'Text', fontSize: 'Text size', textColor: 'Text color', textBackground: 'Text background',
+  fontWeight: 'Weight', normal: 'Normal', bold: 'Bold', textAlign: 'Alignment', left: 'Left', center: 'Center', right: 'Right',
   point: 'Draw marker', line: 'Draw line', polygon: 'Draw polygon', rectangle: 'Draw rectangle', circle: 'Draw circle', ellipse: 'Draw ellipse',
   freehand: 'Draw freehand', hole: 'Draw hole', part: 'Add part',
   edit: 'Edit vertices', split: 'Split polygon', cut: 'Cut', reshape: 'Reshape boundary', 'shared-boundary': 'Edit shared boundary',
+  'remove-hole': 'Remove hole', holeChoice: 'Hole', holeNumber: 'Hole', partNumber: 'Part',
+  holeOverlap: 'This hole contains another polygon part. Choose another hole or cancel.',
+  lasso: 'Lasso selection', lassoOperation: 'Action', replaceSelection: 'Replace', addToSelection: 'Add', subtractFromSelection: 'Remove',
+  lassoMatch: 'Match', intersects: 'Touches', contains: 'Fully inside', lassoInvalid: 'Draw a loop with at least three corners, without crossing its own path.',
   union: 'Merge polygons', difference: 'Subtract polygons', intersection: 'Intersect polygons',
   combine: 'Combine into multipart', explode: 'Separate parts',
   rotate: 'Rotate', scale: 'Scale', buffer: 'Buffer', offset: 'Offset lines', simplify: 'Simplify',
   duplicate: 'Duplicate', delete: 'Delete',
-  snapping: 'Snapping', constraints: '45° angles', tracing: 'Trace boundaries', measure: 'Measurements', zoom: 'Zoom to features',
+  guides: 'Alignment guides', snapping: 'Snapping', constraints: '45° angles', tracing: 'Trace boundaries', measure: 'Measurements', zoom: 'Zoom to features',
   undo: 'Undo', redo: 'Redo',
   toolbar: 'Geometry tools', finish: 'Finish', save: 'Save', apply: 'Apply', cancel: 'Cancel',
   removeLastPoint: 'Remove last point', distance: 'Distance', tolerance: 'Tolerance', angle: 'Angle', factor: 'Factor',
@@ -96,18 +112,20 @@ const defaultLabels: ToolbarLabels = {
 };
 
 const groups: Record<ToolbarTool, Group> = {
-  point: 'draw', line: 'draw', polygon: 'draw', rectangle: 'draw', circle: 'draw', ellipse: 'draw', freehand: 'draw', hole: 'draw', part: 'draw',
+  pin: 'edit', unpin: 'edit', template: 'draw', text: 'draw', point: 'draw', line: 'draw', polygon: 'draw', rectangle: 'draw', circle: 'draw', ellipse: 'draw', freehand: 'draw', hole: 'draw', part: 'draw',
   edit: 'edit', split: 'edit', cut: 'edit', reshape: 'edit', 'shared-boundary': 'edit', union: 'edit', difference: 'edit',
   intersection: 'edit', combine: 'edit', explode: 'edit', rotate: 'edit', scale: 'edit', buffer: 'edit', offset: 'edit', simplify: 'edit',
-  duplicate: 'edit', delete: 'edit',
-  snapping: 'aids', constraints: 'aids', tracing: 'aids', measure: 'aids', zoom: 'aids',
+  duplicate: 'edit', delete: 'edit', 'remove-hole': 'edit', lasso: 'edit',
+  geofencing: 'aids', guides: 'aids', snapping: 'aids', constraints: 'aids', tracing: 'aids', measure: 'aids', zoom: 'aids',
   undo: 'history', redo: 'history',
 };
 
 const modeTools: Partial<Record<EditorMode, ToolbarTool>> = {
-  'draw-point': 'point', 'draw-line': 'line', 'draw-polygon': 'polygon', 'draw-hole': 'hole',
+  'draw-template': 'template', 'draw-text': 'text', 'draw-point': 'point', 'draw-line': 'line', 'draw-polygon': 'polygon', 'draw-hole': 'hole',
   'draw-rectangle': 'rectangle', 'draw-circle': 'circle', 'draw-ellipse': 'ellipse', 'draw-freehand': 'freehand', 'draw-part': 'part', 'draw-cut': 'cut',
   'edit-point': 'edit', 'edit-line': 'edit', 'edit-polygon': 'edit',
+  'remove-hole': 'remove-hole',
+  'select-lasso': 'lasso',
   'split-polygon': 'split', 'reshape-polygon': 'reshape', 'edit-shared-boundary': 'shared-boundary',
   'union-polygons': 'union', 'difference-polygons': 'difference', 'intersection-polygons': 'intersection',
   'rotate-features': 'rotate', 'scale-features': 'scale', 'buffer-features': 'buffer',
@@ -125,19 +143,14 @@ const fields: Partial<Record<EditorMode, Field>> = {
 // Modes whose last placed point can be removed from the action panel.
 const removable: ReadonlySet<EditorMode> = new Set<EditorMode>(['draw-line', 'draw-polygon', 'draw-hole', 'draw-part', 'draw-cut', 'draw-rectangle', 'draw-circle', 'draw-ellipse', 'split-polygon', 'reshape-polygon']);
 // Shapes complete themselves on the last click or when the pointer is released.
-const selfFinishing: ReadonlySet<EditorMode> = new Set<EditorMode>(['draw-point', 'draw-rectangle', 'draw-circle', 'draw-ellipse', 'draw-freehand']);
+const selfFinishing: ReadonlySet<EditorMode> = new Set<EditorMode>(['draw-point', 'draw-rectangle', 'draw-circle', 'draw-ellipse', 'draw-freehand', 'select-lasso']);
 // Drawing modes another tool may replace before the first point is placed.
-const drawing: ReadonlySet<EditorMode> = new Set<EditorMode>(['draw-point', 'draw-line', 'draw-polygon', 'draw-rectangle', 'draw-circle', 'draw-ellipse', 'draw-freehand', 'draw-cut']);
+const drawing: ReadonlySet<EditorMode> = new Set<EditorMode>(['draw-text', 'draw-point', 'draw-line', 'draw-polygon', 'draw-rectangle', 'draw-circle', 'draw-ellipse', 'draw-freehand', 'draw-cut']);
 // One-shot commands rather than modes or settings: they have no pressed state.
-const commands: ReadonlySet<ToolbarTool> = new Set<ToolbarTool>(['combine', 'explode', 'duplicate', 'delete', 'zoom', 'undo', 'redo']);
+const commands: ReadonlySet<ToolbarTool> = new Set<ToolbarTool>(['pin', 'unpin', 'combine', 'explode', 'duplicate', 'delete', 'zoom', 'undo', 'redo']);
 // Leaving these modes for another tool discards no user input.
-const previewOnly: ReadonlySet<EditorMode> = new Set<EditorMode>(['union-polygons', 'difference-polygons', 'intersection-polygons']);
+const previewOnly: ReadonlySet<EditorMode> = new Set<EditorMode>(['union-polygons', 'difference-polygons', 'intersection-polygons', 'remove-hole', 'select-lasso']);
 
-const isPoint = (f: GeometryFeature): boolean => f.geometry.type === 'Point';
-const isPolygonal = (f: GeometryFeature): boolean => f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon';
-const isSimplePolygon = (f: GeometryFeature): boolean => f.geometry.type === 'Polygon' && f.geometry.coordinates.length === 1;
-const isLineal = (f: GeometryFeature): boolean => f.geometry.type === 'LineString' || f.geometry.type === 'MultiLineString';
-const isMultipart = (f: GeometryFeature): boolean => f.geometry.type === 'MultiPolygon' || f.geometry.type === 'MultiLineString';
 const format = (value: number | null): string => value === null ? '' : String(Math.round(value * 100) / 100);
 
 function validTools(value: unknown): readonly ToolbarTool[] {
@@ -170,7 +183,7 @@ function validButtons(value: unknown, tools: readonly ToolbarTool[]): readonly T
 }
 
 /**
- * A ready-made MapLibre control with buttons for drawing, editing, geometry tools,
+ * A ready-made GL map control with buttons for drawing, editing, geometry tools,
  * drawing aids and Undo/Redo. It only calls public {@link GeometryEditor} methods, so it
  * can be combined with your own controls.
  *
@@ -194,6 +207,7 @@ export class EditorToolbar implements IControl {
   /** The tools shown when no `tools` option is given. */
   static readonly defaultTools: readonly ToolbarTool[] = defaultTools;
 
+  private readonly templatePicker: ToolbarOptions['templatePicker'];
   private readonly labels: ToolbarLabels;
   private readonly root: HTMLElement;
   private readonly buttons = new Map<ToolbarTool, HTMLButtonElement>();
@@ -208,6 +222,21 @@ export class EditorToolbar implements IControl {
   private readonly fieldName: HTMLElement;
   private readonly fieldUnit: HTMLElement;
   private readonly input: HTMLInputElement;
+  private readonly holeField: HTMLLabelElement;
+  private readonly holeSelect: HTMLSelectElement;
+  private readonly holeWarning: HTMLElement;
+  private readonly pinWarning: HTMLElement;
+  private readonly geofenceNotice: HTMLElement;
+  private holeOptionsKey = '';
+  private readonly templateControls: TemplateControls;
+  private readonly textFields: HTMLElement;
+  private readonly textInput: HTMLTextAreaElement;
+  private readonly textStyleInputs = new Map<string, HTMLInputElement | HTMLSelectElement>();
+  private textInvalid = false;
+  private readonly lassoFields: HTMLElement;
+  private readonly lassoOperation: HTMLSelectElement;
+  private readonly lassoMatch: HTMLSelectElement;
+  private readonly lassoWarning: HTMLElement;
   private map: MapLibreMap | null = null;
   private unsubscribe: (() => void) | null = null;
   private selection: { key: string; features: GeometryFeature[] } = { key: '', features: [] };
@@ -223,6 +252,8 @@ export class EditorToolbar implements IControl {
   constructor(private readonly editor: GeometryEditor, options: ToolbarOptions = {}) {
     const tools = validTools(options.tools ?? defaultTools);
     const custom = validButtons(options.buttons, tools);
+    if (options.templatePicker !== undefined && typeof options.templatePicker !== 'function') throw new TypeError('templatePicker must be a function.');
+    this.templatePicker = options.templatePicker;
     for (const [key, value] of Object.entries(options.labels ?? {})) {
       if (!(key in defaultLabels)) throw new TypeError(`Unknown toolbar label: ${key}`);
       if (typeof value !== 'string') throw new TypeError(`Toolbar label ${key} must be a string.`);
@@ -230,7 +261,7 @@ export class EditorToolbar implements IControl {
     this.labels = { ...defaultLabels, ...options.labels };
 
     this.root = document.createElement('div');
-    this.root.className = 'maplibregl-ctrl mm-toolbar';
+    this.root.className = 'maplibregl-ctrl mapboxgl-ctrl mm-toolbar';
     this.root.setAttribute('role', 'toolbar');
     this.root.setAttribute('aria-orientation', 'vertical');
     this.root.setAttribute('aria-label', this.labels.toolbar);
@@ -282,12 +313,86 @@ export class EditorToolbar implements IControl {
     this.input.type = 'number';
     this.fieldUnit = document.createElement('span');
     this.field.append(this.fieldName, this.input, this.fieldUnit);
+    this.holeField = document.createElement('label');
+    this.holeField.className = 'mm-toolbar-field mm-toolbar-hole';
+    const holeLabel = document.createElement('span');
+    holeLabel.textContent = this.labels.holeChoice;
+    this.holeSelect = document.createElement('select');
+    this.holeSelect.addEventListener('change', () => {
+      const [partIndex, ringIndex] = this.holeSelect.value.split(':').map(Number);
+      this.editor.setHoleToRemove(ringIndex!, partIndex);
+    });
+    this.holeSelect.addEventListener('keydown', this.fieldKey);
+    this.holeField.append(holeLabel, this.holeSelect);
+    this.holeWarning = document.createElement('span');
+    this.holeWarning.className = 'mm-toolbar-notice';
+    this.holeWarning.setAttribute('role', 'status');
+    this.holeWarning.textContent = this.labels.holeOverlap;
+    this.lassoFields = document.createElement('div');
+    this.lassoFields.className = 'mm-toolbar-lasso';
+    this.lassoOperation = this.choice('lassoOperation', [['replace', 'replaceSelection'], ['add', 'addToSelection'], ['subtract', 'subtractFromSelection']], (value) => {
+      this.editor.setLassoOptions({ operation: value as LassoOptions['operation'] });
+    });
+    this.lassoMatch = this.choice('lassoMatch', [['intersects', 'intersects'], ['contains', 'contains']], (value) => {
+      this.editor.setLassoOptions({ match: value as LassoOptions['match'] });
+    });
+    this.pinWarning = document.createElement('span');
+    this.pinWarning.className = 'mm-toolbar-notice';
+    this.pinWarning.setAttribute('role', 'status');
+    this.pinWarning.textContent = this.labels.pinInvalid;
+    this.lassoWarning = document.createElement('span');
+    this.lassoWarning.className = 'mm-toolbar-notice';
+    this.lassoWarning.setAttribute('role', 'status');
+    this.lassoWarning.textContent = this.labels.lassoInvalid;
+    this.textFields = document.createElement('div');
+    this.textFields.className = 'mm-toolbar-text';
+    const textLabel = document.createElement('label'); textLabel.className = 'mm-toolbar-field';
+    const textName = document.createElement('span'); textName.textContent = this.labels.labelText;
+    this.textInput = document.createElement('textarea'); this.textInput.rows = 2; this.textInput.maxLength = 2000;
+    this.textInput.dataset.textMarker = 'text';
+    this.textInput.addEventListener('input', () => { this.changeText({ text: this.textInput.value }); });
+    this.textInput.addEventListener('keydown', (event) => {
+      // Enter inserts a newline. Mod+Enter saves; Escape cancels, except during composition.
+      if (event.isComposing || event.keyCode === 229 || event.repeat) return;
+      if (event.key === 'Escape' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+        event.preventDefault(); this.editor.cancel();
+      } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && !this.primary.disabled) {
+        event.preventDefault(); this.editor.finish();
+      }
+    });
+    textLabel.append(textName, this.textInput); this.textFields.append(textLabel);
+    for (const [key, label, type] of [['fontSize', 'fontSize', 'number'], ['color', 'textColor', 'color'], ['backgroundColor', 'textBackground', 'color']] as const) {
+      const field = document.createElement('label'); field.className = 'mm-toolbar-field';
+      const name = document.createElement('span'); name.textContent = this.labels[label];
+      const input = document.createElement('input'); input.type = type; input.dataset.textMarker = key;
+      if (type === 'number') { input.min = '8'; input.max = '96'; input.step = '1'; }
+      input.addEventListener('input', () => { this.changeText({ style: { [key]: type === 'number' ? input.valueAsNumber : input.value } }); });
+      input.addEventListener('keydown', this.fieldKey);
+      this.textStyleInputs.set(key, input); field.append(name, input); this.textFields.append(field);
+    }
+    for (const [key, options] of [['fontWeight', ['normal', 'bold']], ['textAlign', ['left', 'center', 'right']]] as const) {
+      const field = document.createElement('label'); field.className = 'mm-toolbar-field';
+      const name = document.createElement('span'); name.textContent = this.labels[key];
+      const select = document.createElement('select'); select.dataset.textMarker = key;
+      for (const value of options) {
+        const option = document.createElement('option'); option.value = value; option.textContent = this.labels[value]; select.append(option);
+      }
+      select.addEventListener('change', () => { this.changeText({ style: { [key]: select.value } }); });
+      select.addEventListener('keydown', this.fieldKey);
+      this.textStyleInputs.set(key, select); field.append(name, select); this.textFields.append(field);
+    }
+    this.templateControls = new TemplateControls(editor, this.labels, () => { this.update(); }, this.fieldKey);
     this.primary = this.action('finish', () => { this.editor.finish(); });
     this.primary.dataset.primary = 'true';
     this.removeLast = this.action('removeLastPoint', () => { this.removeLastPoint(); });
     this.cancel = this.action('cancel', () => { this.editor.cancel(); });
-    this.actions.append(this.field, this.primary, this.removeLast, this.cancel);
+    this.actions.append(this.field, this.holeField, this.lassoFields, this.textFields, this.templateControls.root, this.primary, this.removeLast, this.cancel, this.holeWarning, this.lassoWarning, this.pinWarning);
     this.root.append(this.actions);
+    this.geofenceNotice = document.createElement('div');
+    this.geofenceNotice.className = 'mm-geofencing-notice';
+    this.geofenceNotice.style.cssText = 'position:absolute;top:0;inset-inline-start:38px;width:240px;padding:10px;background:white;border:1px solid #b91c1c;border-radius:6px;color:#991b1b;pointer-events:none;font:12px/1.5 system-ui;';
+    this.geofenceNotice.setAttribute('role', 'status');
+    this.root.append(this.geofenceNotice);
 
     this.input.addEventListener('input', this.changeField);
     this.input.addEventListener('keydown', this.fieldKey);
@@ -297,6 +402,7 @@ export class EditorToolbar implements IControl {
   /** Called by `map.addControl`; returns the toolbar element. */
   onAdd(map: MapLibreMap): HTMLElement {
     this.map = map;
+    map.on('resize', this.resize);
     this.unsubscribe = this.editor.onChange(() => { this.update(); });
     this.update();
     // MapLibre inserts the element right after onAdd; styles and placement need its position.
@@ -313,12 +419,15 @@ export class EditorToolbar implements IControl {
   onRemove(): void {
     this.unsubscribe?.();
     this.unsubscribe = null;
+    this.map?.off('resize', this.resize);
     this.map = null;
     this.root.remove();
   }
 
   /** The toolbar is placed top-left unless `map.addControl` names another position. */
   getDefaultPosition(): ControlPosition { return 'top-left'; }
+
+  private readonly resize = (): void => { this.update(); };
 
   private group(): HTMLElement {
     const group = document.createElement('div');
@@ -349,6 +458,19 @@ export class EditorToolbar implements IControl {
     return button;
   }
 
+  private choice(label: ToolbarLabelKey, options: readonly (readonly [string, ToolbarLabelKey])[], run: (value: string) => void): HTMLSelectElement {
+    const field = document.createElement('label'); field.className = 'mm-toolbar-field';
+    const name = document.createElement('span'); name.textContent = this.labels[label];
+    const select = document.createElement('select'); select.dataset.lasso = label;
+    for (const [value, key] of options) {
+      const option = document.createElement('option'); option.value = value; option.textContent = this.labels[key]; select.append(option);
+    }
+    select.addEventListener('change', () => { run(select.value); });
+    select.addEventListener('keydown', this.fieldKey);
+    field.append(name, select); this.lassoFields.append(field);
+    return select;
+  }
+
   private removeLastPoint(): void {
     const mode = this.editor.getState().mode;
     if (mode === 'split-polygon') this.editor.removeSplitPoint();
@@ -366,30 +488,7 @@ export class EditorToolbar implements IControl {
   }
 
   private available(tool: ToolbarTool, state: EditorState): boolean {
-    const features = this.selected(state);
-    const locked = state.selectedFeatureIds.some((id) => this.editor.isFeatureLocked(id));
-    const single = features.length === 1 ? features[0]! : null;
-    switch (tool) {
-      case 'point': case 'line': case 'polygon': case 'rectangle': case 'circle': case 'ellipse': case 'freehand': return true;
-      case 'hole': return single !== null && isPolygonal(single) && !locked;
-      case 'part': return single !== null && !isPoint(single) && !locked;
-      case 'cut': return state.featureCount > 0 && !locked;
-      case 'combine': return features.length >= 2 && (features.every(isPolygonal) || features.every(isLineal)) && !locked;
-      case 'explode': return features.some(isMultipart) && !locked;
-      case 'edit': return single !== null && !locked;
-      case 'split': return single?.geometry.type === 'Polygon' && !locked;
-      case 'reshape': return single !== null && isSimplePolygon(single) && !locked;
-      case 'shared-boundary': return features.length === 2 && features.every(isSimplePolygon) && !locked;
-      case 'union': case 'difference': case 'intersection': return features.length >= 2 && features.every(isPolygonal) && !locked;
-      case 'rotate': case 'scale': case 'buffer': case 'delete': return features.length > 0 && !locked;
-      case 'simplify': return features.some((f) => !isPoint(f)) && !locked;
-      case 'offset': return features.length > 0 && features.every(isLineal) && !locked;
-      case 'duplicate': return features.length > 0;
-      case 'snapping': case 'constraints': case 'tracing': case 'measure': return true;
-      case 'zoom': return state.featureCount > 0;
-      case 'undo': return state.canUndo;
-      case 'redo': return state.canRedo;
-    }
+    return toolAvailable(this.editor, tool, state, this.selected(state));
   }
 
   private enabled(tool: ToolbarTool, state: EditorState): boolean {
@@ -398,11 +497,15 @@ export class EditorToolbar implements IControl {
     if (state.mode === 'idle') return this.available(tool, state);
     if (modeTools[state.mode] === tool) return true;
     // Switching tools is offered only while it discards no points or values.
-    const empty = state.vertexCount === 0 && drawing.has(state.mode);
+    const text = this.editor.getTextMarkerDraft();
+    const empty = state.vertexCount === 0 && drawing.has(state.mode)
+      && (text === null || text.text === '' && text.style === undefined);
     return (empty || previewOnly.has(state.mode)) && this.available(tool, state);
   }
 
   private pressed(tool: ToolbarTool, state: EditorState): boolean {
+    if (tool === 'geofencing') return this.editor.getGeofencing().enabled;
+    if (tool === 'guides') return this.editor.getAlignmentGuides().enabled;
     if (tool === 'snapping') return this.editor.getSnapping().enabled;
     if (tool === 'constraints') return this.editor.getDrawingConstraints().enabled;
     if (tool === 'tracing') return this.editor.getTracing().enabled;
@@ -414,52 +517,21 @@ export class EditorToolbar implements IControl {
     const state = this.editor.getState();
     if (!this.enabled(tool, state)) return;
     const group = groups[tool];
+    let templateId: string | undefined;
+    if (tool === 'template' && state.mode !== 'draw-template' && this.templatePicker) {
+      const templates = this.editor.getShapeTemplates();
+      const choice = this.templatePicker(templates, this.editor);
+      if (choice === null) return;
+      if (!templates.some(template => template.id === choice)) throw new RangeError(`Unknown shape template: ${String(choice)}`);
+      templateId = choice;
+    }
     if ((group === 'draw' || group === 'edit') && state.mode !== 'idle') {
       const active = modeTools[state.mode] === tool;
       this.editor.cancel();
       if (active) return;
     }
-    switch (tool) {
-      case 'point': this.editor.draw('Point'); break;
-      case 'line': this.editor.draw('LineString'); break;
-      case 'polygon': this.editor.draw('Polygon'); break;
-      case 'rectangle': this.editor.draw('Rectangle'); break;
-      case 'circle': this.editor.draw('Circle'); break;
-      case 'ellipse': this.editor.draw('Ellipse'); break;
-      case 'freehand': this.editor.draw('Freehand'); break;
-      case 'hole': this.editor.drawHole(); break;
-      case 'part': this.editor.drawPart(); break;
-      case 'cut': this.editor.drawCut(); break;
-      case 'combine': this.editor.combineSelection(); break;
-      case 'explode': this.editor.explodeSelection(); break;
-      case 'edit': this.editor.editSelected(); break;
-      case 'split': this.editor.splitSelected(); break;
-      case 'reshape': this.editor.reshapeSelected(); break;
-      case 'shared-boundary': this.editor.editSharedBoundary(); break;
-      case 'union': this.editor.unionSelection(); break;
-      case 'difference': this.editor.differenceSelection(); break;
-      case 'intersection': this.editor.intersectionSelection(); break;
-      case 'rotate': this.editor.rotateSelection(); break;
-      case 'scale': this.editor.scaleSelection(); break;
-      case 'buffer': this.editor.bufferSelection(); break;
-      case 'offset': this.editor.offsetSelection(); break;
-      case 'simplify': this.editor.simplifySelection(); break;
-      case 'duplicate': this.editor.duplicateSelection(this.duplicateOffset()); break;
-      case 'delete': this.editor.deleteSelection(); break;
-      case 'snapping': this.editor.setSnapping({ enabled: !this.editor.getSnapping().enabled }); break;
-      case 'constraints': this.editor.setDrawingConstraints({ enabled: !this.editor.getDrawingConstraints().enabled }); break;
-      case 'tracing': {
-        const enabled = !this.editor.getTracing().enabled;
-        // Tracing follows snapped boundaries, so it needs snapping.
-        if (enabled && !this.editor.getSnapping().enabled) this.editor.setSnapping({ enabled: true });
-        this.editor.setTracing({ enabled });
-        break;
-      }
-      case 'measure': this.editor.setMeasurements({ enabled: !this.editor.getMeasurements().enabled }); break;
-      case 'zoom': this.editor.zoomToFeatures(); break;
-      case 'undo': this.editor.undo(); break;
-      case 'redo': this.editor.redo(); break;
-    }
+    if (tool === 'template' && templateId !== undefined) this.editor.drawTemplate(templateId);
+    else runTool(this.editor, tool, this.duplicateOffset());
     this.update();
     // Pointer users continue on the map, where Enter and Escape finish or cancel; keyboard
     // users keep their place in the toolbar unless the button they used is now disabled.
@@ -478,6 +550,12 @@ export class EditorToolbar implements IControl {
     return [to.lng - from.lng, to.lat - from.lat];
   }
 
+  private changeText(patch: Partial<TextMarkerOptions>): void {
+    try { this.editor.setTextMarker(patch); this.textInvalid = false; }
+    catch { this.textInvalid = true; }
+    this.update();
+  }
+
   private readonly changeField = (): void => {
     const field = fields[this.editor.getState().mode];
     if (!field) return;
@@ -491,6 +569,7 @@ export class EditorToolbar implements IControl {
   };
 
   private readonly fieldKey = (event: KeyboardEvent): void => {
+    if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
     if (event.key === 'Enter' && !this.primary.disabled) { event.preventDefault(); this.editor.finish(); }
     if (event.key === 'Escape') { event.preventDefault(); this.editor.cancel(); }
   };
@@ -516,8 +595,14 @@ export class EditorToolbar implements IControl {
   private update(): void {
     const state = this.editor.getState();
     const active = modeTools[state.mode] ?? null;
-    if (this.fieldMode !== state.mode) { this.fieldMode = state.mode; this.fieldInvalid = false; }
-    this.root.classList.toggle('mm-toolbar--end', this.root.closest('.maplibregl-ctrl-top-right, .maplibregl-ctrl-bottom-right') !== null);
+    this.geofenceNotice.hidden = state.geofencingViolations.length === 0;
+    const explanations = { 'outside-allowed-area': 'outsideAllowed', 'intersects-excluded-area': 'intersectsExcluded', 'inside-excluded-area': 'insideExcluded', 'geofencing-calculation-failed': 'geofencingFailed' } as const;
+    this.geofenceNotice.textContent = state.geofencingViolations.map(violation => `${this.labels[explanations[violation.code]]} (${violation.areaIds.join(', ')})`).join(' ');
+    const text = this.editor.getTextMarkerDraft();
+    const template = this.editor.getTemplateDraft();
+    this.templateControls.render(template);
+    if (this.fieldMode !== state.mode) { this.fieldMode = state.mode; this.fieldInvalid = false; this.textInvalid = false; }
+    this.root.classList.toggle('mm-toolbar--end', this.root.closest('.maplibregl-ctrl-top-right, .maplibregl-ctrl-bottom-right, .mapboxgl-ctrl-top-right, .mapboxgl-ctrl-bottom-right') !== null);
 
     if (this.toggle) {
       const label = this.labels[this.collapsed ? 'expand' : 'collapse'];
@@ -527,7 +612,20 @@ export class EditorToolbar implements IControl {
       for (const group of this.root.querySelectorAll<HTMLElement>('.mm-toolbar-group:not([data-toggle])')) group.hidden = this.collapsed;
     }
     for (const [tool, button] of this.buttons) {
+      this.shortcutHint(button, tool, this.labels[tool]);
       button.disabled = !this.enabled(tool, state);
+      if ((tool === 'undo' || tool === 'redo') && button.disabled) {
+        const layers = this.editor.getHistoryDataLayerIssues(tool);
+        if (layers.length) {
+          button.dataset.tooltip += ` · ${this.labels.layerHistoryBlocked} (${[...new Set(layers.map(issue => issue.layerId))].join(', ')})`;
+          button.title = button.dataset.tooltip ?? this.labels[tool];
+        }
+        const blocked = this.editor.getHistoryGeofencingViolations(tool);
+        if (blocked.length) {
+          button.dataset.tooltip += ` · ${blocked.map(violation => `${this.labels[explanations[violation.code]]} (${violation.areaIds.join(', ')})`).join(' ')}`;
+          button.title = button.dataset.tooltip ?? this.labels[tool];
+        }
+      }
       if (!commands.has(tool)) button.setAttribute('aria-pressed', String(this.pressed(tool, state)));
       if (tool === active) button.dataset.active = 'true';
       else delete button.dataset.active;
@@ -545,8 +643,51 @@ export class EditorToolbar implements IControl {
     this.actions.hidden = anchor === undefined;
     if (anchor === undefined) return;
     this.actions.style.top = `${anchor.offsetTop}px`;
+    this.actions.dataset.mode = state.mode;
+    this.actions.style.maxWidth = (template !== null || text !== null || state.mode === 'remove-hole' || state.mode === 'select-lasso') && this.map
+      ? `${Math.max(160, this.map.getCanvas().clientWidth - 60)}px` : '';
 
+    this.textFields.hidden = text === null;
+    this.actions.dataset.text = String(text !== null);
+    if (text) {
+      const root = this.root.getRootNode() as Document | ShadowRoot;
+      if (root.activeElement !== this.textInput) this.textInput.value = text.text;
+      const style = { ...defaultTextMarkerStyle, ...text.style };
+      for (const [key, input] of this.textStyleInputs) {
+        if (root.activeElement === input) continue;
+        let value = String(style[key as keyof typeof style]);
+        if (input instanceof HTMLInputElement && input.type === 'color' && value.length === 4) value = '#' + [...value.slice(1)].map(char => char + char).join('');
+        input.value = value;
+      }
+      this.textInput.setAttribute('aria-invalid', String(!text.text.trim()));
+      this.textStyleInputs.get('fontSize')!.setAttribute('aria-invalid', String(this.textInvalid));
+    }
     const field = fields[state.mode];
+    this.lassoFields.hidden = state.mode !== 'select-lasso';
+    this.lassoWarning.hidden = state.mode !== 'select-lasso' || state.validationError === null;
+    if (state.mode === 'select-lasso') {
+      const options = this.editor.getLassoOptions()!;
+      this.lassoOperation.value = options.operation; this.lassoMatch.value = options.match;
+    }
+    this.holeField.hidden = state.mode !== 'remove-hole';
+    this.holeWarning.hidden = state.mode !== 'remove-hole' || state.validationError === null;
+    if (state.mode === 'remove-hole') {
+      if (this.holeOptionsKey !== this.selection.key) {
+        this.holeSelect.replaceChildren();
+        for (const [partIndex, part] of geometryParts(this.selected(state)[0]!.geometry).entries()) {
+          if (part.type !== 'Polygon') continue;
+          for (let ringIndex = 1; ringIndex < part.coordinates.length; ringIndex++) {
+            const option = document.createElement('option');
+            option.value = `${partIndex}:${ringIndex}`;
+            option.textContent = `${this.labels.partNumber} ${partIndex + 1} · ${this.labels.holeNumber} ${ringIndex}`;
+            this.holeSelect.append(option);
+          }
+        }
+        this.holeOptionsKey = this.selection.key;
+      }
+      this.holeSelect.value = `${state.activePartIndex}:${state.activeRingIndex}`;
+      this.holeSelect.setAttribute('aria-invalid', String(state.validationError !== null));
+    }
     this.field.hidden = !field;
     if (field) {
       this.fieldName.textContent = this.labels[field.label];
@@ -558,10 +699,23 @@ export class EditorToolbar implements IControl {
     }
     this.input.setAttribute('aria-invalid', String(this.fieldInvalid));
 
+    this.pinWarning.hidden = state.pinningError === null;
     this.primary.hidden = selfFinishing.has(state.mode);
     this.primary.textContent = this.labels[state.mode === 'draw-cut' ? 'apply' : state.mode.startsWith('draw-') ? 'finish' : state.mode.startsWith('edit-') ? 'save' : 'apply'];
-    this.primary.disabled = !state.canFinish || this.fieldInvalid;
+    this.primary.disabled = !state.canFinish || this.fieldInvalid || this.textInvalid || !this.templateControls.valid;
+    this.shortcutHint(this.primary, 'finish', this.primary.textContent);
+    this.shortcutHint(this.cancel, 'cancel', this.labels.cancel);
+    this.shortcutHint(this.removeLast, 'delete', this.labels.removeLastPoint);
     this.removeLast.hidden = !removable.has(state.mode);
     this.removeLast.disabled = state.vertexCount === 0;
+  }
+
+  private shortcutHint(button: HTMLButtonElement, action: import('../core/keyboard-shortcuts.js').KeyboardAction, label: string): void {
+    const shortcut = this.editor.getKeyboardShortcutLabel(action);
+    const aria = this.editor.getKeyboardShortcutAria(action);
+    button.dataset.tooltip = shortcut ? `${label} (${shortcut})` : label;
+    button.title = button.dataset.tooltip;
+    if (aria) button.setAttribute('aria-keyshortcuts', aria);
+    else button.removeAttribute('aria-keyshortcuts');
   }
 }

@@ -1,8 +1,12 @@
+import { geoJSONSource } from '../gl/map.js';
+import { DataLayerStore, featureDataLayerId, type DataLayer } from '../core/data-layers.js';
+import { TextMarkerOverlay } from './text-marker-overlay.js';
+import { isTextMarker, type TextMarkerOptions } from '../core/text-marker.js';
 import type { EditorStylingOptions, StylingIssue } from '../core/feature-styling.js';
-import { FeatureStyling, renderIdProperty } from './feature-styling.js';
-import type { GeometryPart } from '../core/geometry.js';
+import { FeatureStyling, renderIdProperty, dataLayerProperty } from './feature-styling.js';
+import { geometryParts, type GeometryPart } from '../core/geometry.js';
 import type { EditorAppearance, PointAppearance } from '../core/appearance.js';
-import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
+import type { ExpressionSpecification, LayerSpecification, EditorMap as MapLibreMap } from '../gl/map.js';
 import { samePosition } from '../core/polygon.js';
 import type { Coordinate, CutFeedback, SharedBoundaryPreview, ReshapePreview, UnionPreview, SplitPreview, SnapResult, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
 import { PreviewBorder } from './preview-border.js';
@@ -24,9 +28,14 @@ type PreviewFeature = {
 
 /** Owns map resources and visualization, never the authoritative feature data. */
 export class MapLibreRenderer {
+  private readonly textMarkers: TextMarkerOverlay;
   private readonly featuresId: string;
   private readonly draftId: string;
   private layers: LayerSpecification[];
+  private dataLayers: readonly DataLayer[] = new DataLayerStore().layers;
+  private fillIds: string[] = [];
+  private outlineIds: string[] = [];
+  private layerRanks = new Map<FeatureId, number>();
   private selectedFeatureIds = new Set<FeatureId>();
   private editingFeatureIds = new Set<FeatureId>();
   private hiddenFeatureIds = new Set<FeatureId>();
@@ -42,6 +51,7 @@ export class MapLibreRenderer {
   private areasVisible = false;
 
   constructor(private readonly map: MapLibreMap, private readonly namespace: string, appearance: EditorAppearance, styling: EditorStylingOptions = {}) {
+    this.textMarkers = new TextMarkerOverlay(map);
     this.appearance = appearance;
     this.styling = new FeatureStyling(map, namespace, styling);
     this.translationPreview = new PreviewBorder(map, 'translation-preview', appearance.draft, true, appearance.draftMarker);
@@ -59,7 +69,7 @@ export class MapLibreRenderer {
     const sort = this.styling.sortKey;
     const editing: ExpressionSpecification = ['boolean', ['feature-state', 'editing'], false];
     const visible = (expression: ExpressionSpecification): ExpressionSpecification => ['case', editing, 0, ...expression.slice(1)] as ExpressionSpecification;
-    return [
+    const layers: LayerSpecification[] = [
       { id: `${namespace}-fill`, type: 'fill', source: this.featuresId,
         filter: ['==', '$type', 'Polygon'],
         layout: { 'fill-sort-key': sort },
@@ -77,7 +87,7 @@ export class MapLibreRenderer {
           'line-width': shape('lineWidth'),
           'line-opacity': visible(shape('lineOpacity')), 'line-opacity-transition': { duration: 0 } } },
       { id: `${namespace}-markers`, type: 'circle', source: this.featuresId,
-        filter: ['==', '$type', 'Point'], layout: { 'circle-sort-key': sort },
+        filter: ['all', ['==', '$type', 'Point'], ['!=', '__mm_text', true]], layout: { 'circle-sort-key': sort },
         paint: { 'circle-radius': marker('radius'),
           'circle-color': marker('color'),
           'circle-stroke-color': marker('strokeColor'),
@@ -119,6 +129,27 @@ export class MapLibreRenderer {
         filter: ['==', 'kind', 'snap'],
         paint: { ...circlePaint(snap), 'circle-radius': ['case', ['==', ['get', 'snapKind'], 'vertex'], snap.radius, snap.edgeRadius] } },
     ];
+    const committed = layers.slice(0, 6);
+    const stack = this.dataLayers.flatMap(dataLayer => committed.map((layer): LayerSpecification => ({
+      ...layer,
+      id: dataLayer.id === 'default' ? layer.id : `${namespace}-data-${encodeURIComponent(dataLayer.id)}-${layer.id.slice(namespace.length + 1)}`,
+      filter: ['all', ...(layer.filter ? [layer.filter] : []), ['==', dataLayerProperty, dataLayer.id]],
+      layout: { ...layer.layout, visibility: dataLayer.visible ? layer.layout?.visibility ?? 'visible' : 'none' },
+    })));
+    this.fillIds = stack.filter(layer => layer.type === 'fill' && layer.source === this.featuresId).map(layer => layer.id);
+    this.outlineIds = stack.filter(layer => 'source' in layer && layer.source === this.featuresId && (layer.type === 'circle' || layer.type === 'line' && !layer.id.endsWith('simplification-original'))).map(layer => layer.id);
+    return [...stack, ...layers.slice(6)];
+  }
+
+  setDataLayers(layers: readonly DataLayer[]): void {
+    const old = this.layers; this.dataLayers = layers; this.styling.setDataLayers(layers);
+    this.layers = this.makeLayers(this.appearance);
+    if (!this.map.getSource(this.featuresId)) return;
+    const next = new Set(this.layers.map(layer => layer.id));
+    for (const layer of [...old].reverse()) if (!next.has(layer.id) && this.map.getLayer(layer.id)) this.map.removeLayer(layer.id);
+    for (const layer of this.layers) if (!this.map.getLayer(layer.id)) this.map.addLayer(layer);
+    this.applyLayers();
+    for (const layer of this.layers) if (this.map.getLayer(layer.id)) this.map.moveLayer(layer.id);
   }
 
   setAppearance(appearance: EditorAppearance): void {
@@ -135,10 +166,10 @@ export class MapLibreRenderer {
   private applyLayers(): void {
     for (const layer of this.layers) {
       if (!this.map.getLayer(layer.id)) continue;
-      for (const [property, value] of Object.entries(layer.layout ?? {})) this.map.setLayoutProperty(layer.id, property as Parameters<MapLibreMap['setLayoutProperty']>[1], value);
+      for (const [property, value] of Object.entries(layer.layout ?? {})) this.map.setLayoutProperty(layer.id, property, value);
       for (const [property, value] of Object.entries(layer.paint ?? {})) {
         // Keys and values originate from our typed LayerSpecifications, never user paint objects.
-        this.map.setPaintProperty(layer.id, property as Parameters<MapLibreMap['setPaintProperty']>[1], value as Parameters<MapLibreMap['setPaintProperty']>[2]);
+        this.map.setPaintProperty(layer.id, property, value);
       }
     }
   }
@@ -162,6 +193,9 @@ export class MapLibreRenderer {
 
   renderCommitted(collection: GeometryFeatureCollection): void {
     this.committed = collection;
+    const ranks = new Map(this.dataLayers.map((layer, index) => [layer.id, index]));
+    this.layerRanks = new Map(collection.features.map(feature => [feature.id, ranks.get(featureDataLayerId(feature)) ?? 0]));
+    this.textMarkers.setCommitted(collection.features);
     this.styling.prepare(collection, this.appearance);
     this.styling.upload();
     this.refreshAreaVisibility();
@@ -174,16 +208,16 @@ export class MapLibreRenderer {
         this.translationPreview.render([...this.transfer.ids].flatMap((id) => { const feature = features.get(id); return feature ? [feature.geometry] : []; }));
       }
     }
-    const source = this.map.getSource<GeoJSONSource>(this.featuresId);
+    const source = geoJSONSource(this.map, this.featuresId);
     // Encode ID types; keep old tiles hidden until the worker AND visible tiles are ready.
-    void source?.setData({
+    void Promise.resolve(source?.setData({
       type: 'FeatureCollection', features: collection.features.map((feature) => ({
-        ...feature, properties: { [renderIdProperty]: JSON.stringify(feature.id), ...this.styling.properties(feature.id) },
+        ...feature, properties: { [renderIdProperty]: JSON.stringify(feature.id), ...this.styling.properties(feature.id), __mm_text: isTextMarker(feature), [dataLayerProperty]: featureDataLayerId(feature) },
       })),
-    }).then(() => {
+    })).then(() => {
       if (this.transfer?.revision !== revision || this.map.getSource(this.featuresId) !== source) return;
       this.transfer.ready = true; this.map.triggerRepaint();
-    }, () => { /* MapLibre reports source errors through the map error event. Keep the final preview. */ });
+    }, () => { /* The renderer reports source errors through the map error event. Keep the final preview. */ });
   }
 
   getStyling(): EditorStylingOptions { return this.styling.snapshot(); }
@@ -235,6 +269,7 @@ export class MapLibreRenderer {
     this.map.off('render', this.finishTransfer);
     this.translationVisible = false;
     this.translationPreview.clear();
+    this.textMarkers.setDraft([]);
   }
 
   /** Update only presentation state, without copying or re-uploading geometry. */
@@ -250,6 +285,7 @@ export class MapLibreRenderer {
     }
     this.styling.setSelection(next, force);
     this.selectedFeatureIds = next;
+    this.textMarkers.setSelection(next);
   }
 
   /** Hide only the committed version of the feature being previewed as an edit. */
@@ -270,6 +306,7 @@ export class MapLibreRenderer {
       }
     }
     this.hiddenFeatureIds = next;
+    this.textMarkers.setHidden(next);
     this.refreshAreaVisibility();
   }
 
@@ -292,23 +329,26 @@ export class MapLibreRenderer {
     this.translationVisible = true;
     this.draftBorder.clear();
     this.translationPreview.render(features.map((feature) => feature.geometry));
+    this.textMarkers.setPreview(features);
   }
 
-  renderTransform(collection: GeometryFeatureCollection | null, pivot?: Coordinate): void {
+  renderTransform(collection: GeometryFeatureCollection | null, pivot?: Coordinate, snap: SnapResult | null = null): void {
     this.translationVisible = false; this.translationPreview.clear();
     const features = collection?.features ?? [];
+    this.textMarkers.setPreview(features);
     this.draftBorder.render(features.map((feature) => feature.geometry));
     // Do not copy application properties into renderer styling fields.
-    void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection', features: [
+    void geoJSONSource(this.map, this.draftId)?.setData({ type: 'FeatureCollection', features: [
       ...features.map((feature) => ({ type: 'Feature' as const, properties: {}, geometry: feature.geometry })),
       ...(pivot ? [{ type: 'Feature' as const, properties: { kind: 'transform-pivot' }, geometry: { type: 'Point' as const, coordinates: pivot } }] : []),
+      ...(snap ? [{ type: 'Feature' as const, properties: { kind: 'snap', snapKind: snap.kind }, geometry: { type: 'Point' as const, coordinates: snap.coordinate } }] : []),
     ] });
   }
 
   renderOverlay(geometry: UnionPreview | null): void {
     this.translationVisible = false; this.translationPreview.clear();
     this.draftBorder.render(geometry ? [geometry] : []);
-    void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection',
+    void geoJSONSource(this.map, this.draftId)?.setData({ type: 'FeatureCollection',
       features: geometry ? [{ type: 'Feature', properties: {}, geometry }] : [],
     });
   }
@@ -320,68 +360,68 @@ export class MapLibreRenderer {
     if (geometry) features.push({ type: 'Feature', properties: {}, geometry });
     if (snap) features.push({ type: 'Feature', properties: { kind: 'snap', snapKind: snap.kind }, geometry: { type: 'Point', coordinates: [...snap.coordinate] } });
     this.draftBorder.render(geometry && geometry.type !== 'Point' ? [geometry] : [], 8);
-    void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection', features });
+    void geoJSONSource(this.map, this.draftId)?.setData({ type: 'FeatureCollection', features });
   }
 
   /** Prefer outlines near the pointer, then polygon interiors, in rendered order. */
-  pick({ x, y }: { x: number; y: number }): FeatureId | null {
-    const fillId = this.layers[0]!.id;
-    if (!this.map.getLayer(this.featuresId) || !this.map.getLayer(fillId)) return null;
-    const outlines = this.map.queryRenderedFeatures([[x - 6, y - 6], [x + 6, y + 6]], {
-      layers: [`${this.namespace}-markers`, this.featuresId],
-    });
-    const hit = outlines[0] ?? this.map.queryRenderedFeatures([x, y], { layers: [fillId] })[0];
-    if (typeof hit?.id !== 'string') return null;
-    // Decode even a stale hit: the controller can then ignore deleted IDs instead
-    // of treating the stale shape as empty space and clearing another selection.
-    const id: unknown = JSON.parse(hit.id);
-    if ((typeof id === 'string' || typeof id === 'number') && this.transfer?.ids.has(id)) return null;
-    return typeof id === 'string' || typeof id === 'number' ? id : null;
-  }
+  pick(point: { x: number; y: number }): FeatureId | null { return this.pickAll(point)[0] ?? null; }
 
   /** Every hit at a point: markers/outlines first, then interiors, in rendered order. */
   pickAll({ x, y }: { x: number; y: number }): FeatureId[] {
-    const fillId = this.layers[0]!.id;
-    if (!this.map.getLayer(this.featuresId) || !this.map.getLayer(fillId)) return [];
+    const fills = this.fillIds.filter(id => this.map.getLayer(id));
+    const outlines = this.outlineIds.filter(id => this.map.getLayer(id));
+    if (!fills.length || !outlines.length) return [];
     const hits = [
       ...this.map.queryRenderedFeatures([[x - 6, y - 6], [x + 6, y + 6]], {
-        layers: [`${this.namespace}-markers`, this.featuresId],
+        layers: outlines,
       }),
-      ...this.map.queryRenderedFeatures([x, y], { layers: [fillId] }),
+      ...this.map.queryRenderedFeatures([x, y], { layers: fills }),
     ];
-    const ids = new Set<FeatureId>();
+    const ids = new Set<FeatureId>(this.textMarkers.pick({ x, y }));
+    const staleRanks = new Map<FeatureId, number>();
     for (const hit of hits) {
       if (typeof hit.id !== 'string') continue;
       const id: unknown = JSON.parse(hit.id);
-      if ((typeof id === 'string' || typeof id === 'number') && !this.transfer?.ids.has(id)) ids.add(id);
+      if ((typeof id === 'string' || typeof id === 'number') && !this.transfer?.ids.has(id)) {
+        ids.add(id);
+        if (!this.layerRanks.has(id)) {
+          const layer: unknown = hit.properties?.[dataLayerProperty];
+          if (typeof layer === 'string') staleRanks.set(id, this.dataLayers.findIndex(value => value.id === layer));
+        }
+      }
     }
-    return [...ids];
+    return [...ids].sort((a, b) => (this.layerRanks.get(b) ?? staleRanks.get(b) ?? 0) - (this.layerRanks.get(a) ?? staleRanks.get(a) ?? 0));
   }
 
   /** All rendered editor features intersecting the screen rectangle, deduplicated. */
   pickBox(a: { x: number; y: number }, b: { x: number; y: number }): FeatureId[] {
-    const fillId = this.layers[0]!.id;
-    if (!this.map.getLayer(this.featuresId) || !this.map.getLayer(fillId)) return [];
+    const fills = this.fillIds.filter(id => this.map.getLayer(id));
+    const outlines = this.outlineIds.filter(id => this.map.getLayer(id));
+    if (!fills.length || !outlines.length) return [];
     const hits = this.map.queryRenderedFeatures([
       [Math.min(a.x, b.x), Math.min(a.y, b.y)], [Math.max(a.x, b.x), Math.max(a.y, b.y)],
-    ], { layers: [`${this.namespace}-markers`, this.featuresId, fillId] });
-    const ids = new Set<FeatureId>();
+    ], { layers: [...outlines, ...fills] });
+    const ids = new Set<FeatureId>(this.textMarkers.pick(a, b));
     for (const hit of hits) {
       if (typeof hit.id !== 'string') continue;
       const id: unknown = JSON.parse(hit.id);
       if ((typeof id === 'string' || typeof id === 'number') && !this.transfer?.ids.has(id)) ids.add(id);
     }
-    return [...ids];
+    return [...ids].sort((a, b) => (this.layerRanks.get(b) ?? 0) - (this.layerRanks.get(a) ?? 0));
   }
 
-  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null, rings: Coordinate[][] | null = null, inactiveParts: GeometryPart[] = [], reshape: ReshapePreview | null = null, trace: Coordinate[] | null = null, shared: SharedBoundaryPreview | null = null, feedback: CutFeedback | null = null): void {
+  renderPreview(coordinates: Coordinate[], cursor: Coordinate | undefined, state: EditorState, snap: SnapResult | null = null, split: SplitPreview | null = null, rings: Coordinate[][] | null = null, inactiveParts: GeometryPart[] = [], reshape: ReshapePreview | null = null, trace: Coordinate[] | null = null, shared: SharedBoundaryPreview | null = null, feedback: CutFeedback | null = null, text: TextMarkerOptions | null = null, pinned: GeometryFeatureCollection | null = null): void {
     if (state.mode !== 'idle') { this.translationVisible = false; this.translationPreview.clear(); }
-    if (state.mode === 'draw-point') {
+    const textPoint = coordinates[0] ?? cursor;
+    this.textMarkers.setDraft([...(text && textPoint ? [{ id: state.selectedFeatureId ?? '', coordinate: textPoint, options: text, preview: true }] : []),
+      ...(pinned?.features ?? []).filter(isTextMarker).filter(feature => feature.id !== state.selectedFeatureId).map(feature => ({ id: feature.id, coordinate: feature.geometry.coordinates, options: feature.properties.mapMasterText, preview: true })),
+    ]);
+    if (state.mode === 'draw-point' || state.mode === 'draw-text') {
       this.draftBorder.clear();
-      const point = cursor ?? coordinates[0];
+      const point = state.mode === 'draw-text' ? coordinates[0] ?? cursor : cursor ?? coordinates[0];
       const features: PreviewFeature[] = point ? [{ type: 'Feature', properties: { kind: 'marker' }, geometry: { type: 'Point', coordinates: point } }] : [];
       if (snap) features.push({ type: 'Feature', properties: { kind: 'snap', snapKind: snap.kind }, geometry: { type: 'Point', coordinates: snap.coordinate } });
-      void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection', features });
+      void geoJSONSource(this.map, this.draftId)?.setData({ type: 'FeatureCollection', features });
       return;
     }
     const editing = state.mode.startsWith('edit-');
@@ -394,7 +434,10 @@ export class MapLibreRenderer {
         locked: state.mode === 'edit-shared-boundary' && handle.kind === 'vertex' && (handle.index === 0 || handle.index === coordinates.length - 1) },
       geometry: { type: 'Point', coordinates: handle.coordinate },
     }));
-    for (const geometry of inactiveParts) features.push({ type: 'Feature', properties: {}, geometry });
+    for (const feature of pinned?.features ?? []) {
+      if (feature.id !== state.selectedFeatureId) for (const geometry of geometryParts(feature.geometry)) features.push({ type: 'Feature', properties: { kind: geometry.type === 'Point' ? 'marker' : 'shared-boundary-part' }, geometry });
+    }
+    for (const geometry of pinned ? [] : inactiveParts) features.push({ type: 'Feature', properties: {}, geometry });
     if (snap) features.push({ type: 'Feature', properties: { kind: 'snap', snapKind: snap.kind },
       geometry: { type: 'Point', coordinates: [...snap.coordinate] } });
     if (shared) shared.features.forEach((feature, part) => { features.push({ type: 'Feature', properties: { kind: 'shared-boundary-part', part }, geometry: feature.geometry }); });
@@ -413,7 +456,10 @@ export class MapLibreRenderer {
       } });
     }
     const first = coordinates[0];
-    if (polygon && first && coordinates.length >= 3) {
+    const pinnedPrimary = pinned?.features.find(feature => feature.id === state.selectedFeatureId);
+    if (pinnedPrimary) {
+      for (const geometry of geometryParts(pinnedPrimary.geometry)) if (geometry.type !== 'Point') features.push({ type: 'Feature', properties: {}, geometry });
+    } else if (polygon && first && coordinates.length >= 3) {
       if (!samePosition(first, coordinates.at(-1)!)) coordinates.push([...first]);
       features.push({ type: 'Feature', properties: {},
         geometry: { type: 'Polygon', coordinates: rings ? rings.map((ring, index) => {
@@ -430,18 +476,22 @@ export class MapLibreRenderer {
       for (const coordinate of feedback.problemPoints) features.push({ type: 'Feature', properties: { kind: 'cut-problem' }, geometry: { type: 'Point', coordinates: coordinate } });
       for (const coordinates of feedback.problemSegments) features.push({ type: 'Feature', properties: { kind: 'cut-problem' }, geometry: { type: 'LineString', coordinates } });
     }
-    void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection', features });
+    void geoJSONSource(this.map, this.draftId)?.setData({ type: 'FeatureCollection', features });
   }
 
   clearPreview(): void {
+    this.textMarkers.setDraft([]);
     this.renderComparison([]);
     this.draftBorder.clear();
     this.translationVisible = false; this.translationPreview.clear();
-    void this.map.getSource<GeoJSONSource>(this.draftId)?.setData(emptyCollection());
+    void geoJSONSource(this.map, this.draftId)?.setData(emptyCollection());
   }
 
   destroy(removeResources = true): void {
-    this.renderComparison([]);
+    this.textMarkers.destroy();
+    // Mapbox has already released its style by the time remove is emitted.
+    if (removeResources) this.renderComparison([]);
+    this.comparisonIds.clear();
     this.draftBorder.clear();
     this.stopTransfer();
     this.committed = { type: 'FeatureCollection', features: [] };

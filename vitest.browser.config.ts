@@ -36,6 +36,8 @@ export default defineConfig({
         },
         // Keep a real mouse gesture open across assertions (Alt/options/cleanup).
         async vertexPointer({ page, iframe }, action: 'down' | 'move' | 'up', x: number, y: number) {
+          // A teardown test may remove the map while the mouse is still down.
+          if (action === 'up' && await iframe.locator('canvas').count() === 0) { await page.mouse.up(); return; }
           const bounds = await iframe.locator('canvas').boundingBox();
           if (!bounds) throw new Error('Map canvas is not visible');
           await page.mouse.move(bounds.x + x, bounds.y + y);

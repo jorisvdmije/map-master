@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const tsc = createRequire(import.meta.url).resolve('typescript/bin/tsc');
 let consumer: string;
+let mapboxConsumer: string;
 let packedFiles: string[];
 
 function run(command: string, args: string[], cwd: string): string {
@@ -54,10 +55,17 @@ describe('packed package', () => {
     run(process.execPath, [
       npm, 'ci', '--offline', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund',
     ], consumer);
+
+    mapboxConsumer = mkdtempSync(join(tmpdir(), 'geo-mapbox-consumer-'));
+    cpSync(join(root, 'tests/fixtures/mapbox-consumer'), mapboxConsumer, { recursive: true, filter: source => !source.includes('/node_modules') && !source.includes('/vendor') });
+    mkdirSync(join(mapboxConsumer, 'vendor'));
+    cpSync(join(consumer, 'vendor/map-master.tgz'), join(mapboxConsumer, 'vendor/map-master.tgz'));
+    run(process.execPath, [npm, 'ci', '--offline', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], mapboxConsumer);
   });
 
   afterAll(() => {
     if (consumer) rmSync(consumer, { recursive: true, force: true });
+    if (mapboxConsumer) rmSync(mapboxConsumer, { recursive: true, force: true });
   });
 
   it('ships JavaScript and declarations without development files', () => {
@@ -65,6 +73,7 @@ describe('packed package', () => {
       'package.json', 'README.md', 'CHANGELOG.md',
       'LICENSE', 'SECURITY.md', 'THIRD_PARTY_NOTICES.md',
       'dist/index.js', 'dist/index.d.ts',
+      'dist/mapbox/index.js', 'dist/mapbox/index.d.ts', 'dist/gl/map.d.ts',
     ]));
     // Library users receive the build and legal notices; guides stay online.
     expect(packedFiles.filter((file) => !/^(dist\/|[A-Z_]+\.md$|LICENSE$|package\.json$)/u.test(file))).toEqual([]);
@@ -96,6 +105,10 @@ describe('packed package', () => {
     expect(() => run(process.execPath, ['index.mjs'], consumer)).not.toThrow();
   });
 
+  it('imports the Mapbox entry point without MapLibre or browser globals', () => {
+    expect(() => run(process.execPath, ['index.mjs'], mapboxConsumer)).not.toThrow();
+  });
+
   it.each([
     ['NodeNext', 'NodeNext'],
     ['ESNext', 'Bundler'],
@@ -104,5 +117,12 @@ describe('packed package', () => {
       tsc, '--noEmit', '--strict', '--skipLibCheck', '--target', 'ES2022', '--lib', 'ES2022,DOM',
       '--module', module, '--moduleResolution', resolution, 'index.ts',
     ], consumer)).not.toThrow();
+  });
+
+  it.each([['NodeNext', 'NodeNext'], ['ESNext', 'Bundler']])('resolves Mapbox-only declarations with module %s and resolution %s', (module, resolution) => {
+    expect(() => run(process.execPath, [
+      tsc, '--noEmit', '--strict', '--skipLibCheck', '--target', 'ES2022', '--lib', 'ES2022,DOM',
+      '--module', module, '--moduleResolution', resolution, 'index.ts',
+    ], mapboxConsumer)).not.toThrow();
   });
 });

@@ -1,4 +1,5 @@
-import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { ShortcutBindings } from './shortcut-bindings.js';
+import type { EditorMap as MapLibreMap } from '../gl/map.js';
 import { geometryParts } from '../core/geometry.js';
 import { project, unproject } from '../core/mercator-transform.js';
 import type { EditorAppearance } from '../core/appearance.js';
@@ -70,7 +71,7 @@ export class DistanceInteraction {
   private gesture: Gesture | undefined;
   private frame: number | undefined;
 
-  constructor(private readonly map: MapLibreMap, private readonly actions: Actions) {
+  constructor(private readonly map: MapLibreMap, private readonly actions: Actions, private readonly shortcuts: ShortcutBindings) {
     this.canvas = map.getCanvas(); const doc = this.canvas.ownerDocument; this.view = doc.defaultView!;
     this.root = doc.createElement('div'); this.root.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2;';
     const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('aria-hidden', 'true');
@@ -114,7 +115,7 @@ export class DistanceInteraction {
     }
     this.root.dataset.geoDistance = state.kind;
     this.handle.setAttribute('aria-label', `Adjust ${state.kind} distance`);
-    this.handle.title = 'Drag to change distance. Arrow keys: 1 Mercator m; Shift + arrows: 10 m. Enter applies; Escape cancels.';
+    this.shortcuts.describeControl(this.handle, 'Drag to change distance. Arrows: 1 Mercator m; Shift+arrows: 10 m.', 'ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight Shift+ArrowUp Shift+ArrowDown');
     const color = state.invalid ? '#b91c1c' : appearance.selected.lineColor;
     for (const part of [this.ruler, this.stem, this.ticks, this.origin, this.end]) part.setAttribute('stroke', color);
     this.handle.style.backgroundColor = color; this.layout();
@@ -210,21 +211,26 @@ export class DistanceInteraction {
   private readonly blur = (): void => { this.stop(true); };
   private readonly camera = (): void => { this.stop(true); this.layout(); };
   private readonly key = (event: KeyboardEvent): void => {
-    if (!this.gesture || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key === 'Escape' || event.key === 'Enter') {
-      event.preventDefault(); event.stopImmediatePropagation(); if (event.key === 'Escape') this.stop(true);
+    if (!this.gesture || event.repeat || event.target !== this.canvas) return;
+    const cancel = this.shortcuts.matches('cancel', event, ['Shift']);
+    if (cancel || this.shortcuts.matches('finish', event, ['Shift'])) {
+      event.preventDefault(); event.stopImmediatePropagation();
+      if (cancel) this.stop(true);
     }
   };
   private readonly handleKey = (event: KeyboardEvent): void => {
-    if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+    const cancel = this.shortcuts.matches('cancel', event);
+    const finish = this.shortcuts.matches('finish', event);
+    if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || event.repeat && !event.key.startsWith('Arrow') || event.getModifierState('AltGraph')
+      || !cancel && !finish && (event.ctrlKey || event.metaKey || event.altKey)) return;
     const state = this.current(); if (!state) return;
     if (['ArrowLeft', 'ArrowDown', 'ArrowRight', 'ArrowUp'].includes(event.key)) {
       event.preventDefault(); event.stopPropagation();
       const next = state.distance + (event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? -1 : 1) * (event.shiftKey ? 10 : 1);
       if (Number.isFinite(next) && (state.kind === 'offset' || next > 0)) this.actions.distance(state.kind, next);
-    } else if (event.key === 'Enter' || event.key === 'Escape') {
+    } else if (finish || cancel) {
       event.preventDefault(); event.stopPropagation(); this.canvas.focus({ preventScroll: true });
-      if (event.key === 'Enter') this.actions.finish(state.kind); else this.actions.cancel();
+      if (finish) this.actions.finish(state.kind); else this.actions.cancel();
     }
   };
 }

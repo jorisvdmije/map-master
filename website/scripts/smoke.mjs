@@ -64,7 +64,7 @@ for (const [language, filename] of [
   ["ts", "main.ts"],
 ]) {
   const match = markdown.match(
-    new RegExp("```" + language + "\\n([\\s\\S]*?)```"),
+    new RegExp("```" + language + "[^\\n]*\\n([\\s\\S]*?)```"),
   );
   assert.ok(match, `Missing ${language} quickstart example`);
   writeFileSync(resolve(quickstart, filename), match[1]);
@@ -200,11 +200,21 @@ try {
     path: resolve(evidence, "overview-desktop.png"),
     fullPage: true,
   });
-  await page.locator("[data-copy]").click();
-  await page.waitForFunction(() =>
-    document.querySelector("[data-copy]")?.textContent === "Copied!",
-  );
-  assert.match(await page.locator("[data-copy]").textContent(), /Copied/);
+  await page.locator('#docs-install[data-hydrated="true"]').waitFor();
+  const installCopy = page.locator('#docs-install [role="tabpanel"]:not([inert]) [data-slot="code-block-copy-button"]');
+  await installCopy.click();
+  await page.locator('#docs-install [role="tabpanel"]:not([inert]) [data-copied="true"]').waitFor();
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), "npm i @jorisvdmije/map-master maplibre-gl");
+  await page.getByRole("tab", { name: "pnpm", exact: true }).click();
+  await installCopy.click();
+  await page.locator('#docs-install [role="tabpanel"]:not([inert]) [data-copied="true"]').waitFor();
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), "pnpm add @jorisvdmije/map-master maplibre-gl");
+  await page.getByRole("tab", { name: "pnpm", exact: true }).focus();
+  await page.keyboard.press("ArrowRight");
+  assert.equal(await page.getByRole("tab", { name: "yarn", exact: true }).evaluate(tab => tab === document.activeElement), true);
+  await page.keyboard.press("Enter");
+  assert.equal(await page.getByRole("tab", { name: "yarn", exact: true }).getAttribute("aria-selected"), "true");
+  await page.getByRole("tab", { name: "npm", exact: true }).click();
   await page.locator(".search-trigger").click();
   await page.locator("#search-input").fill("GeoJSON");
   await page.locator(".search-result").first().waitFor();
@@ -318,6 +328,243 @@ try {
     "✓ GeoJSON append, duplicate/malformed input rollback, safe names and download",
   );
 
+  await open("guides/keyboard-shortcuts.html");
+  await ready();
+  await page.getByRole("button", { name: "Focus map", exact: true }).click();
+  await page.keyboard.press("p");
+  await page.locator('[data-demo][data-mode="draw-polygon"]').waitFor();
+  const preset = page.getByLabel("Shortcut preset");
+  await preset.selectOption("alternative");
+  assert.match(await page.locator('[data-tool="polygon"]').getAttribute("data-tooltip"), /\(G\)/);
+  assert.match(await page.locator(".demo-shortcut-reference").textContent(), /finish: Ctrl\+Enter/);
+  await page.getByRole("button", { name: "Focus map", exact: true }).click();
+  await page.keyboard.press("Escape");
+  assert.equal(await page.locator("[data-demo]").getAttribute("data-mode"), "draw-polygon");
+  await page.keyboard.press("c");
+  await page.locator('[data-demo][data-mode="idle"]').waitFor();
+  await page.getByLabel("Try typing here").fill("gce");
+  assert.equal(await page.locator("[data-demo]").getAttribute("data-mode"), "idle");
+  await preset.selectOption("off");
+  await page.getByRole("button", { name: "Focus map", exact: true }).click();
+  await page.keyboard.press("g");
+  assert.equal(await page.locator("[data-demo]").getAttribute("data-mode"), "idle");
+  await preset.selectOption("alternative");
+  await page.getByRole("button", { name: "Focus map", exact: true }).click();
+  await page.keyboard.press("g");
+  const shortcutCanvas = page.locator(".demo-map canvas");
+  for (const [x, y] of [[260, 150], [450, 150], [450, 300]]) await shortcutCanvas.click({ position: { x, y } });
+  await page.keyboard.press("Control+Enter");
+  await page.locator('[data-demo][data-mode="idle"]').waitFor();
+  await count(3);
+  await page.keyboard.press("Control+z");
+  await count(2);
+  await page.locator(".demo-reset").click();
+  assert.equal(await preset.inputValue(), "standard");
+  await page.locator(".demo").screenshot({ path: resolve(evidence, "keyboard-shortcuts.png") });
+  console.log("✓ Shortcuts: runtime remapping during drawing, custom finish/cancel, disabled commands, text fields and reset");
+
+  await open("guides/text-markers.html");
+  await ready();
+  await count(2);
+  await tool("edit").click();
+  await page.getByLabel("Text", { exact: true }).fill("Café 🌷\n<img src=x onerror=alert(1)>");
+  await page.getByLabel("Text size", { exact: true }).fill("24");
+  assert.equal(await page.locator(".mm-text-marker img").count(), 0);
+  await action("Save").click();
+  const savedText = JSON.parse(await page.locator(".geojson-output").textContent());
+  assert.equal(savedText.features[1].properties.mapMasterText.text, "Café 🌷\n<img src=x onerror=alert(1)>");
+  assert.equal(savedText.features[1].properties.mapMasterText.style.fontSize, 24);
+  await tool("undo").click();
+  assert.match(await page.locator(".mm-text-marker").textContent(), /Meeting point/);
+  await tool("redo").click();
+  const textDownloadPromise = page.waitForEvent("download");
+  await page.locator(".demo-data button", { hasText: "Download GeoJSON" }).click();
+  const textDownload = await textDownloadPromise;
+  assert.deepEqual(JSON.parse(readFileSync(await textDownload.path(), "utf8")), savedText);
+  await tool("text").click();
+  await page.locator(".demo-map canvas").click({ position: { x: 500, y: 330 } });
+  await page.getByLabel("Text", { exact: true }).fill("New label");
+  await action("Finish").click();
+  await count(3);
+  await tool("undo").click();
+  await count(2);
+  // Reimport the saved label under a new ID to verify metadata in the built example.
+  const reimportedLabel = structuredClone(savedText.features[1]); reimportedLabel.id = "round-trip-label";
+  await page.locator(".geojson-input").fill(JSON.stringify(reimportedLabel));
+  await page.locator(".demo-data button", { hasText: "Import GeoJSON" }).click();
+  await count(3);
+  assert.deepEqual(JSON.parse(await page.locator(".geojson-output").textContent()).features[2], reimportedLabel);
+  await page.locator(".demo").screenshot({ path: resolve(evidence, "text-markers.png") });
+  console.log("✓ Text markers: edit text/style, safe rendering, creation, undo/redo, download and import round-trip");
+
+  await open("guides/shape-templates.html");
+  await ready(); await count(2);
+  await tool("template").click();
+  await page.getByLabel("Template", { exact: true }).selectOption("booth");
+  await page.getByLabel("Size (Mercator m)", { exact: true }).fill("600");
+  await page.getByLabel("Rotation (°)", { exact: true }).fill("30");
+  await page.locator(".demo-map canvas").click({ position: { x: 500, y: 330 } });
+  await count(2); // Preview is not exported.
+  await action("Finish").click(); await count(4);
+  const placedTemplates = JSON.parse(await page.locator(".geojson-output").textContent());
+  assert.equal(placedTemplates.features[2].properties.category, "booth");
+  assert.equal(placedTemplates.features[3].properties.name, "Entrance path");
+  assert.notEqual(placedTemplates.features[2].id, "booth");
+  assert.notEqual(placedTemplates.features[3].id, "entrance");
+  assert.equal(await page.locator(".demo-log li").count(), 1);
+  await tool("undo").click(); await count(2);
+  await tool("redo").click(); await count(4);
+  assert.deepEqual(JSON.parse(await page.locator(".geojson-output").textContent()), placedTemplates);
+  const templateDownloadPromise = page.waitForEvent("download");
+  await page.locator(".demo-data button", { hasText: "Download GeoJSON" }).click();
+  const templateDownload = await templateDownloadPromise;
+  assert.deepEqual(JSON.parse(readFileSync(await templateDownload.path(), "utf8")), placedTemplates);
+  await tool("template").click();
+  await page.getByLabel("Template", { exact: true }).selectOption("star");
+  await page.getByLabel("Longitude", { exact: true }).fill("180");
+  await page.getByLabel("Latitude", { exact: true }).fill("0");
+  assert.equal(await action("Finish").isEnabled(), false);
+  await action("Cancel").click(); await count(4);
+  // After reset, the exact saved geometry imports without relying on the registry.
+  await page.locator(".demo-reset").click();
+  await page.locator(".geojson-input").fill(JSON.stringify({ type: "FeatureCollection", features: placedTemplates.features.slice(2) }));
+  await page.locator(".demo-data button", { hasText: "Import GeoJSON" }).click(); await count(4);
+  assert.deepEqual(JSON.parse(await page.locator(".geojson-output").textContent()).features.slice(2), placedTemplates.features.slice(2));
+  await page.locator(".demo-map").scrollIntoViewIfNeeded();
+  await page.locator(".demo-map").screenshot({ path: resolve(evidence, "shape-templates.png") });
+  console.log("✓ Shape templates: group placement, size/rotation, properties, one-step history, invalid placement and GeoJSON round-trip");
+
+  await open("guides/alignment-guides.html");
+  await ready(); await count(3);
+  assert.equal(await tool("guides").getAttribute("aria-pressed"), "true");
+  await tool("guides").click(); assert.equal(await tool("guides").getAttribute("aria-pressed"), "false");
+  await page.locator(".demo-map canvas").focus(); await page.keyboard.press("g");
+  assert.equal(await tool("guides").getAttribute("aria-pressed"), "true");
+  assert.equal(await tool("snapping").getAttribute("aria-pressed"), "false");
+  await tool("line").click();
+  await page.locator(".demo-map canvas").click({ position: { x: 430, y: 280 } });
+  await page.locator(".demo-map canvas").click({ position: { x: 570, y: 280 } });
+  await action("Finish").click(); await count(4);
+  await tool("undo").click(); await count(3); await tool("redo").click(); await count(4);
+  await page.locator(".demo-map").screenshot({ path: resolve(evidence, "alignment-guides.png") });
+  console.log("✓ Alignment guides: independent toggle, remapped key, drawing and one-step history");
+
+  await open("guides/vertex-pinning.html");
+  await ready(); await count(4);
+  const unpinnedVertices = JSON.parse(await page.locator(".geojson-output").textContent());
+  await tool("pin").click();
+  const pinnedVertices = JSON.parse(await page.locator(".geojson-output").textContent());
+  assert.ok(pinnedVertices.features.every(feature => feature.properties.mapMasterPins.length > 0));
+  await tool("undo").click();
+  assert.deepEqual(JSON.parse(await page.locator(".geojson-output").textContent()), unpinnedVertices);
+  await tool("redo").click();
+  const junction = await page.locator('.mm-text-marker[data-feature-id="\\"junction\\""]').boundingBox();
+  assert.ok(junction);
+  await page.mouse.click(junction.x + junction.width / 2, junction.y + junction.height / 2);
+  await tool("edit").click();
+  await page.mouse.move(junction.x + junction.width / 2, junction.y + junction.height / 2);
+  await page.mouse.down(); await page.mouse.move(junction.x + junction.width / 2 + 30, junction.y + junction.height / 2 - 25, { steps: 5 }); await page.mouse.up();
+  assert.deepEqual(JSON.parse(await page.locator(".geojson-output").textContent()), pinnedVertices);
+  await action("Save").click();
+  const movedPins = JSON.parse(await page.locator(".geojson-output").textContent());
+  assert.ok(movedPins.features.every((feature, index) => JSON.stringify(feature.geometry) !== JSON.stringify(pinnedVertices.features[index].geometry)));
+  assert.equal(await page.locator(".demo-log li").count(), 4); // Pin, Undo, Redo, linked edit.
+  await tool("undo").click(); assert.deepEqual(JSON.parse(await page.locator(".geojson-output").textContent()), pinnedVertices);
+  await tool("redo").click(); assert.deepEqual(JSON.parse(await page.locator(".geojson-output").textContent()), movedPins);
+  const pinsDownloadPromise = page.waitForEvent("download");
+  await page.locator(".demo-data button", { hasText: "Download GeoJSON" }).click();
+  const pinsDownload = await pinsDownloadPromise;
+  assert.deepEqual(JSON.parse(readFileSync(await pinsDownload.path(), "utf8")), movedPins);
+  await tool("unpin").click();
+  assert.equal(JSON.parse(await page.locator(".geojson-output").textContent()).features[3].properties.mapMasterPins, undefined);
+  await tool("undo").click();
+  await page.locator(".demo-reset").click();
+  const importedPins = structuredClone(movedPins); importedPins.features.forEach(feature => { feature.id += "-imported"; });
+  await page.locator(".geojson-input").fill(JSON.stringify(importedPins));
+  await page.locator(".demo-data button", { hasText: "Import GeoJSON" }).click(); await count(8);
+  assert.deepEqual(JSON.parse(await page.locator(".geojson-output").textContent()).features.slice(4), importedPins.features);
+  await page.locator(".demo-map").screenshot({ path: resolve(evidence, "vertex-pinning.png") });
+  console.log("✓ Vertex pins: toolbar, linked drag, atomic events, exact Undo/Redo, unlink and GeoJSON round-trip");
+
+  await open("guides/geofencing.html");
+  await ready(); await count(2);
+  const fencedBefore = JSON.parse(await page.locator(".geojson-output").textContent());
+  assert.equal(await tool("geofencing").getAttribute("aria-pressed"), "true");
+  const fencedCanvas = page.locator(".demo-map canvas");
+  const fencedBounds = await fencedCanvas.boundingBox();
+  const movingLabel = await page.locator('.mm-text-marker').boundingBox();
+  assert.ok(fencedBounds && movingLabel);
+  await tool("edit").click();
+  const startFenceX = movingLabel.x + movingLabel.width / 2;
+  const startFenceY = movingLabel.y + movingLabel.height / 2;
+  await page.mouse.move(startFenceX, startFenceY); await page.mouse.down();
+  await page.mouse.move(fencedBounds.x + fencedBounds.width / 2 + 70, fencedBounds.y + fencedBounds.height / 2, { steps: 5 });
+  await page.locator('.mm-geofencing-notice:not([hidden])').waitFor();
+  assert.match(await page.locator('.mm-geofencing-notice').textContent(), /pond/);
+  assert.equal(await action("Save").isEnabled(), false);
+  assert.deepEqual(JSON.parse(await page.locator(".geojson-output").textContent()), fencedBefore);
+  await page.mouse.move(startFenceX + 20, startFenceY, { steps: 5 }); await page.mouse.up();
+  assert.equal(await action("Save").isEnabled(), true);
+  await action("Save").click();
+  const fencedAfter = JSON.parse(await page.locator(".geojson-output").textContent());
+  assert.notDeepEqual(fencedAfter.features[0].geometry, fencedBefore.features[0].geometry);
+  assert.deepEqual(fencedAfter.features[1], fencedBefore.features[1]);
+  await tool("undo").click(); assert.deepEqual(JSON.parse(await page.locator(".geojson-output").textContent()), fencedBefore);
+  await tool("redo").click(); assert.deepEqual(JSON.parse(await page.locator(".geojson-output").textContent()), fencedAfter);
+  await tool("geofencing").click(); assert.equal(await tool("geofencing").getAttribute("aria-pressed"), "false");
+  await fencedCanvas.focus(); await page.keyboard.press("f"); assert.equal(await tool("geofencing").getAttribute("aria-pressed"), "true");
+  await tool("point").click(); await fencedCanvas.click({ position: { x: fencedBounds.width - 30, y: fencedBounds.height / 2 } });
+  await count(2); assert.match(await page.locator('.mm-geofencing-notice').textContent(), /park/);
+  await action("Cancel").click();
+  await page.locator(".geojson-input").fill(JSON.stringify({ type: "Feature", id: "forbidden", properties: {}, geometry: { type: "Point", coordinates: [-80, 70] } }));
+  await page.locator(".demo-data button", { hasText: "Import GeoJSON" }).click(); await count(2);
+  assert.deepEqual(JSON.parse(await page.locator(".geojson-output").textContent()), fencedAfter);
+  await page.locator(".demo-map").screenshot({ path: resolve(evidence, "geofencing.png") });
+  console.log("✓ Geofencing: forbidden drag/drawing/import, correction, exact history and runtime toggle without exported reference areas");
+
+  await open("guides/data-layers.html");
+  await ready(); await count(5);
+  const originalLayers = JSON.parse(await page.locator(".geojson-output").textContent());
+  assert.equal(originalLayers.features.filter(feature => feature.properties.mapMasterLayer === "archive").length, 1);
+  await page.locator('.mm-data-layers > button').click();
+  await page.locator('[data-control-key="active"]').selectOption("notes");
+  await tool("point").click(); await page.locator(".demo-map canvas").click({ position: { x: 300, y: 350 } }); await count(6);
+  const drawnInNotes = JSON.parse(await page.locator(".geojson-output").textContent());
+  assert.equal(drawnInNotes.features.at(-1).properties.mapMasterLayer, "notes");
+  await tool("undo").click(); await count(5); await tool("redo").click(); await count(6);
+  await page.locator('[data-control-key="notes:visible"]').uncheck();
+  assert.deepEqual(JSON.parse(await page.locator(".geojson-output").textContent()), drawnInNotes);
+  assert.equal(await page.locator('.mm-text-marker').count(), 0);
+  assert.equal(await tool("undo").isEnabled(), false);
+  await page.locator('[data-control-key="notes:visible"]').check(); assert.equal(await tool("undo").isEnabled(), true);
+  await page.locator('[data-control-key="parcels:locked"]').check();
+  await page.locator('[data-control-key="parcels:locked"]').uncheck();
+  await page.locator('[data-control-key="reference:snapping"]').uncheck(); await page.locator('[data-control-key="reference:snapping"]').check();
+  await page.locator('[data-control-key="parcels:forward"]').click();
+  const reorderedLayers = await page.locator('.mm-data-layer-row').evaluateAll(rows => rows.map(row => row.dataset.dataLayerId));
+  assert.ok(reorderedLayers.indexOf("parcels") < reorderedLayers.indexOf("notes"));
+  // Collapse before selecting the map label, then use the panel to move its membership.
+  await page.locator('.mm-data-layers > button').click();
+  const layerNote = await page.locator('.mm-text-marker').boundingBox(); assert.ok(layerNote);
+  await page.mouse.click(layerNote.x + layerNote.width / 2, layerNote.y + layerNote.height / 2);
+  await page.locator('.mm-data-layers > button').click();
+  await page.locator('[data-control-key="destination"]').selectOption("parcels"); await page.locator('[data-control-key="move"]').click();
+  const movedBetweenLayers = JSON.parse(await page.locator(".geojson-output").textContent());
+  assert.equal(movedBetweenLayers.features.find(feature => feature.id === "note").properties.mapMasterLayer, "parcels");
+  assert.deepEqual(movedBetweenLayers.features.find(feature => feature.id === "note").geometry, originalLayers.features.find(feature => feature.id === "note").geometry);
+  await tool("undo").click(); assert.deepEqual(JSON.parse(await page.locator(".geojson-output").textContent()), drawnInNotes);
+  await tool("redo").click(); assert.deepEqual(JSON.parse(await page.locator(".geojson-output").textContent()), movedBetweenLayers);
+  const layersDownloadPromise = page.waitForEvent("download");
+  await page.locator(".demo-data button", { hasText: "Download GeoJSON" }).click();
+  const layersDownload = await layersDownloadPromise;
+  assert.deepEqual(JSON.parse(readFileSync(await layersDownload.path(), "utf8")), movedBetweenLayers);
+  await page.locator(".demo-reset").click(); await count(5);
+  assert.deepEqual(JSON.parse(await page.locator(".geojson-output").textContent()), originalLayers);
+  assert.equal(await page.locator('[data-control-key="active"]').inputValue(), "parcels");
+  await page.locator('.mm-data-layers > button').click();
+  await page.locator(".demo-map").screenshot({ path: resolve(evidence, "data-layers.png") });
+  console.log("✓ Data layers: active drawing, visibility, reference settings, order, atomic membership history, export and reset");
+
   // Every guide with a live example loads its map, data and toolbar.
   const demoPages = htmlFiles.filter((file) => readFileSync(file, "utf8").includes("data-demo="));
   for (const file of demoPages) {
@@ -329,6 +576,21 @@ try {
   console.log(`✓ ${demoPages.length} live examples load their data and toolbar`);
 
   await open("guides/quickstart.html");
+  await page.locator('[data-ui-root][data-hydrated="true"]').first().waitFor();
+  const mainCode = page.locator('[data-slot="code-block"]').filter({ has: page.locator('[data-slot="code-block-title"]', { hasText: "main.ts" }) });
+  const expectedSource = markdown.match(/```ts[^\n]*\n([\s\S]*?)```/)[1].replace(/\n$/, "");
+  await mainCode.getByRole("button", { name: "Copy", exact: true }).click();
+  await mainCode.locator('[data-copied="true"]').waitFor();
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), expectedSource, "Copy preserves source whitespace and excludes line numbers");
+  assert.equal(await mainCode.locator('[data-numbered="true"]').count(), 1);
+  await mainCode.getByRole("button", { name: "Wrap lines", exact: true }).click();
+  assert.equal(await mainCode.getByRole("button", { name: "Wrap lines", exact: true }).getAttribute("aria-pressed"), "true");
+  assert.equal(await mainCode.locator('[data-wrap="true"]').count(), 1);
+  await mainCode.getByRole("button", { name: "Show more", exact: true }).click();
+  assert.equal(await mainCode.getByRole("button", { name: "Show less", exact: true }).getAttribute("aria-expanded"), "true");
+  await mainCode.getByRole("button", { name: "Show less", exact: true }).click();
+  assert.equal(await page.locator('[data-slot="alert"]').count(), 2);
+  console.log("✓ shadcn Code Block: exact copy, line numbers, wrapping, expansion; package-manager tabs and setup alerts");
   await page.screenshot({
     path: resolve(evidence, "quickstart-desktop.png"),
     fullPage: false,
@@ -420,6 +682,7 @@ try {
         checks: [
           "links-and-anchors",
           "copy",
+          "shadcn-code-block-tabs-alerts",
           "search",
           "toolbar-drawing",
           "toolbar-editing-history",

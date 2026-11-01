@@ -8,6 +8,8 @@ in [testing](testing.md#performance-budgets) and [compatibility](compatibility.m
 
 ## Overlap candidate queries
 
+See also the [lasso selection measurements](#lasso-selection) for a freehand region.
+
 Run `npm run benchmark -- selection-picking` for an isolated Chromium/Vite workload
 with a local style, an 800×600 canvas, zoom 13, fixed four-corner polygons and
 small name properties. It waits for rendered hits, then measures
@@ -972,3 +974,63 @@ focusable control at every size and checks DOM cleanup on destruction.
 `npm run benchmark -- direct-picking` measures handle generation and nearest-corner
 acquisition on 100, 1,000 and 10,000 vertices with a deterministic projection.
 See the [baseline and exclusions](touch-pen-vertices.md#verification-and-cost).
+
+## Lasso selection
+
+Run `npm run benchmark -- lasso` for the screen-space matching core. The fixed
+fixture has 1,000 rectangles (5,000 stored positions including closing copies),
+a 128-point circular lasso, 5 warm-ups and 30 measured samples per match mode.
+The timed interval includes lasso validation and geometry matching; fixture
+construction, map projection, GeoJSON snapshots and rendering are excluded.
+
+On 2026-11-01, Node 22.23.1 on an Apple M2 Pro, macOS arm64: `intersects`
+selected 88 features with median 2.959 ms and p95 3.704 ms; `contains` selected
+67 features with median 5.404 ms and p95 5.749 ms. These are local core timings,
+not browser input latency or enforced release budgets.
+
+Bounding boxes reject disjoint candidates before precise tests. Matching runs
+once on release; pointer movement updates only the SVG overlay, coalesced to
+animation frames. A gesture has at most 1,024 samples after adaptive thinning;
+the programmatic API accepts at most 2,048 positions. Dense overlapping geometry
+still scales with the number of segments and lasso edges. See [lasso selection](lasso.md)
+for containment, holes, multipart and lifecycle behavior.
+
+
+## Alignment guides
+
+Run `npm run benchmark -- alignment-guides alignment-pointer`. Both use fixed
+four-corner polygons inside an 800×600 viewport, with x = 20 + (i × 37 mod 740)
+and y = 20 + (i × 53 mod 540), and the default 96-entry query budget. No external
+tiles or network requests participate. Recorded on 2026-11-01: Apple M2 Pro,
+macOS arm64, Node 22.23.1, Chromium 156.0.8078.4 with software WebGL.
+
+The core benchmark separates one index build from 100 measured batches of 100
+queries, after ten warmup batches. It includes four frozen draft references.
+Query percentiles describe batch averages; projection and DOM work are excluded.
+
+| Features | Vertices | Index build (ms) | Median query (ms) | p95 query (ms) | Maximum inspected |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 100 | 400 | 4.89 | 0.0095 | 0.0474 | 55 |
+| 1,000 | 4,000 | 22.32 | 0.0065 | 0.0138 | 62 |
+| 10,000 | 40,000 | 146.02 | 0.0076 | 0.0241 | 62 |
+
+The browser benchmark dispatches 60 synthetic mouse moves through MapLibre while
+drawing, including ten warmups. It waits from event dispatch through the next
+animation-frame callback, after the editor updates the guide and drawing preview.
+It records the first cold event separately. It includes frame scheduling, guide
+projection/indexing/DOM updates and the software-rendered map workload, but not
+hardware input delivery or a guarantee that the GPU has presented the frame.
+
+| Features | Vertices | Cold event (ms) | Median warm event (ms) | p95 warm event (ms) |
+| ---: | ---: | ---: | ---: | ---: |
+| 100 | 400 | 13.4 | 17.0 | 17.8 |
+| 1,000 | 4,000 | 20.5 | 17.5 | 18.7 |
+| 10,000 | 40,000 | 189.3 | 127.9 | 165.5 |
+
+Every browser query acquired a guide and inspected at most 96 index entries. These
+are local observations without a release threshold. Dense sources exhaust the
+candidate budget, so they may omit the nearest guide and report `limited: true`.
+The 10,000-feature scene does not maintain interactive frame rates under this
+software-rendering workload, despite bounded guide queries. Index construction
+and MapLibre's scene/rendering costs remain separate from the bounded lookup;
+these timings do not promise smooth interaction for arbitrary datasets.

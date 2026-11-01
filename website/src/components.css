@@ -1,0 +1,77 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@source "./components";
+
+@theme inline {
+  --color-background: var(--ui-background);
+  --color-foreground: var(--ui-foreground);
+  --color-card: var(--ui-background);
+  --color-card-foreground: var(--ui-foreground);
+  --color-muted: var(--ui-muted);
+  --color-muted-foreground: var(--ui-muted-foreground);
+  --color-primary: var(--ui-primary);
+  --color-primary-foreground: #fff;
+  --color-secondary: var(--ui-muted);
+  --color-secondary-foreground: var(--ui-foreground);
+  --color-border: var(--ui-border);
+  --color-input: var(--ui-border);
+  --color-ring: #7ba68b;
+  --color-destructive: #b43b35;
+  --font-sans: "DM Sans Variable", system-ui, sans-serif;
+}
+
+:root {
+  --ui-background: #fff;
+  --ui-foreground: #263d35;
+  --ui-muted: #f0f3ee;
+  --ui-muted-foreground: #68776e;
+  --ui-primary: #17684f;
+  --ui-border: #dfe5dc;
+}
+
+.docs-island { min-width: 0; margin: 24px 0; }
+.docs-code { background: #fafbf9; }
+.docs-code [data-slot="code-block-header"] { padding: 12px 16px 10px; border-bottom: 1px solid #e5e9e1; }
+.docs-code [data-slot="code-block-title"] { font-size: 12px; display: flex; align-items: center; gap: 7px; }
+.docs-code [data-slot="code-block-title"] svg { width: 14px; height: 14px; color: #778379; }
+.docs-island [data-slot="button"] { background: transparent; color: #68776e; }
+.docs-island [data-slot="button"]:hover { background: #eaf0e5; color: #244e38; }
+.docs-island [data-slot="button"][aria-pressed="true"] { background: #dfeadd; color: #244e38; }
+.docs-code [data-slot="code-block-content"] { margin: 0; padding: 16px; tab-size: 2; font-size: 12px; line-height: 1.8; scrollbar-width: thin; }
+.article [data-slot="code-block-code"] { border: 0; border-radius: 0; padding: 0; background: none; font: inherit; color: inherit; overflow-wrap: normal; }
+.docs-code [data-slot="code-block-line"] { margin-inline: -16px; padding-inline: 16px; }
+.docs-code [data-slot="code-block-line"]::before { color: #89938a; font-size: 10px; padding-top: 1px; }
+.docs-code [data-slot="code-block-line-content"] { white-space: pre; }
+.docs-code [data-wrap] [data-slot="code-block-line-content"] { white-space: pre-wrap; overflow-wrap: anywhere; }
+.docs-code [data-wrap] [data-slot="code-block-code"] { min-width: 0; }
+.docs-code-collapsed { max-height: 340px; overflow-y: hidden; }
+.docs-code-expanded { max-height: 700px; }
+.docs-code-footer { border-top: 1px solid #e5e9e1; padding-top: 8px; padding-bottom: 8px; }
+.docs-code-footer button { font-size: 11px; }
+.docs-code:has([data-slot="code-block-content"]:focus-visible) { outline: 2px solid #7ba68b; outline-offset: 3px; }
+
+.hero-copy .docs-island { margin: 0; max-width: 420px; }
+.install-tabs { gap: 5px; }
+.install-tabs [data-slot="tabs-content"][inert] { display: none; }
+.install-tabs [data-slot="tabs-list"] { height: 30px; }
+.install-tabs [data-slot="tabs-trigger"] { font-size: 11px; min-width: 47px; padding-inline: 9px; }
+.install-code { background: #f2f4ee; }
+.install-code [data-slot="code-block-content"] { margin: 0; padding: 11px 38px 11px 12px; font: 10px/1.6 var(--mono); scrollbar-width: thin; }
+.install-code [data-slot="code-block-code"] { min-width: max-content; }
+.install-code > [data-slot="code-block-actions"] { opacity: 1; top: 7px; right: 7px; }
+.install-code [data-slot="code-block-actions"] button { box-shadow: none; background: #f2f4ee; }
+
+.docs-alert { margin: 24px 0; padding: 16px; background: #f3f7f0; border-color: #d7e2d2; }
+.docs-alert [data-slot="alert-title"] { font-size: 13px; line-height: 1.5; }
+.docs-alert [data-slot="alert-description"] { font-size: 12px; line-height: 1.8; text-wrap: pretty; }
+.docs-alert [data-slot="alert-description"] p { margin: 4px 0 0; }
+.docs-alert[data-kind="important"] { background: #fffbef; border-color: #e9dfbd; }
+.docs-alert[data-kind="important"] > svg { color: #95721f; }
+
+@media (max-width: 700px) {
+  .docs-code [data-slot="code-block-content"] { padding: 13px; font-size: 11px; }
+  .docs-code [data-slot="code-block-line"] { margin-inline: -13px; padding-inline: 13px; }
+  .docs-code [data-slot="code-block-header"] { padding: 11px 13px 9px; }
+  .docs-code [data-slot="code-block-actions"] { gap: 4px; }
+  .docs-code [data-slot="code-block-actions"] button { width: 30px; height: 30px; }
+}

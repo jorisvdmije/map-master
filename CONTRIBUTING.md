@@ -6,8 +6,9 @@ vulnerabilities privately as described in the [security policy](SECURITY.md).
 
 ## Development setup
 
-Use Node.js 22.13 or later within 22.x, or Node.js 24 (`nvm use` selects the version
-in `.nvmrc`), with npm.
+Use Node.js 22.22.3 or later within 22.x, or Node.js 24.15 or later within 24.x
+(`nvm use` selects the version in `.nvmrc`), with npm. The documentation checks
+use Angular 22's compiler, which determines these development minimums.
 
 ```sh
 git clone https://github.com/jorisvdmije/map-master.git
@@ -28,7 +29,7 @@ npm run check
 | `npm run typecheck` | Type-check the library, the browser-independent core, tests, examples and configuration. |
 | `npm run lint` | ESLint with type-aware rules and architectural import rules; no warnings allowed. |
 | `npm test` | Core tests in Node.js, plus packing and installing the library in an isolated consumer. |
-| `npm run test:browser` | Build, then run the real MapLibre interaction and demo tests in Chromium. |
+| `npm run test:browser` | Build, then run the full MapLibre suite and shared MapLibre/Mapbox adapter scenarios in Chromium. |
 | `npm run test:workspace` | Install the packed library in the example application and run its acceptance tests and performance budgets. |
 | `npm run test:docs` | Build and check the documentation site. |
 | `npm run check` | All of the above plus the production demo build. Run it before opening a pull request. |
@@ -71,7 +72,7 @@ Start with the [architecture](docs/architecture.md) and the
 5. Demonstrate the capability in the playground (`examples/basic`) through the public
    API, and add core and browser tests, plus a benchmark for performance-sensitive work.
 
-`src/core/` must not import MapLibre, the DOM or the public entry point, and examples
+`src/core/` must not import MapLibre, Mapbox, the GL boundary, the DOM or the public entry point, and examples
 must use only the public package entry; ESLint enforces both rules.
 
 ## Definition of done
@@ -109,9 +110,12 @@ on the site), not the full suite.
 
 Development tools are pinned in `package.json` and `package-lock.json`. Update
 TypeScript and typescript-eslint together. MapLibre is a pinned development
-dependency for testing and a peer dependency for consumers.
+dependency for testing and an optional peer for consumers. Mapbox GL JS is also
+pinned for adapter tests and is an optional peer. The host installs its chosen
+renderer. Shared GL code imports neither renderer.
 
-Runtime dependencies are deliberately few:
+Runtime dependencies are deliberately few. `@types/geojson` supplies the shared
+map boundary declarations without requiring either renderer's types:
 
 - [`robust-predicates`](https://github.com/mourner/robust-predicates) (Unlicense)
   provides exact orientation tests for polygon validation and winding.

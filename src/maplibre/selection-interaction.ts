@@ -1,5 +1,6 @@
+import type { ShortcutBindings } from './shortcut-bindings.js';
 import { canvasPoint } from './pointer.js';
-import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { EditorMap as MapLibreMap } from '../gl/map.js';
 import type { ScreenPoint } from '../core/snapping.js';
 
 interface SelectionActions {
@@ -24,7 +25,7 @@ export class SelectionInteraction {
   private gesture: Gesture | undefined;
   private suppressClick = false;
 
-  constructor(private readonly map: MapLibreMap, private readonly actions: SelectionActions) {
+  constructor(private readonly map: MapLibreMap, private readonly actions: SelectionActions, private readonly shortcuts: ShortcutBindings) {
     this.canvas = map.getCanvas();
     this.view = this.canvas.ownerDocument.defaultView!;
     this.rectangle = this.canvas.ownerDocument.createElement('div');
@@ -127,9 +128,12 @@ export class SelectionInteraction {
     if (this.gesture?.pointerId === event.pointerId) this.cancel();
   };
   private readonly key = (event: KeyboardEvent): void => {
-    if (!this.gesture || !['Escape', 'Enter'].includes(event.key) || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
-    event.preventDefault(); event.stopImmediatePropagation();
-    if (event.key === 'Escape') this.cancel();
+    if (!this.gesture || event.repeat || event.target !== this.canvas) return;
+    const cancel = this.shortcuts.matches('cancel', event, ['Shift']);
+    if (cancel || this.shortcuts.matches('finish', event, ['Shift'])) {
+      event.preventDefault(); event.stopImmediatePropagation();
+      if (cancel) this.cancel();
+    }
   };
   private readonly blur = (): void => { this.cancel(); };
 }

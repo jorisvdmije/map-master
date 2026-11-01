@@ -77,3 +77,23 @@ it('deletes a hole through one transaction and keeps selected copies and transla
   const copy = editor.getSelected() as PolygonFeature; expect(copy.geometry.coordinates).toHaveLength(2);
   editor.translateSelection([0.001, 0]); expect(saved()).toEqual(before); editor.undo(); expect(editor.getSelected()).toEqual(copy);
 });
+
+it('rebuilds the hole-removal preview after style replacement and cleans it up on cancel and destruction', async () => {
+  const before = saved(); const transaction = vi.fn(); editor.onTransaction(transaction);
+  map.getCanvas().style.cursor = 'help';
+  editor.removeHole();
+  const loaded = new Promise<void>((resolve) => { map.once('style.load', () => { resolve(); }); });
+  map.setStyle(style(), { diff: false }); await loaded;
+  await expect.poll(async () => JSON.stringify(await draft().getData())).toContain('Polygon');
+  const preview = await draft().getData();
+  if (preview.type !== 'FeatureCollection' || preview.features[0]?.geometry.type !== 'Polygon') throw new Error('Expected filled preview');
+  expect(preview.features[0].geometry.coordinates).toHaveLength(1);
+  expect(saved()).toEqual(before); expect(transaction).not.toHaveBeenCalled();
+  expect(map.getFeatureState({ source: sourceId(), id: '0' })).toMatchObject({ editing: true });
+  editor.cancel();
+  await expect.poll(async () => JSON.stringify(await draft().getData())).not.toContain('Polygon');
+  expect(map.getCanvas().style.cursor).toBe('help'); expect(map.doubleClickZoom.isEnabled()).toBe(true);
+  editor.removeHole(); editor.destroy();
+  expect(map.getCanvas().style.cursor).toBe('help'); expect(map.doubleClickZoom.isEnabled()).toBe(true);
+  expect(Object.keys(map.getStyle().sources).filter((id) => id.startsWith('geo-editor-'))).toHaveLength(0);
+});

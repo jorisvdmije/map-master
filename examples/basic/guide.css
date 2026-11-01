@@ -5,6 +5,7 @@ a { color: #196b55; text-underline-offset: 3px; }
 a:focus-visible, [tabindex]:focus-visible { outline: 3px solid #df9b52; outline-offset: 4px; }
 header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 20px max(20px, calc((100% - 960px) / 2)); border-bottom: 1px solid #d4dfd6; background: #fff; font-size: 13px; }
 header span { color: #60756a; letter-spacing: 1px; font-size: 11px; }
+.guide-brand { display: flex; align-items: center; gap: 10px; }
 main { max-width: 960px; padding: 40px 24px 60px; margin: auto; }
 h1 { font-size: clamp(32px, 6vw, 52px); line-height: 1.15; margin: 0 0 18px; letter-spacing: -1.5px; }
 .lead { font-size: 19px; max-width: 700px; color: #53695d; }

@@ -1,3 +1,6 @@
+import { textMarkerOptions } from './text-marker.js';
+import { readVertexPins } from './vertex-pins.js';
+import { featureDataLayerId } from './data-layers.js';
 import { withGeometry } from './geometry.js';
 import { closePolygon, samePosition, validatePolygon, validatePolygonRings, validateMultiPolygon } from './polygon.js';
 import type { Coordinate, FeatureId, FeatureProperties, GeometryFeature, JsonValue, ValidationError } from './types.js';
@@ -129,7 +132,17 @@ export function prepareImport(input: unknown, hasId: (id: FeatureId) => boolean,
       if (ids.has(id) || hasId(id)) fail('duplicate-id', `${path}.id`, `Feature ID ${JSON.stringify(id)} already exists.`);
       ids.add(id);
     }
-    return { id, geometry: geometry(value.geometry, `${path}.geometry`), properties: copyProperties(value.properties, `${path}.properties`) };
+    const properties = copyProperties(value.properties, `${path}.properties`);
+    try { featureDataLayerId({ properties }); }
+    catch (error) { fail('invalid-properties', `${path}.properties.mapMasterLayer`, (error as Error).message); }
+    if (properties && Object.hasOwn(properties, 'mapMasterText')) {
+      try { textMarkerOptions(properties.mapMasterText); }
+      catch (error) { fail('invalid-properties', `${path}.properties.mapMasterText`, (error as Error).message); }
+    }
+    const preparedGeometry = geometry(value.geometry, `${path}.geometry`);
+    try { readVertexPins(withGeometry({ id: id ?? '__importing', properties }, preparedGeometry)); }
+    catch (error) { fail('invalid-properties', `${path}.properties.mapMasterPins`, (error as Error).message); }
+    return { id, geometry: preparedGeometry, properties };
   });
   // Reserve explicit IDs first, even when they occur after an anonymous feature.
   return prepared.map((feature) => {

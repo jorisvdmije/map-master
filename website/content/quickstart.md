@@ -2,6 +2,8 @@
 
 Create a MapLibre map, add the editor and its toolbar, and let your users draw. This complete Vite project uses [OpenFreeMap](https://openfreemap.org/), a free OpenStreetMap basemap, so you can start without an account or API key.
 
+Using Mapbox GL JS? Follow the [Mapbox setup](../../docs/mapbox.md) with the same editor API. If something does not work, start with [troubleshooting](troubleshooting.md).
+
 ## 1. Install the packages
 
 Use Node.js 22.13+ within Node 22, or Node 24. Start in an empty directory:
@@ -20,7 +22,7 @@ MapLibre renders the map; Map Master adds the editing tools.
 
 Create `index.html` in your project directory:
 
-```html
+```html title="index.html"
 <!doctype html>
 <html lang="en">
   <head>
@@ -36,9 +38,13 @@ Create `index.html` in your project directory:
 </html>
 ```
 
-Create `style.css`. A map needs an explicit height:
+Create `style.css`:
 
-```css
+> [!IMPORTANT] Give the map a height
+>
+> An empty map container has no height by default. Set a height in CSS so the map can render.
+
+```css title="style.css"
 body {
   margin: 0;
   font:
@@ -59,7 +65,7 @@ body {
 
 Create `main.ts`:
 
-```ts
+```ts title="main.ts"
 import { Map, NavigationControl, setWorkerUrl } from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { EditorToolbar, GeometryEditor } from "@jorisvdmije/map-master";
@@ -109,6 +115,10 @@ window.addEventListener(
 ```
 
 Attach the editor after the map loads and keep one editor per map. Your application owns the map, the basemap and your data; the editor owns geometry and the editing interactions.
+
+> [!NOTE] Match the worker to your renderer
+>
+> This example configures the MapLibre 6 worker. Mapbox uses a different setup; follow the [Mapbox guide](../../docs/mapbox.md) when using that renderer.
 
 ## 4. Draw your first polygon
 

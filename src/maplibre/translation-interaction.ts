@@ -1,5 +1,9 @@
+import { DataLayerError } from '../core/data-layers.js';
+import type { ShortcutBindings } from './shortcut-bindings.js';
+import { GeofencingError } from '../core/geofencing.js';
+import { VertexPinError } from '../core/vertex-pins.js';
 import { canvasPoint } from './pointer.js';
-import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { EditorMap as MapLibreMap } from '../gl/map.js';
 import { translateFeatures, translationAnchor } from '../core/translation.js';
 import { project } from '../core/mercator-transform.js';
 import type { Coordinate, FeatureId, GeometryFeature, SnapResult } from '../core/types.js';
@@ -8,9 +12,12 @@ import type { ScreenPoint } from '../core/snapping.js';
 import { TranslationGuide } from './translation-guide.js';
 
 interface TranslationActions {
+  translate?(originals: readonly GeometryFeature[], delta: Coordinate): GeometryFeature[];
   targets(point: ScreenPoint): { features: GeometryFeature[]; grabbed: GeometryFeature } | null;
   resolve(point: ScreenPoint, excluded: ReadonlySet<FeatureId>): SnapResult | null;
   snap(result: SnapResult | null): void;
+  align(point: ScreenPoint, excluded: ReadonlySet<FeatureId>): Coordinate | null;
+  clearAlignment(): void;
   appearance(): EditorAppearance;
   preview(features: GeometryFeature[]): void;
   clear(): void;
@@ -42,7 +49,7 @@ export class TranslationInteraction {
   private frame: number | undefined;
   private suppressClick = false;
 
-  constructor(private readonly map: MapLibreMap, private readonly actions: TranslationActions) {
+  constructor(private readonly map: MapLibreMap, private readonly actions: TranslationActions, private readonly shortcuts: ShortcutBindings) {
     this.canvas = map.getCanvas();
     this.view = this.canvas.ownerDocument.defaultView!;
     this.guide = new TranslationGuide(map);
@@ -64,6 +71,7 @@ export class TranslationInteraction {
     if (!gesture) return;
     this.gesture = undefined;
     this.guide.clear();
+    this.actions.clearAlignment();
     // A release after cancellation must never become selection or drawing input.
     this.suppressClick = true;
     if (this.frame !== undefined) this.view.cancelAnimationFrame(this.frame);
@@ -122,6 +130,7 @@ export class TranslationInteraction {
   }
 
   private resolve(g: Gesture): Result {
+    this.actions.clearAlignment();
     // Preserve the existing degree-offset contract and unwrapped coordinates.
     const end = this.map.unproject([g.end.x, g.end.y]).toArray();
     let delta: Coordinate = [end[0] - g.pointer[0], end[1] - g.pointer[1]];
@@ -141,12 +150,16 @@ export class TranslationInteraction {
       if (Math.abs(moving[0]) <= 180 && Math.abs(moving[1]) < 90) {
         snap = this.actions.resolve(this.map.project(moving), g.excluded);
         if (snap) delta = [snap.coordinate[0] - g.anchor[0], snap.coordinate[1] - g.anchor[1]];
+        else {
+          const aligned = this.actions.align(this.map.project(moving), g.excluded);
+          if (aligned) delta = [aligned[0] - g.anchor[0], aligned[1] - g.anchor[1]];
+        }
       }
     }
-    try { return { delta, snap, features: translateFeatures(g.originals, delta) }; }
+    try { return { delta, snap, features: this.actions.translate ? this.actions.translate(g.originals, delta) : translateFeatures(g.originals, delta) }; }
     catch (error) {
-      if (!(error instanceof RangeError || error instanceof TypeError)) throw error;
-      return { delta, snap: null, features: null };
+      if (!(error instanceof RangeError || error instanceof TypeError || error instanceof VertexPinError || error instanceof GeofencingError || error instanceof DataLayerError)) throw error;
+      this.actions.clearAlignment(); return { delta, snap: null, features: null };
     }
   }
 
@@ -195,8 +208,8 @@ export class TranslationInteraction {
   };
   private readonly key = (event: KeyboardEvent): void => {
     const g = this.gesture;
-    if (!g || event.isComposing) return;
-    if (event.key === 'Escape' && event.type === 'keydown') {
+    if (!g || event.isComposing || event.defaultPrevented || event.target !== this.canvas) return;
+    if (event.type === 'keydown' && !event.repeat && this.shortcuts.matches('cancel', event, ['Shift', 'Alt'])) {
       event.preventDefault(); event.stopImmediatePropagation(); this.cancel();
     } else if (event.key === 'Alt' || event.key === 'Shift') {
       event.preventDefault();

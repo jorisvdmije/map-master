@@ -6,6 +6,7 @@ import {
 } from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import {
+  DataLayerControl,
   EditorToolbar,
   GeoJSONImportError,
   GeometryEditor,
@@ -14,6 +15,7 @@ import {
   type EditorState,
   type GeometryFeature,
   type GeometryFeatureCollection,
+  type KeyboardShortcuts,
   type ToolbarTool,
 } from "@jorisvdmije/map-master";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -67,17 +69,21 @@ const themes: Record<string, EditorAppearanceOptions> = {
 const defaultTheme = themes["Blue & orange"]!;
 
 const instructions: Partial<Record<EditorState["mode"], string>> = {
+  "draw-template": "Choose a template, then click to anchor it. Adjust size, rotation or coordinates and choose Finish. Escape cancels the whole placement.",
+  "draw-text": "Click to anchor a label. Enter text and choose its appearance, then Finish. Enter adds a newline in the text field; Ctrl/Command+Enter saves.",
   "draw-point": "Click the map to place a marker.",
-  "draw-line": "Click to add points. Finish or Enter completes the line.",
-  "draw-polygon": "Click to add corners. Click the first corner, press Enter or choose Finish.",
+  "draw-line": "Click to add points. Choose Finish to complete the line.",
+  "draw-polygon": "Click to add corners. Click the first corner or choose Finish.",
   "draw-hole": "Click inside the selected polygon to outline the hole, then Finish.",
+  "remove-hole": "Click inside a hole or choose it in the dropdown. Apply fills it; Cancel keeps the original.",
+  "select-lasso": "Press and drag to outline a loop, then release to select. Choose Replace/Add/Remove and Touches/Fully inside in the toolbar.",
   "draw-rectangle": "Click one corner, then the opposite corner.",
   "draw-circle": "Click the center, then a point on the edge.",
   "draw-ellipse": "Click the center, then a corner of the box around the ellipse.",
   "draw-freehand": "Press and drag to trace an outline. Releasing the pointer completes it.",
   "draw-cut": "Draw a polygon across the shapes. Close it or choose Apply to cut it away.",
   "draw-part": "Draw the new part, then Finish. Polygon parts may not overlap.",
-  "edit-point": "Drag the marker to move it, then Save.",
+  "edit-point": "Drag the marker to move it. For text markers, edit text and appearance in the toolbar, then Save.",
   "edit-line": "Drag a point, or click a small midpoint to add one. Save or Cancel.",
   "edit-polygon": "Drag a corner or an edge, or click a small midpoint to add a corner. Save or Cancel.",
   "split-polygon": "Draw a line that crosses the polygon. Apply splits it in two.",
@@ -101,7 +107,7 @@ function describe(editor: GeometryEditor, state: EditorState): string {
     (state.validationError !== "too-few-vertices" ? state.validationError : null) ??
     state.splitError ?? state.reshapeError ?? state.unionError ?? state.differenceError ??
     state.intersectionError ?? state.bufferError ?? state.offsetError ??
-    state.simplificationError ?? state.scaleError ?? state.rotationError ?? state.sharedBoundaryError;
+    state.simplificationError ?? state.scaleError ?? state.rotationError ?? state.sharedBoundaryError ?? state.pinningError ?? state.geofencingViolations[0]?.code;
   const note = problem ? ` Not possible yet: ${words(problem)}.` : "";
   if (state.mode !== "idle") return `${instructions[state.mode] ?? ""}${note}`;
   const selected = state.selectedFeatureIds.map((id) => name(editor.getFeature(id)));
@@ -170,19 +176,28 @@ export async function mountDemo(container: HTMLElement): Promise<void> {
   const narrow = container.clientWidth < 640;
   const toolbar = { collapsible: narrow, collapsed: narrow && right !== undefined };
   map.addControl(new EditorToolbar(editor, { ...toolbar, tools: left }), "top-left");
+  if (config.extras?.includes("data-layers")) map.addControl(new DataLayerControl(editor), "top-right");
   if (right) map.addControl(new EditorToolbar(editor, { ...toolbar, tools: right }), "top-right");
 
   let message = "";
   const extras = new Set(config.extras ?? []);
+  const initialShortcuts = editor.getKeyboardShortcuts();
+  const initialDataLayers = editor.getDataLayers();
+  const initialActiveLayer = editor.getActiveDataLayer();
+  const initialLayerScope = editor.getState().dataLayerSelectionScope;
+  let renderShortcuts = () => {};
   const log = extras.has("events") ? element("ol", "demo-log") : null;
   const output = extras.has("geojson") ? element("pre", "geojson-output") : null;
   function restore() {
     editor.cancel();
+    if (extras.has("shortcuts")) editor.setKeyboardShortcuts(initialShortcuts);
     editor.setLockedFeatureIds([]);
     const ids = editor.exportGeoJSON().features.map((feature) => feature.id!);
+    if (ids.length && extras.has("data-layers")) editor.setDataLayers(editor.getDataLayers().map(layer => ({ ...layer, visible: true, editable: true, locked: false })));
     if (ids.length) editor.applyTransaction({ delete: ids });
     if (config.features.length)
       editor.importGeoJSON({ type: "FeatureCollection", features: config.features });
+    if (extras.has("data-layers")) { editor.setDataLayers(initialDataLayers); editor.setActiveDataLayer(initialActiveLayer); editor.setDataLayerSelectionScope(initialLayerScope); }
     if (config.locked) editor.setLockedFeatureIds(config.locked);
     editor.selectMany(config.select ?? []);
     editor.clearHistory();
@@ -195,7 +210,8 @@ export async function mountDemo(container: HTMLElement): Promise<void> {
     container.dataset.mode = state.mode;
     container.dataset.featureCount = String(state.featureCount);
     if (output) output.textContent = JSON.stringify(editor.exportGeoJSON(), null, 2);
-    for (const button of container.querySelectorAll<HTMLButtonElement>(".demo-panel button"))
+    renderShortcuts();
+    for (const button of container.querySelectorAll<HTMLButtonElement>(".demo-panel:not(.demo-shortcuts) button"))
       button.disabled = state.mode !== "idle" || button.dataset.requires?.split(" ").some((id) => !editor.getFeature(id)) === true;
   }
   editor.onChange((state) => {
@@ -214,6 +230,33 @@ export async function mountDemo(container: HTMLElement): Promise<void> {
     });
 
   const caption = container.querySelector(".demo-caption")!;
+  if (extras.has("shortcuts")) {
+    const panel = element("div", "demo-panel demo-shortcuts");
+    const label = element("label", "", "Shortcut preset ");
+    const select = element("select", "");
+    for (const [value, text] of [["standard", "Standard: P / Enter / Escape"], ["alternative", "Alternative: G / Ctrl+Enter / C"], ["off", "Shortcuts off"]]) {
+      const option = element("option", "", text); option.value = value!; select.append(option);
+    }
+    label.append(select);
+    const alternate: KeyboardShortcuts = {
+      polygon: [{ key: "g" }], finish: [{ key: "Enter", modifiers: ["Control"] }], cancel: [{ key: "c" }], delete: [{ key: "x" }],
+    };
+    select.addEventListener("change", () => {
+      editor.setKeyboardShortcuts(select.value === "off" ? false : { ...initialShortcuts, ...(select.value === "alternative" ? alternate : {}) });
+    });
+    const focus = element("button", "button small", "Focus map"); focus.type = "button";
+    focus.addEventListener("click", () => { map.getCanvas().focus({ preventScroll: true }); });
+    const inputLabel = element("label", "", "Try typing here ");
+    const input = element("input", ""); input.type = "text"; input.placeholder = "Shortcuts leave text fields alone"; inputLabel.append(input);
+    const reference = element("p", "demo-shortcut-reference"); reference.setAttribute("role", "status");
+    renderShortcuts = () => {
+      const bindings = editor.getKeyboardShortcuts();
+      select.value = bindings.polygon.length === 0 ? "off" : bindings.polygon[0]?.key === "g" ? "alternative" : "standard";
+      reference.textContent = (["polygon", "line", "edit", "finish", "cancel", "delete", "undo", "redo"] as const)
+        .map(action => `${action}: ${editor.getKeyboardShortcutLabel(action) || "off"}`).join(" · ");
+    };
+    panel.append(label, focus, inputLabel, reference); caption.after(panel);
+  }
   if (extras.has("transaction")) {
     const panel = element("div", "demo-panel");
     const run = element("button", "button small", "Rename the lawn and remove the kiosk");

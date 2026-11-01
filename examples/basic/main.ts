@@ -3,7 +3,7 @@ import { WorkflowControls } from './workflow-controls.js';
 import { bindExampleControls } from './example-controls.js';
 import { Map, LngLatBounds, NavigationControl, setWorkerUrl } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-import { GeometryEditor, type DrawGeometryType, type GeometryFeature, type Coordinate, type ReshapeError, type SplitError, type ValidationError } from '@jorisvdmije/map-master';
+import { EditorToolbar, GeometryEditor, type DrawGeometryType, type GeometryFeature, type Coordinate, type ReshapeError, type SplitError, type ValidationError } from '@jorisvdmije/map-master';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
 import { bindAppearanceControl } from '../workspace/appearance.js';
@@ -168,6 +168,7 @@ map.on('error', () => {
 map.on('load', () => {
   editor = new GeometryEditor(map, { snapping: { enabled: true } });
   const activeEditor = editor;
+  map.addControl(new EditorToolbar(activeEditor, { tools: ['text', 'lasso', 'guides', 'pin', 'unpin'], labels: { toolbar: 'Selection tools' } }), 'top-right');
   const workflow = new WorkflowControls(activeEditor);
   const removeExampleControls = bindExampleControls(activeEditor, map);
   const removeStylingControls = bindStylingControls(activeEditor, map, element('feature-styling'));
@@ -299,7 +300,7 @@ map.on('load', () => {
     }
     element('editing-tools').hidden = !editing;
     element('finish-label').textContent = offsetting ? 'Apply offset' : buffering ? 'Apply buffer' : simplifying ? 'Apply simplification' : scaling ? 'Apply scale' : rotating ? 'Apply rotation' : shared ? 'Save both polygons' : reshaping ? 'Apply reshape' : intersecting ? 'Apply intersection' : subtracting ? 'Apply subtraction' : merging ? 'Apply merge' : splitting ? 'Apply split' : editing ? 'Save' : 'Finish';
-    element('drawing-instructions').hidden = offsetting || buffering || simplifying || scaling || rotating || editing || reshaping || splitting || merging || subtracting || intersecting || state.mode === 'draw-hole';
+    element('drawing-instructions').hidden = offsetting || buffering || simplifying || scaling || rotating || editing || reshaping || splitting || merging || subtracting || intersecting || state.mode === 'draw-hole' || state.mode === 'select-lasso';
     removeVertex.disabled = !editing || state.selectedVertexIndices.length === 0
       || state.vertexCount - state.selectedVertexIndices.length < (state.mode === 'edit-polygon' ? 3 : 2)
       || shared && state.selectedVertexIndices.some(index => index === 0 || index === state.vertexCount - 1);
@@ -349,6 +350,11 @@ map.on('load', () => {
         : selectedFeature ? 'Drag to move; the marked corner snaps. Press Shift during dragging to lock an axis, Alt to bypass snapping. Escape cancels.'
         : state.featureCount > 0 ? 'Click a shape to select it, or draw another.' : 'Ready when you are.';
     if (state.mode === 'draw-point') status.textContent = 'Click once to place a marker. Escape cancels.';
+    if (state.mode === 'select-lasso') {
+      status.classList.toggle('is-invalid', error !== null);
+      status.textContent = error ? 'Draw a loop with at least three corners, without crossing its own path.'
+        : 'Press and drag to outline a loop, then release to select. Choose the selection action and match rule beside the lasso button. Escape cancels.';
+    }
     if (state.mode === 'edit-point') element('editing-help').textContent = 'Drag the point with mouse, touch or pen, then Save. Keyboard: Home focuses the point; arrows move it. Cancel restores its position.';
     if (state.mode === 'draw-hole' && !invalid) status.textContent = `${state.vertexCount} corners. Draw inside the polygon; Enter saves the hole, Escape cancels.`;
     if (offsetting) {
@@ -392,6 +398,9 @@ map.on('load', () => {
       status.textContent = state.sharedBoundaryError === 'shared-boundary-overlap' ? 'The polygons would overlap. Move the shared boundary back inside their outer outline.'
         : state.sharedBoundaryError ? 'Both polygons must remain valid. Correct the shared boundary or Cancel.'
         : 'Add or drag points on the common boundary. Endpoints stay fixed. Save applies both polygons; Undo restores both.';
+    }
+    if (state.pinningError) {
+      status.classList.add('is-invalid'); status.textContent = 'A linked feature is locked or would become invalid. Correct the vertex or Cancel.';
     }
     cutFeedback.hidden = !splitting && !reshaping;
     if (splitting || reshaping) {

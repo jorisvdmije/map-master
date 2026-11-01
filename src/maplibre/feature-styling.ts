@@ -1,11 +1,16 @@
-import type { ExpressionSpecification, GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
+import { geoJSONSource } from '../gl/map.js';
+import type * as GeoJSON from 'geojson';
+import type { ExpressionSpecification, EditorMap as MapLibreMap } from '../gl/map.js';
 import type { EditorAppearance, ShapeAppearance, PointAppearance } from '../core/appearance.js';
 import { resolveStyling, validateFeatureStyle, validatePalette, type EditorStylingOptions, type FeatureStyle, type StylingIssue } from '../core/feature-styling.js';
 import { overlapRegions, type OverlapRegion } from '../core/overlap-regions.js';
 import type { FeatureId, GeometryFeatureCollection } from '../core/types.js';
+import { geometryParts } from '../core/geometry.js';
+import { featureDataLayerId, type DataLayer } from '../core/data-layers.js';
 
 export const styleProperty = '__geo_editor_style';
 export const renderIdProperty = '__geo_editor_id';
+export const dataLayerProperty = '__geo_editor_data_layer';
 const selected: ExpressionSpecification = ['boolean', ['feature-state', 'selected'], false];
 
 /** A power-of-two, seamless tile; pixelRatio preserves the requested band width. */
@@ -32,6 +37,7 @@ export class FeatureStyling {
   issues: StylingIssue[] = [];
   private collection: GeometryFeatureCollection = { type: 'FeatureCollection', features: [] };
   private styles = new Map<FeatureId, FeatureStyle>();
+  private layerStyles = new Map<string, FeatureStyle>();
   private selected = new Set<FeatureId>();
   private geometryKey = '';
   private regions: OverlapRegion[] = [];
@@ -53,13 +59,17 @@ export class FeatureStyling {
   paint(group: 'shape' | 'marker', key: keyof ShapeAppearance | keyof PointAppearance, appearance: EditorAppearance): ExpressionSpecification {
     const base = appearance[group === 'shape' ? 'feature' : 'marker'] as unknown as Record<string, string | number>;
     const selection = appearance[group === 'shape' ? 'selected' : 'selectedMarker'] as unknown as Record<string, string | number>;
-    const value = this.options.feature
+    const value = this.options.feature || this.layerStyles.size
       ? ['coalesce', ['get', `${styleProperty}_${group}_${key}`], base[key]!] : base[key]!;
     const overrides = this.options.selected?.[group] as Record<string, string | number> | undefined;
     const selectedValue = this.options.selected === undefined ? selection[key]! : overrides?.[key] ?? value;
     return ['case', selected, selectedValue, value] as ExpressionSpecification;
   }
   get sortKey(): ExpressionSpecification { return ['coalesce', ['get', `${styleProperty}_sortKey`], 0]; }
+
+  setDataLayers(layers: readonly DataLayer[]): void {
+    this.layerStyles = new Map(layers.filter(layer => Object.keys(layer.style).length > 0).map(layer => [layer.id, layer.style]));
+  }
 
   properties(id: FeatureId): Record<string, string | number> {
     const style = this.styles.get(id);
@@ -70,11 +80,16 @@ export class FeatureStyling {
 
   prepare(collection: GeometryFeatureCollection, appearance: EditorAppearance): void {
     this.collection = collection; this.issues = []; this.styles.clear();
-    if (this.options.feature) for (const feature of collection.features) {
+    if (this.options.feature || this.layerStyles.size) for (const feature of collection.features) {
+      const base = this.layerStyles.get(featureDataLayerId(feature));
+      if (base) this.styles.set(feature.id, base);
       try {
         // Host callbacks may mutate their input; never expose retained render/core data.
-        const result = this.options.feature(structuredClone(feature));
-        if (result != null) this.styles.set(feature.id, validateFeatureStyle(result));
+        const result = this.options.feature?.(structuredClone(feature));
+        if (result != null) {
+          const style = validateFeatureStyle(result);
+          this.styles.set(feature.id, { ...base, ...style, ...(base?.shape || style.shape ? { shape: { ...base?.shape, ...style.shape } } : {}), ...(base?.marker || style.marker ? { marker: { ...base?.marker, ...style.marker } } : {}) });
+        }
       } catch (error) { this.issues.push({ kind: 'feature', featureId: feature.id, message: String(error) }); }
     }
     this.prepareAreas(appearance);
@@ -91,10 +106,20 @@ export class FeatureStyling {
     if (!overlap?.enabled) return;
     try {
       const polygons = this.collection.features.filter(feature => feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon');
-      const key = JSON.stringify(polygons.map(feature => [feature.id, feature.geometry]));
+      const key = JSON.stringify(polygons.map(feature => [feature.id, feature.geometry, featureDataLayerId(feature)]));
       if (key !== this.geometryKey) {
         this.geometryKey = key; this.regions = []; this.geometryError = undefined;
-        try { this.regions = overlapRegions(polygons); } catch (error) { this.geometryError = String(error); }
+        try {
+          if (polygons.length > 1000) throw new RangeError('Overlap styling supports at most 1,000 polygons.');
+          const vertices = polygons.reduce((total, feature) => total + geometryParts(feature.geometry).reduce((sum, part) => sum + (part.type === 'Polygon' ? part.coordinates.reduce((count, ring) => count + ring.length, 0) : 0), 0), 0);
+          if (vertices > 20000) throw new RangeError('Overlap styling supports at most 20,000 input vertices.');
+          const groups = new Map<string, typeof polygons>();
+          for (const feature of polygons) {
+            const id = featureDataLayerId(feature); if (!groups.has(id)) groups.set(id, []); groups.get(id)!.push(feature);
+          }
+          this.regions = [...groups.values()].flatMap(group => overlapRegions(group));
+          if (this.regions.length > 4096) throw new RangeError('Overlap styling region budget exceeded.');
+        } catch (error) { this.geometryError = String(error); }
       }
       if (this.geometryError) throw new Error(this.geometryError);
       const features = new Map(polygons.map(feature => [feature.id, feature]));
@@ -102,7 +127,7 @@ export class FeatureStyling {
       const paletteCache = new Map<string, string>();
       for (const region of this.regions) {
         const id = region.members[0]!;
-        const properties: Record<string, unknown> = { [renderIdProperty]: JSON.stringify(id), ...this.properties(id), kind: 'single' };
+        const properties: Record<string, unknown> = { [renderIdProperty]: JSON.stringify(id), [dataLayerProperty]: featureDataLayerId(features.get(id)!), ...this.properties(id), kind: 'single' };
         if (region.members.length > 1) {
           const memberKey = JSON.stringify(region.members);
           let imageId = paletteCache.get(memberKey);
@@ -142,7 +167,7 @@ export class FeatureStyling {
       this.images.set(id, data.data.byteLength);
     }
     this.pendingImages.clear();
-    void this.map.getSource<GeoJSONSource>(this.sourceId)!.setData(this.cells);
+    void geoJSONSource(this.map, this.sourceId)!.setData(this.cells);
   }
 
   setSelection(ids: ReadonlySet<FeatureId>, force = false): void {

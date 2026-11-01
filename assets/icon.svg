@@ -1,4 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#dc2626"/>
-  <text x="32" y="32" dy="0.35em" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="32" font-weight="600" fill="#ffffff">G</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" color="#17684F" role="img" aria-labelledby="title">
+  <title id="title">Map Master</title>
+  <path d="M12 50V15L32 34L52 15V50Z" fill="currentColor" fill-opacity=".13"/>
+  <path d="M12 50V15L32 34L52 15V50Z" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/>
+  <g fill="currentColor">
+    <rect x="7.5" y="10.5" width="9" height="9" rx="1.5"/>
+    <rect x="47.5" y="10.5" width="9" height="9" rx="1.5"/>
+    <circle cx="32" cy="34" r="4.2"/>
+    <rect x="7.5" y="45.5" width="9" height="9" rx="1.5"/>
+    <rect x="47.5" y="45.5" width="9" height="9" rx="1.5"/>
+  </g>
 </svg>

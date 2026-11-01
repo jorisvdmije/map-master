@@ -1,17 +1,29 @@
+import { DataLayerError, DataLayerStore, type DataLayer, type DataLayerDefinition, type DataLayerSelectionScope, type DataLayerIssue, type DataLayerExportOptions, type DataLayerImportOptions } from '../core/data-layers.js';
+import { GeofencingError, type GeofencingOptions, type GeofencingViolation } from '../core/geofencing.js';
+import { MapLibreGeofencing } from './geofencing.js';
+import { alignmentGuidesOptions, type AlignmentGuidesOptions, type AlignmentResult, type AlignmentPath } from '../core/alignment-guides.js';
+import { MapLibreAlignmentGuides } from './alignment-guides.js';
+import { VertexPinError, type VertexAddress, type PinVerticesOptions, type PinnedVertexGroup } from '../core/vertex-pins.js';
+import type { ShapeTemplate, TemplatePlacement, TemplateDraft } from '../core/shape-templates.js';
+import type { TextMarkerOptions } from '../core/text-marker.js';
+import { lassoOptions, lassoMatcher, prepareLasso } from '../core/lasso.js';
+import { mapGeometry } from '../core/geometry.js';
+import { LassoInteraction } from './lasso-interaction.js';
 import { VertexKeyboard } from './vertex-keyboard.js';
 import { resolveStyling, type EditorStylingOptions, type StylingIssue } from '../core/feature-styling.js';
 import { lockedFeatureIds, sameLocks } from '../core/feature-locks.js';
 import { constrainDrawingPoint, drawingConstraintsOptions } from '../core/drawing-constraints.js';
 import { copyAppearance, resolveAppearance, type EditorAppearance, type EditorAppearanceOptions } from '../core/appearance.js';
-import type { FitBoundsOptions, Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
+import type { FitBoundsOptions, EditorMap as MapLibreMap, MapMouseEvent } from '../gl/map.js';
 import type { DrawShape } from '../core/shapes.js';
 import { circleRadius } from '../core/shapes.js';
 import { formatArea, formatDistance, measure, measurementOptions, pathLength, ringArea, ringPerimeter } from '../core/measurement.js';
 import { geometryParts } from '../core/geometry.js';
+import { insideRing } from '../core/polygon.js';
 import { MeasurementOverlay, type MeasurementLabel } from './measurement-overlay.js';
 import { FreehandInteraction } from './freehand-interaction.js';
 import { DrawingSession } from '../core/drawing-session.js';
-import type { Coordinate, CutFeedback, VertexUpdate, DrawingConstraintsOptions, SharedBoundaryPreview, TraceTarget, TraceSide, TracingOptions, ReshapePreview, ReshapeSide, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorMode, EditorOptions, MeasurementOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, DataChangeEvent, DataChangeSource, FeatureChange } from '../core/types.js';
+import type { Coordinate, CutFeedback, VertexUpdate, LassoOptions, DrawingConstraintsOptions, SharedBoundaryPreview, TraceTarget, TraceSide, TracingOptions, ReshapePreview, ReshapeSide, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorMode, EditorOptions, MeasurementOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, DataChangeEvent, DataChangeSource, FeatureChange } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
 import { BoundarySnapping } from './boundary-snapping.js';
 import { MapLibreSnapping } from './snapping.js';
@@ -26,10 +38,15 @@ import { DistanceInteraction } from './distance-interaction.js';
 import { PivotInteraction } from './pivot-interaction.js';
 import { EditorEvents } from './editor-events.js';
 import { KeyboardInteraction } from './keyboard-interaction.js';
+import { ShortcutBindings } from './shortcut-bindings.js';
+import { toolAvailable, runTool } from './editor-tools.js';
+import type { KeyboardAction, KeyboardShortcuts, ResolvedKeyboardShortcuts } from '../core/keyboard-shortcuts.js';
 import { GeoJSONImportError } from '../core/geojson-import.js';
 
 const editors = new WeakSet<MapLibreMap>();
 let instances = 0;
+
+function isArray(value: unknown): boolean { return Array.isArray(value); }
 
 function idGenerator(createId: unknown): () => FeatureId {
   if (typeof createId !== 'function') throw new TypeError('createId must be a function.');
@@ -83,7 +100,7 @@ function labelPoint(geometry: GeometryFeature['geometry']): Coordinate {
 }
 
 /**
- * Interactive geometry editor for one MapLibre map.
+ * Interactive geometry editor for one MapLibre or Mapbox GL JS map.
  *
  * The editor owns drawing, selection, vertex editing, validation, undo/redo and its
  * own map layers. The application owns the map, its controls and persistence.
@@ -106,21 +123,27 @@ export class GeometryEditor {
   private traceCache: { key: string; path: Coordinate[] | null } | null = null;
   private readonly boundarySnapping: BoundarySnapping;
   private readonly snapping: MapLibreSnapping;
+  private readonly alignment: MapLibreAlignmentGuides;
+  private alignmentEditIndices: readonly number[] | null = null;
   private snap: SnapResult | null = null;
   private pointer: ScreenPoint | undefined;
   private altPressed = false;
   private readonly events: EditorEvents;
   private readonly keyboard: KeyboardInteraction;
+  private readonly shortcuts: ShortcutBindings;
   private readonly session: DrawingSession;
   private readonly renderer: MapLibreRenderer;
   private readonly vertices: VertexInteraction;
   private readonly vertexKeyboard: VertexKeyboard;
   private readonly selection: SelectionInteraction;
+  private readonly lassoInteraction: LassoInteraction;
   private readonly freehand: FreehandInteraction;
   private freehandPath: Coordinate[] = [];
   private measurements: MeasurementOptions;
   private readonly measurementOverlay: MeasurementOverlay;
   private readonly translation: TranslationInteraction;
+  private readonly geofencing: MapLibreGeofencing;
+  private transientGeofencing: GeofencingViolation[] = [];
   private readonly rotation: RotationInteraction;
   private readonly scaling: ScalingInteraction;
   private readonly distance: DistanceInteraction;
@@ -152,16 +175,21 @@ export class GeometryEditor {
     }
     const createId = options.createId === undefined ? () => view.crypto.randomUUID() : idGenerator(options.createId);
     this.view = view;
+    this.shortcuts = new ShortcutBindings(options.keyboardShortcuts, view.navigator);
     this.measurements = measurementOptions(options.measurements);
     this.appearance = resolveAppearance(options.appearance);
     const styling = resolveStyling(options.styling);
+    const alignment = alignmentGuidesOptions(options.alignmentGuides);
     this.drawingConstraints = drawingConstraintsOptions(options.drawingConstraints);
     this.tracing = this.tracingOptions(options.tracing ?? {});
     this.events = new EditorEvents((error) => { view.queueMicrotask(() => { throw error; }); });
-    this.session = new DrawingSession(createId, options.historyLimit, options.lockedFeatureIds);
+    this.session = new DrawingSession(createId, options.historyLimit, options.lockedFeatureIds, options.shapeTemplates, options.geofencing, options.dataLayers);
     this.boundarySnapping = new BoundarySnapping(map);
     this.snapping = new MapLibreSnapping(map, options.snapping);
+    this.alignment = new MapLibreAlignmentGuides(map, alignment);
+    this.geofencing = new MapLibreGeofencing(map, this.session.getGeofencing());
     this.renderer = new MapLibreRenderer(map, `geo-editor-${uuid ? view.crypto.randomUUID() : ++instances}`, this.appearance, styling);
+    this.renderer.setDataLayers(this.session.getDataLayers());
     this.renderer.mount();
     this.measurementOverlay = new MeasurementOverlay(map);
     this.freehand = new FreehandInteraction(map, {
@@ -187,18 +215,32 @@ export class GeometryEditor {
         if (!this.destroyed) this.schedulePreview();
         return resolved.coordinate;
       },
+      beginGuides: indices => { this.beginAlignmentEdit(indices); },
+      endGuides: () => { this.alignmentEditIndices = null; this.alignment.endEdit(); },
       clearSnap: () => {
+        this.alignment.clear();
         this.setSnap(null);
         if (!this.destroyed) this.schedulePreview();
       },
-    });
+    }, this.shortcuts);
+    this.lassoInteraction = new LassoInteraction(map, {
+      enabled: () => !this.destroyed && this.session.state.mode === 'select-lasso',
+      finish: (points) => {
+        const result = prepareLasso(points);
+        if (result.error) {
+          this.session.setLassoError(result.error); this.emitChange(); return;
+        }
+        this.selectByLasso(points.map(([x, y]) => ({ x, y })));
+      },
+      cancel: () => { this.cancel(); },
+    }, this.shortcuts);
     this.selection = new SelectionInteraction(map, {
       enabled: () => !this.destroyed && (this.session.state.mode === 'idle' || this.session.state.mode.startsWith('edit-')),
       toggle: (point) => {
         // VertexInteraction already handles Shift+click on an editable corner.
         if (this.session.state.mode !== 'idle') return;
-        const id = this.renderer.pick(point);
-        if (id !== null && this.session.hasFeature(id)) this.toggleSelection(id);
+        const id = this.pickSelectableFeature(point);
+        if (id !== undefined && id !== null && this.session.hasFeature(id)) this.toggleSelection(id);
       },
       addBox: (start, end) => {
         const state = this.session.state;
@@ -207,11 +249,21 @@ export class GeometryEditor {
           this.selectVertices([...state.selectedVertexIndices, ...indices]);
           return;
         }
-        const ids = this.renderer.pickBox(start, end).filter((id) => this.session.hasFeature(id));
+        const ids = this.renderer.pickBox(start, end).filter((id) => this.session.canSelectFeature(id));
         this.selectMany([...this.session.state.selectedFeatureIds, ...ids]);
       },
-    });
+    }, this.shortcuts);
     this.translation = new TranslationInteraction(map, {
+      translate: (originals, delta) => {
+        try {
+          const preview = this.session.previewTranslation(delta, originals);
+          if (this.transientGeofencing.length) { this.transientGeofencing = []; this.emitChange(); }
+          return preview;
+        } catch (error) {
+          if (error instanceof GeofencingError) { this.transientGeofencing = error.violations; this.emitChange(); }
+          throw error;
+        }
+      },
       targets: (point) => {
         const state = this.session.state;
         if (this.destroyed || this.renderer.transferringTranslation || state.mode !== 'idle' || state.selectedFeatureIds.length === 0 || state.selectedFeatureIds.some((id) => this.session.isFeatureLocked(id))) return null;
@@ -222,14 +274,16 @@ export class GeometryEditor {
         const features = this.session.getSelection();
         return { features, grabbed: features.find(feature => feature.id === id)! };
       },
-      resolve: (point, excluded) => this.snapping.resolve(point, this.session.state.dataRevision, () => this.session.exportGeoJSON(), excluded, true),
+      resolve: (point, excluded) => this.snapping.resolve(point, this.session.getReferenceRevision(), () => this.session.getSnappingGeoJSON(), new Set(this.session.getLinkedFeatureIds([...excluded])), true),
+      align: (point, excluded) => this.alignment.resolve(point, this.session.getReferenceRevision(), () => this.session.getSnappingGeoJSON(), new Set(this.session.getLinkedFeatureIds([...excluded])), this.appearance)?.coordinate ?? null,
+      clearAlignment: () => { this.alignment.clear(); },
       snap: result => { if (!this.destroyed) this.setSnap(result); },
       appearance: () => this.appearance,
       preview: (features) => {
         this.renderer.renderEditingMany(features.map((feature) => feature.id));
         this.renderer.renderTranslation(features);
       },
-      clear: () => { this.renderer.renderEditing(null); this.renderer.clearPreview(); },
+      clear: () => { this.renderer.renderEditing(null); this.renderer.clearPreview(); if (this.transientGeofencing.length) { this.transientGeofencing = []; this.emitChange(); } },
       commit: (delta) => {
         try {
           const event = this.session.translateSelection(delta);
@@ -242,28 +296,28 @@ export class GeometryEditor {
           // Final topology validation can reject a numerically degenerate result.
           // Restore the original after a rejected commit; preserve data and history.
           this.renderer.renderEditing(null); this.renderer.clearPreview();
-          if (!(error instanceof GeoJSONImportError || error instanceof RangeError)) throw error;
+          if (!(error instanceof GeoJSONImportError || error instanceof RangeError || error instanceof VertexPinError || error instanceof GeofencingError || error instanceof DataLayerError)) throw error;
         }
       },
-    });
+    }, this.shortcuts);
     this.rotation = new RotationInteraction(map, {
       state: () => this.session.state,
       angle: (degrees) => { this.pivot.stop(); this.draftChanged(this.session.setRotationAngle(degrees)); },
       finish: () => { this.finishRotation(); },
       cancel: () => { this.cancel(); },
-    });
+    }, this.shortcuts);
     this.scaling = new ScalingInteraction(map, {
       state: () => this.session.state,
       factors: (x, y) => { this.pivot.stop(); this.draftChanged(this.session.setScaleFactors(x, y)); },
       finish: () => { this.finishScale(); },
       cancel: () => { this.cancel(); },
-    });
+    }, this.shortcuts);
     this.distance = new DistanceInteraction(map, {
       state: () => this.session.state,
       distance: (kind, meters) => { this.draftChanged(kind === 'buffer' ? this.session.setBufferDistance(meters) : this.session.setOffsetDistance(meters)); },
       finish: kind => { if (kind === 'buffer') this.finishBuffer(); else this.finishOffset(); },
       cancel: () => { this.cancel(); },
-    });
+    }, this.shortcuts);
     this.pivot = new PivotInteraction(map, {
       state: () => this.session.state,
       snapping: () => this.snapping.getOptions(),
@@ -271,7 +325,7 @@ export class GeometryEditor {
       pivot: (kind, coordinate) => { this.draftChanged(kind === 'rotation' ? this.session.setRotationPivot(coordinate) : this.session.setScalePivot(coordinate)); },
       finish: kind => { if (kind === 'rotation') this.finishRotation(); else this.finishScale(); },
       cancel: () => { this.cancel(); },
-    });
+    }, this.shortcuts);
     this.vertexKeyboard = new VertexKeyboard(map, {
       state: () => this.session.state, draft: () => this.session.getDraft(),
       start: () => { this.selection.cancel(); this.vertices.stop(true); this.setSnap(null); },
@@ -279,7 +333,7 @@ export class GeometryEditor {
       move: updates => { this.draftChanged(this.session.moveVertices(updates)); },
       remove: () => { const changed = this.session.removeSelectedVertices(); this.draftChanged(changed); return changed; },
       finish: () => { this.finish(); }, cancel: () => { this.cancel(); },
-    });
+    }, this.shortcuts);
     editors.add(map);
     map.on('click', this.handleClick);
     map.on('mousemove', this.handleMove);
@@ -306,12 +360,21 @@ export class GeometryEditor {
         const to = this.map.unproject([canvas.clientWidth / 2 + x, canvas.clientHeight / 2 + y]);
         try { return this.translateSelection([to.lng - from.lng, to.lat - from.lat]) !== null; }
         catch (error) {
+          if (error instanceof GeofencingError) { this.transientGeofencing = error.violations; this.emitChange(); return true; }
           // Moving past the world's edge is rejected like a dragged move.
-          if (error instanceof GeoJSONImportError || error instanceof RangeError) return true;
+          if (error instanceof GeoJSONImportError || error instanceof RangeError || error instanceof VertexPinError || error instanceof GeofencingError || error instanceof DataLayerError) return true;
           throw error;
         }
       },
-    });
+      tool: action => {
+        const state = this.session.state;
+        if (state.mode !== 'idle' || !toolAvailable(this, action, state)) return false;
+        const from = this.map.unproject([this.canvas.clientWidth / 2, this.canvas.clientHeight / 2]);
+        const to = this.map.unproject([this.canvas.clientWidth / 2 + 24, this.canvas.clientHeight / 2 + 24]);
+        runTool(this, action, [to.lng - from.lng, to.lat - from.lat]);
+        return true;
+      },
+    }, this.shortcuts);
     this.view.addEventListener('keydown', this.handleSnapModifier);
     this.view.addEventListener('keyup', this.handleSnapModifier);
     this.view.addEventListener('blur', this.handleSnapBlur);
@@ -321,8 +384,26 @@ export class GeometryEditor {
 
   /** A fresh snapshot of the active mode, selection, history availability and tool state. */
   getState(): EditorState {
-    return this.session.state;
+    const state = this.session.state;
+    return this.transientGeofencing.length ? { ...state, geofencingViolations: structuredClone(this.transientGeofencing) } : state;
   }
+
+  /** Independent copy of every binding, with [] for disabled actions. */
+  getKeyboardShortcuts(): ResolvedKeyboardShortcuts { return this.shortcuts.get(); }
+
+  /** Replace only the supplied actions. Validates the whole table before changing it. */
+  setKeyboardShortcuts(update: KeyboardShortcuts | false): void {
+    this.assertAlive();
+    this.shortcuts.set(update);
+    this.schedulePreview();
+    this.emitChange();
+  }
+
+  /** Current shortcut text for a reference or tooltip; empty when disabled. */
+  getKeyboardShortcutLabel(action: KeyboardAction): string { return this.shortcuts.label(action); }
+
+  /** Current platform-resolved value suitable for aria-keyshortcuts. */
+  getKeyboardShortcutAria(action: KeyboardAction): string { return this.shortcuts.aria(action); }
 
   /** IDs the host has made read-only; see {@link GeometryEditor.setLockedFeatureIds}. */
   getLockedFeatureIds(): FeatureId[] { return this.session.getLockedFeatureIds(); }
@@ -365,6 +446,7 @@ export class GeometryEditor {
     if (JSON.stringify(next) === JSON.stringify(this.appearance)) return;
     this.appearance = next;
     this.renderer.setAppearance(next);
+    this.alignment.render(next);
     this.translation.refresh();
     if (['rotate-features', 'scale-features', 'buffer-features', 'offset-lines'].includes(this.session.state.mode)) this.schedulePreview();
     this.emitChange();
@@ -477,6 +559,35 @@ export class GeometryEditor {
     this.schedulePreview(); this.emitChange();
   }
 
+  /** Current screen-space guide settings; independent of ordinary snapping. */
+  getAlignmentGuides(): AlignmentGuidesOptions { return this.alignment.getOptions(); }
+
+  /** Update guides without changing data, selection or history. */
+  setAlignmentGuides(options: Partial<AlignmentGuidesOptions>): void {
+    this.assertAlive();
+    if (!this.alignment.setOptions(options)) return;
+    if (this.alignmentEditIndices !== null) this.beginAlignmentEdit(this.alignmentEditIndices);
+    this.vertices.refresh(); this.translation.refresh(); this.schedulePreview(); this.emitChange();
+  }
+
+  /** Independent pointer acquisition snapshot; null when no guide is active. */
+  getAlignment(): AlignmentResult | null { return this.alignment.getResult(); }
+
+  private beginAlignmentEdit(indices: readonly number[]): void {
+    this.alignmentEditIndices = [...indices];
+    if (!this.alignment.getOptions().enabled) { this.alignment.setLocalPaths([]); return; }
+    const state = this.session.state; const excluded = new Set(indices);
+    const rings = this.session.getDraftRings();
+    const paths: AlignmentPath[] = rings ? rings.map((coordinates, ringIndex) => ({ featureId: null, coordinates, closed: true, ringIndex,
+      ...(ringIndex === state.activeRingIndex ? { excluded } : {}) }))
+      : [{ featureId: null, coordinates: this.session.getDraft(), closed: false, excluded }];
+    for (const part of this.session.getInactiveParts()) {
+      const coordinates = part.type === 'Polygon' ? part.coordinates.map(ring => ring.slice(0, -1)) : part.type === 'Point' ? [[part.coordinates]] : [part.coordinates];
+      for (const path of coordinates) paths.push({ featureId: null, coordinates: path, closed: part.type === 'Polygon' });
+    }
+    this.alignment.setLocalPaths(paths);
+  }
+
   /** The current snapping options. */
   getSnapping(): SnappingOptions { return this.snapping.getOptions(); }
   /**
@@ -543,6 +654,61 @@ export class GeometryEditor {
     this.emitChange();
   }
 
+  /**
+   * Start a freehand lasso. Releasing the pointer selects matching features and
+   * returns to idle. Escape cancels without changing selection, data or history.
+   * Defaults to replacing the selection with intersecting geometries.
+   */
+  lasso(options: Partial<LassoOptions> = {}): boolean {
+    this.assertAlive();
+    const resolved = lassoOptions(options);
+    if (this.session.getLassoOptions()) return false;
+    this.cancelIdleGestures();
+    if (!this.session.startLasso(resolved)) return false;
+    this.lassoInteraction.setEnabled(true);
+    this.enterInteraction();
+    return true;
+  }
+
+  /** Independent options of the active lasso; null outside lasso mode. */
+  getLassoOptions(): LassoOptions | null { return this.session.getLassoOptions(); }
+
+  /** Change an active lasso's operation/match, discarding an unfinished stroke. */
+  setLassoOptions(update: Partial<LassoOptions>): void {
+    this.assertAlive();
+    this.session.setLassoOptions(update);
+    this.lassoInteraction.stop(); this.emitChange();
+  }
+
+  /**
+   * Select committed geometries using a simple polygon of canvas-relative CSS
+   * pixels. Can be called while idle or to complete an active lasso. Returns
+   * matching IDs in collection order; selection changes never enter history.
+   * @throws TypeError for nonfinite positions or an invalid/self-crossing polygon.
+   * @throws RangeError for more than 2048 positions.
+   */
+  selectByLasso(points: readonly { x: number; y: number }[], options: Partial<LassoOptions> = {}): FeatureId[] {
+    this.assertAlive();
+    if (this.session.state.mode !== 'idle' && this.session.state.mode !== 'select-lasso') throw new Error('Finish or cancel the current drawing before selecting with a lasso.');
+    if (!isArray(points) || points.some((point) => !point || !Number.isFinite(point.x) || !Number.isFinite(point.y))) throw new TypeError('Expected finite screen points.');
+    const result = prepareLasso(points.map(({ x, y }): Coordinate => [x, y]));
+    if (result.error) throw new TypeError(`Invalid lasso: ${result.error}.`);
+    const resolved = lassoOptions(options, this.session.getLassoOptions() ?? undefined);
+    const matches = lassoMatcher(result.ring, resolved.match);
+    const ids = this.session.exportGeoJSON().features.filter(feature => this.session.canSelectFeature(feature.id)).filter((feature) => matches(mapGeometry(feature.geometry, (point) => {
+      const { x, y } = this.map.project(point); return [x, y];
+    }))).map((feature) => feature.id);
+    const before = this.session.state;
+    this.cancelIdleGestures();
+    if (before.mode === 'idle') this.session.startLasso(resolved);
+    else this.session.setLassoOptions(resolved);
+    this.session.finishLasso(ids);
+    if (before.mode === 'select-lasso') this.leaveDrawing();
+    this.renderer.renderSelection(this.session.state.selectedFeatureIds);
+    if (before.mode === 'select-lasso' || JSON.stringify(before.selectedFeatureIds) !== JSON.stringify(this.session.state.selectedFeatureIds)) this.emitChange();
+    return ids;
+  }
+
   /** Copies of all selected features, in the order they were selected. */
   getSelection(): GeometryFeature[] { return this.session.getSelection(); }
 
@@ -562,7 +728,7 @@ export class GeometryEditor {
       || point.x < 0 || point.y < 0 || point.x > this.canvas.clientWidth || point.y > this.canvas.clientHeight) return [];
     return this.renderer.pickAll(point).flatMap(id => {
       const feature = this.session.getFeature(id);
-      return feature ? [feature] : [];
+      return feature && this.session.canSelectFeature(id) ? [feature] : [];
     });
   }
 
@@ -1036,6 +1202,41 @@ export class GeometryEditor {
   }
 
   /**
+   * Preview filling a hole in the sole selected unlocked polygon or multipolygon.
+   * Click inside a hole or call {@link GeometryEditor.setHoleToRemove} to choose it.
+   * Finish/Enter commits once; Cancel/Escape leaves the original unchanged.
+   * @returns false when the selection has no holes or the tool is already active.
+   */
+  removeHole(): boolean {
+    this.assertAlive(); this.cancelIdleGestures();
+    if (!this.session.removeHole()) return false;
+    this.enterInteraction(); this.schedulePreview(); return true;
+  }
+
+  /**
+   * Choose an interior ring using its original indices; ring 0 is never removable.
+   * @throws RangeError for invalid ring/part indices, preserving the previous preview.
+   */
+  setHoleToRemove(ringIndex: number, partIndex = 0): boolean {
+    this.assertAlive();
+    const changed = this.session.setHoleToRemove(ringIndex, partIndex);
+    this.draftChanged(changed);
+    return changed;
+  }
+
+  /** Independent filled feature, or null outside a valid hole-removal preview. */
+  getHoleRemovalPreview(): GeometryFeature | null { return this.session.getHoleRemovalPreview(); }
+
+  /** Commit a valid hole removal as one transaction and one undo step. */
+  finishHoleRemoval(): TransactionEvent | null {
+    this.assertAlive();
+    const event = this.session.finishHoleRemoval();
+    if (!event) return null;
+    this.leaveDrawing();
+    return this.publishTransaction(event);
+  }
+
+  /**
    * Draw a new part for the selected line or polygon. Finishing turns the feature into a
    * MultiLineString or MultiPolygon; the new polygon part may not overlap the others.
    * @returns false if the selection is not exactly one unlocked line or polygon.
@@ -1124,7 +1325,7 @@ export class GeometryEditor {
     const selected = this.session.state.selectedFeatureIds;
     const targets = ids ?? (selected.length ? selected : null);
     const features = targets ? targets.map((id) => this.session.getFeature(id)).filter((feature): feature is GeometryFeature => feature !== null)
-      : this.session.exportGeoJSON().features;
+      : this.session.getVisibleGeoJSON().features;
     const points = features.flatMap((feature) => geometryParts(feature.geometry).flatMap((part) =>
       part.type === 'Point' ? [part.coordinates] : part.type === 'LineString' ? part.coordinates : part.coordinates[0]!));
     if (!points.length) return false;
@@ -1141,6 +1342,120 @@ export class GeometryEditor {
     this.assertAlive(); this.cancelIdleGestures();
     return this.publishTransaction(this.session.deleteHole(ringIndex, partIndex));
   }
+
+  /** Independent resolved definitions in bottom-to-top order. */
+  getDataLayers(): DataLayer[] { return this.session.getDataLayers(); }
+  getActiveDataLayer(): string | null { return this.session.getActiveDataLayer(); }
+  getFeatureDataLayer(id: FeatureId): string | null { return this.session.getFeatureDataLayer(id); }
+  canDrawInDataLayer(): boolean { return this.session.canDrawInDataLayer(); }
+  canDuplicateSelection(): boolean { return this.session.canDuplicateSelection(); }
+  canSelectFeature(id: FeatureId): boolean { return this.session.canSelectFeature(id); }
+  getHistoryDataLayerIssues(direction: HistoryEvent['direction']): DataLayerIssue[] { return this.session.getHistoryDataLayerIssues(direction); }
+
+  /** Atomically replace host definitions. A populated layer cannot disappear. */
+  setDataLayers(definitions: readonly DataLayerDefinition[]): void {
+    this.assertAlive(); this.session.validateDataLayers(definitions);
+    const normalized = new DataLayerStore(definitions).snapshot();
+    if (JSON.stringify(normalized) === JSON.stringify(this.session.getDataLayers())) return;
+    this.changeDataLayerPolicy(() => this.session.setDataLayers(normalized));
+  }
+  addDataLayer(definition: DataLayerDefinition): void {
+    if (this.getDataLayers().some(layer => layer.id === definition?.id)) throw new RangeError(`Data layer already exists: ${definition.id}`);
+    this.setDataLayers([...this.getDataLayers(), definition]);
+  }
+  updateDataLayer(id: string, patch: Partial<Omit<DataLayer, 'id'>>): void {
+    const layers = this.getDataLayers();
+    if (!layers.some(layer => layer.id === id)) throw new RangeError(`Unknown data layer: ${id}`);
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch) || Object.hasOwn(patch, 'id')) throw new TypeError('Patch settings without changing the data layer ID.');
+    this.setDataLayers(layers.map(layer => layer.id === id ? { ...layer, ...patch } : layer));
+  }
+  removeDataLayer(id: string): void {
+    if (id === 'default') throw new RangeError('The default data layer cannot be removed.');
+    if (!this.getDataLayers().some(layer => layer.id === id)) throw new RangeError(`Unknown data layer: ${id}`);
+    this.setDataLayers(this.getDataLayers().filter(layer => layer.id !== id));
+  }
+  reorderDataLayers(ids: readonly string[]): void {
+    const layers = this.getDataLayers();
+    if (!isArray(ids) || ids.length !== layers.length || new Set(ids).size !== ids.length) throw new RangeError('Supply every data layer ID once, bottom to top.');
+    this.setDataLayers(ids.map(id => { const layer = layers.find(layer => layer.id === id); if (!layer) throw new RangeError(`Unknown data layer: ${id}`); return layer; }));
+  }
+  setActiveDataLayer(id: string | null): void {
+    this.assertAlive(); if (this.session.state.mode !== 'idle') throw new Error('Finish or cancel before changing the active data layer.');
+    if (id !== null) new DataLayerStore(this.getDataLayers()).assertWritable(id);
+    if (id === this.session.getActiveDataLayer()) return;
+    this.changeDataLayerPolicy(() => this.session.setActiveDataLayer(id));
+  }
+  setDataLayerSelectionScope(scope: DataLayerSelectionScope): void {
+    this.assertAlive(); if (scope !== 'all' && scope !== 'active') throw new TypeError('Selection scope must be all or active.');
+    if (scope === this.session.state.dataLayerSelectionScope) return;
+    this.changeDataLayerPolicy(() => this.session.setDataLayerSelectionScope(scope));
+  }
+  moveFeaturesToDataLayer(ids: readonly FeatureId[], layerId: string): TransactionEvent | null {
+    this.assertAlive(); this.cancelIdleGestures();
+    return this.publishTransaction(this.session.moveFeaturesToDataLayer(ids, layerId));
+  }
+  private changeDataLayerPolicy(change: () => boolean): void {
+    this.cancelIdleGestures(); this.vertices.stop(true); this.rotation.stop(); this.scaling.stop(); this.pivot.stop(); this.distance.stop();
+    const wasDrawing = this.session.state.mode !== 'idle';
+    if (!change()) return;
+    if (wasDrawing && this.session.state.mode === 'idle') this.leaveDrawing();
+    this.snapping.clear(); this.alignment.invalidateCamera();
+    this.renderer.setDataLayers(this.session.getDataLayers());
+    this.renderer.renderCommitted(this.session.getVisibleGeoJSON()); this.renderer.renderSelection(this.session.state.selectedFeatureIds, true);
+    this.schedulePreview(); this.emitChange();
+  }
+
+  /** Independent host configuration; absent groups impose no restriction. */
+  getGeofencing(): GeofencingOptions { return this.session.getGeofencing(); }
+
+  /** Validate policy atomically, retain the current draft, and re-evaluate history. */
+  setGeofencing(update: Partial<GeofencingOptions>): void {
+    this.assertAlive();
+    // Validate before interrupting any gesture.
+    const changed = this.session.setGeofencing(update);
+    if (!changed) return;
+    this.cancelIdleGestures(); this.vertices.stop(true);
+    this.transientGeofencing = [];
+    this.geofencing.update(this.session.getGeofencing());
+    this.schedulePreview(); this.emitChange();
+  }
+
+  /** Audit supplied features against the current policy without changing the document. */
+  checkGeofencing(features: readonly GeometryFeature[]): GeofencingViolation[] { return this.session.checkGeofencing(features); }
+  /** Reasons an Undo/Redo entry is blocked by the current policy. */
+  getHistoryGeofencingViolations(direction: HistoryEvent['direction']): GeofencingViolation[] { return this.session.getHistoryGeofencingViolations(direction); }
+
+  /** Persisted pin groups, including current multipart/ring addresses. Independent snapshot. */
+  getPinnedVertices(): PinnedVertexGroup[] { return this.session.getPinnedVertices(); }
+  canPinSharedVertices(): boolean { return this.session.canPinSharedVertices(); }
+  canUnpinSelection(): boolean { return this.session.canUnpinSelection(); }
+
+  /** Link explicit vertices; tolerance defaults to exact equality in longitude/latitude degrees. */
+  pinVertices(vertices: readonly VertexAddress[], options?: PinVerticesOptions): TransactionEvent | null {
+    this.assertAlive(); this.cancelIdleGestures();
+    return this.publishTransaction(this.session.pinVertices(vertices, options));
+  }
+
+  /** Link all exactly coincident vertices in the selection as one undoable transaction. */
+  pinSharedVertices(): TransactionEvent | null {
+    this.assertAlive(); this.cancelIdleGestures();
+    return this.publishTransaction(this.session.pinSharedVertices());
+  }
+
+  /** Unlink complete groups touched by the supplied addresses, including other participants. */
+  unpinVertices(vertices: readonly VertexAddress[]): TransactionEvent | null {
+    this.assertAlive(); this.cancelIdleGestures();
+    return this.publishTransaction(this.session.unpinVertices(vertices));
+  }
+
+  /** Unlink every group touching the selection, preserving other groups. */
+  unpinSelection(): TransactionEvent | null {
+    this.assertAlive(); this.cancelIdleGestures();
+    return this.publishTransaction(this.session.unpinSelection());
+  }
+
+  /** Full linked edit preview; null if inactive or any participant would become invalid. */
+  getPinnedPreview(): GeometryFeatureCollection | null { return this.session.getPinnedPreview(); }
 
   /** Select one vertex of the edit draft by index, or clear the vertex selection with null. */
   selectVertex(index: number | null): void {
@@ -1212,7 +1527,7 @@ export class GeometryEditor {
     const feature = this.session.deleteSelected();
     if (!feature) return null;
     this.renderer.renderSelection([]);
-    this.renderer.renderCommitted(this.exportGeoJSON());
+    this.renderer.renderCommitted(this.session.getVisibleGeoJSON());
     this.events.emit('delete', () => structuredClone(feature));
     this.emitData('delete', [{ before: feature, after: null }]);
     this.emitChange();
@@ -1265,6 +1580,56 @@ export class GeometryEditor {
     this.enterInteraction();
   }
 
+  /** Independent, validated definitions; omitted configuration uses an arrow and a star. */
+  getShapeTemplates(): ShapeTemplate[] { return this.session.getShapeTemplates(); }
+
+  /** Atomically replace reusable definitions without changing features or history. */
+  setShapeTemplates(templates: readonly ShapeTemplate[]): void {
+    this.assertAlive(); this.session.setShapeTemplates(templates); this.emitChange();
+  }
+
+  /** Preview a template or group. Click to anchor; Finish creates the entire placement once. */
+  drawTemplate(id?: string, placement: Partial<TemplatePlacement> = {}): void {
+    this.assertAlive(); this.cancelIdleGestures();
+    if (!this.session.startTemplate(id, placement)) return;
+    this.renderer.renderSelection([]); this.enterInteraction(); this.schedulePreview();
+  }
+
+  getTemplateDraft(): TemplateDraft | null { return this.session.getTemplateDraft(); }
+
+  /** Change the current template, anchor, size or rotation without committing. */
+  setTemplatePlacement(patch: Partial<TemplateDraft>): void {
+    this.assertAlive(); this.draftChanged(this.session.setTemplatePlacement(patch), true);
+  }
+
+  /** Anchored preview only; source IDs are temporary and replaced on confirmation. */
+  getTemplatePreview(): GeometryFeatureCollection | null { return this.session.getTemplatePreview(); }
+
+  /** Create all template features with fresh IDs as one transaction; null if not anchored/valid. */
+  finishTemplate(): TransactionEvent | null {
+    this.assertAlive();
+    const event = this.session.finishTemplate();
+    if (!event) return null;
+    this.leaveDrawing(); return this.publishTransaction(event);
+  }
+
+  /** Start a plain-text label. Click to anchor it, then Finish; empty labels cannot commit. */
+  drawText(options: TextMarkerOptions = { text: '' }): void {
+    this.assertAlive(); this.cancelIdleGestures();
+    if (!this.session.startText(options)) return;
+    this.renderer.renderSelection([]);
+    this.enterInteraction();
+  }
+
+  /** Independent text/style snapshot, null outside label drawing or point editing. */
+  getTextMarkerDraft(): TextMarkerOptions | null { return this.session.getTextMarkerDraft(); }
+
+  /** Patch the active label draft; Finish saves position, text and style together. */
+  setTextMarker(patch: Partial<TextMarkerOptions>): void {
+    this.assertAlive();
+    this.draftChanged(this.session.setTextMarker(patch), true);
+  }
+
   /**
    * Confirm the active tool: commit the drawing or edit, or apply the active geometry operation.
    * @returns The created or updated feature, or null when nothing valid is active. A valid
@@ -1272,6 +1637,11 @@ export class GeometryEditor {
    */
   finish(): GeometryFeature | null {
     this.assertAlive();
+    if (this.session.state.geofencingViolations.length) { this.schedulePreview(); this.emitChange(); return null; }
+    if (this.session.state.mode === 'draw-template') return this.finishTemplate()?.changes[0]?.after ?? null;
+    if (this.session.state.mode === 'remove-hole') {
+      return this.finishHoleRemoval()?.changes[0]?.after ?? null;
+    }
     if (this.session.state.mode === 'draw-cut') {
       return this.finishCut()?.changes.find((change) => change.after !== null)?.after ?? null;
     }
@@ -1342,11 +1712,19 @@ export class GeometryEditor {
     const before = this.session.state;
     const editing = before.mode.startsWith('edit-') || before.mode === 'draw-hole' || before.mode === 'draw-part';
     const original = editing && before.selectedFeatureId !== null ? this.session.getFeature(before.selectedFeatureId) : null;
+    if (this.session.isPinnedEdit()) {
+      if (!this.session.state.canFinish) return null;
+      const event = this.session.finishPinnedEdit();
+      const feature = this.session.getFeature(before.selectedFeatureId!)!;
+      this.leaveDrawing();
+      if (event) this.publishTransaction(event); else this.emitChange();
+      return feature;
+    }
     const feature = this.session.finish();
     if (!feature) return null;
     this.leaveDrawing();
     if (this.session.state.dataRevision !== before.dataRevision) {
-      this.renderer.renderCommitted(this.exportGeoJSON());
+      this.renderer.renderCommitted(this.session.getVisibleGeoJSON());
       this.events.emit(editing ? 'update' : 'create', () => structuredClone(feature));
       this.emitData(editing ? 'update' : 'create', [{ before: original, after: feature }]);
     }
@@ -1371,8 +1749,8 @@ export class GeometryEditor {
    * A copy of all committed features as a FeatureCollection. Drafts are not included.
    * Also readable after {@link GeometryEditor.destroy}.
    */
-  exportGeoJSON(): GeometryFeatureCollection {
-    return this.session.exportGeoJSON();
+  exportGeoJSON(options?: DataLayerExportOptions): GeometryFeatureCollection {
+    return this.session.exportGeoJSON(options);
   }
 
   /**
@@ -1381,12 +1759,12 @@ export class GeometryEditor {
    * @returns The imported features as stored.
    * @throws GeoJSONImportError if any feature is invalid; nothing is imported then.
    */
-  importGeoJSON(input: unknown): GeometryFeatureCollection {
+  importGeoJSON(input: unknown, options?: DataLayerImportOptions): GeometryFeatureCollection {
     this.assertAlive();
     this.cancelIdleGestures();
-    const imported = this.session.importGeoJSON(input);
+    const imported = this.session.importGeoJSON(input, options);
     if (imported.features.length === 0) return imported;
-    this.renderer.renderCommitted(this.exportGeoJSON());
+    this.renderer.renderCommitted(this.session.getVisibleGeoJSON());
     this.events.emit('import', () => structuredClone(imported));
     this.emitData('import', imported.features.map((after) => ({ before: null, after })));
     this.emitChange();
@@ -1508,18 +1886,37 @@ export class GeometryEditor {
 
   // Internal coordination: input, rendering, notifications and lifecycle.
 
+  /** Skip ineligible live layers, but ignore the click on a stale front hit. */
+  private pickSelectableFeature(point: { x: number; y: number }): FeatureId | null | undefined {
+    for (const id of this.renderer.pickAll(point)) {
+      if (!this.session.hasFeature(id)) return undefined;
+      if (this.session.canSelectFeature(id)) return id;
+    }
+    return null;
+  }
+
   private readonly handleClick = (event: MapMouseEvent): void => {
     const input = event.originalEvent;
     const state = this.session.state;
     if (input.button !== 0
       || input.ctrlKey || input.metaKey || input.shiftKey || input.detail > 1) return;
+    if (state.mode === 'select-lasso') return;
+    if (state.mode === 'remove-hole') {
+      const feature = this.session.getSelected()!;
+      const coordinate = event.lngLat.toArray();
+      for (const [partIndex, part] of geometryParts(feature.geometry).entries()) {
+        if (part.type !== 'Polygon') continue;
+        const ringIndex = part.coordinates.findIndex((ring, index) => index > 0 && insideRing(coordinate, ring));
+        if (ringIndex > 0) { this.setHoleToRemove(ringIndex, partIndex); return; }
+      }
+      return;
+    }
     if (state.mode === 'offset-lines' || state.mode === 'buffer-features' || state.mode === 'simplify-features' || state.mode === 'scale-features' || state.mode === 'rotate-features' || state.mode.startsWith('edit-') || state.mode === 'union-polygons' || state.mode === 'difference-polygons' || state.mode === 'intersection-polygons') return;
     if (state.mode === 'reshape-polygon' && state.canFinish) return;
     if (state.mode === 'idle') {
       if (input.altKey) return;
-      const id = this.renderer.pick(event.point);
-      // MapLibre may still show a deleted feature until its asynchronous source update finishes.
-      if (id === null || this.session.hasFeature(id)) this.select(id);
+      const id = this.pickSelectableFeature(event.point);
+      if (id !== undefined) this.select(id);
       return;
     }
     this.pointer = { x: event.point.x, y: event.point.y };
@@ -1563,6 +1960,7 @@ export class GeometryEditor {
     if (!this.isDrawing()) return;
     this.pointer = undefined;
     this.cursor = undefined;
+    this.alignment.clear();
     this.setSnap(null);
     this.schedulePreview();
   };
@@ -1579,6 +1977,7 @@ export class GeometryEditor {
   };
 
   private readonly handleSnapBlur = (): void => {
+    this.alignment.clear();
     this.altPressed = false;
     this.pointer = undefined;
     this.cursor = undefined;
@@ -1594,7 +1993,7 @@ export class GeometryEditor {
     this.cancelIdleGestures();
     this.vertices.stop(true);
     this.renderer.mount();
-    this.renderer.renderCommitted(this.exportGeoJSON());
+    this.renderer.renderCommitted(this.session.getVisibleGeoJSON());
     this.renderer.renderSelection(this.session.state.selectedFeatureIds, true);
     this.renderer.renderEditing(this.session.state.mode.startsWith('edit-') || this.session.state.mode === 'draw-hole' ? this.session.state.selectedFeatureId : null);
     this.schedulePreview();
@@ -1603,8 +2002,10 @@ export class GeometryEditor {
   private readonly handleMapRemove = (): void => { this.dispose(false); };
 
   private readonly handleCameraMove = (): void => {
-    this.cancelIdleGestures();
+    this.cancelIdleGestures(false);
+    this.lassoInteraction.cameraChanged();
     this.snapping.invalidateCamera();
+    this.alignment.invalidateCamera();
     this.boundarySnapping.invalidateCamera();
     this.vertices.cameraChanged();
     this.pivot.refresh();
@@ -1612,6 +2013,7 @@ export class GeometryEditor {
   };
 
   private setSnap(result: SnapResult | null): void {
+    if (result) this.alignment.clear();
     const previous = this.snap;
     this.snap = result;
     // Pixel distance may change while the same exact vertex remains acquired.
@@ -1621,6 +2023,7 @@ export class GeometryEditor {
   }
 
   private resolvePointer(point: ScreenPoint, altPressed = this.altPressed): { coordinate: Coordinate; snap: SnapResult | null; close: boolean; blocked?: boolean } {
+    this.alignment.clear();
     const options = this.snapping.getOptions();
     const state = this.session.state;
     if (state.mode === 'reshape-polygon' || state.mode === 'split-polygon' && !altPressed) {
@@ -1637,8 +2040,8 @@ export class GeometryEditor {
         snap: snapping ? { kind: 'vertex', featureId: null, index: 0, coordinate: first, distance } : null,
       };
     }
-    const excludedId = state.mode === 'edit-shared-boundary' ? new Set(state.selectedFeatureIds) : state.mode.startsWith('edit-') || state.mode === 'draw-hole' || state.mode === 'reshape-polygon' ? state.selectedFeatureId : null;
-    const snap = altPressed ? null : this.snapping.resolve(point, state.dataRevision, () => this.session.exportGeoJSON(), excludedId, state.mode === 'split-polygon' || this.canTracePointer());
+    const excludedId = this.session.isPinnedEdit() ? new Set(this.session.getPinnedEditIds()) : state.mode === 'edit-shared-boundary' ? new Set(state.selectedFeatureIds) : state.mode.startsWith('edit-') || state.mode === 'draw-hole' || state.mode === 'reshape-polygon' ? state.selectedFeatureId : null;
+    const snap = altPressed ? null : this.snapping.resolve(point, this.session.getReferenceRevision(), () => this.session.getSnappingGeoJSON(), excludedId, state.mode === 'split-polygon' || this.canTracePointer());
     const coordinate = snap?.coordinate ?? this.map.unproject([point.x, point.y]).wrap().toArray();
     if (!snap && !altPressed && this.drawingConstraints.enabled
       && (state.mode === 'draw-line' || state.mode === 'draw-polygon' || state.mode === 'draw-hole' || state.mode === 'draw-cut' || state.mode === 'draw-part')) {
@@ -1647,6 +2050,12 @@ export class GeometryEditor {
         const constrained = constrainDrawingPoint(anchor, coordinate, this.drawingConstraints.angleStep);
         return { coordinate: constrained ?? coordinate, snap: null, close: false, blocked: constrained === null };
       }
+    }
+    if (!snap && !altPressed && state.mode !== 'draw-freehand' && this.alignment.getOptions().enabled) {
+      const excluded = excludedId instanceof Set ? excludedId : new Set(excludedId === null ? [] : [excludedId]);
+      const alignment = this.alignment.resolve(point, this.session.getReferenceRevision(), () => this.session.getSnappingGeoJSON(), excluded, this.appearance,
+        state.mode.startsWith('draw-') ? this.session.getAlignmentDrawPoints() : undefined);
+      if (alignment) return { coordinate: alignment.coordinate, snap: null, close: false };
     }
     return { coordinate, snap, close: false };
   }
@@ -1667,8 +2076,9 @@ export class GeometryEditor {
 
   private publishTransaction(event: TransactionEvent | null): TransactionEvent | null {
     if (!event) return null;
+    this.transientGeofencing = [];
     this.renderer.renderSelection(this.session.state.selectedFeatureIds);
-    this.renderer.renderCommitted(this.exportGeoJSON());
+    this.renderer.renderCommitted(this.session.getVisibleGeoJSON());
     this.events.emit('transaction', () => structuredClone(event));
     this.emitData('transaction', event.changes);
     this.emitChange();
@@ -1681,7 +2091,7 @@ export class GeometryEditor {
     const event = this.session[direction]();
     if (!event) return false;
     this.renderer.renderSelection(this.session.state.selectedFeatureIds);
-    this.renderer.renderCommitted(this.exportGeoJSON());
+    this.renderer.renderCommitted(this.session.getVisibleGeoJSON());
     this.events.emit('history', () => structuredClone(event));
     this.emitData(direction, event.changes);
     this.emitChange();
@@ -1689,9 +2099,11 @@ export class GeometryEditor {
   }
 
   /** Stop transient selection/movement before a command changes their baseline. */
-  private cancelIdleGestures(): void {
+  private cancelIdleGestures(cancelLasso = true): void {
+    this.transientGeofencing = [];
     this.vertexKeyboard.stop();
     this.selection.cancel();
+    if (cancelLasso) this.lassoInteraction.stop();
     this.translation.cancel();
   }
 
@@ -1735,6 +2147,21 @@ export class GeometryEditor {
       this.setSnap(resolved.snap);
     }
     if (this.destroyed || this.translation.active) return;
+    if (this.session.state.mode === 'select-lasso') return;
+    if (this.session.state.mode === 'draw-template') {
+      const draft = this.session.getTemplateDraft()!;
+      const preview = this.session.getTemplatePreview(this.cursor);
+      this.renderer.renderTransform(preview, draft.position ?? this.cursor, draft.position === null ? this.snap : null);
+      this.renderMeasurements(); return;
+    }
+    if (this.session.state.mode === 'remove-hole') {
+      const preview = this.session.getHoleRemovalPreview();
+      this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
+      this.renderer.renderComparison(this.session.state.selectedFeatureIds);
+      this.renderer.renderTransform(preview ? { type: 'FeatureCollection', features: [preview] } : null);
+      this.renderMeasurements();
+      return;
+    }
     if (this.session.state.mode === 'offset-lines') {
       const preview = this.session.getOffsetPreview();
       this.renderer.renderEditingMany(preview ? this.session.state.selectedFeatureIds : [], true);
@@ -1807,19 +2234,22 @@ export class GeometryEditor {
     }
     const shared = this.session.getSharedBoundaryPreview();
     if (this.session.state.mode === 'edit-shared-boundary') this.renderer.renderEditingMany(shared ? this.session.state.selectedFeatureIds : []);
+    const pinned = this.session.getPinnedPreview();
+    if (this.session.isPinnedEdit()) this.renderer.renderEditingMany(pinned ? pinned.features.map(feature => feature.id) : this.session.state.selectedFeatureIds);
     const trace = this.getTracePreview();
-    this.renderer.renderPreview(this.session.getDraft(), reshape || trace ? undefined : this.cursor, previewState(this.session.state), this.snap, split, this.session.getDraftRings(), this.session.getInactiveParts(), reshape, trace, shared, this.session.getCutFeedback());
+    this.renderer.renderPreview(this.session.getDraft(), reshape || trace ? undefined : this.cursor, previewState(this.session.state), this.snap, split, this.session.getDraftRings(), this.session.getInactiveParts(), reshape, trace, shared, this.session.getCutFeedback(), this.session.getTextMarkerDraft(), pinned);
     this.renderMeasurements();
   }
 
   private renderShapePreview(mode: 'draw-rectangle' | 'draw-circle' | 'draw-ellipse' | 'draw-freehand'): void {
     if (mode === 'draw-freehand') {
       const path = this.freehandPath;
+      if (!path.length && this.session.getDraft().length >= 3) { this.renderer.renderShape({ type: 'Polygon', coordinates: [this.session.getDraft()] }, [], null); return; }
       this.renderer.renderShape(path.length >= 2 ? { type: 'LineString', coordinates: path } : null, [], null);
       return;
     }
-    const anchor = this.session.getDraft()[0];
-    const ring = anchor && this.cursor ? this.session.getShapePreview(this.cursor) : null;
+    const anchor = this.session.getShapeAnchor() ?? this.session.getDraft()[0];
+    const ring = anchor && this.cursor ? this.session.getShapePreview(this.cursor) : this.session.getDraft().length > 1 ? this.session.getDraft() : null;
     const corners = [anchor, this.cursor].filter((point): point is Coordinate => point !== undefined);
     this.renderer.renderShape(ring ? { type: 'Polygon', coordinates: [[...ring, ring[0]!]] } : null, corners, this.snap);
   }
@@ -1851,8 +2281,8 @@ export class GeometryEditor {
       else if (size.length > 0) labels.push({ kind: 'total', coordinate: labelPoint(geometry), text: distance(size.length) });
     };
     if (mode === 'draw-rectangle' || mode === 'draw-circle' || mode === 'draw-ellipse') {
-      const anchor = this.session.getDraft()[0];
-      const ring = anchor && this.cursor ? this.session.getShapePreview(this.cursor) : null;
+      const anchor = this.session.getShapeAnchor() ?? this.session.getDraft()[0];
+      const ring = anchor && this.cursor ? this.session.getShapePreview(this.cursor) : this.session.getDraft().length > 1 ? this.session.getDraft() : null;
       if (!anchor || !ring || !this.cursor) return labels;
       if (mode === 'draw-rectangle') segments(ring, true);
       labels.push({ kind: 'total', coordinate: mode === 'draw-rectangle' ? labelPoint({ type: 'Polygon', coordinates: [ring] }) : anchor,
@@ -1874,7 +2304,7 @@ export class GeometryEditor {
       total(rings ? { type: 'Polygon', coordinates: rings.map((ring) => [...ring, ring[0]!]) } : { type: 'LineString', coordinates: this.session.getDraft() });
       return labels;
     }
-    const preview = mode === 'rotate-features' ? this.session.getRotationPreview() : mode === 'scale-features' ? this.session.getScalePreview()
+    const preview = mode === 'draw-template' ? this.session.getTemplatePreview(this.cursor) : mode === 'rotate-features' ? this.session.getRotationPreview() : mode === 'scale-features' ? this.session.getScalePreview()
       : mode === 'buffer-features' ? this.session.getBufferPreview() : mode === 'offset-lines' ? this.session.getOffsetPreview()
       : mode === 'simplify-features' ? this.session.getSimplificationPreview() : null;
     if (preview?.features.length === 1) total(preview.features[0]!.geometry);
@@ -1886,6 +2316,7 @@ export class GeometryEditor {
   }
 
   private leaveDrawing(): void {
+    this.lassoInteraction.stop(); this.lassoInteraction.setEnabled(false);
     this.freehand.stop();
     this.freehand.setEnabled(false);
     this.freehandPath = [];
@@ -1896,6 +2327,7 @@ export class GeometryEditor {
     this.pivot.clear();
     this.traceAnchor = null; this.traceCache = null;
     this.boundarySnapping.clear();
+    this.alignmentEditIndices = null; this.alignment.endEdit();
     this.pointer = undefined;
     this.altPressed = false;
     this.setSnap(null);
@@ -1917,9 +2349,12 @@ export class GeometryEditor {
     this.pointer = undefined;
     this.snap = null;
     this.snapping.clear();
+    this.geofencing.destroy(removeResources);
+    this.alignment.destroy();
     this.boundarySnapping.clear();
     this.vertexKeyboard.destroy();
     this.selection.destroy(removeResources);
+    this.lassoInteraction.destroy(removeResources);
     this.translation.destroy(removeResources);
     this.rotation.destroy(removeResources);
     this.scaling.destroy(removeResources);

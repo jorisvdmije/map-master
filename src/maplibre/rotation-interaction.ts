@@ -1,4 +1,5 @@
-import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { ShortcutBindings } from './shortcut-bindings.js';
+import type { EditorMap as MapLibreMap } from '../gl/map.js';
 import { geometryParts } from '../core/geometry.js';
 import { project, radians } from '../core/mercator-transform.js';
 import { normalizeRotationAngle } from '../core/rotation.js';
@@ -43,7 +44,7 @@ export class RotationInteraction {
   private originals: GeometryFeature[] = [];
   private features: GeometryFeature[] = [];
 
-  constructor(private readonly map: MapLibreMap, private readonly actions: Actions) {
+  constructor(private readonly map: MapLibreMap, private readonly actions: Actions, private readonly shortcuts: ShortcutBindings) {
     this.canvas = map.getCanvas();
     const doc = this.canvas.ownerDocument;
     this.view = doc.defaultView!;
@@ -91,6 +92,7 @@ export class RotationInteraction {
 
   render(features: GeometryFeature[], originals: GeometryFeature[], appearance: EditorAppearance): void {
     if (this.actions.state().mode !== 'rotate-features') return;
+    this.shortcuts.describeControl(this.handle, 'Drag to rotate. Shift: 15° steps. Arrows: 1°; Shift+arrows: 15°.', 'ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight Shift+ArrowUp Shift+ArrowDown');
     this.features = features;
     if (!this.root.isConnected) {
       this.originals = originals;
@@ -236,24 +238,28 @@ export class RotationInteraction {
   private readonly blur = (): void => { this.stop(true); };
   private readonly camera = (): void => { this.stop(true); this.layout(); };
   private readonly key = (event: KeyboardEvent): void => {
-    if (!this.gesture || event.isComposing) return;
+    if (!this.gesture || event.isComposing || event.defaultPrevented || event.target !== this.canvas) return;
     if (event.key === 'Shift') { this.gesture.shift = event.type === 'keydown'; this.flush(); }
-    if (event.type !== 'keydown' || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key === 'Escape' || event.key === 'Enter') {
+    if (event.type !== 'keydown' || event.repeat) return;
+    const cancel = this.shortcuts.matches('cancel', event, ['Shift']);
+    if (cancel || this.shortcuts.matches('finish', event, ['Shift'])) {
       event.preventDefault(); event.stopImmediatePropagation();
-      if (event.key === 'Escape') this.stop(true);
+      if (cancel) this.stop(true);
     }
   };
   private readonly handleKey = (event: KeyboardEvent): void => {
-    if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+    const cancel = this.shortcuts.matches('cancel', event);
+    const finish = this.shortcuts.matches('finish', event);
+    if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || event.repeat && !event.key.startsWith('Arrow') || event.getModifierState('AltGraph')
+      || !cancel && !finish && (event.ctrlKey || event.metaKey || event.altKey)) return;
     const angle = this.actions.state().rotationAngle;
     if (angle === null) return;
     if (['ArrowLeft', 'ArrowDown', 'ArrowRight', 'ArrowUp'].includes(event.key)) {
       event.preventDefault(); event.stopPropagation();
       this.actions.angle(angle + (event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? -1 : 1) * (event.shiftKey ? 15 : 1));
-    } else if (event.key === 'Enter' || event.key === 'Escape') {
+    } else if (finish || cancel) {
       event.preventDefault(); event.stopPropagation(); this.canvas.focus({ preventScroll: true });
-      if (event.key === 'Enter') this.actions.finish(); else this.actions.cancel();
+      if (finish) this.actions.finish(); else this.actions.cancel();
     }
   };
 }

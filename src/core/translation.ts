@@ -1,4 +1,5 @@
 import { geometryParts, mapGeometry, withGeometry } from './geometry.js';
+import { readVertexPins, withVertexPins } from './vertex-pins.js';
 import type { ScreenPoint } from './snapping.js';
 import type { Coordinate, GeometryFeature } from './types.js';
 
@@ -31,5 +32,9 @@ export function translateFeatures(features: readonly GeometryFeature[], delta: C
     }
     return next;
   };
-  return features.map((feature) => withGeometry(feature, mapGeometry(feature.geometry, move)));
+  return features.map((feature) => {
+    const result = withGeometry(feature, mapGeometry(feature.geometry, move));
+    const pins = readVertexPins(feature);
+    return pins.length ? withVertexPins(result, pins.map(pin => ({ id: pin.id, coordinate: move(pin.coordinate) }))) : result;
+  });
 }

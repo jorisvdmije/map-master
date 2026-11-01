@@ -8,6 +8,14 @@ Further work is prioritized by the needs of real applications. Open an
 [issue](https://github.com/jorisvdmije/map-master/issues) to describe a use case;
 concrete requirements move items up.
 
+The [Geoman comparison implementation plan](geoman-parity-plan.md) defines the
+ordered delivery and acceptance criteria for ten remaining comparison gaps,
+with hole removal, lasso selection, configurable shortcuts, text markers, reusable
+shape templates, alignment guides, shared-vertex pinning, geofencing and multiple
+editable data layers and the Mapbox GL JS adapter implemented. All ten scoped
+comparison steps are complete; broader qualification and geometry work follows
+the candidates below.
+
 ## Stable 1.0
 
 - Gather feedback from applications using the 0.x releases and settle the public API.
@@ -23,8 +31,7 @@ concrete requirements move items up.
 | Multipart | Remove and split individual parts of multipart features. |
 | Geometry tools | Trim and extend lines to other geometry; split lines and multipart features, and cut through holes. |
 | Integrations | Thin wrapper packages for UI frameworks, beyond the [framework examples](frameworks.md). |
-| Map libraries | An adapter for Mapbox GL JS. |
-| Drawing aids | Alignment guides, shared-vertex pinning, snapping to other map layers, and constraining features to an area. |
+| Map libraries | Broader Mapbox qualification: hosted styles, Standard slots, CSP/ESM builds, other browsers and performance budgets. |
 | Scale | Incremental rendering updates instead of full source uploads for large datasets. |
 
 ## Principles
