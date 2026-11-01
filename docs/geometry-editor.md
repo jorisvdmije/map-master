@@ -2,11 +2,15 @@
 
 `GeometryEditor` is the library's single entry point. It supports 2D Point, LineString,
 Polygon (including holes), MultiLineString and MultiPolygon features on a flat
-Mercator MapLibre GL JS map. See [compatibility and limits](compatibility.md) for
+Mercator MapLibre GL JS or Mapbox GL JS map. See [compatibility and limits](compatibility.md) for
 the tested browsers and input methods, the [multipart guide](multipart.md) for
 component editing and [point markers](markers.md) for one-click placement.
+[Text markers](text-markers.md) add persisted plain-text labels and styling.
 
 ## Setup
+
+For Mapbox GL JS, use the [Mapbox setup guide](mapbox.md); the editor, controls
+and public editing API are the same. Existing MapLibre setup is shown below.
 
 Install the library next to MapLibre GL JS, which your application owns:
 
@@ -42,7 +46,69 @@ map.once('load', () => {
 });
 ```
 
+## Data layers
+
+The `dataLayers` constructor option configures named datasets and an active draw
+target. `getDataLayers()`, `setDataLayers()`, `addDataLayer()`,
+`updateDataLayer()`, `removeDataLayer()` and `reorderDataLayers()` manage host
+settings. `setActiveDataLayer()` and `setDataLayerSelectionScope()` control
+creation and selection; `getFeatureDataLayer()` reads membership.
+
+`moveFeaturesToDataLayer(ids, layerId)` is one undoable transaction. Import and
+export accept `{ dataLayerId }`; export additionally accepts `visibleOnly`.
+Membership persists in `mapMasterLayer`, while definitions are stored separately.
+Layer permissions apply to linked changes, transactions and history;
+`getHistoryDataLayerIssues()` explains blocked replay. See [data layers](data-layers.md)
+for ordering, selection, snapping and the optional `DataLayerControl`.
+
+## Geofencing
+
+`geofencing` in the constructor and `setGeofencing(patch)` configure allowed and
+excluded Polygon/MultiPolygon areas. `getGeofencing()` returns an independent
+snapshot. Defaults require complete containment in the allowed union and no
+intersection with excluded areas. The policy covers all commits and history
+replay; invalid previews remain visible with `state.geofencingViolations` and
+`canFinish: false`. Imports and programmatic mutations throw `GeofencingError`.
+
+Use `checkGeofencing(features)` to audit data and
+`getHistoryGeofencingViolations('undo' | 'redo')` to explain blocked history.
+The optional `geofencing` toolbar/keyboard tool toggles enforcement and reference
+overlays. See [geofencing](geofencing.md) for area unions, boundary/hole rules,
+correction, persistence and the live example.
+
+## Pin shared vertices
+
+`pinVertices(addresses, options?)` explicitly joins vertices, or use
+`pinSharedVertices()` for exact shared positions in the current selection.
+`getPinnedVertices()` returns persistent groups and current multipart/ring
+addresses. `unpinVertices(addresses)` removes groups touched by those addresses;
+`unpinSelection()` removes groups touching the selection. `canPinSharedVertices()`
+and `canUnpinSelection()` expose command availability.
+
+Vertex editing and translation preview every participant; `getPinnedPreview()`
+returns the full vertex-edit preview, or null if inactive or invalid. Saving a
+linked edit emits one transaction/data event containing all changed features.
+`state.pinningError` explains a locked, invalid or conflicting result. See
+[pin shared vertices](vertex-pinning.md) for exact/tolerant matching, coordinate
+membership, GeoJSON metadata, locks and the live example.
+
+## Alignment guides
+
+Opt in with `alignmentGuides: { enabled: true }`. `setAlignmentGuides(patch)`
+updates settings; `getAlignmentGuides()` reads them and `getAlignment()` returns
+the active acquisition independently of ordinary snapping. The `guides` toolbar
+and keyboard action toggle the helper. See [alignment guides](alignment-guides.md)
+for screen-space tolerance, priority, sources, search limits and the live example.
+
 ## One editor API
+
+The `keyboardShortcuts` option and `setKeyboardShortcuts(update)` configure
+typed command bindings at construction or while running. `false` disables all
+commands; an action mapped to `false` or `[]` disables just that action.
+`getKeyboardShortcuts()` returns an independent complete snapshot.
+`getKeyboardShortcutLabel(action)` and `getKeyboardShortcutAria(action)` expose
+current platform-resolved hints. See the [shortcut reference](keyboard-shortcuts.md)
+for defaults, modifiers, conflicts and focus rules.
 
 The application owns the MapLibre map: its container, worker, stylesheet,
 basemap, camera, and lifecycle. GeometryEditor owns drawing interactions,
@@ -82,6 +148,12 @@ restore data, see [saving and loading](persistence.md).
 | `new GeometryEditor(map, options?)` | Attach after `style.load` or `load`. One editor per map. `historyLimit` defaults to 100; `snapping.enabled` defaults to false. `createId` replaces `crypto.randomUUID()` for new IDs; it must return a string or finite number, and IDs in use are skipped. `measurements` configures [live measurements](measurements.md). |
 | `getLockedFeatureIds()` / `setLockedFeatureIds(ids)` / `isFeatureLocked(id)` | Read/replace the host-owned set of read-only IDs; also constructor `lockedFeatureIds`. Locked targets reject mutations, block applicable history and remain snap references. See [feature locks](feature-locks.md). |
 | `getAppearance()` / `setAppearance(patch)` | Read an independent complete appearance / atomically patch presentation fields. Also available as constructor `appearance`. Live updates survive style reloads without changing geometry, drafts or history. See [appearance](appearance.md). |
+| `getShapeTemplates()` / `setShapeTemplates(definitions)` | Read or replace the validated template library; defaults to an arrow and a star. |
+| `drawTemplate(id?, placement?)` | Preview reusable GeoJSON with an anchor, size and rotation. See [shape templates](shape-templates.md). |
+| `getTemplateDraft()` / `setTemplatePlacement(patch)` / `getTemplatePreview()` | Read or adjust the pending template without committing. |
+| `finishTemplate()` | Create every feature in the placement with fresh IDs, in one transaction and Undo step. |
+| `drawText(options?)` | Start a Point label draft; click to anchor, then Finish. See [text markers](text-markers.md). |
+| `getTextMarkerDraft()` / `setTextMarker(patch)` | Read or patch draft label text/style; Finish saves it with the position as one undoable change. |
 | `draw('Point' \| 'LineString' \| 'Polygon' \| 'Rectangle' \| 'Circle' \| 'Ellipse' \| 'Freehand')` | Start a draft and focus the canvas. Rectangles, circles, ellipses and freehand outlines are stored as polygons; see [shapes](shapes.md). Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
 | `drawCut()` / `finishCut()` | Draw a polygon that [cuts](cut.md) the selection, or every unlocked feature; apply it as one transaction. |
 | `drawPart()` | Draw a new component for the selected line or polygon; see [multipart](multipart.md#add-a-part). |
@@ -157,6 +229,14 @@ restore data, see [saving and loading](persistence.md).
 | `removeSelectedVertices()` | Remove the entire corner selection, or return false if minimum counts/fixed junctions would be violated. |
 | `drawHole(partIndex = 0)` | Start a cancellable hole in the chosen polygon component; Finish saves one edit. |
 | `deleteHole(ringIndex, partIndex = 0)` | Delete an interior ring (index >= 1) as one transaction; idle only. |
+| `removeHole()` | Start a cancellable preview filling a hole of the selected polygon or multipolygon. |
+| `lasso(options = {})` | Start a freehand selection loop; release selects and returns to idle. |
+| `getLassoOptions()` | Independent settings of the active lasso, or null. |
+| `setLassoOptions(update)` | Change the active lasso's operation/match, discarding a pending stroke. |
+| `selectByLasso(points, options = {})` | Select with a simple loop of canvas-relative CSS-pixel points; returns matching IDs. |
+| `setHoleToRemove(ringIndex, partIndex = 0)` | Choose the original interior ring to fill; invalid indices throw without changing the preview. |
+| `getHoleRemovalPreview()` | Independent filled feature, or null outside a valid removal preview. |
+| `finishHoleRemoval()` | Commit the filled feature as one transaction and undo step. |
 | `duplicateSelection(delta?)` | Create and select copies with new IDs as one transaction; optional offset in degrees, default `[0, 0]`. Returns `TransactionEvent` or null. Idle only. |
 | `translateSelection([deltaLng, deltaLat])` | Translate selected features in degrees as one transaction; returns `TransactionEvent` or null. Idle only. |
 | `deleteSelection()` | Delete all selected features as one transaction; returns `TransactionEvent` or null. |
@@ -200,6 +280,10 @@ drawing, selecting, deleting, and subscribing throw.
 
 ## Polygon holes
 
+To remove holes interactively, use the toolbar's `remove-hole` tool or
+`removeHole()`. Choose a hole on the map or with `setHoleToRemove()`, then
+`finish()`/`finishHoleRemoval()` or `cancel()`. See [hole removal](remove-hole.md).
+
 A Polygon stores the exterior at `coordinates[0]` and holes at subsequent indices.
 In the playground, select a polygon and choose **Draw a hole**. Place corners strictly
 inside the filled area, then press Enter, Finish, or click the first corner.
@@ -223,8 +307,8 @@ entering editing. For a line only index 0 is supported. Ring indices follow the
 current coordinate array; they are not stable identities after ring deletion.
 Only one ring is edited per session. `getDraft()`, `vertexCount`, and
 `selectedVertexIndex` and `selectedVertexIndices` describe that ring; `activeRingIndex` identifies it while
-editing a polygon or drawing a hole and is null otherwise. Hole drawing introduces
-`mode: 'draw-hole'`; consumers with exhaustive mode switches should handle it.
+editing a polygon, drawing a hole or removing a hole, and is null otherwise.
+Consumers with exhaustive mode switches should handle `draw-hole` and `remove-hole`.
 
 All rings are validated together after clicks or vertex changes. A hole must be
 strictly inside the exterior and may not touch, overlap or contain another hole.

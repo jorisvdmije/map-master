@@ -1,5 +1,6 @@
+import type { ShortcutBindings } from './shortcut-bindings.js';
 import { canvasPoint } from './pointer.js';
-import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { EditorMap as MapLibreMap } from '../gl/map.js';
 import type { Coordinate, EditorState, VertexUpdate } from '../core/types.js';
 import type { ScreenPoint } from '../core/snapping.js';
 import { pickDirectVertexHandle, pickEditEdge, vertexHandles } from './vertex-handles.js';
@@ -13,6 +14,8 @@ interface VertexActions {
   remove(index: number): void;
   resolve(point: ScreenPoint, altKey: boolean): Coordinate;
   clearSnap(): void;
+  beginGuides(indices: readonly number[]): void;
+  endGuides(): void;
 }
 interface Drag {
   pointerId: number;
@@ -43,7 +46,7 @@ export class VertexInteraction {
   private touchSequence = false;
   private suppressClick = false;
 
-  constructor(private readonly map: MapLibreMap, private readonly actions: VertexActions) {
+  constructor(private readonly map: MapLibreMap, private readonly actions: VertexActions, private readonly shortcuts: ShortcutBindings) {
     this.canvas = map.getCanvas();
     this.view = this.canvas.ownerDocument.defaultView!;
     this.canvas.addEventListener('pointerdown', this.down, true);
@@ -75,6 +78,7 @@ export class VertexInteraction {
     this.drag = undefined;
     this.pointer = undefined;
     this.pending = false;
+    this.actions.endGuides();
     if (this.canvas.hasPointerCapture(drag.pointerId)) this.canvas.releasePointerCapture(drag.pointerId);
     this.canvas.style.cursor = drag.cursor;
     if (restorePan) {
@@ -167,6 +171,7 @@ export class VertexInteraction {
       restorePan, cursor: this.canvas.style.cursor, start: point, origin: this.map.unproject([point.x, point.y]).toArray() };
     this.canvas.setPointerCapture(event.pointerId);
     if (inserted) this.actions.insert(index, original); else this.actions.select(indices);
+    if (this.drag) this.actions.beginGuides(inserted ? [index] : indices);
   };
 
   private readonly move = (event: PointerEvent): void => {
@@ -217,9 +222,12 @@ export class VertexInteraction {
     this.stop();
   };
   private readonly key = (event: KeyboardEvent): void => {
-    if (!this.drag || event.isComposing || !['Escape', 'Enter'].includes(event.key)) return;
-    event.preventDefault(); event.stopImmediatePropagation();
-    if (event.key === 'Escape') this.stop(true);
+    if (!this.drag || event.repeat || event.target !== this.canvas) return;
+    const cancel = this.shortcuts.matches('cancel', event, ['Shift', 'Alt']);
+    if (cancel || this.shortcuts.matches('finish', event, ['Shift', 'Alt'])) {
+      event.preventDefault(); event.stopImmediatePropagation();
+      if (cancel) this.stop(true);
+    }
   };
   private readonly cancel = (event: PointerEvent): void => {
     if (this.drag?.pointerId === event.pointerId) this.stop(true);

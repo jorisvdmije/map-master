@@ -1,0 +1,10 @@
+{
+  "name": "map-master-mapbox-consumer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@jorisvdmije/map-master": "file:vendor/map-master.tgz",
+    "mapbox-gl": "3.34.1"
+  }
+}

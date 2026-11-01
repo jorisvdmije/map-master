@@ -24,6 +24,30 @@ The existing guides live in `docs/*.md`. New onboarding content lives in
 rewrites guide links to site routes. Source and project links that are not hosted
 as guide pages point to GitHub. Generated files are ignored by Git.
 
+Code examples use the upstream shadcn/ui Base Nova `CodeBlock`, `Button` and
+`Tabs` components in `src/components/ui/`. The install command offers package
+manager tabs; tagged Markdown callouts use shadcn `Alert`. The vendored components
+retain their MIT license in `SHADCN-LICENSE.md`. Local changes replace registry
+imports and icon placeholders with the project's utilities and Lucide icons,
+use explicit orientation selectors, and omit React Server Component directives
+because this site uses Vite. The source URL is recorded in each component.
+
+React renders these components to HTML during generation and hydrates only the
+interactive islands. Shiki tokenizes at build time; no highlighter is downloaded
+in the browser. Tailwind utilities are included without Preflight so the site
+keeps its existing document layout. These dependencies belong to the website,
+not the map library.
+
+Use a code fence such as `ts title="main.ts"` to name a file. Fences without a
+title show their language. A Markdown blockquote starting with `[!NOTE] Title`
+or `[!IMPORTANT] Title`, followed by a blank quoted line and the message, becomes
+an inline setup callout. Code blocks support clean copying, optional line numbers,
+line wrapping and expanding long examples.
+
+The header logo and favicon are generated from `../assets/icon.svg`, the chosen
+Map Master mark. The standalone workspace includes the same mark as `icon.svg`
+so it can be copied and built independently of this repository.
+
 ## Check and build
 
 ```sh
@@ -39,6 +63,21 @@ exact HTML/CSS/TypeScript printed in the quickstart is extracted, compiled again
 the library build, built and exercised in a browser too.
 The Vite development server is checked separately for loaded styles, maps and
 drawing controls on both the overview and a nested guide.
+
+The same command extracts the named component fences directly from
+`../docs/frameworks.md` into an isolated application. React is compiled with
+TypeScript, Vue with `vue-tsc` and its SFC compiler, Svelte with `svelte-check`
+and both client/server compilers, and Angular with `ngc` and strict template
+checking. Every component includes the published shared worker setup. The
+check uses the library's public declarations, not source aliases or handwritten
+framework stubs, and runs in CI on Node 22 and 24 before Pages deployment.
+It checks component compilation, not a complete Next.js/Nuxt application or
+each framework's browser lifecycle. Reports are kept in
+`artifacts/documentation/frameworks/verification.json`.
+
+After building the library, run only these checks with
+`npm --prefix website run check:frameworks`. Full repository development uses
+Node 22.22.3+ within 22.x or 24.15+ within 24.x to match Angular 22's compiler.
 Install Chromium first with the root repository's documented Playwright setup.
 Screenshots and the verification report are retained in `artifacts/documentation/`.
 

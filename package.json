@@ -1,10 +1,12 @@
 {
   "name": "@jorisvdmije/map-master",
   "version": "0.1.0",
-  "description": "Interactive geometry editor for MapLibre GL JS: draw, select, edit, snap, split, merge and transform GeoJSON features with undo/redo.",
+  "description": "Interactive geometry editor for MapLibre GL JS and Mapbox GL JS: draw, select, edit, snap, split, merge and transform GeoJSON features with undo/redo.",
   "keywords": [
     "maplibre",
     "maplibre-gl",
+    "mapbox",
+    "mapbox-gl",
     "map",
     "geojson",
     "geometry",
@@ -28,7 +30,15 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./mapbox": {
+      "types": "./dist/mapbox/index.d.ts",
+      "import": "./dist/mapbox/index.js"
+    },
+    "./maplibre": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
   "files": [
     "dist",
@@ -39,7 +49,7 @@
   "devEngines": {
     "runtime": {
       "name": "node",
-      "version": "^22.13.0 || ^24.0.0",
+      "version": "^22.22.3 || ^24.15.0",
       "onFail": "error"
     },
     "packageManager": {
@@ -74,10 +84,10 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@types/geojson": "7946.0.16",
     "@types/node": "22.20.5",
     "@vitest/browser-playwright": "5.0.5",
     "eslint": "10.13.0",
+    "mapbox-gl": "3.34.1",
     "maplibre-gl": "6.15.0",
     "playwright": "1.64.1",
     "typescript": "6.0.3",
@@ -86,9 +96,11 @@
     "vitest": "5.0.5"
   },
   "peerDependencies": {
+    "mapbox-gl": "^3.34.1",
     "maplibre-gl": "^6.15.0"
   },
   "dependencies": {
+    "@types/geojson": "7946.0.16",
     "polygon-clipping": "0.15.7",
     "robust-predicates": "3.0.3"
   },
@@ -108,5 +120,13 @@
     "registry": "https://registry.npmjs.org/",
     "access": "public",
     "tag": "latest"
+  },
+  "peerDependenciesMeta": {
+    "maplibre-gl": {
+      "optional": true
+    },
+    "mapbox-gl": {
+      "optional": true
+    }
   }
 }

@@ -1,3 +1,9 @@
+import { defaultShapeTemplates, prepareShapeTemplates, placeTemplate, templatePlacement, type ShapeTemplate, type PreparedTemplate, type TemplateDraft, type TemplatePlacement } from './shape-templates.js';
+import { isTextMarker, textMarkerOptions, type TextMarkerOptions } from './text-marker.js';
+import { lassoOptions } from './lasso.js';
+import { assignDataLayer, DataLayerError, DataLayerStore, defaultDataLayerId, featureDataLayerId, type DataLayer, type DataLayerDefinition, type DataLayerOptions, type DataLayerSelectionScope, type DataLayerIssue, type DataLayerExportOptions, type DataLayerImportOptions } from './data-layers.js';
+import { GeofencingPolicy, GeofencingError, copyViolations, type GeofencingOptions, type GeofencingViolation, type GeofencingCandidate } from './geofencing.js';
+import { featureVertices, moveVertexPins, readVertexPins, withVertexPins, VertexPinError, VertexPinIndex, type VertexAddress, type PinVerticesOptions, type PinnedVertexGroup, type PinningErrorCode } from './vertex-pins.js';
 import { copyCutFeedback, emptyCutFeedback } from './cut-feedback.js';
 import { FeatureLockedError, lockedFeatureIds, sameLocks } from './feature-locks.js';
 import { canOffsetFeatures, offsetFeatures, validateOffsetDistance } from './offset.js';
@@ -22,7 +28,7 @@ import { EditHistory, type HistoryEntry } from './history.js';
 import { GeoJSONImportError, copyProperties, prepareImport } from './geojson-import.js';
 import { closePolygon, openRing, samePosition, validatePolygonRings, validateMultiPolygon } from './polygon.js';
 import type {
-  Coordinate, CutFeedback, VertexUpdate, OffsetError, BufferError, SimplificationError, ScaleError, RotationError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
+  Coordinate, CutFeedback, VertexUpdate, LassoOptions, OffsetError, BufferError, SimplificationError, ScaleError, RotationError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
 } from './types.js';
 
 function copyFeature(feature: GeometryFeature): GeometryFeature {
@@ -64,6 +70,8 @@ export class DrawingSession {
   private unionPreview: UnionPreview | null = null;
   private unionError: UnionError | null = null;
   private holeId: FeatureId | null = null;
+  private holeRemoval: GeometryFeature | null = null;
+  private lasso: LassoOptions | null = null;
   private activePartIndex: number | null = null;
   private activeRingIndex: number | null = null;
   private reshapeId: FeatureId | null = null;
@@ -74,8 +82,12 @@ export class DrawingSession {
   private splitId: FeatureId | null = null;
   private splitPreview: SplitPreview | null = null;
   private splitError: SplitError | null = null;
+  private templates: PreparedTemplate[];
+  private template: { source: PreparedTemplate; draft: TemplateDraft; result: ReturnType<typeof placeTemplate> } | null = null;
+  private textMarker: TextMarkerOptions | null = null;
   private kind: DrawGeometryType | null = null;
   private shape: DrawShape | null = null;
+  private shapeAnchor: Coordinate | null = null;
   private cutting: { targets: FeatureId[] | null } | null = null;
   private partId: FeatureId | null = null;
   private draft: Coordinate[] = [];
@@ -87,18 +99,232 @@ export class DrawingSession {
   private selectedVertexIndices: number[] = [];
   private get selectedVertexIndex(): number | null { return this.selectedVertexIndices.at(-1) ?? null; }
   private dataRevision = 0;
+  private readonly pins = new VertexPinIndex();
+  private pinSequence = 0;
+  private editPinIndices = new Map<string, number[]>();
+  private pinnedPreview: GeometryFeatureCollection | null = null;
+  private pinningError: PinningErrorCode | null = null;
 
   private readonly history: EditHistory;
   private locks = new Set<FeatureId>();
   private historyLocks = new WeakMap<HistoryEntry, boolean>();
+  private dataLayers: DataLayerStore;
+  private activeDataLayerId: string | null;
+  private dataLayerSelectionScope: DataLayerSelectionScope;
+  private dataLayerRevision = 0;
+  private historyDataLayers = new WeakMap<HistoryEntry, DataLayerIssue[]>();
+  private geofencing: GeofencingPolicy;
+  private fenceCache: { key: string; violations: GeofencingViolation[] } | null = null;
+  private historyFences = new WeakMap<HistoryEntry, Partial<Record<HistoryEvent['direction'], GeofencingViolation[]>>>();
 
-  constructor(private readonly createId: () => FeatureId, historyLimit = 100, lockedIds: readonly FeatureId[] = []) {
+  constructor(private readonly createId: () => FeatureId, historyLimit = 100, lockedIds: readonly FeatureId[] = [], templates: readonly ShapeTemplate[] = defaultShapeTemplates(), geofencing?: Partial<GeofencingOptions>, layers: DataLayerOptions = {}) {
+    if (!layers || typeof layers !== 'object' || Array.isArray(layers) || Object.keys(layers).some(key => !['layers', 'activeLayerId', 'selectionScope'].includes(key))) throw new TypeError('Invalid data layer options.');
+    this.dataLayers = new DataLayerStore(layers.layers);
+    this.dataLayerSelectionScope = layers.selectionScope === undefined ? 'all' : layers.selectionScope;
+    if (this.dataLayerSelectionScope !== 'all' && this.dataLayerSelectionScope !== 'active') throw new TypeError('Data layer selection scope must be all or active.');
+    this.activeDataLayerId = layers.activeLayerId === undefined ? this.fallbackDataLayer() : layers.activeLayerId;
+    if (this.activeDataLayerId !== null) this.dataLayers.assertWritable(this.activeDataLayerId);
+    this.geofencing = new GeofencingPolicy(geofencing);
+    this.templates = prepareShapeTemplates(templates);
     this.history = new EditHistory(historyLimit);
     this.locks = lockedFeatureIds(lockedIds);
   }
 
+  getGeofencing(): GeofencingOptions { return this.geofencing.snapshot(); }
+
+  getDataLayers(): DataLayer[] { return this.dataLayers.snapshot(); }
+  getActiveDataLayer(): string | null { return this.activeDataLayerId; }
+  getReferenceRevision(): number { return this.dataRevision + this.dataLayerRevision; }
+  getFeatureDataLayer(id: FeatureId): string | null { const feature = this.features.get(id); return feature ? featureDataLayerId(feature) : null; }
+  canDrawInDataLayer(): boolean { return this.dataLayers.issue(this.activeDataLayerId) === null; }
+
+  canSelectFeature(id: FeatureId): boolean {
+    const feature = this.features.get(id); if (!feature) return false;
+    const layer = this.dataLayers.get(featureDataLayerId(feature));
+    return !!layer?.visible && layer.selectable && (this.dataLayerSelectionScope === 'all' || layer.id === this.activeDataLayerId);
+  }
+
+  isFeatureSnappable(id: FeatureId): boolean {
+    const feature = this.features.get(id); const layer = feature && this.dataLayers.get(featureDataLayerId(feature));
+    return !!layer?.visible && layer.snapping;
+  }
+
+  private fallbackDataLayer(): string | null {
+    return this.dataLayers.layers.find(layer => !this.dataLayers.issue(layer.id))?.id ?? null;
+  }
+
+  setDataLayers(definitions: readonly DataLayerDefinition[]): boolean {
+    const next = new DataLayerStore(definitions);
+    for (const feature of this.features.values()) next.assertKnown(featureDataLayerId(feature), feature.id);
+    if (JSON.stringify(next.layers) === JSON.stringify(this.dataLayers.layers)) return false;
+    const oldActive = this.activeDataLayerId;
+    this.dataLayers = next;
+    if (this.activeDataLayerId !== null && this.dataLayers.issue(this.activeDataLayerId)) this.activeDataLayerId = this.fallbackDataLayer();
+    this.refreshDataLayerPolicy(oldActive !== this.activeDataLayerId);
+    return true;
+  }
+
+  validateDataLayers(definitions: readonly DataLayerDefinition[]): void {
+    const next = new DataLayerStore(definitions);
+    for (const feature of this.features.values()) next.assertKnown(featureDataLayerId(feature), feature.id);
+  }
+
+  addDataLayer(definition: DataLayerDefinition): boolean {
+    if (this.dataLayers.get(definition?.id)) throw new RangeError(`Data layer already exists: ${definition.id}`);
+    return this.setDataLayers([...this.getDataLayers(), definition]);
+  }
+  updateDataLayer(id: string, patch: Partial<Omit<DataLayer, 'id'>>): boolean {
+    this.dataLayers.assertKnown(id);
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch) || Object.hasOwn(patch, 'id')) throw new TypeError('Patch data layer settings without changing its ID.');
+    return this.setDataLayers(this.getDataLayers().map(layer => layer.id === id ? { ...layer, ...patch } : layer));
+  }
+  removeDataLayer(id: string): boolean {
+    this.dataLayers.assertKnown(id);
+    if (id === defaultDataLayerId) throw new RangeError('The default data layer cannot be removed.');
+    return this.setDataLayers(this.getDataLayers().filter(layer => layer.id !== id));
+  }
+  reorderDataLayers(ids: readonly string[]): boolean {
+    if (!isArray(ids) || ids.length !== this.dataLayers.layers.length || new Set(ids).size !== ids.length) throw new RangeError('Reorder with every data layer ID exactly once, bottom to top.');
+    return this.setDataLayers(ids.map(id => { this.dataLayers.assertKnown(id); return this.dataLayers.get(id)!; }));
+  }
+  setActiveDataLayer(id: string | null): boolean {
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before changing the active data layer.');
+    if (id !== null) this.dataLayers.assertWritable(id);
+    if (id === this.activeDataLayerId) return false;
+    this.activeDataLayerId = id; this.refreshDataLayerPolicy(); return true;
+  }
+  setDataLayerSelectionScope(scope: DataLayerSelectionScope): boolean {
+    if (scope !== 'all' && scope !== 'active') throw new TypeError('Data layer selection scope must be all or active.');
+    if (scope === this.dataLayerSelectionScope) return false;
+    this.dataLayerSelectionScope = scope; this.refreshDataLayerPolicy(); return true;
+  }
+  private refreshDataLayerPolicy(activeChanged = false): void {
+    this.dataLayerRevision++; this.historyLocks = new WeakMap(); this.historyDataLayers = new WeakMap(); this.fenceCache = null;
+    const targets = this.differenceActive ? [...this.selectedFeatureIds].slice(0, 1) : [...this.selectedFeatureIds];
+    if (this.editingId !== null) targets.push(...this.pins.related(this.editingId));
+    if (this.kind !== null && !this.lasso && (activeChanged && this.isCreationDraft() || targets.some(id => this.isFeatureLocked(id) || !this.canSelectFeature(id)))) this.cancel();
+    for (const id of this.selectedFeatureIds) if (!this.canSelectFeature(id)) this.selectedFeatureIds.delete(id);
+  }
+  private isCreationDraft(): boolean {
+    return this.kind !== null && this.editingId === null && this.holeId === null && this.partId === null && !this.lasso && !this.holeRemoval && !this.cutting
+      && !this.offsetting && !this.buffering && !this.simplification && !this.scaling && !this.rotation && !this.sharedBoundary
+      && this.reshapeId === null && this.splitId === null && !this.unionActive && !this.differenceActive && !this.intersectionActive;
+  }
+
+  getHistoryDataLayerIssues(direction: HistoryEvent['direction']): DataLayerIssue[] {
+    if (direction !== 'undo' && direction !== 'redo') throw new TypeError('Expected undo or redo.');
+    const entry = this.history.peek(direction);
+    return entry ? this.historyDataLayerIssues(entry).map(issue => ({ ...issue })) : [];
+  }
+  private historyDataLayerIssues(entry: HistoryEntry): DataLayerIssue[] {
+    let issues = this.historyDataLayers.get(entry);
+    if (!issues) {
+      const unique = new Map<string, DataLayerIssue>();
+      for (const change of entry.changes) for (const feature of [change.before, change.after]) {
+        if (!feature) continue;
+        const issue = this.dataLayers.issue(featureDataLayerId(feature), feature.id);
+        if (issue) unique.set(JSON.stringify([issue.featureId, issue.layerId, issue.code]), issue);
+      }
+      issues = [...unique.values()]; this.historyDataLayers.set(entry, issues);
+    }
+    return issues;
+  }
+  moveFeaturesToDataLayer(ids: readonly FeatureId[], layerId: string): TransactionEvent | null {
+    if (!isArray(ids)) throw new TypeError('Expected feature IDs.');
+    this.dataLayers.assertWritable(layerId);
+    return this.applyTransaction({ update: [...new Set(ids)].map(id => {
+      const feature = this.features.get(id); if (!feature) throw new RangeError(`Unknown feature ID: ${id}`);
+      return assignDataLayer(feature, layerId);
+    }) });
+  }
+
+  getVisibleGeoJSON(): GeometryFeatureCollection {
+    const ranks = new Map(this.dataLayers.layers.map((layer, index) => [layer.id, index]));
+    return { type: 'FeatureCollection', features: [...this.features.values()].filter(feature => this.dataLayers.get(featureDataLayerId(feature))?.visible)
+      .sort((a, b) => ranks.get(featureDataLayerId(a))! - ranks.get(featureDataLayerId(b))!).map(copyFeature) };
+  }
+  getSnappingGeoJSON(): GeometryFeatureCollection {
+    return { type: 'FeatureCollection', features: [...this.features.values()].filter(feature => this.isFeatureSnappable(feature.id)).map(copyFeature) };
+  }
+  setGeofencing(update: Partial<GeofencingOptions>): boolean {
+    const next = new GeofencingPolicy(update, this.geofencing.options);
+    if (JSON.stringify(next.options) === JSON.stringify(this.geofencing.options)) return false;
+    this.geofencing = next; this.fenceCache = null; this.historyFences = new WeakMap();
+    return true;
+  }
+
+  /** Audit snapshots without mutating data or allocating feature IDs. */
+  checkGeofencing(features: readonly GeometryFeature[]): GeofencingViolation[] {
+    const prepared = prepareImport({ type: 'FeatureCollection', features }, () => false, () => { throw new TypeError('Geofencing checks require explicit feature IDs.'); });
+    return this.geofencing.check(prepared.map(feature => ({ featureId: feature.id, geometry: feature.geometry })));
+  }
+
+  getHistoryGeofencingViolations(direction: HistoryEvent['direction']): GeofencingViolation[] {
+    if (direction !== 'undo' && direction !== 'redo') throw new TypeError('Expected undo or redo.');
+    const entry = this.history.peek(direction);
+    return entry ? copyViolations(this.historyGeofencingViolations(entry, direction)) : [];
+  }
+
+  private historyGeofencingViolations(entry: HistoryEntry, direction: HistoryEvent['direction']): GeofencingViolation[] {
+    if (!this.geofencing.options.enabled) return [];
+    let cached = this.historyFences.get(entry);
+    if (!cached) { cached = {}; this.historyFences.set(entry, cached); }
+    return cached[direction] ??= this.geofencing.check(entry.changes.flatMap(change => {
+      const feature = direction === 'undo' ? change.before : change.after;
+      return feature ? [{ featureId: feature.id, geometry: feature.geometry }] : [];
+    }));
+  }
+
+  private assertGeofencing(changes: readonly FeatureChange[]): void {
+    const violations = this.geofencing.check(changes.flatMap(change => change.after ? [{ featureId: change.after.id, geometry: change.after.geometry }] : []));
+    if (violations.length) throw new GeofencingError(violations);
+  }
+
+  private draftGeofencingViolations(): GeofencingViolation[] {
+    if (!this.geofencing.options.enabled || this.kind === null || this.lasso) return [];
+    const key = JSON.stringify([this.dataRevision, this.kind, this.shape, this.editingId, this.holeId, this.partId, this.activePartIndex, this.activeRingIndex,
+      [...this.selectedFeatureIds], [...this.locks], this.dataLayerRevision, this.validationError, this.pinningError, this.draft, this.textMarker, this.template?.result.preview,
+      this.offsetting?.preview, this.buffering?.preview, this.simplification?.preview, this.scaling?.preview, this.rotation?.preview,
+      this.sharedBoundaryPreview, this.reshapePreview, this.unionPreview, this.differencePreview, this.intersectionPreview, this.splitPreview, this.holeRemoval, this.cutting]);
+    if (key === this.fenceCache?.key) return this.fenceCache.violations;
+    const violations = this.geofencing.check(this.geofencingCandidates());
+    this.fenceCache = { key, violations }; return violations;
+  }
+
+  /** Final affected geometry, never an input cutter or an incomplete polygon. */
+  private geofencingCandidates(): GeofencingCandidate[] {
+    const candidates = (features: readonly GeometryFeature[] | null | undefined): GeofencingCandidate[] => features?.map(feature => ({ featureId: feature.id, geometry: feature.geometry })) ?? [];
+    if (this.template) return (this.template.result.preview?.features ?? []).map(feature => ({ featureId: null, geometry: feature.geometry }));
+    if (this.offsetting) return candidates(this.offsetting.preview);
+    if (this.buffering) return candidates(this.buffering.preview);
+    if (this.simplification) return candidates(this.simplification.preview);
+    if (this.scaling) return candidates(this.scaling.preview);
+    if (this.rotation) return candidates(this.rotation.preview);
+    if (this.sharedBoundary) return candidates(this.sharedBoundaryPreview?.features);
+    if (this.splitId !== null) return this.splitPreview ? [{ featureId: this.splitId, geometry: this.splitPreview.retained }, { featureId: null, geometry: this.splitPreview.created }] : [];
+    if (this.reshapeId !== null) return this.reshapePreview ? [{ featureId: this.reshapeId, geometry: this.reshapePreview }] : [];
+    const first = this.selectedFeatureIds.values().next().value ?? null;
+    if (this.unionActive) return this.unionPreview ? [{ featureId: first, geometry: this.unionPreview }] : [];
+    if (this.differenceActive) return this.differencePreview?.geometry ? [{ featureId: first, geometry: this.differencePreview.geometry }] : [];
+    if (this.intersectionActive) return this.intersectionPreview?.geometry ? [{ featureId: first, geometry: this.intersectionPreview.geometry }] : [];
+    if (this.holeRemoval) return this.validationError === null ? candidates([this.holeRemoval]) : [];
+    if (this.validationError !== null || this.pinningError !== null) return [];
+    if (this.isPinnedEdit()) return candidates(this.pinnedPreview?.features);
+    if (this.cutting) {
+      const output: GeofencingCandidate[] = [];
+      for (const id of this.cutting.targets ?? this.features.keys()) {
+        const feature = this.features.get(id)!;
+        if (this.isFeatureLocked(id)) continue;
+        const result = cutGeometry(feature.geometry, this.draft);
+        if (result.geometry && JSON.stringify(result.geometry) !== JSON.stringify(feature.geometry)) output.push({ featureId: id, geometry: result.geometry });
+      }
+      return output;
+    }
+    return [{ featureId: this.editingId ?? this.holeId ?? this.partId, geometry: this.draftGeometry(true) }];
+  }
+
   getLockedFeatureIds(): FeatureId[] { return [...this.locks]; }
-  isFeatureLocked(id: FeatureId): boolean { return this.locks.has(id); }
+  isFeatureLocked(id: FeatureId): boolean { const feature = this.features.get(id); return this.locks.has(id) || !!feature && this.dataLayers.issue(featureDataLayerId(feature), id) !== null; }
 
   /** Replace host policy; cancel a draft only when one of its mutation targets is locked. */
   setLockedFeatureIds(ids: readonly FeatureId[]): boolean {
@@ -106,14 +332,14 @@ export class DrawingSession {
     if (sameLocks(this.locks, next)) return false;
     this.locks = next;
     this.historyLocks = new WeakMap();
-    if (this.kind !== null && this.selectionLocked(this.differenceActive)) this.cancel();
+    if (this.kind !== null && !this.lasso && this.selectionLocked(this.differenceActive)) this.cancel();
+    if (this.editingId !== null && this.pins.related(this.editingId).some(id => this.isFeatureLocked(id))) this.cancel();
     return true;
   }
 
   private selectionLocked(firstOnly = false): boolean {
-    if (!this.locks.size) return false;
     for (const id of this.selectedFeatureIds) {
-      if (this.locks.has(id)) return true;
+      if (this.isFeatureLocked(id)) return true;
       if (firstOnly) break;
     }
     return false;
@@ -122,13 +348,12 @@ export class DrawingSession {
   private canReplay(direction: HistoryEvent['direction']): boolean {
     const entry = this.history.peek(direction);
     if (!entry) return false;
-    if (!this.locks.size) return true;
     let blocked = this.historyLocks.get(entry);
     if (blocked === undefined) {
-      blocked = entry.changes.some(({ before, after }) => this.locks.has((before ?? after)!.id));
+      blocked = entry.changes.some(({ before, after }) => this.locks.has((before ?? after)!.id)) || this.historyDataLayerIssues(entry).length > 0;
       this.historyLocks.set(entry, blocked);
     }
-    return !blocked;
+    return !blocked && this.historyGeofencingViolations(entry, direction).length === 0;
   }
 
   private get selectedFeatureId(): FeatureId | null {
@@ -136,10 +361,11 @@ export class DrawingSession {
   }
 
   get state(): EditorState {
+    const geofencingViolations = this.draftGeofencingViolations();
     return {
-      mode: this.offsetting ? 'offset-lines' : this.buffering ? 'buffer-features' : this.simplification ? 'simplify-features' : this.scaling ? 'scale-features' : this.rotation ? 'rotate-features' : this.sharedBoundary ? 'edit-shared-boundary' : this.reshapeId !== null ? 'reshape-polygon' : this.intersectionActive ? 'intersection-polygons' : this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.cutting ? 'draw-cut' : this.partId !== null ? 'draw-part' : this.kind === null ? 'idle' : this.editingId !== null
+      mode: this.template ? 'draw-template' : this.lasso ? 'select-lasso' : this.holeRemoval ? 'remove-hole' : this.offsetting ? 'offset-lines' : this.buffering ? 'buffer-features' : this.simplification ? 'simplify-features' : this.scaling ? 'scale-features' : this.rotation ? 'rotate-features' : this.sharedBoundary ? 'edit-shared-boundary' : this.reshapeId !== null ? 'reshape-polygon' : this.intersectionActive ? 'intersection-polygons' : this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.cutting ? 'draw-cut' : this.partId !== null ? 'draw-part' : this.kind === null ? 'idle' : this.editingId !== null
         ? this.kind === 'Point' ? 'edit-point' : this.kind === 'LineString' ? 'edit-line' : 'edit-polygon'
-        : this.shape ? shapeModes[this.shape] : this.kind === 'Point' ? 'draw-point' : this.kind === 'LineString' ? 'draw-line' : 'draw-polygon',
+        : this.textMarker ? 'draw-text' : this.shape ? shapeModes[this.shape] : this.kind === 'Point' ? 'draw-point' : this.kind === 'LineString' ? 'draw-line' : 'draw-polygon',
       vertexCount: this.draft.length,
       featureCount: this.features.size,
       selectedFeatureId: this.selectedFeatureId,
@@ -149,10 +375,14 @@ export class DrawingSession {
       activeRingIndex: this.activeRingIndex,
       activePartIndex: this.activePartIndex,
       dataRevision: this.dataRevision,
-      canFinish: this.offsetting ? this.offsetting.preview !== null : this.buffering ? this.buffering.preview !== null : this.simplification ? this.simplification.preview !== null : this.scaling ? this.scaling.preview !== null : this.rotation ? this.rotation.preview !== null : this.sharedBoundary ? this.sharedBoundaryPreview !== null : this.reshapeId !== null ? this.reshapePreview !== null : this.intersectionActive ? this.intersectionPreview !== null : this.differenceActive ? this.differencePreview !== null : this.unionActive ? this.unionPreview !== null : this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
+      dataLayerRevision: this.dataLayerRevision, activeDataLayerId: this.activeDataLayerId, dataLayerSelectionScope: this.dataLayerSelectionScope,
+      canFinish: geofencingViolations.length || this.pinningError !== null ? false : this.template ? this.template.draft.position !== null && this.template.result.preview !== null : this.textMarker && !this.textMarker.text.trim() ? false : this.lasso ? false : this.holeRemoval ? this.validationError === null : this.offsetting ? this.offsetting.preview !== null : this.buffering ? this.buffering.preview !== null : this.simplification ? this.simplification.preview !== null : this.scaling ? this.scaling.preview !== null : this.rotation ? this.rotation.preview !== null : this.sharedBoundary ? this.sharedBoundaryPreview !== null : this.reshapeId !== null ? this.reshapePreview !== null : this.intersectionActive ? this.intersectionPreview !== null : this.differenceActive ? this.differencePreview !== null : this.unionActive ? this.unionPreview !== null : this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
       canUndo: this.kind === null && this.canReplay('undo'),
       canRedo: this.kind === null && this.canReplay('redo'),
       validationError: this.validationError,
+      pinningError: this.pinningError,
+      geofencingViolations: copyViolations(geofencingViolations),
+      templateError: this.template?.result.error ?? null,
       splitError: this.splitError,
       sharedBoundaryError: this.sharedBoundaryError,
       offsetDistance: this.offsetting?.distance ?? null,
@@ -177,20 +407,143 @@ export class DrawingSession {
     };
   }
 
+  /** Freeze data while a screen-space lasso is being drawn; selection is retained. */
+  startLasso(options: Partial<LassoOptions> = {}): boolean {
+    const next = lassoOptions(options);
+    if (this.lasso) return false;
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before selecting with a lasso.');
+    this.lasso = next; this.kind = 'Polygon';
+    return true;
+  }
+
+  getLassoOptions(): LassoOptions | null { return this.lasso ? { ...this.lasso } : null; }
+
+  setLassoOptions(update: Partial<LassoOptions>): void {
+    if (!this.lasso) throw new Error('Start lasso selection before changing its options.');
+    this.lasso = lassoOptions(update, this.lasso);
+    this.validationError = null;
+  }
+
+  setLassoError(error: ValidationError | null): void {
+    if (this.lasso) this.validationError = error;
+  }
+
+  /** Complete a selection, without a data revision, transaction or history entry. */
+  finishLasso(ids: readonly FeatureId[]): boolean {
+    if (!this.lasso) return false;
+    for (const id of ids) if (!this.features.has(id)) throw new RangeError(`Unknown feature ID: ${id}`);
+    const hits = new Set(ids.filter(id => this.canSelectFeature(id)));
+    const previous = [...this.selectedFeatureIds];
+    const selected = this.lasso.operation === 'replace' ? [...hits]
+      : this.lasso.operation === 'add' ? [...this.selectedFeatureIds, ...hits]
+      : previous.filter((id) => !hits.has(id));
+    this.cancel();
+    this.selectMany(selected);
+    return true;
+  }
+
+  getShapeTemplates(): ShapeTemplate[] { return this.templates.map(({ definition, features }) => ({ id: definition.id, label: definition.label, data: { type: 'FeatureCollection', features: features.map(copyFeature) } })); }
+
+  setShapeTemplates(templates: readonly ShapeTemplate[]): void {
+    if (this.template) throw new Error('Finish or cancel template placement before replacing its library.');
+    const next = prepareShapeTemplates(templates);
+    this.templates = next;
+  }
+
+  startTemplate(id?: string, options: Partial<TemplatePlacement> = {}): boolean {
+    this.dataLayers.assertWritable(this.activeDataLayerId);
+    const source = this.templates.find(template => template.definition.id === (id ?? this.templates[0]?.definition.id));
+    if (!source) throw new RangeError(`Unknown shape template: ${String(id)}`);
+    const draft = templatePlacement(options, { templateId: source.definition.id, position: null, size: 200, rotation: 0 });
+    if (draft.templateId !== source.definition.id) throw new TypeError('Pass the template ID as the first argument.');
+    if (this.template?.draft.templateId === source.definition.id) return false;
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before placing a template.');
+    const result = placeTemplate(source, draft);
+    this.template = { source, draft, result }; this.kind = 'Polygon';
+    this.draft = draft.position ? [[...draft.position]] : [];
+    this.selectedFeatureIds.clear();
+    return true;
+  }
+
+  getTemplateDraft(): TemplateDraft | null {
+    return this.template ? { ...this.template.draft, position: this.template.draft.position ? [...this.template.draft.position] : null } : null;
+  }
+
+  setTemplatePlacement(patch: Partial<TemplateDraft>): boolean {
+    if (!this.template) throw new Error('Start template placement first.');
+    const draft = templatePlacement(patch, this.template.draft);
+    const source = this.templates.find(template => template.definition.id === draft.templateId);
+    if (!source) throw new RangeError(`Unknown shape template: ${draft.templateId}`);
+    if (JSON.stringify(draft) === JSON.stringify(this.template.draft)) return false;
+    this.template = { source, draft, result: placeTemplate(source, draft) };
+    this.draft = draft.position ? [[...draft.position]] : [];
+    return true;
+  }
+
+  getTemplatePreview(position?: Coordinate): GeometryFeatureCollection | null {
+    if (!this.template) return null;
+    const result = this.template.draft.position !== null || position === undefined ? this.template.result
+      : placeTemplate(this.template.source, templatePlacement({ position }, this.template.draft));
+    return result.preview ? { type: 'FeatureCollection', features: result.preview.features.map(copyFeature) } : null;
+  }
+
+  finishTemplate(): TransactionEvent | null {
+    if (!this.state.canFinish) return null;
+    if (!this.template?.result.preview || this.template.draft.position === null) return null;
+    const reserved = new Set<FeatureId>();
+    const features = this.template.result.preview.features.map(feature => {
+      const id = this.allocateId(reserved); reserved.add(id);
+      return assignDataLayer({ ...copyFeature(feature), id }, this.activeDataLayerId!);
+    });
+    const changes = prepareTransaction({ create: features }, this.features);
+    this.commit('transaction', changes); this.cancel(); this.selectedFeatureIds = new Set([...reserved].filter(id => this.canSelectFeature(id)));
+    return { changes: changes.map(({ after }) => ({ before: null, after: copyFeature(after!) })) };
+  }
+
+  /** Place a label, then confirm its text and position as one creation. */
+  startText(options: TextMarkerOptions = { text: '' }): boolean {
+    const next = textMarkerOptions(options, true);
+    if (this.textMarker && this.editingId === null) return false;
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before drawing text.');
+    this.start('Point');
+    this.textMarker = next;
+    return true;
+  }
+
+  getTextMarkerDraft(): TextMarkerOptions | null {
+    return this.textMarker ? textMarkerOptions(this.textMarker, true) : null;
+  }
+
+  /** Patch draft text/style without committing or losing unrelated properties. */
+  setTextMarker(patch: Partial<TextMarkerOptions>): boolean {
+    if (!this.textMarker) throw new Error('Start drawing or editing a text marker first.');
+    if (typeof patch !== 'object' || patch === null || Array.isArray(patch)
+      || Object.keys(patch).some(key => key !== 'text' && key !== 'style')) throw new TypeError('Expected a text marker patch.');
+    const next = textMarkerOptions({ ...this.textMarker, ...patch,
+      ...(Object.hasOwn(patch, 'style') ? { style: { ...this.textMarker.style, ...textMarkerOptions({ text: '', style: patch.style }, true).style } } : {}),
+    }, true);
+    if (JSON.stringify(next) === JSON.stringify(this.textMarker)) return false;
+    this.textMarker = next;
+    this.validatePinnedEdit();
+    return true;
+  }
+
   start(kind: DrawGeometryType | DrawShape): boolean {
+    this.dataLayers.assertWritable(this.activeDataLayerId);
     const shape = kind === 'Rectangle' || kind === 'Circle' || kind === 'Ellipse' || kind === 'Freehand' ? kind : null;
     if (!shape && kind !== 'Point' && kind !== 'LineString' && kind !== 'Polygon') throw new TypeError('Unsupported geometry type.');
     if (this.kind !== null && this.state.mode === (shape ? shapeModes[shape] : drawModes[kind as DrawGeometryType])) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before changing tools.');
     this.kind = shape ? 'Polygon' : kind as DrawGeometryType;
-    this.shape = shape;
+    this.shape = shape; this.shapeAnchor = null;
     this.selectedFeatureIds.clear();
     this.validationError = 'too-few-vertices';
     return true;
   }
 
   add([lng, lat]: Coordinate): boolean {
-    if (this.offsetting || this.buffering || this.simplification || this.scaling || this.rotation || this.sharedBoundary || this.kind === null || this.editingId !== null || this.unionActive || this.differenceActive || this.intersectionActive || this.shape === 'Freehand') return false;
+    if (this.template) return this.setTemplatePlacement({ position: [lng, lat] });
+    if (this.lasso || this.holeRemoval || this.offsetting || this.buffering || this.simplification || this.scaling || this.rotation || this.sharedBoundary || this.kind === null || this.editingId !== null || this.unionActive || this.differenceActive || this.intersectionActive || this.shape === 'Freehand') return false;
     this.validatePosition([lng, lat]);
     if (this.shape) return this.addShapePoint([lng, lat]);
     const last = this.draft.at(-1);
@@ -213,8 +566,8 @@ export class DrawingSession {
 
   /** Rectangles, circles and ellipses: the first point anchors the shape, the second completes it. */
   private addShapePoint(point: Coordinate): boolean {
-    const anchor = this.draft[0];
-    if (!anchor) { this.draft = [point]; this.validationError = 'too-few-vertices'; return true; }
+    const anchor = this.shapeAnchor ?? this.draft[0];
+    if (!anchor) { this.shapeAnchor = [...point]; this.draft = [point]; this.validationError = 'too-few-vertices'; return true; }
     const ring = this.getShapePreview(point);
     if (!ring) return false;
     const previous = this.draft;
@@ -227,9 +580,11 @@ export class DrawingSession {
   }
 
   /** The open rectangle, circle or ellipse ring from the placed anchor to `point`; null without one. */
+  getShapeAnchor(): Coordinate | null { return this.shapeAnchor ? [...this.shapeAnchor] : null; }
+
   getShapePreview(point: Coordinate): Coordinate[] | null {
-    const anchor = this.draft[0];
-    if (!anchor || this.draft.length !== 1 || !this.shape || this.shape === 'Freehand') return null;
+    const anchor = this.shapeAnchor ?? this.draft[0];
+    if (!anchor || !this.shape || this.shape === 'Freehand') return null;
     return this.shape === 'Rectangle' ? rectangleRing(anchor, point) : this.shape === 'Circle' ? circleRing(anchor, point) : ellipseRing(anchor, point);
   }
 
@@ -253,7 +608,7 @@ export class DrawingSession {
 
   getBoundaryTrace(target: TraceTarget, from: Coordinate, to: Coordinate, side: TraceSide = 'shorter'): Coordinate[] | null {
     const feature = this.features.get(target.featureId);
-    if (!feature) return null;
+    if (!feature || !this.isFeatureSnappable(feature.id)) return null;
     const source = traceSource(feature, target);
     return source ? traceBoundary(source.points, source.closed, from, to, side) : null;
   }
@@ -278,7 +633,7 @@ export class DrawingSession {
   /** Backspace removes the last click, including all corners inserted by a trace. */
   removeLastDrawStep(): boolean {
     if (this.shape && this.shape !== 'Freehand' && this.draft.length === 1) {
-      this.draft = []; this.validationError = 'too-few-vertices'; return true;
+      this.draft = []; this.shapeAnchor = null; this.validationError = 'too-few-vertices'; return true;
     }
     if (!this.canTrace() || !this.drawingSteps.length) return false;
     this.draft.length = this.drawingSteps.pop()!;
@@ -292,24 +647,41 @@ export class DrawingSession {
     return point ? [...point] : null;
   }
 
+  /** Bounded recent path for interactive guides; never copies an entire drawing. */
+  getAlignmentDrawPoints(): Coordinate[] {
+    const points = this.draft.slice(-3).map((point): Coordinate => [...point]);
+    if (this.draft.length > 3) points.unshift([...this.draft[0]!]);
+    return points;
+  }
+
   getDraft(): Coordinate[] {
     return this.draft.map(([lng, lat]) => [lng, lat]);
   }
 
   finish(): GeometryFeature | null {
-    if (this.offsetting || this.buffering || this.simplification || this.scaling || this.rotation || this.sharedBoundary || this.reshapeId !== null || this.intersectionActive || this.differenceActive || this.unionActive || this.splitId !== null || this.cutting || !this.state.canFinish) return null;
+    if (this.isPinnedEdit()) {
+      if (!this.state.canFinish) return null;
+      const id = this.editingId!;
+      this.finishPinnedEdit(); return this.getFeature(id);
+    }
+    if (this.template) return null;
+    if (this.lasso || this.holeRemoval || this.offsetting || this.buffering || this.simplification || this.scaling || this.rotation || this.sharedBoundary || this.reshapeId !== null || this.intersectionActive || this.differenceActive || this.unionActive || this.splitId !== null || this.cutting || !this.state.canFinish) return null;
     const targetId = this.editingId ?? this.holeId ?? this.partId;
     const original = targetId === null ? undefined : this.features.get(targetId);
     const common = { type: 'Feature' as const, id: original?.id ?? this.allocateId(), properties: original ? copyProperties(original.properties) : {} };
-    const feature = withGeometry(common, this.draftGeometry(true));
+    if (this.textMarker) common.properties = { ...common.properties, mapMasterText: textMarkerOptions(this.textMarker) };
+    const raw = withGeometry(common, this.draftGeometry(true));
+    const feature = original ? raw : assignDataLayer(raw, this.activeDataLayerId!);
     // No-op saves exit editing without emitting a data change or replacing the feature.
-    if (!original || JSON.stringify(original.geometry) !== JSON.stringify(feature.geometry)) {
+    if (!original || JSON.stringify(original.geometry) !== JSON.stringify(feature.geometry)
+      || this.textMarker !== null && prepareTransaction({ update: [feature] }, this.features).length > 0) {
       this.commit(original ? 'edit' : 'create', [{ before: original ?? null, after: feature }]);
     }
+    this.textMarker = null;
     this.draft = [];
     this.drawingSteps = [];
     this.kind = null;
-    this.shape = null;
+    this.shape = null; this.shapeAnchor = null;
     this.validationError = null;
     this.editingId = null;
     this.holeId = null;
@@ -322,6 +694,9 @@ export class DrawingSession {
 
   cancel(): boolean {
     if (this.kind === null) return false;
+    this.editPinIndices.clear(); this.pinnedPreview = null; this.pinningError = null;
+    this.template = null;
+    this.textMarker = null;
     this.offsetting = null;
     this.buffering = null;
     this.simplification = null;
@@ -336,13 +711,15 @@ export class DrawingSession {
     this.splitId = null; this.splitPreview = null; this.splitError = null;
     this.cutting = null;
     this.partId = null;
-    this.shape = null;
+    this.shape = null; this.shapeAnchor = null;
     this.kind = null;
     this.draft = [];
     this.drawingSteps = [];
     this.validationError = null;
     this.editingId = null;
     this.holeId = null;
+    this.holeRemoval = null;
+    this.lasso = null;
     this.activeRingIndex = null;
     this.activePartIndex = null;
     this.selectedVertexIndices = [];
@@ -377,6 +754,7 @@ export class DrawingSession {
 
   /** Retain the first selected ID/properties/position; remove the other inputs atomically. */
   finishUnion(): TransactionEvent | null {
+    if (!this.state.canFinish) return null;
     if (!this.unionActive || !this.unionPreview) return null;
     const [retainedId, ...removedIds] = this.selectedFeatureIds;
     const original = this.features.get(retainedId!)!;
@@ -415,6 +793,7 @@ export class DrawingSession {
 
   /** Update or delete only the target. A no-op exits review without recording history. */
   finishDifference(): TransactionEvent | null {
+    if (!this.state.canFinish) return null;
     if (!this.differenceActive || !this.differencePreview) return null;
     const original = this.features.get(this.selectedFeatureIds.values().next().value!)!;
     const geometry = this.differencePreview.geometry;
@@ -453,6 +832,7 @@ export class DrawingSession {
 
   /** Retain the first ID for nonempty output; empty output deletes all inputs. */
   finishIntersection(): TransactionEvent | null {
+    if (!this.state.canFinish) return null;
     if (!this.intersectionActive || !this.intersectionPreview) return null;
     const [retainedId, ...removedIds] = this.selectedFeatureIds;
     const original = this.features.get(retainedId!)!;
@@ -511,6 +891,7 @@ export class DrawingSession {
   }
 
   finishReshape(): TransactionEvent | null {
+    if (!this.state.canFinish) return null;
     if (this.reshapeId === null || !this.reshapePreview) return null;
     const original = this.features.get(this.reshapeId)!;
     const changes = prepareTransaction({ update: [withGeometry(original, this.reshapePreview)] }, this.features);
@@ -566,6 +947,7 @@ export class DrawingSession {
   }
 
   finishSplit(): TransactionEvent | null {
+    if (!this.state.canFinish) return null;
     if (this.splitId === null || !this.splitPreview) return null;
     const original = this.features.get(this.splitId)!;
     const changes = prepareTransaction({ update: [{ ...original, geometry: this.splitPreview.retained }],
@@ -577,9 +959,12 @@ export class DrawingSession {
   }
 
   /** Append a fully validated batch; existing data and selection survive any failure. */
-  importGeoJSON(input: unknown): GeometryFeatureCollection {
+  importGeoJSON(input: unknown, options: DataLayerImportOptions = {}): GeometryFeatureCollection {
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before importing.');
-    const features = prepareImport(input, (id) => this.features.has(id), this.createId);
+    if (!options || typeof options !== 'object' || Array.isArray(options) || Object.keys(options).some(key => key !== 'dataLayerId')) throw new TypeError('Invalid data layer import options.');
+    if (options.dataLayerId !== undefined) this.dataLayers.assertKnown(options.dataLayerId);
+    const features = prepareImport(input, (id) => this.features.has(id), this.createId).map(feature => options.dataLayerId !== undefined
+      ? assignDataLayer(feature, options.dataLayerId) : Object.hasOwn(feature.properties ?? {}, 'mapMasterLayer') ? feature : assignDataLayer(feature, this.activeDataLayerId ?? defaultDataLayerId));
     this.commit('import', features.map((feature) => ({ before: null, after: feature })));
     return { type: 'FeatureCollection', features: features.map(copyFeature) };
   }
@@ -597,6 +982,9 @@ export class DrawingSession {
   /** The only entry point for recording and applying prepared committed mutations. */
   private commit(action: HistoryAction, changes: FeatureChange[]): boolean {
     if (changes.length === 0) return false;
+    this.dataLayers.assertChanges(changes);
+    this.assertGeofencing(changes);
+    this.pins.validate(changes);
     for (const { before } of changes) {
       if (before && this.locks.has(before.id)) throw new FeatureLockedError(before.id);
     }
@@ -639,6 +1027,7 @@ export class DrawingSession {
   }
 
   private applyChanges(changes: HistoryEntry['changes']): void {
+    this.pins.apply(changes);
     const insertions: { feature: GeometryFeature; index: number }[] = [];
     for (const change of changes) {
       const target = change.after;
@@ -667,7 +1056,7 @@ export class DrawingSession {
     } else {
       for (const { feature } of insertions) this.features.set(feature.id, feature);
     }
-    for (const id of this.selectedFeatureIds) if (!this.features.has(id)) this.selectedFeatureIds.delete(id);
+    for (const id of this.selectedFeatureIds) if (!this.canSelectFeature(id)) this.selectedFeatureIds.delete(id);
     this.dataRevision++;
   }
 
@@ -679,8 +1068,12 @@ export class DrawingSession {
     throw new Error('Could not allocate a unique feature ID.');
   }
 
-  exportGeoJSON(): GeometryFeatureCollection {
-    return { type: 'FeatureCollection', features: Array.from(this.features.values(), copyFeature) };
+  exportGeoJSON(options: DataLayerExportOptions = {}): GeometryFeatureCollection {
+    if (!options || typeof options !== 'object' || Array.isArray(options) || Object.keys(options).some(key => !['dataLayerId', 'visibleOnly'].includes(key))) throw new TypeError('Invalid data layer export options.');
+    if (options.dataLayerId !== undefined) this.dataLayers.assertKnown(options.dataLayerId);
+    if (options.visibleOnly !== undefined && typeof options.visibleOnly !== 'boolean') throw new TypeError('visibleOnly must be boolean.');
+    return { type: 'FeatureCollection', features: [...this.features.values()].filter(feature => (options.dataLayerId === undefined || featureDataLayerId(feature) === options.dataLayerId)
+      && (!options.visibleOnly || this.dataLayers.get(featureDataLayerId(feature))?.visible)).map(copyFeature) };
   }
 
   /** Selection is separate from feature data and available only outside drawing. */
@@ -694,6 +1087,7 @@ export class DrawingSession {
     if (!Array.isArray(ids)) throw new TypeError('Expected an array of feature IDs.');
     const next = new Set<FeatureId>(ids as readonly FeatureId[]);
     for (const id of next) if (!this.features.has(id)) throw new RangeError(`Unknown feature ID: ${id}`);
+    for (const id of next) if (!this.canSelectFeature(id)) throw new DataLayerError([{ featureId: id, layerId: featureDataLayerId(this.features.get(id)!), code: 'unselectable-layer' }]);
     const previous = this.selectedFeatureIds.values();
     if (next.size === this.selectedFeatureIds.size && [...next].every((id) => id === previous.next().value)) return false;
     this.selectedFeatureIds = next;
@@ -703,6 +1097,7 @@ export class DrawingSession {
   toggleSelection(id: FeatureId): boolean {
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before selecting.');
     if (!this.features.has(id)) throw new RangeError(`Unknown feature ID: ${id}`);
+    if (!this.canSelectFeature(id)) throw new DataLayerError([{ featureId: id, layerId: featureDataLayerId(this.features.get(id)!), code: 'unselectable-layer' }]);
     if (!this.selectedFeatureIds.delete(id)) this.selectedFeatureIds.add(id);
     return true;
   }
@@ -747,22 +1142,43 @@ export class DrawingSession {
   translateSelection(delta: Coordinate): TransactionEvent | null {
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before translating.');
     if (this.selectionLocked()) return null;
-    return this.applyTransaction({ update: translateFeatures(this.getSelection(), delta) });
+    return this.applyTransaction({ update: this.previewTranslation(delta) });
+  }
+
+  /** Immutable idle-movement preview, including linked vertices of unselected features. */
+  previewTranslation(delta: Coordinate, selected: readonly GeometryFeature[] = this.getSelection()): GeometryFeature[] {
+    const translated = translateFeatures(selected, delta);
+    const destinations = new Map(translated.flatMap(feature => readVertexPins(feature).map(pin => [pin.id, pin.coordinate] as const)));
+    const selectedIds = new Set(selected.map(feature => feature.id));
+    const followers = [...new Set(selected.flatMap(feature => this.pins.related(feature.id)))].filter(id => !selectedIds.has(id));
+    const candidates = [...translated, ...followers.map(id => moveVertexPins(this.features.get(id)!, destinations))];
+    this.assertGeofencing(candidates.map(after => ({ before: this.features.get(after.id)!, after })));
+    if (!destinations.size) return candidates;
+    const changes = prepareTransaction({ update: candidates }, this.features);
+    if (changes.some(change => this.isFeatureLocked(change.before!.id))) throw new VertexPinError('pin-locked', 'A linked feature is locked.');
+    this.pins.validate(changes);
+    const normalized = new Map(changes.map(change => [change.after!.id, change.after!]));
+    return candidates.map(feature => normalized.get(feature.id) ?? feature);
   }
 
   /** Copy the selection in acquisition order, optionally offset in degrees.
    * Reserve every new ID before committing; a failed batch changes nothing.
    */
+  canDuplicateSelection(): boolean {
+    return this.kind === null && this.selectedFeatureIds.size > 0 && [...this.selectedFeatureIds].every(id => this.dataLayers.issue(featureDataLayerId(this.features.get(id)!)) === null);
+  }
+
   duplicateSelection(delta: Coordinate = [0, 0]): TransactionEvent | null {
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before duplicating.');
-    const copies = translateFeatures(this.getSelection(), delta);
+    for (const id of this.selectedFeatureIds) this.dataLayers.assertWritable(featureDataLayerId(this.features.get(id)!), id);
+    const copies = translateFeatures(this.getSelection().map(feature => withVertexPins(feature, [])), delta);
     const reserved = new Set<FeatureId>();
     for (const feature of copies) {
       feature.id = this.allocateId(reserved);
       reserved.add(feature.id);
     }
     const event = this.applyTransaction({ create: copies });
-    if (event) this.selectedFeatureIds = reserved;
+    if (event) this.selectedFeatureIds = new Set([...reserved].filter(id => this.canSelectFeature(id)));
     return event;
   }
 
@@ -821,6 +1237,7 @@ export class DrawingSession {
   }
 
   finishRotation(): TransactionEvent | null {
+    if (!this.state.canFinish) return null;
     if (!this.rotation?.preview) return null;
     const changes = prepareTransaction({ update: this.rotation.preview }, this.features);
     const changed = this.commit('transaction', changes);
@@ -888,6 +1305,7 @@ export class DrawingSession {
   }
 
   finishScale(): TransactionEvent | null {
+    if (!this.state.canFinish) return null;
     if (!this.scaling?.preview) return null;
     const changes = prepareTransaction({ update: this.scaling.preview }, this.features);
     const changed = this.commit('transaction', changes);
@@ -934,6 +1352,7 @@ export class DrawingSession {
   }
 
   finishSimplification(): TransactionEvent | null {
+    if (!this.state.canFinish) return null;
     if (!this.simplification?.preview) return null;
     const changes = prepareTransaction({ update: this.simplification.preview }, this.features);
     const changed = this.commit('transaction', changes);
@@ -984,6 +1403,7 @@ export class DrawingSession {
   }
 
   finishOffset(): TransactionEvent | null {
+    if (!this.state.canFinish) return null;
     if (!this.offsetting?.preview) return null;
     const changes = prepareTransaction({ update: this.offsetting.preview }, this.features);
     const changed = this.commit('transaction', changes);
@@ -1037,6 +1457,7 @@ export class DrawingSession {
   }
 
   finishBuffer(): TransactionEvent | null {
+    if (!this.state.canFinish) return null;
     if (!this.buffering?.preview) return null;
     const changes = prepareTransaction({ update: this.buffering.preview }, this.features);
     const changed = this.commit('transaction', changes);
@@ -1067,6 +1488,7 @@ export class DrawingSession {
   }
 
   finishSharedBoundary(): TransactionEvent | null {
+    if (!this.state.canFinish) return null;
     if (!this.sharedBoundary || !this.sharedBoundaryPreview) return null;
     // Revalidate before preparing the complete batch. Invalid output never partially commits.
     this.validateSharedBoundary();
@@ -1086,6 +1508,145 @@ export class DrawingSession {
     this.validationError = null;
   }
 
+  getLinkedFeatureIds(ids: readonly FeatureId[]): FeatureId[] { return [...new Set(ids.flatMap(id => [id, ...this.pins.related(id)]))]; }
+
+  getPinnedEditIds(): FeatureId[] { return this.editingId === null ? [] : this.pins.related(this.editingId); }
+
+  getPinnedVertices(): PinnedVertexGroup[] { return this.pins.snapshot(this.features); }
+
+  private sharedVertexGroups(): VertexAddress[][] {
+    const groups = new Map<string, VertexAddress[]>();
+    for (const feature of this.getSelection()) for (const vertex of featureVertices(feature)) {
+      const key = vertex.coordinate.join(',');
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(vertex);
+    }
+    return [...groups.values()].filter(vertices => new Set(vertices.map(vertex => vertex.featureId)).size > 1);
+  }
+
+  canPinSharedVertices(): boolean {
+    return this.kind === null && !this.selectionLocked() && this.sharedVertexGroups().length > 0
+      && ![...this.selectedFeatureIds].some(id => this.pins.related(id).some(member => this.isFeatureLocked(member)));
+  }
+
+  /** Link every exactly coincident position in the selected features in one transaction. */
+  pinSharedVertices(): TransactionEvent | null { return this.pinGroups(this.sharedVertexGroups(), {}); }
+
+  /** Explicitly join vertices; existing groups are merged, including unselected participants. */
+  pinVertices(vertices: readonly VertexAddress[], options: PinVerticesOptions = {}): TransactionEvent | null {
+    if (!Array.isArray(vertices) || vertices.length < 2) throw new RangeError('Pin at least two vertices from different features.');
+    return this.pinGroups([vertices], options);
+  }
+
+  private pinGroups(groups: readonly (readonly VertexAddress[])[], options: PinVerticesOptions): TransactionEvent | null {
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before pinning vertices.');
+    if (!options || typeof options !== 'object' || Array.isArray(options) || Object.keys(options).some(key => key !== 'tolerance')) throw new TypeError('Expected pin options with an optional tolerance.');
+    const tolerance = options.tolerance === undefined ? 0 : options.tolerance;
+    if (!Number.isFinite(tolerance) || tolerance < 0 || tolerance > 1) throw new RangeError('Pin tolerance must be between 0 and 1 longitude/latitude degrees.');
+    const updates = new Map<FeatureId, GeometryFeature>();
+    for (const targets of groups) {
+      const points = targets.map(target => {
+        const feature = this.features.get(target?.featureId);
+        const vertex = feature && featureVertices(feature).find(vertex => vertex.index === target.index
+          && vertex.partIndex === (target.partIndex === undefined ? 0 : target.partIndex) && vertex.ringIndex === (target.ringIndex === undefined ? 0 : target.ringIndex));
+        if (!vertex) throw new RangeError('Vertex address is outside the feature.');
+        return vertex;
+      });
+      if (new Set(points.map(point => point.featureId)).size < 2) throw new RangeError('A pin must connect different features.');
+      const coordinate = points[0]!.coordinate;
+      const merging = new Set<string>();
+      for (const point of points) for (const pin of this.pins.pins(point.featureId)) {
+        if (samePosition(point.coordinate, pin.coordinate)) merging.add(pin.id);
+      }
+      const participants = new Map<FeatureId, Coordinate[]>(points.map(point => [point.featureId, []]));
+      for (const point of points) participants.get(point.featureId)!.push(point.coordinate);
+      for (const id of merging) for (const [featureId, coordinate] of this.pins.group(id)) {
+        if (!participants.has(featureId)) participants.set(featureId, []);
+        participants.get(featureId)!.push(coordinate);
+      }
+      let id = merging.values().next().value;
+      if (id === undefined) { do { id = `map-master-pin-${Date.now().toString(36)}-${++this.pinSequence}-${Math.random().toString(36).slice(2)}`; } while (this.pins.has(id)); }
+      for (const [featureId, coordinates] of participants) {
+        if (this.isFeatureLocked(featureId)) throw new VertexPinError('pin-locked', `Feature ${JSON.stringify(featureId)} is locked.`);
+        if (coordinates.some(point => Math.hypot(point[0] - coordinate[0], point[1] - coordinate[1]) > tolerance)) throw new RangeError('Vertices are outside the pin tolerance.');
+        const feature = updates.get(featureId) ?? this.features.get(featureId)!;
+        const geometry = mapGeometry(feature.geometry, point => coordinates.some(source => samePosition(source, point)) ? [...coordinate] : [...point]);
+        const pins = readVertexPins(feature).filter(pin => !merging.has(pin.id));
+        updates.set(featureId, withVertexPins(withGeometry(feature, geometry), [...pins, { id, coordinate }]));
+      }
+    }
+    return this.applyTransaction({ update: [...updates.values()] });
+  }
+
+  /** Remove the complete groups touched by these addresses; other groups remain. */
+  unpinVertices(vertices: readonly VertexAddress[]): TransactionEvent | null {
+    if (!isArray(vertices)) throw new TypeError('Expected an array of vertex addresses.');
+    const ids = new Set<string>();
+    for (const target of vertices) {
+      const feature = this.features.get(target?.featureId);
+      const vertex = feature && featureVertices(feature).find(vertex => vertex.index === target.index
+        && vertex.partIndex === (target.partIndex === undefined ? 0 : target.partIndex) && vertex.ringIndex === (target.ringIndex === undefined ? 0 : target.ringIndex));
+      if (!vertex) throw new RangeError('Vertex address is outside the feature.');
+      for (const pin of this.pins.pins(vertex.featureId)) if (samePosition(pin.coordinate, vertex.coordinate)) ids.add(pin.id);
+    }
+    return this.unpinGroups(ids);
+  }
+
+  unpinSelection(): TransactionEvent | null {
+    return this.unpinGroups(new Set([...this.selectedFeatureIds].flatMap(id => this.pins.pins(id).map(pin => pin.id))));
+  }
+
+  canUnpinSelection(): boolean {
+    const ids = [...this.selectedFeatureIds];
+    return this.kind === null && ids.some(id => this.pins.pins(id).length > 0)
+      && !ids.some(id => this.pins.related(id).some(member => this.isFeatureLocked(member)));
+  }
+
+  private unpinGroups(ids: ReadonlySet<string>): TransactionEvent | null {
+    const updates = [...new Set([...ids].flatMap(id => [...this.pins.group(id)].map(([featureId]) => featureId)))].map(id => {
+      if (this.isFeatureLocked(id)) throw new VertexPinError('pin-locked', `Feature ${JSON.stringify(id)} is locked.`);
+      const feature = this.features.get(id)!;
+      return withVertexPins(feature, readVertexPins(feature).filter(pin => !ids.has(pin.id)));
+    });
+    return this.applyTransaction({ update: updates });
+  }
+
+  isPinnedEdit(): boolean { return this.editingId !== null && this.pins.pins(this.editingId).length > 0; }
+  getPinnedPreview(): GeometryFeatureCollection | null { return this.pinnedPreview ? { type: 'FeatureCollection', features: this.pinnedPreview.features.map(copyFeature) } : null; }
+
+  finishPinnedEdit(): TransactionEvent | null {
+    if (!this.state.canFinish) return null;
+    if (!this.isPinnedEdit() || !this.state.canFinish) return null;
+    this.validatePinnedEdit();
+    if (!this.pinnedPreview) return null;
+    const changes = prepareTransaction({ update: this.pinnedPreview.features }, this.features);
+    const changed = this.commit('transaction', changes);
+    this.cancel();
+    return changed ? { changes: changes.map(change => ({ before: change.before ? copyFeature(change.before) : null, after: change.after ? copyFeature(change.after) : null })) } : null;
+  }
+
+  private validatePinnedEdit(): void {
+    this.pinningError = null; this.pinnedPreview = null;
+    if (!this.isPinnedEdit() || this.validationError !== null) return;
+    try {
+      const destinations = new Map<string, Coordinate>();
+      for (const [id, indices] of this.editPinIndices) destinations.set(id, this.draft[indices[0]!]!);
+      const original = this.features.get(this.editingId!)!;
+      const primary = moveVertexPins(withGeometry(original, this.draftGeometry(true)), destinations,
+        { partIndex: this.activePartIndex!, ringIndex: this.activeRingIndex ?? 0 }, readVertexPins(original));
+      if (this.textMarker) primary.properties = { ...primary.properties, mapMasterText: textMarkerOptions(this.textMarker) };
+      const candidates = [primary, ...this.pins.related(original.id).filter(id => id !== original.id)
+        .map(id => moveVertexPins(this.features.get(id)!, destinations))];
+      const changes = prepareTransaction({ update: candidates }, this.features);
+      if (changes.some(change => this.isFeatureLocked(change.before!.id))) throw new VertexPinError('pin-locked', 'A linked feature is locked. Unpin or unlock it before moving this vertex.');
+      this.pins.validate(changes);
+      const normalized = new Map(changes.map(change => [change.after!.id, change.after!]));
+      this.pinnedPreview = { type: 'FeatureCollection', features: candidates.map(feature => normalized.get(feature.id) ?? this.features.get(feature.id)!) };
+    } catch (error) {
+      this.pinningError = error instanceof VertexPinError ? error.code : 'pin-invalid-result';
+    }
+  }
+
   editSelected(ringIndex = 0, partIndex = 0): boolean {
     if (this.editingId !== null) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before editing.');
@@ -1098,8 +1659,13 @@ export class DrawingSession {
     this.activeRingIndex = part.type === 'Polygon' ? ringIndex : null;
     this.activePartIndex = partIndex;
     this.editingId = feature.id;
+    this.textMarker = isTextMarker(feature) ? textMarkerOptions(feature.properties.mapMasterText) : null;
     this.kind = part.type;
     this.draft = part.type === 'Polygon' ? openRing(part.coordinates[ringIndex]!) : part.type === 'Point' ? [part.coordinates] : part.coordinates;
+    this.editPinIndices = new Map(this.pins.pins(feature.id).flatMap(pin => {
+      const indices = this.draft.flatMap((point, index) => samePosition(point, pin.coordinate) ? [index] : []);
+      return indices.length ? [[pin.id, indices] as const] : [];
+    }));
     this.selectedVertexIndices = [];
     this.validateEdit();
     return true;
@@ -1113,7 +1679,7 @@ export class DrawingSession {
 
   /** Draft ring plus preserved rings of the active component; independent open snapshots. */
   getDraftRings(): Coordinate[][] | null {
-    if (this.kind !== 'Polygon' || this.unionActive || this.differenceActive || this.intersectionActive) return null;
+    if (this.template || this.kind !== 'Polygon' || this.unionActive || this.differenceActive || this.intersectionActive) return null;
     const id = this.editingId ?? this.holeId;
     const original = id === null ? undefined : this.features.get(id);
     if (!original) return [this.getDraft()];
@@ -1167,6 +1733,63 @@ export class DrawingSession {
     return true;
   }
 
+  /** Preview filling the first hole of the sole selected polygon or multipolygon. */
+  removeHole(): boolean {
+    if (this.holeRemoval) return false;
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before removing a hole.');
+    if (this.selectionLocked()) return false;
+    const feature = this.getSelected();
+    if (!feature) return false;
+    const partIndex = geometryParts(feature.geometry).findIndex((part) => part.type === 'Polygon' && part.coordinates.length > 1);
+    if (partIndex < 0) return false;
+    const preview = this.holeRemovalCandidate(1, partIndex);
+    this.kind = 'Polygon';
+    this.holeRemoval = preview.feature;
+    this.validationError = preview.error;
+    this.activePartIndex = partIndex;
+    this.activeRingIndex = 1;
+    return true;
+  }
+
+  /** Choose another original interior ring; invalid indices leave the preview untouched. */
+  setHoleToRemove(ringIndex: number, partIndex = 0): boolean {
+    if (!this.holeRemoval) throw new Error('Start removing a hole before choosing a ring.');
+    const preview = this.holeRemovalCandidate(ringIndex, partIndex);
+    if (this.activeRingIndex === ringIndex && this.activePartIndex === partIndex) return false;
+    this.holeRemoval = preview.feature;
+    this.validationError = preview.error;
+    this.activePartIndex = partIndex;
+    this.activeRingIndex = ringIndex;
+    return true;
+  }
+
+  private holeRemovalCandidate(ringIndex: number, partIndex: number): { feature: GeometryFeature; error: ValidationError | null } {
+    const feature = this.getSelected()!;
+    const part = this.partAt(feature.geometry, partIndex);
+    if (part.type !== 'Polygon' || !Number.isInteger(ringIndex) || ringIndex < 1 || ringIndex >= part.coordinates.length) {
+      throw new RangeError('Expected an existing interior ring index.');
+    }
+    part.coordinates.splice(ringIndex, 1);
+    const error = feature.geometry.type === 'MultiPolygon' ? validateMultiPolygon(feature.geometry.coordinates)
+      : validatePolygonRings(part.coordinates);
+    return { feature, error };
+  }
+
+  /** Independent filled geometry, or null outside a valid removal preview. */
+  getHoleRemovalPreview(): GeometryFeature | null {
+    return this.holeRemoval && this.validationError === null ? copyFeature(this.holeRemoval) : null;
+  }
+
+  /** Commit one validated update while preserving feature identity and collection order. */
+  finishHoleRemoval(): TransactionEvent | null {
+    if (!this.state.canFinish) return null;
+    if (!this.holeRemoval || this.validationError !== null) return null;
+    const changes = prepareTransaction({ update: [this.holeRemoval] }, this.features);
+    this.commit('transaction', changes);
+    this.cancel();
+    return { changes: changes.map(({ before, after }) => ({ before: before ? copyFeature(before) : null, after: after ? copyFeature(after) : null })) };
+  }
+
   /** Remove an interior ring as one atomic update. The exterior cannot be removed. */
   deleteHole(ringIndex: number, partIndex = 0): TransactionEvent | null {
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before deleting a hole.');
@@ -1213,13 +1836,14 @@ export class DrawingSession {
    * geometry are deleted. Returns null, leaving the tool, when nothing overlaps.
    */
   finishCut(): TransactionEvent | null {
+    if (!this.state.canFinish) return null;
     if (!this.cutting || this.validationError !== null) return null;
     const cutter = this.getDraft();
     const update: GeometryFeature[] = [];
     const remove: FeatureId[] = [];
     for (const id of this.cutting.targets ?? this.features.keys()) {
       const feature = this.features.get(id);
-      if (!feature || this.locks.has(id)) continue;
+      if (!feature || this.isFeatureLocked(id)) continue;
       const result = cutGeometry(feature.geometry, cutter);
       if (result.error) return null;
       if (result.geometry === null) remove.push(id);
@@ -1311,10 +1935,18 @@ export class DrawingSession {
       indices.add(update.index);
     }
     if (updates.length === 0 || this.sharedBoundary && (indices.has(0) || indices.has(this.draft.length - 1))) return false;
-    const changed = updates.some(({ index, coordinate }) => !samePosition(this.draft[index]!, coordinate));
+    const expanded = new Map(updates.map(update => [update.index, update.coordinate]));
+    for (const linked of this.editPinIndices.values()) {
+      const moved = linked.filter(index => expanded.has(index));
+      if (!moved.length) continue;
+      const coordinate = expanded.get(moved[0]!)!;
+      if (moved.some(index => !samePosition(expanded.get(index)!, coordinate))) throw new VertexPinError('pin-conflict', 'A pin cannot move to two coordinates at once.');
+      for (const index of linked) expanded.set(index, coordinate);
+    }
+    const changed = [...expanded].some(([index, coordinate]) => !samePosition(this.draft[index]!, coordinate));
     const selected = this.selectVertices([...indices]);
     if (!changed) return selected;
-    for (const { index, coordinate } of updates) this.draft[index] = [coordinate[0], coordinate[1]];
+    for (const [index, coordinate] of expanded) this.draft[index] = [coordinate[0], coordinate[1]];
     this.validateEdit(); return true;
   }
 
@@ -1329,6 +1961,7 @@ export class DrawingSession {
     this.assertEditing(); this.assertIndex(index, true); this.validatePosition(coordinate);
     if (this.sharedBoundary && (index === 0 || index === this.draft.length)) throw new RangeError('Insert between the fixed boundary endpoints.');
     if (this.kind === 'Point') return false;
+    for (const [id, indices] of this.editPinIndices) this.editPinIndices.set(id, indices.map(existing => existing >= index ? existing + 1 : existing));
     this.draft.splice(index, 0, [...coordinate]);
     this.selectedVertexIndices = [index];
     this.validateEdit();
@@ -1345,6 +1978,8 @@ export class DrawingSession {
     const removed = new Set(indices);
     if (!removed.size || this.kind === 'Point' || this.draft.length - removed.size < (this.kind === 'Polygon' ? 3 : 2)
       || this.sharedBoundary && (removed.has(0) || removed.has(this.draft.length - 1))) return false;
+    if ([...this.editPinIndices.values()].some(linked => linked.some(index => removed.has(index)))) return false;
+    for (const [id, linked] of this.editPinIndices) this.editPinIndices.set(id, linked.map(index => index - [...removed].filter(removed => removed < index).length));
     this.draft = this.draft.filter((_, index) => !removed.has(index));
     this.selectedVertexIndices = [];
     this.validateEdit(); return true;
@@ -1377,5 +2012,6 @@ export class DrawingSession {
       this.validationError = this.draft.some((point, index) => index > 0 && samePosition(point, this.draft[index - 1]!))
         ? 'duplicate-vertex' : null;
     }
+    this.validatePinnedEdit();
   }
 }

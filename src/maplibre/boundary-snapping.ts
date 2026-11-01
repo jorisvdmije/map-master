@@ -1,4 +1,4 @@
-import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { EditorMap as MapLibreMap } from '../gl/map.js';
 import { SnapIndex, type ScreenPoint } from '../core/snapping.js';
 import { projectToEdge } from '../core/boundary-anchor.js';
 import type { PolygonFeature, SnapResult } from '../core/types.js';

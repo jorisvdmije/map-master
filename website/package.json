@@ -3,23 +3,48 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "^22.22.3 || ^24.15.0"
+  },
   "scripts": {
-    "dev": "node scripts/content.mjs && vite --host 127.0.0.1 --port 5180 --strictPort",
-    "build": "node scripts/content.mjs && tsc --noEmit && vite build",
+    "dev": "tsx scripts/content.mjs && vite --host 127.0.0.1 --port 5180 --strictPort",
+    "build": "tsx scripts/content.mjs && tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1 --port 5180 --strictPort",
-    "check": "npm run build && node scripts/smoke.mjs"
+    "check:frameworks": "node scripts/frameworks.mjs",
+    "check": "npm run build && npm run check:frameworks && node scripts/smoke.mjs"
   },
   "dependencies": {
-    "maplibre-gl": "6.15.0"
+    "@base-ui/react": "1.9.0",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "lucide-react": "1.66.0",
+    "maplibre-gl": "6.15.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "tailwind-merge": "3.7.0"
   },
   "devDependencies": {
+    "@angular/compiler": "22.2.4",
+    "@angular/compiler-cli": "22.2.4",
+    "@angular/core": "22.2.4",
     "@fontsource-variable/dm-sans": "5.3.0",
     "@fontsource-variable/manrope": "5.3.0",
+    "@tailwindcss/vite": "4.3.3",
     "@types/geojson": "7946.0.16",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vue/compiler-sfc": "3.5.44",
     "marked": "18.1.2",
     "playwright": "1.64.1",
+    "rxjs": "7.8.2",
     "shiki": "4.5.0",
+    "svelte": "5.57.3",
+    "svelte-check": "4.7.8",
+    "tailwindcss": "4.3.3",
+    "tsx": "4.23.15",
     "typescript": "6.0.3",
-    "vite": "8.3.5"
+    "vite": "8.3.5",
+    "vue": "3.5.44",
+    "vue-tsc": "3.3.14"
   }
 }

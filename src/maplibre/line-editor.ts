@@ -1,8 +1,9 @@
 import type { EditorStylingOptions, StylingIssue } from '../core/feature-styling.js';
-import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { EditorMap as MapLibreMap } from '../gl/map.js';
 import type { EditorAppearance, EditorAppearanceOptions } from '../core/appearance.js';
 import type { Coordinate, VertexUpdate, DrawingConstraintsOptions, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeature, LineCollection, LineFeature } from '../core/types.js';
 import { GeometryEditor } from './geometry-editor.js';
+import type { KeyboardAction, KeyboardShortcuts, ResolvedKeyboardShortcuts } from '../core/keyboard-shortcuts.js';
 
 const isLine = (feature: GeometryFeature): feature is LineFeature => feature.geometry.type === 'LineString';
 
@@ -41,6 +42,10 @@ export class LineEditor {
   clearHistory(): void { this.editor.clearHistory(); }
   onHistory(listener: (event: HistoryEvent) => void): () => void { return this.editor.onHistory(listener); }
   getState(): EditorState { return this.editor.getState(); }
+  getKeyboardShortcuts(): ResolvedKeyboardShortcuts { return this.editor.getKeyboardShortcuts(); }
+  setKeyboardShortcuts(update: KeyboardShortcuts | false): void { this.editor.setKeyboardShortcuts(update); }
+  getKeyboardShortcutLabel(action: KeyboardAction): string { return this.editor.getKeyboardShortcutLabel(action); }
+  getKeyboardShortcutAria(action: KeyboardAction): string { return this.editor.getKeyboardShortcutAria(action); }
   select(id: FeatureId | null): void { this.editor.select(id); }
   selectMany(ids: readonly FeatureId[]): void { this.editor.selectMany(ids); }
   toggleSelection(id: FeatureId): void { this.editor.toggleSelection(id); }

@@ -12,11 +12,33 @@ Two rules apply everywhere:
   Next.js, Nuxt or SvelteKit, render the map component on the client only.
 - Remove the map on unmount. Removing the map destroys the editor and its toolbar.
 
+## Shared worker setup
+
+MapLibre 6 loads its worker from a separate file. The component examples below
+assume you configure its URL in your browser startup code **before** creating a
+map. With Vite:
+
+```ts title="map-worker.ts"
+import { setWorkerUrl } from 'maplibre-gl';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+
+setWorkerUrl(workerUrl);
+```
+
+For other bundlers, serve `maplibre-gl/dist/maplibre-gl-worker.mjs` as a public
+asset and pass its deployed URL to `setWorkerUrl`. Use the worker from the same
+MapLibre installation as the renderer. Run this setup in the browser, including
+when the framework also renders pages on the server.
+
+The [complete Vite quickstart](../website/content/quickstart.md) includes the map,
+worker, CSS and toolbar together. For Mapbox, use its [renderer-specific setup](mapbox.md)
+and import the editor from `/mapbox` instead; do not use MapLibre's worker.
+
 ## React
 
-```tsx
+```tsx title="MapEditor.tsx"
 import { useEffect, useRef, useState } from 'react';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { EditorToolbar, GeometryEditor, type GeometryFeatureCollection } from '@jorisvdmije/map-master';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -73,10 +95,10 @@ const MapEditor = dynamic(() => import('./MapEditor').then((m) => m.MapEditor), 
 
 ## Vue
 
-```vue
+```vue title="MapEditor.vue"
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { EditorToolbar, GeometryEditor, type GeometryFeatureCollection } from '@jorisvdmije/map-master';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -117,10 +139,10 @@ In Nuxt, wrap the component in `<ClientOnly>`.
 
 ## Svelte
 
-```svelte
+```svelte title="MapEditor.svelte"
 <script lang="ts">
   import { onMount } from 'svelte';
-  import maplibregl from 'maplibre-gl';
+  import * as maplibregl from 'maplibre-gl';
   import { EditorToolbar, GeometryEditor, type GeometryFeatureCollection } from '@jorisvdmije/map-master';
   import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -160,9 +182,9 @@ rendering.
 Add `node_modules/maplibre-gl/dist/maplibre-gl.css` to the `styles` of your project
 in `angular.json`.
 
-```ts
+```ts title="map-editor.component.ts"
 import { Component, ElementRef, EventEmitter, Input, NgZone, OnDestroy, Output, ViewChild, signal, type AfterViewInit } from '@angular/core';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { EditorToolbar, GeometryEditor, type GeometryFeatureCollection } from '@jorisvdmije/map-master';
 
 @Component({

@@ -99,9 +99,9 @@ summary:focus-visible,
   font-weight: 800;
   letter-spacing: -0.7px;
 }
-.brand svg {
-  width: 34px;
-  height: 34px;
+.brand img {
+  width: 38px;
+  height: 38px;
   flex: none;
 }
 .brand-label {
@@ -329,35 +329,22 @@ kbd {
   font-size: 12px;
   font-weight: 550;
 }
-.install-command {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 10px 12px;
-  background: #f2f4ee;
-  max-width: 420px;
-}
-.install-command code {
-  font: 10px var(--mono);
-  color: #596b59;
-  overflow: auto;
-  white-space: nowrap;
-}
-.install-command button {
-  font-size: 9px;
-  border: 0;
-  background: transparent;
-  color: #6a7b66;
-  margin-left: auto;
-}
 .hero-meta {
   display: flex;
   gap: 20px;
   margin-top: 13px;
   color: #8a9388;
   font-size: 9px;
+}
+.renderer-note {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.renderer-note a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .hero-meta span + span:before {
   content: "·";
@@ -449,6 +436,29 @@ kbd {
   border-top: 1px solid var(--line);
   font-size: 13px;
   color: #4d6155;
+}
+.demo-shortcuts label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+.demo-shortcuts input,
+.demo-shortcuts select {
+  max-width: 100%;
+  min-height: 36px;
+  border: 1px solid #a7b6a9;
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: #fff;
+  color: #263e30;
+  font: inherit;
+}
+.demo-shortcut-reference {
+  flex-basis: 100%;
+  margin: 0;
+  line-height: 1.7;
 }
 .demo-panel > button[aria-pressed="true"] {
   background: var(--green);
@@ -732,53 +742,6 @@ kbd {
   color: #4d6841;
   overflow-wrap: anywhere;
 }
-.code-block {
-  border: 1px solid #243e32;
-  border-radius: 10px;
-  margin: 24px 0;
-  background: #173328;
-  color: #e2e9dc;
-  overflow: hidden;
-}
-.code-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px 8px 20px;
-  border-bottom: 1px solid #ffffff12;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  color: #8fa58a;
-}
-.copy-code {
-  border: 1px solid #526c50;
-  border-radius: 5px;
-  background: transparent;
-  color: #c3d4bc;
-  padding: 4px 10px;
-  font-size: 11px;
-}
-.copy-code:hover {
-  background: #ffffff12;
-}
-.code-block pre {
-  margin: 0;
-  padding: 18px 20px;
-  overflow: auto;
-  line-height: 1.7;
-  tab-size: 2;
-}
-.code-block code {
-  border: 0;
-  background: none;
-  border-radius: 0;
-  padding: 0;
-  color: #e2e9dc;
-  font-size: 13px;
-  line-height: 1.7;
-  overflow-wrap: normal;
-}
 .article blockquote {
   border-left: 3px solid #97b27a;
   background: #f0f4e9;
@@ -860,7 +823,7 @@ kbd {
 }
 /* Room for a full toolbar on each side of the map. */
 .article .demo--tall .demo-map {
-  height: 600px;
+  height: 640px;
 }
 .gallery {
   display: grid;
@@ -1107,9 +1070,6 @@ kbd {
   .hero-buttons {
     gap: 13px;
   }
-  .install-command code {
-    font-size: 8px;
-  }
   .example-cards > a {
     padding: 22px 17px;
   }
@@ -1160,12 +1120,6 @@ kbd {
   }
   .hero-buttons {
     margin-bottom: 20px;
-  }
-  .install-command {
-    max-width: 410px;
-  }
-  .install-command code {
-    font-size: 10px;
   }
   .home .demo-map {
     height: 380px;
@@ -1228,9 +1182,9 @@ kbd {
     font-size: 18px;
     gap: 8px;
   }
-  .brand svg {
-    width: 30px;
-    height: 30px;
+  .brand img {
+    width: 34px;
+    height: 34px;
   }
   .header-links > a {
     display: none;
@@ -1295,9 +1249,6 @@ kbd {
   .hero-buttons {
     gap: 23px;
   }
-  .install-command code {
-    font-size: 9px;
-  }
   .hero-grid {
     gap: 20px;
   }
@@ -1361,12 +1312,6 @@ kbd {
   .search-footer {
     padding: 10px;
     font-size: 8px;
-  }
-  .code-block pre {
-    padding: 15px;
-  }
-  .code-block code {
-    font-size: 12px;
   }
   .hero-meta {
     font-size: 9px;

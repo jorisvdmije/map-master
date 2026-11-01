@@ -1,6 +1,6 @@
 import { traceSource } from '../core/trace-boundary.js';
 import { projectToEdge } from '../core/boundary-anchor.js';
-import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { EditorMap as MapLibreMap } from '../gl/map.js';
 import { SnapIndex, snappingOptions, type ScreenPoint } from '../core/snapping.js';
 import type { Coordinate, FeatureId, GeometryFeature, GeometryFeatureCollection, SnapResult, SnappingOptions } from '../core/types.js';
 
@@ -61,6 +61,7 @@ export class MapLibreSnapping {
       sources.push(layer);
     };
     for (const hit of hits) {
+      if (!hit.layer) continue;
       const geometry = hit.geometry;
       if (geometry.type === 'MultiPoint') for (const coordinates of geometry.coordinates) add({ type: 'Point', coordinates: coordinates as Coordinate }, hit.layer.id);
       else if (geometry.type !== 'GeometryCollection') add(geometry as GeometryFeature['geometry'], hit.layer.id);

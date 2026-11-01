@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="assets/icon.svg" width="72" height="72" alt="">
+  <img src="assets/icon.svg" width="72" height="72" alt="Map Master logo">
 </p>
 
 <h1 align="center">Map Master</h1>
 
 <p align="center">
-  Interactive geometry editing for <a href="https://maplibre.org/maplibre-gl-js/docs/">MapLibre GL JS</a>.<br>
+  Interactive geometry editing for <a href="https://maplibre.org/maplibre-gl-js/docs/">MapLibre GL JS</a> and <a href="https://docs.mapbox.com/mapbox-gl-js/">Mapbox GL JS</a>.<br>
   Draw, select, edit, snap, split, merge and transform GeoJSON features, with validation and undo/redo built in.
 </p>
 
@@ -28,10 +28,18 @@
 
 ## Features
 
-- **Toolbar**: a ready-made MapLibre control with every tool, or build your own UI on the same API.
+- **Renderers**: use MapLibre or [Mapbox GL JS](docs/mapbox.md) with the same editing API.
+- **Toolbar**: a ready-made map control with every tool, or build your own UI on the same API.
+- **Organize** features into [data layers](docs/data-layers.md) with an active drawing target, ordering, styles, visibility, selection scope, reference snapping and layer locks.
+- **Constrain** every geometry change with optional [geofencing](docs/geofencing.md), including allowed/excluded areas, preview feedback and validation of imports, transactions and history.
+- **Pin** shared vertices across markers, lines, polygon holes and multipart features, with persistent GeoJSON links and atomic editing. See [vertex pinning](docs/vertex-pinning.md).
+- **Align** drawings, vertices and moving selections with optional [alignment guides](docs/alignment-guides.md), including horizontal/vertical references and edge extensions.
+- **Reuse** [shape templates](docs/shape-templates.md): place arrows, stars or your own GeoJSON groups with size/rotation previews and one-step Undo.
+- **Label** the map with [text markers](docs/text-markers.md): safe multiline text, saved styling and one-step Undo/Redo.
 - **Draw** markers, lines, polygons, rectangles, circles, ellipses and freehand outlines, including holes and extra parts. Enter finishes, Escape cancels and Backspace removes the last point.
+- **Remove holes** with a map click or keyboard-accessible chooser, a preview, Apply/Cancel and one-step Undo.
 - **Measure** lengths, areas and perimeters live while drawing and editing, in metric or imperial units.
-- **Select** by click, Shift+click or Shift+drag rectangle, and list every shape under a point to choose between overlaps.
+- **Select** by click, Shift+click, Shift+drag rectangle or a freehand lasso, with intersects/contains and replace/add/remove options. List every shape under a point to choose between overlaps.
 - **Edit vertices** with mouse, keyboard, touch or pen: drag corners and whole edges, insert midpoints, select and move groups.
 - **Snap** to vertices and edges, including your own map layers such as basemap buildings, **trace** existing boundaries and constrain new segments to **45°/90°** directions.
 - **Move, duplicate and delete** single features or whole selections, by mouse or with the arrow keys.
@@ -49,8 +57,12 @@
 npm install @jorisvdmije/map-master maplibre-gl
 ```
 
-[MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/) 6.15 or later is a peer dependency that
+[MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/) 6.15 or later is an optional peer dependency that
 your application installs and configures. The package is ESM-only and ships its own type declarations.
+
+For Mapbox, install `mapbox-gl` instead of `maplibre-gl` and import the editor
+from `@jorisvdmije/map-master/mapbox`. See the [Mapbox guide](docs/mapbox.md) for
+access tokens, CSS, worker setup and the configured-token example.
 
 ## Quick start
 
@@ -226,10 +238,13 @@ size of the selected feature. See [measurements](docs/measurements.md).
 
 Shortcuts apply while the map has keyboard focus. Vertices can also be
 [edited entirely with the keyboard](docs/keyboard-vertices.md).
+Use `keyboardShortcuts` or `setKeyboardShortcuts()` to
+[remap or disable commands](docs/keyboard-shortcuts.md) while the editor runs.
+Toolbar shortcut hints update automatically.
 
 ## Compatibility
 
-- MapLibre GL JS `^6.15.0` on a flat (Mercator) map, with 2D WGS84 coordinates.
+- MapLibre GL JS `^6.15.0` or Mapbox GL JS `^3.34.1` on a flat (Mercator) map, with 2D WGS84 coordinates. See [Mapbox setup and qualification](docs/mapbox.md).
 - A modern browser with WebGL, in a secure context (HTTPS or `localhost`), or with your own `createId` option.
 - Continuously tested in Chromium with mouse and keyboard, including emulated touch/pen vertex editing.
   The example application is also tested in Firefox and WebKit.

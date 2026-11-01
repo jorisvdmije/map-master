@@ -15,7 +15,14 @@ const dashed = { 'stroke-dasharray': '2.4 2.4' };
 
 // 24×24 outline icons in `currentColor`; the toolbar styles set the stroke width and size.
 const icons: Record<Icon, readonly Shape[]> = {
+  guides: [path('M4 3v18M3 16h18', dashed), path('M8 7h9v9H8z', tint)],
+  geofencing: [path('M3 3h18v18H3zM8 8h8v8H8z', { 'stroke-dasharray': '3 2' })],
+  pin: [path('M9 3h6l-1 6 4 4H6l4-4zM12 13v8')],
+  unpin: [path('M9 3h6l-1 6 4 4H6l4-4M12 13v8M3 3l18 18')],
+  template: [path('M12 3l2.8 5.7 6.3.9-4.5 4.4 1 6.2-5.6-2.9-5.6 2.9 1-6.2L3 9.6l6.2-.9z')],
+  text: [path('M5 5h14M12 5v15M8 20h8M5 5v3M19 5v3')],
   toggle: [path('M4 6h16M4 12h16M4 18h16')],
+  lasso: [path('M5 16C-1 6 7 2 15 4s10 11 1 14c-7 3-14-2-10-6 3-3 7 4 2 8l-3 2')],
   rectangle: [path('M4 6h16v12H4z', tint), dot(4, 6), dot(20, 18)],
   circle: [['circle', { cx: '12', cy: '12', r: '8', ...tint }], path('M12 12h8', dashed), dot(12, 12)],
   ellipse: [['ellipse', { cx: '12', cy: '12', rx: '9', ry: '6', ...tint }], path('M12 12h9M12 12V6', dashed), dot(12, 12)],
@@ -30,6 +37,7 @@ const icons: Record<Icon, readonly Shape[]> = {
   line: [path('M4 18 9.5 8.5l5 6L20 5'), dot(4, 18), dot(9.5, 8.5), dot(14.5, 14.5), dot(20, 5)],
   polygon: [path('M5 9.5 12 4l7 5.5-2.7 9.5H7.7z', tint), dot(5, 9.5), dot(12, 4), dot(19, 9.5), dot(16.3, 19), dot(7.7, 19)],
   hole: [path('M4 9 12 3.5 20 9l-3 11H7z', tint), path('M10 10.5h4v4h-4z')],
+  'remove-hole': [path('M4 9 12 3.5 20 9l-3 11H7z', tint), path('M9 10h6v6H9z', dashed), path('M9 13h6')],
   edit: [path('M4 20h4.5L19 9.5 14.5 5 4 15.5z'), path('m12.5 7 4.5 4.5')],
   split: [circle(6.5, 6.5, 2.5), circle(6.5, 17.5, 2.5), path('M8.6 8 20 17.5M8.6 16 20 6.5')],
   reshape: [path('M12 5H5v14h14'), path('M12 5c5.5 0 7.5 3.5 5 7s-1 5.5 2 7', dashed)],

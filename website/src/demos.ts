@@ -1,3 +1,4 @@
+import { defaultShapeTemplates } from "@jorisvdmije/map-master";
 import type {
   Coordinate,
   EditorOptions,
@@ -7,7 +8,7 @@ import type {
 } from "@jorisvdmije/map-master";
 
 /** Extra panels below a demo map. */
-export type DemoExtra = "geojson" | "events" | "transaction" | "appearance";
+export type DemoExtra = "geojson" | "events" | "transaction" | "appearance" | "shortcuts" | "data-layers";
 
 export interface DemoConfig {
   /** Toolbar buttons; two lists place a second toolbar on the right. */
@@ -87,12 +88,22 @@ const park = polygon("park", "Park boundary (locked)", [[-280, -160], [270, -170
 const playground = polygon("playground", "Playground", [[-60, 10], [60, -10], [70, 90], [-50, 100]], { kind: "playground" });
 
 const everything = [lawn, garden, route, ...benches];
+const courtyards: GeometryFeature = {
+  type: "Feature", id: "courtyards", properties: { name: "Garden courtyards" },
+  geometry: { type: "MultiPolygon", coordinates: [
+    [ring([[-210, -115], [15, -115], [15, 115], [-210, 115]]),
+      ring([[-175, -65], [-115, -65], [-115, -5], [-175, -5]]),
+      ring([[-90, 25], [-30, 25], [-30, 85], [-90, 85]])],
+    [ring([[65, -85], [210, -85], [210, 100], [65, 100]]),
+      ring([[100, -30], [165, -30], [165, 40], [100, 40]])],
+  ] },
+};
 const defaults: ToolbarTool[] = ["point", "line", "polygon", "rectangle", "edit", "split", "union", "rotate", "delete", "undo", "redo"];
 const all: [ToolbarTool[], ToolbarTool[]] = [
   ["point", "line", "polygon", "rectangle", "circle", "ellipse", "freehand", "hole", "part",
     "edit", "split", "cut", "reshape", "shared-boundary", "union", "difference", "intersection"],
-  ["combine", "explode", "rotate", "scale", "buffer", "offset", "simplify", "duplicate", "delete",
-    "snapping", "constraints", "tracing", "measure", "zoom", "undo", "redo"],
+  ["lasso", "remove-hole", "combine", "explode", "rotate", "scale", "buffer", "offset", "simplify", "duplicate", "delete",
+    "guides", "snapping", "constraints", "tracing", "measure", "zoom", "undo", "redo"],
 ];
 const measuring = { measurements: { enabled: true } };
 const tool = (name: ToolbarTool): ToolbarTool[] => [name, "undo", "redo"];
@@ -116,6 +127,14 @@ export const demos: Record<string, DemoConfig> = {
     options: measuring,
   },
   cut: { tools: ["cut", "undo", "redo"], features: [lawn, garden, route] },
+  "remove-hole": {
+    tools: ["remove-hole", "hole", "undo", "redo"], features: [courtyards], select: ["courtyards"], extras: ["events"],
+  },
+  lasso: {
+    tools: ["lasso", "edit", "duplicate", "delete", "undo", "redo"],
+    features: [courtyards, marker("gate-west", "West gate", [-240, -120]), marker("gate-east", "East gate", [235, 110]),
+      line("walk", "Crossing path", [[-260, 140], [250, 140]])],
+  },
   draw: {
     tools: ["point", "line", "polygon", "snapping", "constraints", "undo", "redo"],
     features: [garden],
@@ -125,9 +144,69 @@ export const demos: Record<string, DemoConfig> = {
   edit: { tools: ["edit", "duplicate", "delete", "undo", "redo"], features: [lawn, garden, route], select: ["lawn"] },
   geojson: { tools: defaults, features: [lawn, route], extras: ["geojson"] },
   persistence: { tools: defaults, features: [lawn, garden], extras: ["events"] },
+  "data-layers": {
+    tools: ["point", "line", "polygon", "edit", "duplicate", "delete", "undo", "redo"],
+    features: [
+      { ...plotA, properties: { ...plotA.properties, mapMasterLayer: "parcels" } },
+      { ...plotB, properties: { ...plotB.properties, mapMasterLayer: "parcels" } },
+      { ...marker("note", "Layer note", [50, 130]), properties: { mapMasterLayer: "notes", name: "Layer note", mapMasterText: { text: "Layer note" } } },
+      { ...park, properties: { ...park.properties, mapMasterLayer: "reference" } },
+      { ...marker("archived", "Hidden archive", [-30, -100]), properties: { mapMasterLayer: "archive", name: "Hidden archive" } },
+    ],
+    select: ["plot-a"], extras: ["geojson", "events", "data-layers"],
+    options: { dataLayers: { activeLayerId: "parcels", selectionScope: "all", layers: [
+      { id: "reference", name: "Reference", editable: false, selectable: false, style: { shape: { lineColor: "#64748b", fillColor: "#94a3b8", fillOpacity: 0.05 } } },
+      { id: "parcels", name: "Parcels", style: { shape: { fillColor: "#15803d", lineColor: "#166534" } } },
+      { id: "notes", name: "Notes", style: { marker: { color: "#ea580c" } } },
+      { id: "archive", name: "Archive", visible: false },
+    ] } },
+  },
+  geofencing: {
+    tools: ["point", "line", "polygon", "rectangle", "edit", "scale", "geofencing", "undo", "redo"],
+    features: [{ ...marker("moving", "Move this marker", [-120, 100]), properties: { name: "Move this marker", mapMasterText: { text: "Move me" } } }, line("route", "Allowed route", [[-180, -105], [-60, -105]])],
+    select: ["moving"], extras: ["geojson", "events"],
+    options: { keyboardShortcuts: { geofencing: [{ key: "f" }] }, geofencing: {
+      enabled: true,
+      allowed: [{ id: "park", geometry: { type: "Polygon", coordinates: [ring([[-230, -160], [230, -160], [230, 160], [-230, 160]])] } }],
+      excluded: [{ id: "pond", geometry: { type: "Polygon", coordinates: [ring([[30, -50], [120, -50], [120, 55], [30, 55]])] } }],
+    } },
+  },
+  "vertex-pinning": {
+    tools: ["pin", "unpin", "edit", "duplicate", "delete", "snapping", "undo", "redo"],
+    features: [plotA, plotB, line("junction-line", "Path to junction", [[0, -80], [80, -155]]), { ...marker("junction", "Shared corner", [0, -80]), properties: { name: "Shared corner", mapMasterText: { text: "Junction" } } }],
+    select: ["plot-a", "plot-b", "junction-line", "junction"], extras: ["geojson", "events"],
+    options: { keyboardShortcuts: { pin: [{ key: "p" }], unpin: [{ key: "p", modifiers: ["Shift"] }] } },
+  },
+  "alignment-guides": {
+    tools: ["line", "polygon", "edit", "guides", "snapping", "undo", "redo"],
+    features: [polygon("reference", "Reference corners", [[-170, -70], [-70, -70], [-70, 60], [-170, 60]]),
+      line("edge", "Extended edge", [[50, -100], [110, -40]]), marker("moving", "Drag this marker", [140, 95])],
+    select: ["moving"], locked: ["reference"], extras: ["events"],
+    options: { snapping: { enabled: false }, alignmentGuides: { enabled: true }, keyboardShortcuts: { guides: [{ key: "g" }] } },
+  },
+  "shape-templates": {
+    tools: ["template", "edit", "duplicate", "delete", "snapping", "undo", "redo"],
+    features: [lawn, garden], locked: ["lawn"], extras: ["geojson", "events"],
+    options: { snapping: { enabled: true }, keyboardShortcuts: { template: [{ key: "t" }] },
+      shapeTemplates: [...defaultShapeTemplates(), { id: "booth", label: "Booth and entrance", data: { type: "FeatureCollection", features: [
+        polygon("booth", "Event booth", [[-40, -25], [40, -25], [40, 25], [-40, 25]], { category: "booth" }),
+        line("entrance", "Entrance path", [[0, -25], [0, -60]]),
+      ] } }],
+    },
+  },
+  "text-markers": {
+    tools: ["text", "point", "edit", "duplicate", "delete", "undo", "redo"],
+    features: [lawn, { ...marker("park-label", "Meeting point", [30, 100]),
+      properties: { name: "Meeting point", mapMasterText: { text: "Meeting point\nVondelpark", style: { color: "#175c4c", fontSize: 20, fontWeight: "bold", backgroundColor: "#ffffff" } } } }],
+    select: ["park-label"], extras: ["geojson"], options: { keyboardShortcuts: { text: [{ key: "t" }] } },
+  },
   markers: { tools: ["point", "edit", "duplicate", "delete", "undo", "redo"], features: [...benches, lawn], select: ["bench"] },
   appearance: { tools: defaults, features: everything, select: ["garden"], extras: ["appearance"] },
   "keyboard-vertices": { tools: ["edit", "undo", "redo"], features: [lawn, garden], select: ["lawn"] },
+  "keyboard-shortcuts": {
+    tools: ["polygon", "line", "edit", "delete", "undo", "redo"], features: [lawn, garden], select: ["lawn"],
+    extras: ["shortcuts"], options: { keyboardShortcuts: { polygon: [{ key: "p" }], line: [{ key: "l" }], edit: [{ key: "e" }] } },
+  },
   "touch-pen-vertices": { tools: ["edit", "undo", "redo"], features: [lawn, garden], select: ["lawn"] },
   transactions: { tools: defaults, features: everything, extras: ["transaction", "events"] },
   "feature-styling": {
@@ -146,7 +225,7 @@ export const demos: Record<string, DemoConfig> = {
   },
   "feature-locks": { tools: defaults, features: [park, lawn, garden], locked: ["park"], options: { snapping: { enabled: true } } },
   multipart: {
-    tools: ["hole", "part", "edit", "combine", "explode", "union", "undo", "redo"],
+    tools: ["hole", "part", "edit", "remove-hole", "combine", "explode", "union", "undo", "redo"],
     features: [islands, bedA, bedB],
     select: ["islands"],
   },

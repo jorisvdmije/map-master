@@ -6,9 +6,9 @@ cross-browser and published-release checks, which run in separate CI jobs.
 | Level | Command | What it covers |
 | --- | --- | --- |
 | Core and package | `npm test` | Geometry, validation, editing state, transactions and history in Node.js; packs the library, installs the archive in a clean consumer and compiles it with NodeNext and Bundler resolution. |
-| Browser | `npm run test:browser` | Real MapLibre rendering in Chromium: pointer, keyboard, touch/pen emulation, snapping, every tool, style reloads, teardown and both demos. |
+| Browser | `npm run test:browser` | Full MapLibre rendering suite in Chromium plus equivalent MapLibre/Mapbox adapter scenarios for geometry, gestures, sources, style reload and teardown. Mapbox uses a local style and its documented `testMode`; see [qualification](mapbox.md). |
 | Installed application | `npm run test:workspace` | The [area workspace](../examples/workspace/README.md) installed from a packed archive outside the repository, exercised through its UI, plus the performance budgets. |
-| Documentation site | `npm run test:docs` | Builds the website, checks every link and anchor, and runs the quickstart and interactive examples in a browser. |
+| Documentation site | `npm run test:docs` | Builds the website, compiles the published framework components with their real compilers, checks every link and anchor, and runs the quickstart and interactive examples in a browser. |
 
 Set up once after cloning:
 
@@ -17,6 +17,22 @@ npm ci
 npm ci --prefix website
 npx playwright install chromium   # on Linux: npx playwright install --with-deps chromium
 ```
+
+## Published framework examples
+
+The documentation check extracts the exact named component examples from
+[the framework guide](frameworks.md) and compiles them in a temporary application
+against the public library declarations. It uses TypeScript for React,
+`vue-tsc` and the Vue SFC compiler, `svelte-check` and Svelte's client/server
+compiler, and Angular's `ngc` with strict template and injection checking. The
+shared MapLibre worker setup is included in each project.
+
+Run `npm --prefix website run check:frameworks` after `npm run build` for this
+check alone. Compiler dependencies are pinned in the website lockfile and do not
+ship with the map library. This validates component compilation; it does not
+claim complete framework/browser, Next.js or Nuxt integration coverage. The
+report at `artifacts/documentation/frameworks/verification.json` records compiler
+versions and checksums of the code taken from the guide.
 
 ## Installed-application acceptance
 

@@ -47,6 +47,14 @@ jobs:
           path: artifacts/releases/
           if-no-files-found: ignore
           retention-days: 14
+      - name: Retain framework example verification
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: framework-examples-node-${{ matrix.node }}
+          path: artifacts/documentation/frameworks/verification.json
+          if-no-files-found: ignore
+          retention-days: 14
 
   published-workspace:
     name: Published beta workspace

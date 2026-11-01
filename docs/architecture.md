@@ -1,6 +1,6 @@
 # Current architecture
 
-The library has three boundaries: the geometry/editing core, the MapLibre adapter,
+The library has three boundaries: the geometry/editing core, the shared GL adapter,
 and the host application. Drawing, vertex editing, selection, import, transactions,
 undo/redo, splitting, snapping, group translation, duplication, polygon holes, multipart geometry, polygon union, difference, intersection, single-ring reshape, boundary tracing, shared-boundary editing selection rotation, scaling, simplification, buffers, line offsets and drawing constraints use these same boundaries.
 The [roadmap](roadmap.md) lists planned work.
@@ -28,16 +28,18 @@ Expose data and change events so applications can integrate their own backend.
 - A public programmatic API; UI controls call that same API.
 
 [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/) provides WebGL-based map
-rendering. This is a practical starting choice, not evidence that the editor is
-fast at any particular scale. A second renderer should be added only when a real
-integration needs it.
+rendering. The [Mapbox adapter](mapbox.md) now uses the same editing engine through
+the small structural contract in `src/gl/map.ts`. Neither renderer is imported by
+the library. The host supplies its native map and owns CSS, workers and tokens.
 
 Implemented structure:
 
 ```text
 src/
   core/             Feature storage, validation, edit state, committed changes
-  maplibre/         Controller, focused input handlers, events, rendering and cleanup
+  gl/               Minimal renderer-independent map/source/control contract
+  maplibre/         Shared GL controller, input handlers, rendering and cleanup
+  mapbox/           Public Mapbox entry point reusing the shared engine
   index.ts          Deliberate public exports
 examples/
   basic/            Full geometry playground
@@ -53,7 +55,7 @@ boundary. Geometry algorithms and import/transaction preparation are separate pu
 modules. Keeping the state transitions together ensures that a failed operation
 cannot leave selection, history and stored features out of sync.
 
-`GeometryEditor` is the public facade and coordinates the core with MapLibre.
+`GeometryEditor` is the public facade and coordinates the core with the GL map.
 Its public methods are grouped before private coordination code. `EditorEvents`
 owns subscriptions and observer-error isolation. `KeyboardInteraction` owns focused
 command shortcuts; the vertex, selection and translation handlers own their

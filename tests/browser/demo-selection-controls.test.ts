@@ -1,6 +1,6 @@
 import { Map } from 'maplibre-gl';
 import { expect, it, vi } from 'vitest';
-import { page, userEvent } from 'vitest/browser';
+import { commands, page, userEvent } from 'vitest/browser';
 import type { GeometryFeatureCollection } from '../../src/index.js';
 import html from '../../examples/basic/index.html?raw';
 
@@ -71,6 +71,19 @@ it('chooses hidden overlaps, builds groups, respects locks and runs toolbar acti
     expect(document.querySelector('#selection')!.contains(document.activeElement)).toBe(true);
     await toolbar.getByRole('button', { name: 'Clear selection', exact: true }).click();
     expect(root.hidden).toBe(true); expect(document.activeElement).toBe(map.getCanvas()); expect(output()).toEqual(original);
+    await page.getByRole('button', { name: 'Lasso selection', exact: true }).click();
+    expect(document.querySelector<HTMLElement>('#drawing-instructions')!.hidden).toBe(true);
+    expect(document.querySelector('#status')!.textContent).toContain('Press and drag');
+    const ready = new Promise<void>((resolve) => { instance.once('idle', () => { resolve(); }); });
+    instance.triggerRepaint(); await ready;
+    const center = point();
+    await commands.vertexPointer('down', center.x - 20, center.y - 20);
+    await commands.vertexPointer('move', center.x + 20, center.y - 20);
+    await commands.vertexPointer('move', center.x + 20, center.y + 20);
+    await commands.vertexPointer('move', center.x - 20, center.y + 20);
+    await commands.vertexPointer('up', center.x - 20, center.y + 20);
+    expect(root.querySelector('[data-selection-summary]')!.textContent).toBe('2 selected');
+    expect(output()).toEqual(original);
     map.remove(); expect(root.hidden).toBe(true); expect(root.querySelector('[data-overlap-list]')!.children).toHaveLength(0); map = undefined;
   } finally { map?.remove(); spy.mockRestore(); }
 });

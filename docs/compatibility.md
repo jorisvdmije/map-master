@@ -8,7 +8,8 @@ browser, device or dataset.
 
 | Requirement | Details |
 | --- | --- |
-| MapLibre GL JS | Peer dependency `^6.15.0`. Version 6.15.0 is the tested version; rerun your own checks before adopting a newer one. |
+| MapLibre GL JS | Optional peer `^6.15.0`, tested at 6.15.0. Install this renderer for the default or `/maplibre` entry point. |
+| Mapbox GL JS | Optional peer `^3.34.1`, tested at 3.34.1. Install this renderer for `/mapbox`; see [setup and qualification](mapbox.md). Installing either renderer does not install the other. |
 | Map projection | Flat Web Mercator, including zoom, bearing and pitch. Globe and terrain are not supported. |
 | Coordinates | 2D WGS84 `[longitude, latitude]` in the canonical world copy. Geometry crossing the antimeridian and polar geometry are rejected. |
 | Browser | A modern browser with WebGL and ES2022 support. |
@@ -19,7 +20,8 @@ browser, device or dataset.
 
 | Area | Status |
 | --- | --- |
-| Chromium (desktop) | Supported. The complete library, both examples and the performance budgets run in CI on every change, using Playwright's Chromium. |
+| Chromium (desktop) | Supported. The complete MapLibre library suite, playground/workspace and performance budgets run in CI on every change, using Playwright's Chromium. |
+| Mapbox adapter (Chromium) | The same 13 adapter scenarios run on both renderers, covering geometry, gestures, style reload and lifecycle. Hosted styles, production CSP, the complete Mapbox library suite and Mapbox performance budgets are not qualified. |
 | Firefox and WebKit (desktop) | The example application's workflows pass in CI on Linux and macOS, using Playwright's Firefox and WebKit. The full library test suite and performance budgets run in Chromium only. Playwright's WebKit is not the shipping Safari application. |
 | Mouse and keyboard | Supported for every tool. Keyboard shortcuts apply while the map canvas has focus. |
 | Touch and pen | [Vertex editing](touch-pen-vertices.md) is tested with emulated touch and pen input in Chromium. Drawing, selection rectangles and transform handles are designed for a mouse. Physical tablets and styluses have not been qualified. |

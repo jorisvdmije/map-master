@@ -66,3 +66,9 @@ editor.onCreate((feature) => {
   pole is rejected, and the tool stays active.
 - Rectangles and ellipses follow north and east even when the map is rotated.
 - Freehand drawing does not snap or trace.
+
+## Reusable shapes
+
+Use [shape templates](shape-templates.md) to place arrows, stars or your own
+validated GeoJSON definitions, including groups of features. Preview position,
+size and rotation before confirming the entire placement in one Undo step.

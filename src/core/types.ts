@@ -189,6 +189,16 @@ export interface MeasurementOptions {
 
 /** Options for `new GeometryEditor(map, options)`. Every option is optional. */
 export interface EditorOptions {
+  /** Named editable/reference datasets; omitted preserves the implicit default layer. */
+  dataLayers?: import('./data-layers.js').DataLayerOptions;
+  /** Host-owned allowed/excluded polygon areas; disabled by default. */
+  geofencing?: Partial<import('./geofencing.js').GeofencingOptions>;
+  /** Opt-in screen-space alignment to visible vertices and edge extensions. */
+  alignmentGuides?: Partial<import('./alignment-guides.js').AlignmentGuidesOptions>;
+  /** Reusable WGS84 templates; omitted uses the built-in arrow and star. */
+  shapeTemplates?: readonly import('./shape-templates.js').ShapeTemplate[];
+  /** Override map command bindings. Omitted actions retain defaults; false disables an action. */
+  keyboardShortcuts?: import('./keyboard-shortcuts.js').KeyboardShortcuts | false;
   /** Host-owned read-only IDs. Initial imports are allowed; existing features cannot change. */
   lockedFeatureIds?: readonly FeatureId[];
   /** Partial presentation settings. Omitted values use the built-in appearance. */
@@ -254,15 +264,25 @@ export interface DataChangeEvent {
 /** An absolute coordinate update in the active open edit draft. */
 export interface VertexUpdate { index: number; coordinate: Coordinate; }
 
+/** How a lasso changes the current selection and which geometries qualify. */
+export interface LassoOptions {
+  /** Replace the selection, append new hits or remove hits. Default `replace`. */
+  operation: 'replace' | 'add' | 'subtract';
+  /** Touching counts for `intersects`; `contains` requires the whole feature. Default `intersects`. */
+  match: 'intersects' | 'contains';
+}
+
 /** The active tool. `idle` means no draft, edit or preview is in progress. */
-export type EditorMode = 'idle' | 'draw-point' | 'edit-point' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon'
-  | 'draw-rectangle' | 'draw-circle' | 'draw-ellipse' | 'draw-freehand' | 'draw-cut' | 'draw-part'
-  | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon'
+export type EditorMode = 'idle' | 'draw-template' | 'draw-text' | 'draw-point' | 'edit-point' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon'
+  | 'draw-rectangle' | 'draw-circle' | 'draw-ellipse' | 'draw-freehand' | 'draw-cut' | 'draw-part' | 'select-lasso'
+  | 'split-polygon' | 'draw-hole' | 'remove-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon'
   | 'edit-shared-boundary' | 'rotate-features' | 'scale-features' | 'simplify-features' | 'buffer-features' | 'offset-lines';
 
 /** A snapshot of the editor, returned by `getState()` and emitted by `onChange`. */
 export interface EditorState {
   mode: EditorMode;
+  /** Why the anchored template cannot be placed; null outside template placement. */
+  templateError: import('./shape-templates.js').TemplatePlacementError | null;
   vertexCount: number;
   featureCount: number;
   /** The sole selected ID, or null for zero/multiple selections. */
@@ -273,18 +293,26 @@ export interface EditorState {
   selectedVertexIndex: number | null;
   /** Selected indices in acquisition order, scoped to the active component/ring. */
   selectedVertexIndices: number[];
-  /** Active polygon ring while editing/drawing a hole; otherwise null. */
+  /** Active polygon ring while editing, drawing or removing a hole; otherwise null. */
   activeRingIndex: number | null;
-  /** Component being edited (0 for simple geometries); null outside editing/hole drawing. */
+  /** Active component (0 for simple geometries); null outside editing or hole operations. */
   activePartIndex: number | null;
   /** Increases on committed creation, deletion, changed edits, nonempty imports, and successful undo/redo. */
   dataRevision: number;
+  /** Host configuration revision; changing layers does not change dataRevision/history. */
+  dataLayerRevision: number;
+  activeDataLayerId: string | null;
+  dataLayerSelectionScope: import('./data-layers.js').DataLayerSelectionScope;
   canFinish: boolean;
   /** False during drawing/editing, even if retained history exists. */
   canUndo: boolean;
   canRedo: boolean;
   /** Why the clicked draft cannot be committed; null when valid or idle. */
   validationError: ValidationError | null;
+  /** A linked participant prevents saving; the draft remains correctable. */
+  pinningError: import('./vertex-pins.js').PinningErrorCode | null;
+  /** Violations of the final active preview; incomplete geometry is checked after it becomes valid. */
+  geofencingViolations: import('./geofencing.js').GeofencingViolation[];
   /** Split diagnostics are separate from ordinary drawing validation. */
   splitError: SplitError | null;
   sharedBoundaryError: SharedBoundaryError | null;

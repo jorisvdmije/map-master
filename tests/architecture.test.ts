@@ -11,6 +11,11 @@ const eslint = new ESLint({
 
 it.each([
   ['src/core/types.ts', "import type { Map } from 'maplibre-gl'; export type Host = Map;"],
+  ['src/core/types.ts', "import type { Map } from 'mapbox-gl'; export type Host = Map;"],
+  ['src/core/types.ts', "export type { EditorMap } from '../gl/map.js';"],
+  ['src/core/types.ts', "export { GeometryEditor } from '../mapbox/index.js';"],
+  ['src/maplibre/renderer.ts', "export { Map } from 'mapbox-gl';"],
+  ['src/gl/map.ts', "export type { Map } from 'maplibre-gl';"],
   ['src/core/types.ts', "export { GeometryEditor } from '../maplibre/geometry-editor.js';"],
   ['src/core/types.ts', "export { GeometryEditor } from '../index.js';"],
   ['src/maplibre/renderer.ts', "export { readFileSync } from 'node:fs';"],
@@ -28,6 +33,8 @@ it.each([
 it.each([
   ['src/core/types.ts', "export { validatePolygon } from './polygon.js';"],
   ['src/maplibre/renderer.ts', "export type { EditorState } from '../core/types.js';"],
+  ['src/maplibre/renderer.ts', "export type { EditorMap } from '../gl/map.js';"],
+  ['examples/basic/main.ts', "export { GeometryEditor } from '@jorisvdmije/map-master/mapbox'; import 'mapbox-gl/dist/mapbox-gl.css';"],
   ['examples/basic/main.ts', "export { GeometryEditor } from '@jorisvdmije/map-master'; import 'maplibre-gl/dist/maplibre-gl.css';"],
 ])('allows supported dependencies: %s, %s', async (filePath, source) => {
   const [result] = await eslint.lintText(source, { filePath });

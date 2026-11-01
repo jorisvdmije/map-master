@@ -1,8 +1,10 @@
 import { defineConfig } from "vite";
 import { readdirSync } from "node:fs";
 import { resolve } from "node:path";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
+  plugins: [tailwindcss()],
   root: ".generated",
   base: "./",
   publicDir: "public",

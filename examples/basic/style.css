@@ -8,7 +8,7 @@ button:disabled { cursor: default; opacity: .42; }
 button:focus-visible, summary:focus-visible, a:focus-visible { outline: 3px solid #e5a465; outline-offset: 4px; }
 .header { flex: 0 0 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; border-bottom: 1px solid #dfe4dc; }
 .brand { display: flex; gap: 12px; align-items: center; color: inherit; text-decoration: none; font-size: 26px; font-weight: 700; letter-spacing: -1px; }
-.brand-mark { background: #186b55; color: white; width: 34px; height: 34px; border-radius: 10px; font-size: 26px; text-align: center; line-height: 30px; }
+.brand-mark { display: block; width: 38px; height: 38px; flex-shrink: 0; }
 .brand-divider { width: 1px; height: 22px; background: #d8dfd5; margin: 0 8px; }
 .brand-caption { font-size: 13px; font-weight: 450; letter-spacing: 0; color: #718075; }
 .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #5f9d7b; flex-shrink: 0; }
@@ -207,7 +207,7 @@ input:focus-visible, select:focus-visible { outline: 3px solid #e5a465; outline-
 }
 @media (max-width: 520px) {
   .brand { font-size: 18px; gap: 8px; }
-  .brand-mark { width: 28px; height: 28px; font-size: 22px; line-height: 25px; }
+  .brand-mark { width: 32px; height: 32px; }
   .action-bar .status { max-height: 4.5em; font-size: 11px; }
   .action-bar .button { min-height: 38px; padding: 0 8px; font-size: 11px; gap: 5px; }
   .action-bar kbd { display: none; }

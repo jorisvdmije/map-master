@@ -1,4 +1,4 @@
-import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { EditorMap as MapLibreMap } from '../gl/map.js';
 import type { Coordinate, SnapResult } from '../core/types.js';
 import type { EditorAppearance } from '../core/appearance.js';
 import type { ScreenPoint } from '../core/snapping.js';

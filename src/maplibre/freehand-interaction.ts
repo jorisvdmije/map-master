@@ -1,4 +1,4 @@
-import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { EditorMap as MapLibreMap } from '../gl/map.js';
 import { simplifyPath } from '../core/shapes.js';
 import type { Coordinate } from '../core/types.js';
 import { canvasPoint } from './pointer.js';

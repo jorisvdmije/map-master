@@ -8,6 +8,81 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Added
 
+- Check the exact published React, Vue, Svelte and Angular component examples
+  with their real TypeScript/template compilers in both CI Node jobs. Fix
+  MapLibre 6 namespace imports and name the examples' files in the documentation.
+- Apply the selected Map Master logo throughout the documentation and examples.
+  Add shadcn Code Block, installation tabs and setup alerts, direct guide source
+  links, Mapbox onboarding and a searchable troubleshooting guide.
+
+- Add `@jorisvdmije/map-master/mapbox` and an explicit `/maplibre` alias with the
+  same editor, controls and types. Optional peers let applications install their
+  chosen renderer. Library runtime imports and declarations do not require the
+  other renderer.
+- Extract a minimal structural GL map boundary, normalize asynchronous/synchronous
+  GeoJSON source updates, support both control containers and handle Mapbox
+  teardown after its style and canvas container have been released.
+- Run the same 13 browser scenarios on MapLibre 6.15.0 and Mapbox 3.34.1. Add a
+  [Mapbox guide](docs/mapbox.md) and configured-token example with drawing,
+  data layers, GeoJSON and style reload. All ten comparison steps are implemented.
+
+- Multiple editable data layers with stable membership IDs, an active drawing
+  target, bottom-to-top rendering, base styles, visibility, selection scope,
+  reference snapping and layer locks. Adds atomic membership moves, validated
+  import/export and history policy, plus an accessible `DataLayerControl` and
+  [documentation/live example](docs/data-layers.md).
+
+- Geofencing: typed allowed/excluded polygon areas, containment/intersection
+  policies, reference overlays and optional toolbar/shortcut toggle. Validates
+  every commit, import, transaction, linked edit and history replay atomically;
+  blocked previews remain correctable with accessible diagnostics. Includes
+  [documentation and a live example](docs/geofencing.md).
+
+- Persistent shared-vertex pins across markers, lines, polygon rings and multipart
+  features. Adds explicit/tolerant linking, `pin`/`unpin` toolbar and shortcut
+  commands, atomic linked editing/translation, group previews, lock/validation
+  feedback, one-step history and validated GeoJSON metadata. Includes
+  [documentation and a live example](docs/vertex-pinning.md).
+
+- Opt-in alignment guides for drawing, vertex editing and selection movement:
+  screen-space horizontal/vertical references, edge extensions, bounded candidate
+  searches, Alt bypass, toolbar/shortcut toggles and typed acquisition diagnostics.
+  Includes [documentation and a live example](docs/alignment-guides.md).
+
+- Reusable shape templates: validated `shapeTemplates`, built-in arrow/star
+  definitions, `drawTemplate()`, draft placement/preview APIs and one atomic
+  `finishTemplate()` transaction for single shapes or GeoJSON groups. Includes
+  fresh IDs, preserved properties, size/rotation/coordinate fields, a `template`
+  toolbar/shortcut tool, application-owned pickers, cancellation and exact
+  Undo/Redo. See [shape templates](docs/shape-templates.md).
+
+- Text markers: `drawText()`, `getTextMarkerDraft()`, `setTextMarker()` and the
+  `text` toolbar/shortcut tool. Store safe multiline labels and validated styling
+  in Point feature properties, preview text and movement together, then save one
+  undoable change. Includes label-bound picking, duplication, locks, exact
+  GeoJSON round-trips, camera/style reload cleanup and a [live example](docs/text-markers.md).
+
+- Configurable keyboard shortcuts: typed `keyboardShortcuts`, runtime
+  `getKeyboardShortcuts()` / `setKeyboardShortcuts()`, per-action or whole-command
+  disabling, platform `Mod`, atomic conflict validation and live toolbar hints.
+  Optional bindings can activate every toolbar tool without replacing pending
+  edits. Finish/cancel/deletion follow custom bindings in vertex controls and
+  gestures. Includes a [reference and live example](docs/keyboard-shortcuts.md).
+
+- Lasso selection: `lasso()`, `getLassoOptions()`, `setLassoOptions()` and
+  `selectByLasso()`, plus the `lasso` toolbar tool. Select by a freehand loop with
+  replace/add/subtract and intersects/contains rules, including holes and multipart
+  geometry. Supports mouse, pen and one-finger input, cancellation and lifecycle
+  cleanup without changing geometry, data revision or undo/redo. See
+  [lasso selection](docs/lasso.md).
+
+- Interactive hole removal: `removeHole()`, `setHoleToRemove()`,
+  `getHoleRemovalPreview()` and `finishHoleRemoval()`, with the `remove-hole`
+  toolbar tool. Pick an interior ring on the map or from the keyboard-accessible
+  dropdown, preview filling it, then apply or cancel. Supports Polygon and
+  MultiPolygon, locks, topology validation and one-step undo/redo. See
+  [hole removal](docs/remove-hole.md).
+
 - Shapes: `draw('Rectangle')`, `draw('Circle')`, `draw('Ellipse')` and
   `draw('Freehand')` create polygons from two clicks, a center and radius, or a
   press-and-drag outline (also with one finger on touch screens). See

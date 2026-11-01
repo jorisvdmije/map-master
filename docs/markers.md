@@ -1,7 +1,7 @@
 # Point markers
 
 `GeometryEditor` supports 2D GeoJSON `Point` features alongside lines and polygons.
-Markers are circular map symbols, rendered in one shared MapLibre circle layer;
+For persisted, styled labels, see [text markers](text-markers.md). Ordinary markers are circular map symbols, rendered in one shared MapLibre circle layer;
 the editor does not create a DOM element for each committed marker.
 
 ```ts

@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict';
 import * as editor from '@jorisvdmije/map-master';
+import * as mapbox from '@jorisvdmije/map-master/mapbox';
+import * as maplibre from '@jorisvdmije/map-master/maplibre';
+import { createRequire } from 'node:module';
+
+assert.equal(mapbox.GeometryEditor, editor.GeometryEditor);
+assert.equal(maplibre.GeometryEditor, editor.GeometryEditor);
+// Optional Mapbox support must not install it in a MapLibre application.
+assert.throws(() => createRequire(import.meta.url).resolve('mapbox-gl'), { code: 'MODULE_NOT_FOUND' });
 
 assert.equal(typeof editor, 'object');
 assert.equal(typeof editor.LineEditor, 'function');
