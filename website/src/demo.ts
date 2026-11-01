@@ -71,6 +71,12 @@ const instructions: Partial<Record<EditorState["mode"], string>> = {
   "draw-line": "Click to add points. Finish or Enter completes the line.",
   "draw-polygon": "Click to add corners. Click the first corner, press Enter or choose Finish.",
   "draw-hole": "Click inside the selected polygon to outline the hole, then Finish.",
+  "draw-rectangle": "Click one corner, then the opposite corner.",
+  "draw-circle": "Click the center, then a point on the edge.",
+  "draw-ellipse": "Click the center, then a corner of the box around the ellipse.",
+  "draw-freehand": "Press and drag to trace an outline. Releasing the pointer completes it.",
+  "draw-cut": "Draw a polygon across the shapes. Close it or choose Apply to cut it away.",
+  "draw-part": "Draw the new part, then Finish. Polygon parts may not overlap.",
   "edit-point": "Drag the marker to move it, then Save.",
   "edit-line": "Drag a point, or click a small midpoint to add one. Save or Cancel.",
   "edit-polygon": "Drag a corner or an edge, or click a small midpoint to add a corner. Save or Cancel.",
@@ -133,7 +139,8 @@ export async function mountDemo(container: HTMLElement): Promise<void> {
     attributionControl: { compact: true },
   });
   map.touchZoomRotate.disableRotation();
-  map.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
+  // Demos with every tool need both sides of the map; they include a zoom-to-features tool.
+  if (!isPair(config.tools)) map.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
   let disposed = false;
   window.addEventListener(
     "pagehide",
@@ -159,8 +166,11 @@ export async function mountDemo(container: HTMLElement): Promise<void> {
   // Large tool sets are split over a toolbar on each side of the map.
   const [left, right] = isPair(config.tools) ? config.tools : [config.tools, undefined];
   container.classList.toggle("demo--tall", right !== undefined);
-  map.addControl(new EditorToolbar(editor, { tools: left }), "top-left");
-  if (right) map.addControl(new EditorToolbar(editor, { tools: right }), "top-right");
+  // On narrow screens the toolbars start collapsed, so the map stays visible.
+  const narrow = container.clientWidth < 640;
+  const toolbar = { collapsible: narrow, collapsed: narrow && right !== undefined };
+  map.addControl(new EditorToolbar(editor, { ...toolbar, tools: left }), "top-left");
+  if (right) map.addControl(new EditorToolbar(editor, { ...toolbar, tools: right }), "top-right");
 
   let message = "";
   const extras = new Set(config.extras ?? []);

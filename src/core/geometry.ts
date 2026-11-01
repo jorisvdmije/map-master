@@ -35,8 +35,18 @@ export function withGeometry(feature: Pick<GeometryFeature, 'id' | 'properties'>
   }
 }
 
-/** Replace one component; keep multipart wrappers even when they contain one part. */
+/** Replace one component; keep multipart wrappers even when they contain one part.
+ * An index one past the last component appends a part and returns a multipart geometry. */
 export function replacePart(geometry: Geometry, index: number, part: GeometryPart): Geometry {
+  const parts = geometryParts(geometry);
+  if (index === parts.length && index > 0) {
+    if (part.type === 'Polygon' && (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon')) {
+      return { type: 'MultiPolygon', coordinates: [...parts.map((existing) => existing.coordinates as typeof part.coordinates), part.coordinates] };
+    }
+    if (part.type === 'LineString' && (geometry.type === 'LineString' || geometry.type === 'MultiLineString')) {
+      return { type: 'MultiLineString', coordinates: [...parts.map((existing) => existing.coordinates as typeof part.coordinates), part.coordinates] };
+    }
+  }
   if (geometry.type === 'MultiLineString' && part.type === 'LineString') {
     return { type: geometry.type, coordinates: geometry.coordinates.map((coordinates, i) => i === index ? part.coordinates : coordinates) };
   }

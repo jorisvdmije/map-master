@@ -1,7 +1,9 @@
 import type { ToolbarTool } from './toolbar.js';
 
+type Icon = ToolbarTool | 'toggle';
+
 /** One SVG child element: tag name and attributes. */
-type Shape = readonly [tag: 'path' | 'circle' | 'rect', attributes: Readonly<Record<string, string>>];
+type Shape = readonly [tag: 'path' | 'circle' | 'ellipse' | 'rect', attributes: Readonly<Record<string, string>>];
 
 const path = (d: string, extra: Record<string, string> = {}): Shape => ['path', { d, ...extra }];
 const dot = (cx: number, cy: number): Shape => ['circle', { cx: String(cx), cy: String(cy), r: '1.7', fill: 'currentColor', stroke: 'none' }];
@@ -12,7 +14,18 @@ const tint = { fill: 'currentColor', 'fill-opacity': '.16' };
 const dashed = { 'stroke-dasharray': '2.4 2.4' };
 
 // 24×24 outline icons in `currentColor`; the toolbar styles set the stroke width and size.
-const icons: Record<ToolbarTool, readonly Shape[]> = {
+const icons: Record<Icon, readonly Shape[]> = {
+  toggle: [path('M4 6h16M4 12h16M4 18h16')],
+  rectangle: [path('M4 6h16v12H4z', tint), dot(4, 6), dot(20, 18)],
+  circle: [['circle', { cx: '12', cy: '12', r: '8', ...tint }], path('M12 12h8', dashed), dot(12, 12)],
+  ellipse: [['ellipse', { cx: '12', cy: '12', rx: '9', ry: '6', ...tint }], path('M12 12h9M12 12V6', dashed), dot(12, 12)],
+  freehand: [path('M3.5 16c1.5-5 4-8.5 6.5-7s-.5 6 2.5 6.5 3-7.5 8-9')],
+  part: [path('M3 4h8v8H3z', tint), path('M13 12h8v8h-8z', dashed), path('M17 14v4M15 16h4')],
+  cut: [path('M3 4h18v16H3z'), path('M3 4h18v16H3zM8 8.5l5.5-2 3.5 5-3 5H9z', { fill: 'currentColor', 'fill-opacity': '.16', stroke: 'none', 'fill-rule': 'evenodd' }), path('M8 8.5l5.5-2 3.5 5-3 5H9z', dashed)],
+  combine: [rect(2.5, 2.5, 19, 3, dashed), path('M6 6h5v5H6zM13 13h5v5h-5z', tint)],
+  explode: [path('M8 8h4v4H8zM12 12h4v4h-4z', tint), path('M3 9V3h6M21 15v6h-6')],
+  measure: [path('M3 16 16 3l5 5L8 21z'), path('m7 12 2 2M10 9l2 2M13 6l2 2')],
+  zoom: [path('M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'), path('M9 9h6v6H9z', tint)],
   point: [path('M12 21s-6.5-5.8-6.5-11a6.5 6.5 0 0 1 13 0c0 5.2-6.5 11-6.5 11z'), circle(12, 10, 2.3)],
   line: [path('M4 18 9.5 8.5l5 6L20 5'), dot(4, 18), dot(9.5, 8.5), dot(14.5, 14.5), dot(20, 5)],
   polygon: [path('M5 9.5 12 4l7 5.5-2.7 9.5H7.7z', tint), dot(5, 9.5), dot(12, 4), dot(19, 9.5), dot(16.3, 19), dot(7.7, 19)],
@@ -41,7 +54,7 @@ const icons: Record<ToolbarTool, readonly Shape[]> = {
 const svgNamespace = 'http://www.w3.org/2000/svg';
 
 /** Build a tool icon with DOM methods, so it also works where `innerHTML` is restricted. */
-export function toolbarIcon(document: Document, tool: ToolbarTool): SVGSVGElement {
+export function toolbarIcon(document: Document, tool: Icon): SVGSVGElement {
   const svg = document.createElementNS(svgNamespace, 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
   svg.setAttribute('aria-hidden', 'true');

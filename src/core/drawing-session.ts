@@ -14,6 +14,8 @@ import { splitPolygonRings } from './split-polygon.js';
 import { intersectionPolygons } from './intersection.js';
 import { differencePolygons } from './difference.js';
 import { unionPolygons } from './union.js';
+import { cutGeometry } from './cut.js';
+import { circleRing, ellipseRing, freehandRing, rectangleRing, type DrawShape } from './shapes.js';
 import { translateFeatures } from './translation.js';
 import { prepareTransaction } from './transaction.js';
 import { EditHistory, type HistoryEntry } from './history.js';
@@ -36,6 +38,11 @@ function sameTraceAttachment(a: Coordinate, b: Coordinate): boolean {
 
 // A boolean check preserves typed readonly arrays instead of narrowing them to any[].
 function isArray(value: unknown): boolean { return Array.isArray(value); }
+
+const drawModes = { Point: 'draw-point', LineString: 'draw-line', Polygon: 'draw-polygon' } as const;
+const shapeModes = { Rectangle: 'draw-rectangle', Circle: 'draw-circle', Ellipse: 'draw-ellipse', Freehand: 'draw-freehand' } as const;
+const isPolygonal = (geometry: Geometry): boolean => geometry.type === 'Polygon' || geometry.type === 'MultiPolygon';
+const isLineal = (geometry: Geometry): boolean => geometry.type === 'LineString' || geometry.type === 'MultiLineString';
 
 /** Internal editing state. No browser, map, or rendering dependencies. */
 export class DrawingSession {
@@ -68,6 +75,9 @@ export class DrawingSession {
   private splitPreview: SplitPreview | null = null;
   private splitError: SplitError | null = null;
   private kind: DrawGeometryType | null = null;
+  private shape: DrawShape | null = null;
+  private cutting: { targets: FeatureId[] | null } | null = null;
+  private partId: FeatureId | null = null;
   private draft: Coordinate[] = [];
   private drawingSteps: number[] = [];
   private readonly features = new Map<FeatureId, GeometryFeature>();
@@ -82,7 +92,7 @@ export class DrawingSession {
   private locks = new Set<FeatureId>();
   private historyLocks = new WeakMap<HistoryEntry, boolean>();
 
-  constructor(private readonly createId: () => string, historyLimit = 100, lockedIds: readonly FeatureId[] = []) {
+  constructor(private readonly createId: () => FeatureId, historyLimit = 100, lockedIds: readonly FeatureId[] = []) {
     this.history = new EditHistory(historyLimit);
     this.locks = lockedFeatureIds(lockedIds);
   }
@@ -127,9 +137,9 @@ export class DrawingSession {
 
   get state(): EditorState {
     return {
-      mode: this.offsetting ? 'offset-lines' : this.buffering ? 'buffer-features' : this.simplification ? 'simplify-features' : this.scaling ? 'scale-features' : this.rotation ? 'rotate-features' : this.sharedBoundary ? 'edit-shared-boundary' : this.reshapeId !== null ? 'reshape-polygon' : this.intersectionActive ? 'intersection-polygons' : this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.kind === null ? 'idle' : this.editingId !== null
+      mode: this.offsetting ? 'offset-lines' : this.buffering ? 'buffer-features' : this.simplification ? 'simplify-features' : this.scaling ? 'scale-features' : this.rotation ? 'rotate-features' : this.sharedBoundary ? 'edit-shared-boundary' : this.reshapeId !== null ? 'reshape-polygon' : this.intersectionActive ? 'intersection-polygons' : this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.cutting ? 'draw-cut' : this.partId !== null ? 'draw-part' : this.kind === null ? 'idle' : this.editingId !== null
         ? this.kind === 'Point' ? 'edit-point' : this.kind === 'LineString' ? 'edit-line' : 'edit-polygon'
-        : this.kind === 'Point' ? 'draw-point' : this.kind === 'LineString' ? 'draw-line' : 'draw-polygon',
+        : this.shape ? shapeModes[this.shape] : this.kind === 'Point' ? 'draw-point' : this.kind === 'LineString' ? 'draw-line' : 'draw-polygon',
       vertexCount: this.draft.length,
       featureCount: this.features.size,
       selectedFeatureId: this.selectedFeatureId,
@@ -167,19 +177,22 @@ export class DrawingSession {
     };
   }
 
-  start(kind: DrawGeometryType): boolean {
-    if (kind !== 'Point' && kind !== 'LineString' && kind !== 'Polygon') throw new TypeError('Unsupported geometry type.');
-    if (!this.offsetting && !this.buffering && !this.simplification && !this.scaling && !this.rotation && !this.sharedBoundary && this.kind === kind && this.editingId === null && this.splitId === null && this.reshapeId === null && this.holeId === null && !this.unionActive && !this.differenceActive && !this.intersectionActive) return false;
+  start(kind: DrawGeometryType | DrawShape): boolean {
+    const shape = kind === 'Rectangle' || kind === 'Circle' || kind === 'Ellipse' || kind === 'Freehand' ? kind : null;
+    if (!shape && kind !== 'Point' && kind !== 'LineString' && kind !== 'Polygon') throw new TypeError('Unsupported geometry type.');
+    if (this.kind !== null && this.state.mode === (shape ? shapeModes[shape] : drawModes[kind as DrawGeometryType])) return false;
     if (this.kind !== null) throw new Error('Finish or cancel the current drawing before changing tools.');
-    this.kind = kind;
+    this.kind = shape ? 'Polygon' : kind as DrawGeometryType;
+    this.shape = shape;
     this.selectedFeatureIds.clear();
     this.validationError = 'too-few-vertices';
     return true;
   }
 
   add([lng, lat]: Coordinate): boolean {
-    if (this.offsetting || this.buffering || this.simplification || this.scaling || this.rotation || this.sharedBoundary || this.kind === null || this.editingId !== null || this.unionActive || this.differenceActive || this.intersectionActive) return false;
+    if (this.offsetting || this.buffering || this.simplification || this.scaling || this.rotation || this.sharedBoundary || this.kind === null || this.editingId !== null || this.unionActive || this.differenceActive || this.intersectionActive || this.shape === 'Freehand') return false;
     this.validatePosition([lng, lat]);
+    if (this.shape) return this.addShapePoint([lng, lat]);
     const last = this.draft.at(-1);
     if (last && samePosition(last, [lng, lat])) return false;
     if (this.canTrace()) this.drawingSteps.push(this.draft.length);
@@ -195,7 +208,47 @@ export class DrawingSession {
 
   private canTrace(): boolean {
     const mode = this.state.mode;
-    return mode === 'draw-line' || mode === 'draw-polygon' || mode === 'draw-hole';
+    return mode === 'draw-line' || mode === 'draw-polygon' || mode === 'draw-hole' || mode === 'draw-cut' || mode === 'draw-part';
+  }
+
+  /** Rectangles, circles and ellipses: the first point anchors the shape, the second completes it. */
+  private addShapePoint(point: Coordinate): boolean {
+    const anchor = this.draft[0];
+    if (!anchor) { this.draft = [point]; this.validationError = 'too-few-vertices'; return true; }
+    const ring = this.getShapePreview(point);
+    if (!ring) return false;
+    const previous = this.draft;
+    this.draft = ring;
+    const error = this.validateDraftPolygon();
+    // An invalid shape keeps its anchor so the next point can try again.
+    if (error) { this.draft = previous; return false; }
+    this.validationError = null;
+    return true;
+  }
+
+  /** The open rectangle, circle or ellipse ring from the placed anchor to `point`; null without one. */
+  getShapePreview(point: Coordinate): Coordinate[] | null {
+    const anchor = this.draft[0];
+    if (!anchor || this.draft.length !== 1 || !this.shape || this.shape === 'Freehand') return null;
+    return this.shape === 'Rectangle' ? rectangleRing(anchor, point) : this.shape === 'Circle' ? circleRing(anchor, point) : ellipseRing(anchor, point);
+  }
+
+  /** Replace the freehand draft with the outline traced by the pointer. */
+  setFreehandPath(points: readonly Coordinate[]): boolean {
+    if (this.shape !== 'Freehand') return false;
+    if (!isArray(points)) throw new TypeError('Expected an array of positions.');
+    for (const point of points) {
+      if (!isArray(point) || point.length !== 2) throw new TypeError('Expected 2D positions.');
+      this.validatePosition(point);
+    }
+    const ring = freehandRing(points);
+    if (!ring) return false;
+    const previous = this.draft;
+    this.draft = ring;
+    const error = this.validateDraftPolygon();
+    if (error) { this.draft = previous; return false; }
+    this.validationError = null;
+    return true;
   }
 
   getBoundaryTrace(target: TraceTarget, from: Coordinate, to: Coordinate, side: TraceSide = 'shorter'): Coordinate[] | null {
@@ -224,6 +277,9 @@ export class DrawingSession {
 
   /** Backspace removes the last click, including all corners inserted by a trace. */
   removeLastDrawStep(): boolean {
+    if (this.shape && this.shape !== 'Freehand' && this.draft.length === 1) {
+      this.draft = []; this.validationError = 'too-few-vertices'; return true;
+    }
     if (!this.canTrace() || !this.drawingSteps.length) return false;
     this.draft.length = this.drawingSteps.pop()!;
     this.validationError = this.kind === 'Polygon' ? this.validateDraftPolygon() : this.draft.length < (this.kind === 'Point' ? 1 : 2) ? 'too-few-vertices' : null;
@@ -241,8 +297,8 @@ export class DrawingSession {
   }
 
   finish(): GeometryFeature | null {
-    if (this.offsetting || this.buffering || this.simplification || this.scaling || this.rotation || this.sharedBoundary || this.reshapeId !== null || this.intersectionActive || this.differenceActive || this.unionActive || this.splitId !== null || !this.state.canFinish) return null;
-    const targetId = this.editingId ?? this.holeId;
+    if (this.offsetting || this.buffering || this.simplification || this.scaling || this.rotation || this.sharedBoundary || this.reshapeId !== null || this.intersectionActive || this.differenceActive || this.unionActive || this.splitId !== null || this.cutting || !this.state.canFinish) return null;
+    const targetId = this.editingId ?? this.holeId ?? this.partId;
     const original = targetId === null ? undefined : this.features.get(targetId);
     const common = { type: 'Feature' as const, id: original?.id ?? this.allocateId(), properties: original ? copyProperties(original.properties) : {} };
     const feature = withGeometry(common, this.draftGeometry(true));
@@ -253,9 +309,11 @@ export class DrawingSession {
     this.draft = [];
     this.drawingSteps = [];
     this.kind = null;
+    this.shape = null;
     this.validationError = null;
     this.editingId = null;
     this.holeId = null;
+    this.partId = null;
     this.activeRingIndex = null;
     this.activePartIndex = null;
     this.selectedVertexIndices = [];
@@ -276,6 +334,9 @@ export class DrawingSession {
     this.cutFeedback = null;
     this.reshapeId = null; this.reshapePreview = null; this.reshapeError = null; this.reshapeSide = 'shorter';
     this.splitId = null; this.splitPreview = null; this.splitError = null;
+    this.cutting = null;
+    this.partId = null;
+    this.shape = null;
     this.kind = null;
     this.draft = [];
     this.drawingSteps = [];
@@ -610,7 +671,7 @@ export class DrawingSession {
     this.dataRevision++;
   }
 
-  private allocateId(reserved?: ReadonlySet<FeatureId>): string {
+  private allocateId(reserved?: ReadonlySet<FeatureId>): FeatureId {
     for (let attempt = 0; attempt < 100; attempt++) {
       const id = this.createId();
       if (!this.features.has(id) && !reserved?.has(id)) return id;
@@ -1065,7 +1126,7 @@ export class DrawingSession {
 
   /** Untouched components remain visible while the committed feature is hidden. */
   getInactiveParts(): GeometryPart[] {
-    const id = this.editingId ?? this.holeId;
+    const id = this.editingId ?? this.holeId ?? this.partId;
     if (id === null) return [];
     return geometryParts(this.features.get(id)!.geometry)
       .filter((_, index) => index !== this.activePartIndex)
@@ -1079,7 +1140,7 @@ export class DrawingSession {
     const part: GeometryPart = this.kind === 'Point' ? { type: 'Point', coordinates: [...this.draft[0]!] } : rings
       ? { type: 'Polygon', coordinates: normalize ? rings.map((ring, index) => closePolygon(ring, index > 0)) : rings }
       : { type: 'LineString', coordinates: this.getDraft() };
-    const id = this.editingId ?? this.holeId;
+    const id = this.editingId ?? this.holeId ?? this.partId;
     return id === null ? part : replacePart(this.features.get(id)!.geometry, this.activePartIndex!, part);
   }
 
@@ -1120,6 +1181,108 @@ export class DrawingSession {
     part.coordinates.splice(ringIndex, 1);
     // Validation can reject filling a hole containing another polygon component.
     return this.applyTransaction({ update: [feature] });
+  }
+
+  /** Draw one new component for the selected line or polygon; it becomes multipart on finish. */
+  drawPart(): boolean {
+    if (this.partId !== null) return false;
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before drawing a part.');
+    if (this.selectionLocked()) return false;
+    const feature = this.getSelected();
+    if (!feature || feature.geometry.type === 'Point') return false;
+    const polygonal = isPolygonal(feature.geometry);
+    this.partId = feature.id;
+    this.activePartIndex = geometryParts(feature.geometry).length;
+    this.activeRingIndex = polygonal ? 0 : null;
+    this.kind = polygonal ? 'Polygon' : 'LineString'; this.draft = []; this.validationError = 'too-few-vertices';
+    return true;
+  }
+
+  /** Draw a polygon that cuts the selection, or every unlocked feature when nothing is selected. */
+  drawCut(): boolean {
+    if (this.cutting) return false;
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before cutting.');
+    if (this.selectionLocked()) return false;
+    this.cutting = { targets: this.selectedFeatureIds.size ? [...this.selectedFeatureIds] : null };
+    this.kind = 'Polygon'; this.draft = []; this.validationError = 'too-few-vertices';
+    return true;
+  }
+
+  /**
+   * Remove the drawn polygon from every target as one transaction. Features left without
+   * geometry are deleted. Returns null, leaving the tool, when nothing overlaps.
+   */
+  finishCut(): TransactionEvent | null {
+    if (!this.cutting || this.validationError !== null) return null;
+    const cutter = this.getDraft();
+    const update: GeometryFeature[] = [];
+    const remove: FeatureId[] = [];
+    for (const id of this.cutting.targets ?? this.features.keys()) {
+      const feature = this.features.get(id);
+      if (!feature || this.locks.has(id)) continue;
+      const result = cutGeometry(feature.geometry, cutter);
+      if (result.error) return null;
+      if (result.geometry === null) remove.push(id);
+      else if (JSON.stringify(result.geometry) !== JSON.stringify(feature.geometry)) {
+        update.push(withGeometry({ id, properties: copyProperties(feature.properties) }, result.geometry));
+      }
+    }
+    let changes: FeatureChange[];
+    try { changes = prepareTransaction({ update, delete: remove }, this.features); } catch { return null; }
+    this.commit('transaction', changes);
+    this.cancel();
+    return changes.length ? { changes: changes.map(({ before, after }) => ({ before: before ? copyFeature(before) : null, after: after ? copyFeature(after) : null })) } : null;
+  }
+
+  /** Split every selected multipart feature into one feature per part; the first part keeps the ID. */
+  explodeSelection(): TransactionEvent | null {
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before separating parts.');
+    if (this.selectionLocked()) return null;
+    const update: GeometryFeature[] = [];
+    const create: GeometryFeature[] = [];
+    const selection: FeatureId[] = [];
+    const reserved = new Set<FeatureId>();
+    for (const feature of this.getSelection()) {
+      selection.push(feature.id);
+      if (feature.geometry.type !== 'MultiPolygon' && feature.geometry.type !== 'MultiLineString') continue;
+      const [first, ...rest] = geometryParts(feature.geometry);
+      update.push(withGeometry(feature, first!));
+      for (const part of rest) {
+        const id = this.allocateId(reserved);
+        reserved.add(id);
+        create.push(withGeometry({ id, properties: copyProperties(feature.properties) }, part));
+        selection.push(id);
+      }
+    }
+    if (!update.length) return null;
+    const event = this.applyTransaction({ update, create });
+    if (event) this.selectedFeatureIds = new Set(selection);
+    return event;
+  }
+
+  /**
+   * Combine the selected polygons, or the selected lines, into one multipart feature that keeps
+   * the first feature's ID and properties. Overlapping polygons cannot be combined; use union.
+   */
+  combineSelection(): TransactionEvent | null {
+    if (this.kind !== null) throw new Error('Finish or cancel the current drawing before combining.');
+    if (this.selectionLocked()) return null;
+    const selected = this.getSelection();
+    if (selected.length < 2) return null;
+    const polygonal = selected.every((feature) => isPolygonal(feature.geometry));
+    if (!polygonal && !selected.every((feature) => isLineal(feature.geometry))) return null;
+    const [first, ...rest] = selected;
+    let geometry: Geometry;
+    if (polygonal) {
+      const parts = selected.flatMap((feature) => geometryParts(feature.geometry).flatMap((part) => part.type === 'Polygon' ? [part.coordinates] : []));
+      if (validateMultiPolygon(parts)) return null;
+      geometry = { type: 'MultiPolygon', coordinates: parts };
+    } else {
+      geometry = { type: 'MultiLineString', coordinates: selected.flatMap((feature) => geometryParts(feature.geometry).flatMap((part) => part.type === 'LineString' ? [part.coordinates] : [])) };
+    }
+    const event = this.applyTransaction({ update: [withGeometry(first!, geometry)], delete: rest.map((feature) => feature.id) });
+    if (event) this.selectedFeatureIds = new Set([first!.id]);
+    return event;
   }
 
   selectVertex(index: number | null): boolean { return this.selectVertices(index === null ? [] : [index]); }

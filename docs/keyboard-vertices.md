@@ -24,9 +24,10 @@ selection, draft, export or history.
 | Escape | Cancel the editing session, or roll back a currently held movement |
 | Tab / Shift+Tab | Leave the control normally; there is no focus trap |
 
-Page Up/Down and Home/End also enter vertex focus from the map canvas. Arrows on
-the canvas keep their normal MapLibre camera behavior; arrows on the vertex
-control edit the geometry. Ctrl/Meta/Alt combinations, composition events and keys
+Page Up/Down and Home/End also enter vertex focus from the map canvas. While editing,
+arrows on the canvas keep their normal MapLibre camera behavior; arrows on the vertex
+control edit the geometry. Outside editing, arrows on the canvas
+[move selected shapes](geometry-editor.md#move-selected-shapes). Ctrl/Meta/Alt combinations, composition events and keys
 in other controls are left to the application/browser. Navigation and destructive
 keys ignore auto-repeat. Arrow repeat is supported.
 

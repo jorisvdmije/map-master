@@ -18,9 +18,12 @@ interface Candidate extends Bounds {
 interface Node extends Bounds { start: number; end: number; left?: Node; right?: Node }
 
 export function snappingOptions(update: Partial<SnappingOptions> = {}, previous: SnappingOptions = {
-  enabled: false, distance: 18, vertices: true, edges: true,
+  enabled: false, distance: 18, vertices: true, edges: true, layers: [],
 }): SnappingOptions {
   const options = { ...previous, ...update };
+  const layers: unknown = options.layers;
+  if (!Array.isArray(layers) || layers.some((id) => typeof id !== 'string' || !id)) throw new TypeError('Snapping layers must be an array of layer IDs.');
+  options.layers = [...layers as string[]];
   if (typeof options.enabled !== 'boolean' || typeof options.vertices !== 'boolean' || typeof options.edges !== 'boolean') {
     throw new TypeError('Snapping enabled, vertices, and edges must be booleans.');
   }

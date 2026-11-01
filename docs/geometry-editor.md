@@ -28,7 +28,7 @@ setWorkerUrl(workerUrl);
 Other bundlers must copy `maplibre-gl/dist/maplibre-gl-worker.mjs` and pass its URL
 to `setWorkerUrl`; see the [MapLibre documentation](https://maplibre.org/maplibre-gl-js/docs/).
 The page must be served over HTTPS or from `localhost`, because new feature IDs
-use `crypto.randomUUID()`.
+use `crypto.randomUUID()`, unless you pass your own `createId` option.
 
 Create the editor once the map has loaded. For a complete interface without UI code,
 add the [toolbar](toolbar.md):
@@ -79,10 +79,15 @@ restore data, see [saving and loading](persistence.md).
 
 | Member | Contract |
 | --- | --- |
-| `new GeometryEditor(map, options?)` | Attach after `style.load` or `load`. One editor per map. `historyLimit` defaults to 100; `snapping.enabled` defaults to false. |
+| `new GeometryEditor(map, options?)` | Attach after `style.load` or `load`. One editor per map. `historyLimit` defaults to 100; `snapping.enabled` defaults to false. `createId` replaces `crypto.randomUUID()` for new IDs; it must return a string or finite number, and IDs in use are skipped. `measurements` configures [live measurements](measurements.md). |
 | `getLockedFeatureIds()` / `setLockedFeatureIds(ids)` / `isFeatureLocked(id)` | Read/replace the host-owned set of read-only IDs; also constructor `lockedFeatureIds`. Locked targets reject mutations, block applicable history and remain snap references. See [feature locks](feature-locks.md). |
 | `getAppearance()` / `setAppearance(patch)` | Read an independent complete appearance / atomically patch presentation fields. Also available as constructor `appearance`. Live updates survive style reloads without changing geometry, drafts or history. See [appearance](appearance.md). |
-| `draw('Point' \| 'LineString' \| 'Polygon')` | Start a draft and focus the canvas. Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
+| `draw('Point' \| 'LineString' \| 'Polygon' \| 'Rectangle' \| 'Circle' \| 'Ellipse' \| 'Freehand')` | Start a draft and focus the canvas. Rectangles, circles, ellipses and freehand outlines are stored as polygons; see [shapes](shapes.md). Repeating the active type preserves the draft. Changing type during drawing throws; finish or cancel first. |
+| `drawCut()` / `finishCut()` | Draw a polygon that [cuts](cut.md) the selection, or every unlocked feature; apply it as one transaction. |
+| `drawPart()` | Draw a new component for the selected line or polygon; see [multipart](multipart.md#add-a-part). |
+| `explodeSelection()` / `combineSelection()` | Turn multipart features into one feature per part, or combine polygons or lines into one multipart feature, as one transaction. |
+| `getMeasurements()` / `setMeasurements(options)` | Read/update the [measurement](measurements.md) labels (`enabled`, `units`, `locale`). |
+| `zoomToFeatures(ids?, options?)` | Fit the camera to the given features, the selection, or every feature; `options` go to MapLibre's `fitBounds`. Returns false when there is nothing to show. |
 | `finish()` | Confirm the active tool, returning the resulting feature. Invalid/incomplete previews return `null` and stay active. A valid empty difference/intersection also returns `null`, after deleting the target/all inputs and exiting review. |
 | `cancel()` | Discard the draft or cancel an active selection rectangle or group drag. |
 | `getTracing()` / `setTracing(options)` | Read/update opt-in tracing settings (`enabled`, `side`). |
@@ -181,7 +186,7 @@ is a GeoJSON FeatureCollection containing all five geometry types. New drawings 
 string or numeric IDs and JSON properties (including null). Coordinates are
 `[longitude, latitude]`. Change properties with `applyTransaction({ update: [...] })`.
 
-Modes (the `EditorMode` type) are `idle`, `draw-point`, `edit-point`, `draw-line`, `draw-polygon`, `edit-line`, `edit-polygon`, `draw-hole`, `split-polygon`, `union-polygons`, `difference-polygons`, `intersection-polygons`, `reshape-polygon`, `edit-shared-boundary`, `rotate-features`, `scale-features`, `simplify-features`, `buffer-features`, and `offset-lines`. `validationError` is `null`
+Modes (the `EditorMode` type) are `idle`, `draw-point`, `edit-point`, `draw-line`, `draw-polygon`, `draw-rectangle`, `draw-circle`, `draw-ellipse`, `draw-freehand`, `edit-line`, `edit-polygon`, `draw-hole`, `draw-part`, `draw-cut`, `split-polygon`, `union-polygons`, `difference-polygons`, `intersection-polygons`, `reshape-polygon`, `edit-shared-boundary`, `rotate-features`, `scale-features`, `simplify-features`, `buffer-features`, and `offset-lines`. `validationError` is `null`
 when idle or when the current draft is valid. Check `canFinish` to enable Finish;
 an idle editor cannot finish even though it has no validation error.
 
@@ -315,6 +320,11 @@ dots anchored to its outline. Release commits the complete group once; Escape ca
 keeps the selection. A shorter gesture remains an ordinary click. Shift+drag still
 adds to the selection. Drawing, editing vertices and splitting keep their own
 input behavior. Group dragging supports desktop mouse input.
+
+With the map focused, the arrow keys move the selection by 1 screen pixel, or 10 with
+Shift, instead of panning the map. Each key press is one undo step. When nothing is
+selected, or the selection contains a locked feature, the arrow keys pan the map as
+usual.
 
 ```ts
 editor.selectMany([7, '7']);
@@ -906,9 +916,16 @@ The implementation is independent; it does not depend on Geoman or copy Pro code
   can be disabled independently. An exact distance tie chooses the later feature
   in collection order, then the lower vertex/edge index within that feature.
 - Candidates are all committed points, lines and polygons owned by this editor, including
-  imported geometry and polygon closing edges. Host map layers and ordinary
-  draft vertices/edges are excluded. During vertex editing, the entire edited
-  feature is also excluded (including its saved geometry).
+  imported geometry and polygon closing edges. Ordinary draft vertices/edges are
+  excluded. During vertex editing, the entire edited feature is also excluded
+  (including its saved geometry).
+- `layers` adds your own map layers as candidates, for example building footprints
+  from the basemap: `setSnapping({ layers: ['building'] })`. The rendered geometry
+  near the pointer is used, so only visible features count, and polygons from vector
+  tiles can have extra edges where tiles meet. A snap to a layer has `featureId: null`
+  and `layer` set to the layer ID; it never traces or edits that feature. On equal
+  distance, the editor's own features win. Unknown layer IDs are ignored, so the
+  option can name layers that a style adds later.
 - Vertex snapping copies the exact stored coordinate. Edge snapping projects
   onto the displayed straight segment in screen space and inverse-projects the
   result; it is not geodesic or planar longitude/latitude interpolation.

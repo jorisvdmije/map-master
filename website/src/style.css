@@ -858,9 +858,9 @@ kbd {
 .article .demo-map {
   height: 440px;
 }
-/* Room for a toolbar on each side above the zoom buttons. */
+/* Room for a full toolbar on each side of the map. */
 .article .demo--tall .demo-map {
-  height: 540px;
+  height: 600px;
 }
 .gallery {
   display: grid;

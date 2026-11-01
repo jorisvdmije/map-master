@@ -26,9 +26,9 @@ const version = JSON.parse(readFileSync(resolve(repo, "package.json"), "utf8")).
 const prerelease = version.includes("-");
 const highlighter = await createHighlighter({
   themes: [codeTheme],
-  langs: ["ts", "js", "html", "css", "sh", "json"],
+  langs: ["ts", "tsx", "js", "html", "css", "sh", "json", "vue", "svelte"],
 });
-const languageNames = { ts: "TypeScript", js: "JavaScript", html: "HTML", css: "CSS", sh: "Shell", json: "JSON", text: "Text", mermaid: "Mermaid" };
+const languageNames = { ts: "TypeScript", tsx: "TSX", vue: "Vue", svelte: "Svelte", js: "JavaScript", html: "HTML", css: "CSS", sh: "Shell", json: "JSON", text: "Text", mermaid: "Mermaid" };
 const highlight = (code, lang) => {
   if (!highlighter.getLoadedLanguages().includes(lang)) return escape(code);
   return highlighter
@@ -64,18 +64,21 @@ const groups = [
       ["index", "Overview"],
       ["quickstart", "Quickstart"],
       ["examples", "Interactive examples"],
+      ["frameworks", "React, Vue & Svelte"],
     ],
   ],
   [
     "Learn the basics",
     [
       ["draw", "Draw geometry"],
+      ["shapes", "Shapes & freehand"],
       ["toolbar", "Toolbar"],
       ["edit", "Edit & undo"],
       ["geojson", "Import & export"],
       ["persistence", "Save & load data"],
       ["markers", "Point markers"],
       ["appearance", "Appearance"],
+      ["measurements", "Measurements"],
       ["snapping", "Snapping"],
       ["keyboard-vertices", "Keyboard editing"],
     ],
@@ -94,6 +97,7 @@ const groups = [
     "Geometry operations",
     [
       ["splitting", "Split"],
+      ["cut", "Cut"],
       ["union", "Union"],
       ["difference", "Difference"],
       ["intersection", "Intersection"],
@@ -171,7 +175,10 @@ const demoHints = {
   examples: "Every tool, in two toolbars. Click shapes to select them; tools turn on when the selection qualifies.",
   toolbar: "Hover a button to see its name. Select shapes to enable the editing tools; an active tool shows Finish and Cancel beside its button.",
   "geometry-editor": "Every tool of the editor. Select one or more shapes, then choose a tool.",
-  draw: "Choose the marker, line or polygon tool and click the map. Snapping catches the corners and edges of the rose garden.",
+  draw: "Choose the marker, line or polygon tool and click the map. Snapping catches the corners and edges of the rose garden and of the buildings on the basemap.",
+  shapes: "Rectangle: click two corners. Circle and ellipse: click the center, then the edge. Freehand: press and drag. Measurements show the size as you draw.",
+  measurements: "The lawn is selected and shows its area and perimeter. Draw a line or polygon to see segment lengths, or choose Edit and drag a corner.",
+  cut: "Choose Cut and draw a polygon across the lawn, the garden and the route. Close it on its first corner: everything inside is removed.",
   edit: "The lawn is selected. Choose Edit, drag a corner or click a small midpoint, then Save. Undo restores it.",
   geojson: "Draw or edit shapes, import the GeoJSON below and download the result.",
   persistence: "Every committed change appears below as one onDataChange event: the moment to save.",
@@ -182,7 +189,7 @@ const demoHints = {
   transactions: "Run the transaction below, then Undo: both changes are reverted together.",
   "feature-styling": "Each zone is colored from its kind property, and overlapping areas are striped.",
   "feature-locks": "The park boundary is locked: you can select it and snap to it, but not change it.",
-  multipart: "The two pond islands are one MultiPolygon. Draw a hole, or edit, split or merge it.",
+  multipart: "The two pond islands are one MultiPolygon. Separate parts turns them into two features; select both flower beds and Combine makes them one. Add part draws another island.",
   splitting: "The lawn is selected. Choose Split, draw a line across it and Apply.",
   union: "Both areas are selected. Choose Merge to preview the union, then Apply.",
   difference: "Choose Subtract: the market area is cut out of the festival area.",
@@ -202,6 +209,8 @@ const demo = (id) =>
 // Guides with a live example in the gallery, in navigation order.
 const gallery = [
   ["draw", "Draw", "Markers, lines and polygons with snapping."],
+  ["shapes", "Shapes", "Rectangles, circles, ellipses and freehand."],
+  ["measurements", "Measurements", "Live lengths, areas and perimeters."],
   ["edit", "Edit & undo", "Drag corners, add midpoints and undo."],
   ["geojson", "GeoJSON", "Import, edit and download data."],
   ["toolbar", "Toolbar", "The ready-made MapLibre control."],
@@ -209,8 +218,9 @@ const gallery = [
   ["appearance", "Appearance", "Switch editor themes live."],
   ["feature-styling", "Feature styling", "Colors from properties, striped overlaps."],
   ["feature-locks", "Feature locks", "Read-only reference geometry."],
-  ["multipart", "Multipart & holes", "MultiPolygons and holes."],
+  ["multipart", "Multipart & holes", "Add, separate and combine parts."],
   ["splitting", "Split", "Cut a polygon in two."],
+  ["cut", "Cut", "Cut a drawn area out of everything."],
   ["union", "Union", "Merge overlapping polygons."],
   ["difference", "Difference", "Subtract one shape from another."],
   ["intersection", "Intersection", "Keep only the common area."],

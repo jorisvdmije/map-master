@@ -68,7 +68,7 @@ describe('mixed drawing session', () => {
     session.start('Polygon'); session.add([0, 0]);
     expect(session.start('Polygon')).toBe(false);
     expect(() => session.start('LineString')).toThrow('Finish or cancel');
-    expect(() => session.start('Circle' as DrawGeometryType)).toThrow(TypeError);
+    expect(() => session.start('Hexagon' as DrawGeometryType)).toThrow(TypeError);
     expect(() => session.add([NaN, 0])).toThrow(RangeError);
     expect(session.getDraft()).toEqual([[0, 0]]);
     expect(session.state.mode).toBe('draw-polygon');

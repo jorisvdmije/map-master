@@ -6,6 +6,7 @@ assert.equal(typeof editor.LineEditor, 'function');
 assert.equal(typeof editor.GeometryEditor, 'function');
 assert.equal(typeof editor.EditorToolbar, 'function');
 assert.deepEqual(editor.EditorToolbar.defaultTools.slice(0, 3), ['point', 'line', 'polygon']);
+assert.equal(editor.formatDistance(editor.measure({ type: 'LineString', coordinates: [[0, 0], [0, 1]] }).length), '111 km');
 
 // Consumers must use the public entry point rather than build internals.
 await assert.rejects(import('@jorisvdmije/map-master/dist/index.js'), {

@@ -34,6 +34,9 @@ src/
     polygon-overlay.ts       Shared strict overlay result validation
     cut-feedback.ts          Diagnostic contact construction and feedback copying
     split-polygon.ts         Two-contact splitter with boundary attachments and result validation
+    cut.ts                   Remove a drawn polygon from polygons (overlay) and lines (clipping)
+    shapes.ts                Rectangle/geodesic circle rings, freehand simplification and repair
+    measurement.ts           Spherical length/area/perimeter, unit formatting and options
     geometry.ts              Component views/replacement and coordinate mapping
     snapping.ts              Projected candidate index, nearest vertex/edge policy
   maplibre/
@@ -54,6 +57,9 @@ src/
     vertex-interaction.ts    Mouse edges; mouse/touch/pen vertex capture, map gesture separation and rollback
     vertex-keyboard.ts       Single-tab-stop vertex navigation, group nudges and movement rollback
     vertex-handles.ts        Shared screen-space corner/midpoint definitions and edge picking
+    freehand-interaction.ts  Press-and-drag outline capture with pan suppression
+    measurement-overlay.ts   HTML measurement labels that follow the camera
+    adopt-styles.ts          Constructed stylesheets, adopted once per document or shadow root
     toolbar.ts               EditorToolbar MapLibre control; only calls the public API
     toolbar-icons.ts         Toolbar SVG icons, built with DOM methods
     toolbar-styles.ts        Scoped toolbar stylesheet, adopted once per document
@@ -200,8 +206,8 @@ MapLibre source holds a selected feature. Avoid creating one wrapper method for
 every MapLibre camera or basemap operation: those operations already belong to
 the host's map API.
 
-The library has no built-in toolbar or framework dependency. `examples/basic`
-is one consumer of the API, making a React/Vue/custom UI possible without
+The library has no framework dependency. `EditorToolbar` and `examples/basic`
+are consumers of the public API, making a React/Vue/custom UI possible without
 changing the geometry engine. Styling and rendering options can be introduced
 through a deliberate public contract when a real use case needs them.
 

@@ -10,11 +10,14 @@ guides with search and live examples. New users should start with the
 | --- | --- |
 | Installation, setup and every public method | [GeometryEditor API](geometry-editor.md) |
 | A ready-made toolbar with every tool | [Toolbar](toolbar.md) |
+| Using the editor in React, Vue, Svelte or Angular | [Frameworks](frameworks.md) |
+| Rectangles, circles and freehand outlines | [Shapes](shapes.md) |
+| Live lengths and areas; `measure()` | [Measurements](measurements.md) |
 | Loading saved data and saving every change | [Saving and loading data](persistence.md) |
 | Browsers, input methods, data limits and performance | [Compatibility and limits](compatibility.md) |
 | Batches of creates, updates and deletes; event order | [Transactions and events](transactions.md) |
 | Placing and moving point markers | [Point markers](markers.md) |
-| MultiLineString and MultiPolygon features | [Multipart geometry](multipart.md) |
+| MultiLineString and MultiPolygon features; adding, separating and combining parts | [Multipart geometry](multipart.md) |
 | Read-only reference geometry | [Feature locks](feature-locks.md) |
 | Colors, outlines and editing markers | [Appearance](appearance.md) |
 | Per-feature colors, drawing order and overlap stripes | [Feature styling](feature-styling.md) |
@@ -30,6 +33,7 @@ guides with search and live examples. New users should start with the
 | Following existing boundaries while drawing | [Boundary tracing](tracing.md) |
 | 45° and 90° drawing directions | [Drawing constraints](drawing-constraints.md) |
 | Cutting a polygon in two | [Splitting](splitting.md) |
+| Cutting a drawn area out of features | [Cut](cut.md) |
 | Replacing part of a polygon boundary | [Reshape](reshape.md) |
 | Merging polygons | [Union](union.md) |
 | Subtracting polygons | [Difference](difference.md) |

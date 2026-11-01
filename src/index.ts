@@ -3,7 +3,10 @@ export { FeatureLockedError } from './core/feature-locks.js';
 export { GeometryEditor } from './maplibre/geometry-editor.js';
 export { LineEditor } from './maplibre/line-editor.js';
 export { EditorToolbar } from './maplibre/toolbar.js';
-export type { ToolbarLabelKey, ToolbarLabels, ToolbarOptions, ToolbarTool } from './maplibre/toolbar.js';
+export type { ToolbarButton, ToolbarLabelKey, ToolbarLabels, ToolbarOptions, ToolbarTool } from './maplibre/toolbar.js';
+export { measure, formatArea, formatDistance } from './core/measurement.js';
+export type { Measurement } from './core/measurement.js';
+export type { DrawShape } from './core/shapes.js';
 export type { EditorAppearance, EditorAppearanceOptions, ShapeAppearance, DraftAppearance, PointAppearance, VertexAppearance, SnapAppearance } from './core/appearance.js';
 export type {
   // Geometry and identity.
@@ -11,7 +14,7 @@ export type {
   GeometryFeature, GeometryFeatureCollection, GeometryType, DrawGeometryType,
   PointFeature, LineCollection, LineFeature, PolygonFeature, MultiLineFeature, MultiPolygonFeature,
   // Editor state and configuration.
-  DrawingConstraintsOptions, EditorMode, EditorOptions, EditorState, VertexUpdate, ValidationError,
+  DrawingConstraintsOptions, EditorMode, EditorOptions, MeasurementOptions, MeasurementUnits, EditorState, VertexUpdate, ValidationError,
   OffsetError, BufferError, SimplificationError, ScaleError, RotationError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, TracingOptions, SnappingOptions, SnapResult, ReshapePreview, ReshapeError, ReshapeSide, SplitPreview, SplitError, UnionPreview, UnionError, DifferencePreview, DifferenceError, IntersectionPreview, IntersectionError,
   // Committed changes and history.
   DataChangeEvent, DataChangeSource, FeatureChange, FeatureTransaction, TransactionEvent, HistoryAction, HistoryEvent,

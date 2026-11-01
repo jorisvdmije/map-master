@@ -81,15 +81,20 @@ const islands: GeometryFeature = {
     ],
   },
 };
+const bedA = polygon("bed-a", "Flower bed A", [[175, -70], [245, -60], [240, -10], [180, -15]]);
+const bedB = polygon("bed-b", "Flower bed B", [[180, 20], [245, 15], [250, 70], [185, 75]]);
 const park = polygon("park", "Park boundary (locked)", [[-280, -160], [270, -170], [290, 150], [-270, 165]]);
 const playground = polygon("playground", "Playground", [[-60, 10], [60, -10], [70, 90], [-50, 100]], { kind: "playground" });
 
 const everything = [lawn, garden, route, ...benches];
-const defaults: ToolbarTool[] = ["point", "line", "polygon", "edit", "split", "union", "rotate", "delete", "undo", "redo"];
+const defaults: ToolbarTool[] = ["point", "line", "polygon", "rectangle", "edit", "split", "union", "rotate", "delete", "undo", "redo"];
 const all: [ToolbarTool[], ToolbarTool[]] = [
-  ["point", "line", "polygon", "hole", "edit", "split", "reshape", "shared-boundary", "union", "difference", "intersection"],
-  ["rotate", "scale", "buffer", "offset", "simplify", "duplicate", "delete", "snapping", "constraints", "tracing", "undo", "redo"],
+  ["point", "line", "polygon", "rectangle", "circle", "ellipse", "freehand", "hole", "part",
+    "edit", "split", "cut", "reshape", "shared-boundary", "union", "difference", "intersection"],
+  ["combine", "explode", "rotate", "scale", "buffer", "offset", "simplify", "duplicate", "delete",
+    "snapping", "constraints", "tracing", "measure", "zoom", "undo", "redo"],
 ];
+const measuring = { measurements: { enabled: true } };
 const tool = (name: ToolbarTool): ToolbarTool[] => [name, "undo", "redo"];
 const zoneColors: Record<string, string> = { lawn: "#2f9e44", garden: "#d6336c", playground: "#f08c00" };
 
@@ -99,10 +104,23 @@ export const demos: Record<string, DemoConfig> = {
   examples: { tools: all, features: [...everything, zoneB], options: { snapping: { enabled: true } } },
   toolbar: { tools: all, features: [...everything, zoneB], select: ["lawn"], options: { snapping: { enabled: true } } },
   "geometry-editor": { tools: all, features: [...everything, zoneB], options: { snapping: { enabled: true } } },
+  shapes: {
+    tools: ["rectangle", "circle", "ellipse", "freehand", "polygon", "edit", "measure", "undo", "redo"],
+    features: [garden],
+    options: { ...measuring, snapping: { enabled: true } },
+  },
+  measurements: {
+    tools: ["line", "polygon", "rectangle", "circle", "edit", "measure", "undo", "redo"],
+    features: [lawn, route],
+    select: ["lawn"],
+    options: measuring,
+  },
+  cut: { tools: ["cut", "undo", "redo"], features: [lawn, garden, route] },
   draw: {
     tools: ["point", "line", "polygon", "snapping", "constraints", "undo", "redo"],
     features: [garden],
-    options: { snapping: { enabled: true } },
+    // Also snap to the OpenStreetMap buildings of the basemap.
+    options: { snapping: { enabled: true, layers: ["building"] } },
   },
   edit: { tools: ["edit", "duplicate", "delete", "undo", "redo"], features: [lawn, garden, route], select: ["lawn"] },
   geojson: { tools: defaults, features: [lawn, route], extras: ["geojson"] },
@@ -127,7 +145,11 @@ export const demos: Record<string, DemoConfig> = {
     },
   },
   "feature-locks": { tools: defaults, features: [park, lawn, garden], locked: ["park"], options: { snapping: { enabled: true } } },
-  multipart: { tools: ["hole", "edit", "split", "union", "undo", "redo"], features: [islands, garden], select: ["islands"] },
+  multipart: {
+    tools: ["hole", "part", "edit", "combine", "explode", "union", "undo", "redo"],
+    features: [islands, bedA, bedB],
+    select: ["islands"],
+  },
   splitting: { tools: tool("split"), features: [lawn, garden], select: ["lawn"] },
   union: { tools: tool("union"), features: [zoneA, zoneB], select: ["festival", "market"] },
   difference: { tools: tool("difference"), features: [zoneA, zoneB], select: ["festival", "market"] },

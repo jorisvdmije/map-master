@@ -7,15 +7,9 @@ IDs and properties survive edits, translation, duplication, import/export and
 Undo/Redo. Polygon winding is normalized at import and save: exterior CCW,
 interior rings clockwise, preserving each first corner.
 
-## Try it
-
-In the playground, choose **Edit multipart geometry** under **Try an example**, then **Add example**.
-Click either garden to select the complete `MultiPolygon`. Choose **Part to edit**,
-then **Ring to edit** when the component contains holes, and choose **Edit vertices**.
-Only that component/ring gets handles; the remaining components stay visible.
-Save commits one complete feature update; Cancel discards it. The example also
-contains a `MultiLineString` with two disconnected paths. Camera fitting includes
-all imported components.
+The live example shows two pond islands stored as one `MultiPolygon`. Click either
+island to select the complete feature, then use the multipart tools of the
+[toolbar](toolbar.md): **Add part**, **Separate parts** and **Combine into multipart**.
 
 ## Construction and selection
 
@@ -46,11 +40,39 @@ whole-feature deletion act on every component. Duplication assigns one new ID
 per feature. Cross-feature overlap is permitted; multipart topology validation
 only compares components belonging to the same `MultiPolygon`.
 
-`draw()` still accepts only `LineString` or `Polygon`. Creating multipart drawings
-interactively, adding/removing components, joining/exploding features and splitting
-multipart features are subsequent tools. `splitSelected()` returns false for a
-multipart feature while idle. Transactions can replace the complete geometry,
-including changing its type or component count, subject to validation.
+Splitting a multipart feature with `splitSelected()` is not supported; it returns
+false. Transactions can replace the complete geometry, including changing its type
+or component count, subject to validation.
+
+## Add a part
+
+`drawPart()` draws a new component for the selected line or polygon. Finishing
+turns the feature into a `MultiLineString` or `MultiPolygon` that keeps its ID and
+properties:
+
+```ts
+editor.select('islands');
+editor.drawPart();  // Click the corners of the new island, then finish.
+editor.finish();    // One onUpdate and one edit history action.
+```
+
+The existing parts stay visible while drawing, and the state reports
+`mode: 'draw-part'` with `activePartIndex` set to the new component's index. A new
+polygon part may not touch or overlap the existing parts; `validationError` reports
+`part-intersection` or `part-overlap` until it is moved clear. `drawPart()` returns
+false unless exactly one unlocked line or polygon is selected.
+
+## Separate and combine parts
+
+| Method | Result |
+| --- | --- |
+| `explodeSelection()` | Every selected `MultiPolygon` or `MultiLineString` becomes one feature per part. The first part keeps the ID; the others get new IDs and a copy of the properties. All resulting features are selected. |
+| `combineSelection()` | Two or more selected polygons, or two or more selected lines, become one multipart feature. The first selected feature keeps its ID and properties; the others are deleted. |
+
+Both are one transaction and one Undo step, and return the committed changes or
+null. `combineSelection()` returns null for a mix of lines and polygons, and for
+polygons that touch or overlap: use [union](union.md) to merge those into one area.
+Both return null when the selection contains a [locked feature](feature-locks.md).
 
 ## Component and ring addresses
 
@@ -58,6 +80,7 @@ including changing its type or component count, subject to validation.
 | --- | --- |
 | `editSelected(ringIndex = 0, partIndex = 0)` | Edit one ring or line component. The first argument keeps its existing ring meaning. |
 | `drawHole(partIndex = 0)` | Add a hole to the chosen Polygon/MultiPolygon component. |
+| `drawPart()` | Draw a new component; `activePartIndex` is the index it will get. |
 | `deleteHole(ringIndex, partIndex = 0)` | Remove one hole as a validated transaction. |
 | `activePartIndex` | Component being edited, or receiving a hole; 0 for simple geometries, null outside these modes. |
 | `activeRingIndex` | Polygon ring being edited/drawn; null for line components. |
@@ -72,7 +95,7 @@ or cancel before switching components. Indices refer to current array positions,
 not permanent component identities.
 
 Editing a multiline component uses `mode: 'edit-line'`; editing any polygon ring
-uses `mode: 'edit-polygon'`. No new modes are added for multipart. All components
+uses `mode: 'edit-polygon'`. Drawing a new component uses `mode: 'draw-part'`. All components
 of the target feature are excluded from snapping during editing/hole drawing.
 Other features remain targets. `SnapResult.partIndex` identifies a multipart
 component; `ringIndex` additionally identifies a polygon ring. Both indices precede
@@ -100,7 +123,7 @@ Moving an exterior or hole validates the complete `MultiPolygon` after each
 vertex change. Invalid drafts stay editable; Finish returns null, and Cancel
 preserves saved data. Deleting a hole containing an island would fill the area
 around that island and cause overlap: the transaction throws and changes nothing.
-The playground displays that failure. Imported batches and transactions fail atomically,
+Imported batches and transactions fail atomically,
 retaining selection, data revision and Undo/Redo on error.
 
 A changed saved component edit or drawn hole emits one `onUpdate`, then
@@ -114,8 +137,8 @@ as simple geometries.
 ## Types and compatibility
 
 `GeometryFeature` now includes `MultiLineFeature` and `MultiPolygonFeature`.
-`GeometryType` includes all four supported GeoJSON names. `DrawGeometryType`
-contains only the two drawing-tool types. Consumers that previously used
+`GeometryType` includes all supported GeoJSON names. `DrawGeometryType`
+contains the simple types `draw()` creates. Consumers that previously used
 `GeometryType` for drawing controls should use `DrawGeometryType` there and
 handle the new variants in exhaustive geometry switches. Existing numeric
 `editSelected(ringIndex)` calls still address component 0.
