@@ -1,19 +1,18 @@
 # Offset selected lines
 
-Select one or more open lines and choose **Offset lines**. Drag **↔** or enter a signed
-**Offset distance (Mercator meters)**: positive moves left of each component's
-direction, negative moves right. The initial distance is 0, which preserves every
-source coordinate exactly. The direction is from the first point toward the last;
-reversing a line reverses its left/right sides. This sign convention also appears
-in the [GEOS offset-curve API](https://libgeos.org/doxygen/classgeos_1_1operation_1_1buffer_1_1OffsetCurve.html).
+Offset moves the selected open lines sideways by a signed distance in Mercator
+meters: positive moves left of each component's direction, negative moves right.
+Start it with `offsetSelection()` or the toolbar's **Offset lines** button, then drag
+the **↔** handle or call `setOffsetDistance(meters)`. The initial distance is 0,
+which preserves every source coordinate exactly. The direction runs from the first
+point toward the last; reversing a line reverses its sides. This sign convention also
+appears in the [GEOS offset-curve API](https://libgeos.org/doxygen/classgeos_1_1operation_1_1buffer_1_1OffsetCurve.html).
 
-**Apply offset** replaces the selected lines, retaining their IDs, properties and
-order. One Undo restores all originals. To keep separate source lines, duplicate
-them before offsetting. Cancel/Escape discards the preview; Enter applies while
-the map has focus. Map shortcuts do not intercept text input. Empty/incomplete
-numeric input disables Apply; leaving the field restores the last accepted value.
-The [example fixture](../examples/basic/public/offset.geojson) has eastbound and
-westbound routes for trying both sides.
+`finish()` replaces the selected lines, retaining their IDs, properties and order.
+One Undo restores all originals. To keep separate source lines, duplicate them
+before offsetting. `cancel()` or Escape discards the preview; Enter applies while the
+map has focus. The [example fixture](../examples/basic/public/offset.geojson) has
+eastbound and westbound routes for trying both sides.
 
 ## Dragging the distance
 

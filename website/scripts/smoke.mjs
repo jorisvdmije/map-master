@@ -8,6 +8,7 @@ import {
   writeFileSync,
   mkdtempSync,
   symlinkSync,
+  copyFileSync,
 } from "node:fs";
 import { dirname, resolve, extname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,6 +18,7 @@ import { chromium } from "playwright";
 import { createServer as createViteServer } from "vite";
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repo = resolve(site, "..");
 const dist = resolve(site, "dist");
 const evidence = resolve(site, "../artifacts/documentation");
 mkdirSync(evidence, { recursive: true });
@@ -67,11 +69,16 @@ for (const [language, filename] of [
   assert.ok(match, `Missing ${language} quickstart example`);
   writeFileSync(resolve(quickstart, filename), match[1]);
 }
-symlinkSync(
-  resolve(site, "node_modules"),
-  resolve(quickstart, "node_modules"),
-  "dir",
-);
+// Install like a user would: the website's MapLibre, Vite and TypeScript, plus this
+// repository's library build in place of the npm package.
+const modules = resolve(quickstart, "node_modules");
+const library = resolve(modules, "@jorisvdmije/map-master");
+mkdirSync(library, { recursive: true });
+for (const entry of readdirSync(resolve(site, "node_modules")))
+  if (entry !== "@jorisvdmije")
+    symlinkSync(resolve(site, "node_modules", entry), resolve(modules, entry), "dir");
+copyFileSync(resolve(repo, "package.json"), resolve(library, "package.json"));
+symlinkSync(resolve(repo, "dist"), resolve(library, "dist"), "dir");
 execFileSync(
   process.execPath,
   [
@@ -87,6 +94,8 @@ execFileSync(
     "Bundler",
     "--types",
     "vite/client",
+    // One MapLibre declaration for the app and the library's types.
+    "--preserveSymlinks",
     "main.ts",
   ],
   { cwd: quickstart, stdio: "pipe" },
@@ -134,7 +143,9 @@ const server = createServer((request, response) => {
 });
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const allowedOrigins = new Set([origin]);
+// Basemap requests are answered locally, so the checks never depend on the tile service.
+const basemap = "https://tiles.openfreemap.org";
+const allowedOrigins = new Set([origin, basemap]);
 let devServer;
 const browser = await chromium.launch({
   args: ["--enable-unsafe-swiftshader"],
@@ -143,6 +154,16 @@ const context = await browser.newContext({
   viewport: { width: 1440, height: 1050 },
   permissions: ["clipboard-read", "clipboard-write"],
 });
+await context.route(`${basemap}/**`, (route) =>
+  route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify({
+      version: 8,
+      sources: {},
+      layers: [{ id: "background", type: "background", paint: { "background-color": "#eef0e8" } }],
+    }),
+  }),
+);
 const page = await context.newPage();
 const errors = [];
 page.on("request", (request) => {
@@ -168,10 +189,13 @@ const count = async (n) => {
     n,
   );
 };
+const tool = (name) => page.locator(`.mm-toolbar-button[data-tool="${name}"]`);
+const action = (text) => page.locator(".mm-toolbar-action", { hasText: text });
 try {
   await open("index.html");
   await ready();
-  await count(2);
+  await count(6);
+  assert.equal(await page.locator(".demo .mm-toolbar").count(), 1);
   await page.screenshot({
     path: resolve(evidence, "overview-desktop.png"),
     fullPage: true,
@@ -201,8 +225,8 @@ try {
 
   await open("guides/draw.html");
   await ready();
-  await count(0);
-  await page.locator('[data-action="polygon"]').click();
+  await count(1);
+  await tool("polygon").click();
   const canvas = page.locator(".demo-map canvas");
   const box = await canvas.boundingBox();
   for (const [x, y] of [
@@ -211,44 +235,60 @@ try {
     [0.58, 0.7],
   ])
     await canvas.click({ position: { x: box.width * x, y: box.height * y } });
-  await page.locator('[data-action="finish"]:enabled').click();
+  await action("Finish").click();
+  await count(2);
+  await tool("undo").click();
   await count(1);
-  await page.locator('[data-action="undo"]').click();
-  await count(0);
-  await page.locator('[data-action="line"]').click();
+  await tool("line").click();
   await canvas.click({ position: { x: box.width * 0.3, y: box.height * 0.4 } });
-  await page.locator('[data-action="cancel"]').click();
-  await count(0);
-  console.log("✓ Draw a polygon, finish, Undo and cancel a line");
+  await action("Cancel").click();
+  await page.locator('[data-demo][data-mode="idle"]').waitFor();
+  await count(1);
+  console.log("✓ Toolbar: draw a polygon, finish, Undo and cancel a line");
 
   await open("guides/edit.html");
   await ready();
-  await count(2);
-  await page.locator('[data-action="edit"]').click();
+  await count(3);
+  await tool("edit").click();
   const vertex = page.getByRole("button", { name: /Keyboard editing/ });
   await vertex.focus();
   await vertex.press("ArrowRight");
-  await page.locator('[data-action="finish"]:enabled').click();
-  assert.equal(await page.locator('[data-action="undo"]').isEnabled(), true);
-  await page.locator('[data-action="undo"]').click();
+  await action("Save").click();
+  assert.equal(await tool("undo").isEnabled(), true);
+  await tool("undo").click();
+  await count(3);
+  await tool("delete").click();
   await count(2);
-  await page.locator('[data-action="delete"]').click();
+  await tool("undo").click();
+  await count(3);
+  await page.locator(".demo-reset").click();
+  assert.equal(await tool("undo").isEnabled(), false);
+  console.log("✓ Toolbar: edit, save, Undo, delete, restore and reset");
+
+  await open("guides/union.html");
+  await ready();
+  await count(2);
+  await tool("union").click();
+  await action("Apply").click();
   await count(1);
-  await page.locator('[data-action="undo"]').click();
+  await tool("undo").click();
   await count(2);
-  console.log("✓ Edit, save, Undo, delete and restore through public controls");
+  console.log("✓ Toolbar: merge the preselected polygons and undo");
 
   await open("guides/geojson.html");
   await ready();
   await count(2);
-  await page.locator('[data-action="import"]').click();
+  const importButton = page.locator(".demo-data button", { hasText: "Import GeoJSON" });
+  await importButton.click();
   await count(3);
   const original = await page.locator(".geojson-output").textContent();
-  await page.locator('[data-action="import"]').click();
+  await importButton.click();
   await count(3);
+  assert.match(await page.locator(".demo-status").textContent(), /rejected/);
   assert.equal(await page.locator(".geojson-output").textContent(), original);
   await page.locator(".geojson-input").fill("{invalid");
-  await page.locator('[data-action="import"]').click();
+  await importButton.click();
+  assert.match(await page.locator(".demo-status").textContent(), /not valid JSON/);
   assert.equal(await page.locator(".geojson-output").textContent(), original);
   await page
     .locator(".geojson-input")
@@ -260,16 +300,16 @@ try {
             type: "Feature",
             id: "unsafe-name",
             properties: { name: "<img src=x onerror=alert(1)>" },
-            geometry: { type: "Point", coordinates: [4.9, 52.37] },
+            geometry: { type: "Point", coordinates: [4.868, 52.358] },
           },
         ],
       }),
     );
-  await page.locator('[data-action="import"]').click();
+  await importButton.click();
   await count(4);
-  assert.equal(await page.locator(".demo-feature-list img").count(), 0);
+  assert.equal(await page.locator(".demo img").count(), 0);
   const downloading = page.waitForEvent("download");
-  await page.locator('[data-action="export"]').click();
+  await page.locator(".demo-data button", { hasText: "Download GeoJSON" }).click();
   const download = await downloading;
   const exported = JSON.parse(readFileSync(await download.path(), "utf8"));
   assert.equal(exported.features.length, 4);
@@ -277,6 +317,16 @@ try {
   console.log(
     "✓ GeoJSON append, duplicate/malformed input rollback, safe names and download",
   );
+
+  // Every guide with a live example loads its map, data and toolbar.
+  const demoPages = htmlFiles.filter((file) => readFileSync(file, "utf8").includes("data-demo="));
+  for (const file of demoPages) {
+    await open(relative(dist, file));
+    await page.locator("[data-demo]").scrollIntoViewIfNeeded();
+    await ready();
+    assert.ok(await page.locator(".demo .mm-toolbar-button").count() > 0, `No toolbar in ${relative(dist, file)}`);
+  }
+  console.log(`✓ ${demoPages.length} live examples load their data and toolbar`);
 
   await open("guides/quickstart.html");
   await page.screenshot({
@@ -321,8 +371,8 @@ try {
   await page.goto(`${origin}/quickstart/index.html`, {
     waitUntil: "networkidle",
   });
-  await page.locator("#draw:enabled").waitFor();
-  await page.locator("#draw").click();
+  await tool("polygon").waitFor();
+  await tool("polygon").click();
   const quickCanvas = page.locator("#map canvas");
   const quickBox = await quickCanvas.boundingBox();
   for (const [x, y] of [
@@ -333,10 +383,10 @@ try {
     await quickCanvas.click({
       position: { x: quickBox.width * x, y: quickBox.height * y },
     });
-  await page.locator("#finish:enabled").click();
-  assert.match(await page.locator("#status").textContent(), /1 features/);
-  await page.locator("#undo:enabled").click();
-  assert.match(await page.locator("#status").textContent(), /0 features/);
+  await action("Finish").click();
+  assert.match(await page.locator("#status").textContent(), /^1 feature$/);
+  await tool("undo").click();
+  assert.match(await page.locator("#status").textContent(), /^0 features$/);
   console.log("✓ Exact quickstart works in the browser: draw, save and Undo");
 
   // A successful production build cannot catch source URLs broken only in dev mode.
@@ -352,9 +402,9 @@ try {
     await page.goto(new URL(path, devOrigin).href, { waitUntil: "networkidle" });
     await ready();
     assert.equal(await page.locator(".sidebar").evaluate((node) => getComputedStyle(node).position), "fixed");
-    await page.locator('[data-action="polygon"]').click();
+    await tool("polygon").click();
     await page.locator('[data-demo][data-mode="draw-polygon"]').waitFor();
-    await page.locator('[data-action="cancel"]').click();
+    await action("Cancel").click();
   }
   await page.screenshot({ path: resolve(evidence, "development-desktop.png") });
   console.log("✓ Development server: styled overview and nested guide, loaded map and drawing controls");
@@ -366,13 +416,15 @@ try {
         passed: true,
         pages: htmlFiles.length,
         browser: browser.version(),
-        publishedPackage: JSON.parse(readFileSync(resolve(site, "package.json"), "utf8")).dependencies["@jorisvdmije/map-master"],
+        library: JSON.parse(readFileSync(resolve(repo, "package.json"), "utf8")).version,
         checks: [
           "links-and-anchors",
           "copy",
           "search",
-          "drawing",
-          "editing-history",
+          "toolbar-drawing",
+          "toolbar-editing-history",
+          "toolbar-geometry-tool",
+          "every-live-example",
           "geojson-errors-download",
           "mobile",
           "exact-quickstart-build-and-browser",

@@ -71,9 +71,9 @@ Afterwards:
 2. Install the published version in a fresh project and import it.
 3. Create an annotated `v<version>` tag on the verified commit and a GitHub release
    with the changelog section, the archive, its checksum and the reports.
-4. Update `examples/workspace/published-release.json` and the version used by the
-   website (`website/package.json`, its lockfile and the pinned version in its pages)
-   in a follow-up pull request, and run `npm run test:workspace:published`.
+4. Update `examples/workspace/published-release.json` in a follow-up pull request and
+   run `npm run test:workspace:published`. The documentation site needs no update: it
+   runs the repository build and shows the version from `package.json`.
 
 ## Environment variables
 

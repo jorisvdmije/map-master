@@ -2,6 +2,8 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "nod
 import { resolve, dirname, relative, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { marked } from "marked";
+import { createHighlighter } from "shiki";
+import { codeTheme } from "./code-theme.mjs";
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repo = resolve(site, "..");
@@ -19,10 +21,28 @@ const escape = (value) =>
       ],
   );
 const github = "https://github.com/jorisvdmije/map-master";
-// The site documents the published package it installs; keep one source of truth.
-const version = JSON.parse(readFileSync(resolve(site, "package.json"), "utf8"))
-  .dependencies["@jorisvdmije/map-master"];
+// The guides and live examples document the library in this repository.
+const version = JSON.parse(readFileSync(resolve(repo, "package.json"), "utf8")).version;
 const prerelease = version.includes("-");
+const highlighter = await createHighlighter({
+  themes: [codeTheme],
+  langs: ["ts", "js", "html", "css", "sh", "json"],
+});
+const languageNames = { ts: "TypeScript", js: "JavaScript", html: "HTML", css: "CSS", sh: "Shell", json: "JSON", text: "Text", mermaid: "Mermaid" };
+const highlight = (code, lang) => {
+  if (!highlighter.getLoadedLanguages().includes(lang)) return escape(code);
+  return highlighter
+    .codeToTokens(code, { lang, theme: codeTheme.name })
+    .tokens.map((line) =>
+      line
+        .map(({ content, color, fontStyle }) => {
+          const italic = fontStyle && fontStyle & 1 ? ";font-style:italic" : "";
+          return color ? `<span style="color:${color}${italic}">${escape(content)}</span>` : escape(content);
+        })
+        .join(""),
+    )
+    .join("\n");
+};
 const pages = [
   ...readdirSync(resolve(site, "content"))
     .filter((f) => f.endsWith(".md"))
@@ -50,6 +70,7 @@ const groups = [
     "Learn the basics",
     [
       ["draw", "Draw geometry"],
+      ["toolbar", "Toolbar"],
       ["edit", "Edit & undo"],
       ["geojson", "Import & export"],
       ["persistence", "Save & load data"],
@@ -114,7 +135,7 @@ const nav = (slug, root) =>
   groups
     .map(
       ([name, links]) =>
-        `<section class="nav-group"><h2>${name}</h2>${links.map(([id, label]) => `<a href="${route(id, root)}"${slug === id ? ' aria-current="page"' : ""}>${label}${id === "examples" ? '<span class="nav-count">3</span>' : ""}</a>`).join("")}</section>`,
+        `<section class="nav-group"><h2>${name}</h2>${links.map(([id, label]) => `<a href="${route(id, root)}"${slug === id ? ' aria-current="page"' : ""}>${label}${id === "examples" ? `<span class="nav-count">${gallery.length}</span>` : ""}</a>`).join("")}</section>`,
     )
     .join("");
 function shell({
@@ -143,13 +164,76 @@ function shell({
 <dialog class="search-dialog" aria-labelledby="search-title"><div class="search-top"><label id="search-title" for="search-input">${searchIcon}<span class="sr-only">Search documentation</span></label><input id="search-input" type="search" placeholder="Search guides, methods, examples…" autocomplete="off"><button class="search-close" aria-label="Close search">Esc</button></div><div id="search-results" aria-live="polite"></div><div class="search-footer"><span><kbd>↑</kbd><kbd>↓</kbd> navigate <kbd>↵</kbd> open</span><span>Searches all guides</span></div></dialog>
 <script type="module" src="/src/main.ts"></script></body></html>`;
 }
-const demo = (kind) =>
-  `<section class="demo" data-demo="${kind}" aria-label="Interactive ${kind} example"><div class="demo-top"><span><i></i> LIVE EXAMPLE</span><span class="demo-kind">${kind === "draw" ? "Draw & explore" : kind === "edit" ? "Edit & undo" : "GeoJSON exchange"}</span></div><div class="demo-map" aria-label="Interactive map"></div><div class="demo-toolbar" role="group" aria-label="Drawing tools"><button data-action="polygon">◇ Polygon</button><button data-action="line">⌁ Line</button><button data-action="marker">⊙ Marker</button><span></span><button data-action="undo" aria-label="Undo">↶ Undo</button></div><div class="demo-actions"><button data-action="finish" class="button small">Finish</button><button data-action="cancel">Cancel</button><button data-action="edit">Edit selected</button><button data-action="delete">Delete</button><button data-action="sample">Load sample</button><button data-action="reset">Reset</button></div><p class="demo-status" role="status">Loading the map…</p><div class="demo-feature-list" aria-label="Features"></div>${kind === "geojson" ? `<div class="demo-data"><label>GeoJSON input<textarea class="geojson-input" rows="5" spellcheck="false" aria-label="GeoJSON input"></textarea></label><div><button data-action="import" class="button small">Import GeoJSON</button><button data-action="export">Download GeoJSON ↓</button></div><details><summary>View current GeoJSON</summary><pre class="geojson-output"></pre></details></div>` : ""}<p class="demo-caption">Fictional neighborhood · no API key · changes stay in this page</p></section>`.replace(
-    /data-action="[^"]+"/g,
-    "$& disabled",
-  );
+// One live example per feature guide. The map, data and toolbar come from website/src/demos.ts.
+const demoHints = {
+  home: "Pick a tool on the left of the map. Click a shape to select it; Shift+click adds more.",
+  quickstart: "The finished quickstart: draw a polygon, finish it and undo.",
+  examples: "Every tool, in two toolbars. Click shapes to select them; tools turn on when the selection qualifies.",
+  toolbar: "Hover a button to see its name. Select shapes to enable the editing tools; an active tool shows Finish and Cancel beside its button.",
+  "geometry-editor": "Every tool of the editor. Select one or more shapes, then choose a tool.",
+  draw: "Choose the marker, line or polygon tool and click the map. Snapping catches the corners and edges of the rose garden.",
+  edit: "The lawn is selected. Choose Edit, drag a corner or click a small midpoint, then Save. Undo restores it.",
+  geojson: "Draw or edit shapes, import the GeoJSON below and download the result.",
+  persistence: "Every committed change appears below as one onDataChange event: the moment to save.",
+  markers: "Place markers with the marker tool, or select one and choose Edit to drag it.",
+  appearance: "Switch themes below the map; shapes, selection and handles restyle at once.",
+  "keyboard-vertices": "Choose Edit, focus the map, press Page Down to pick a corner and the arrow keys to move it (Shift: 10 pixels). Enter saves.",
+  "touch-pen-vertices": "On a touch screen or with a pen: choose Edit, then drag a corner or tap a small midpoint.",
+  transactions: "Run the transaction below, then Undo: both changes are reverted together.",
+  "feature-styling": "Each zone is colored from its kind property, and overlapping areas are striped.",
+  "feature-locks": "The park boundary is locked: you can select it and snap to it, but not change it.",
+  multipart: "The two pond islands are one MultiPolygon. Draw a hole, or edit, split or merge it.",
+  splitting: "The lawn is selected. Choose Split, draw a line across it and Apply.",
+  union: "Both areas are selected. Choose Merge to preview the union, then Apply.",
+  difference: "Choose Subtract: the market area is cut out of the festival area.",
+  intersection: "Choose Intersect: only the overlap of both areas remains.",
+  buffer: "The running route is selected. Choose Buffer and drag the handle or type a distance.",
+  offset: "The running route is selected. Choose Offset and type a distance to create a parallel line.",
+  simplification: "The wetland edge has 56 corners. Choose Simplify and raise the tolerance.",
+  rotation: "The rose garden is selected. Choose Rotate and drag the handle or type an angle.",
+  scaling: "The rose garden is selected. Choose Scale and drag a corner handle or type a factor.",
+  reshape: "The rose garden is selected. Choose Reshape and draw a new section from one edge to another.",
+  "shared-boundaries": "Both allotments are selected. Choose Edit shared boundary and drag a common corner.",
+  tracing: "Draw a line or polygon and click two points on the edge of the pond: the outline between them is traced.",
+  "drawing-constraints": "New segments lock to 45° steps. Hold Alt to place a point freely.",
+};
+const demo = (id) =>
+  `<figure class="demo" data-demo="${id}"><div class="demo-map" role="region" aria-label="Interactive map example"></div><figcaption class="demo-caption"><p class="demo-hint"><span class="demo-badge">Try it</span>${escape(demoHints[id])}</p><div class="demo-footer"><p class="demo-status" role="status">Loading the map…</p><button type="button" class="demo-reset" disabled>Reset</button></div></figcaption></figure>`;
+// Guides with a live example in the gallery, in navigation order.
+const gallery = [
+  ["draw", "Draw", "Markers, lines and polygons with snapping."],
+  ["edit", "Edit & undo", "Drag corners, add midpoints and undo."],
+  ["geojson", "GeoJSON", "Import, edit and download data."],
+  ["toolbar", "Toolbar", "The ready-made MapLibre control."],
+  ["markers", "Markers", "Place, move and duplicate points."],
+  ["appearance", "Appearance", "Switch editor themes live."],
+  ["feature-styling", "Feature styling", "Colors from properties, striped overlaps."],
+  ["feature-locks", "Feature locks", "Read-only reference geometry."],
+  ["multipart", "Multipart & holes", "MultiPolygons and holes."],
+  ["splitting", "Split", "Cut a polygon in two."],
+  ["union", "Union", "Merge overlapping polygons."],
+  ["difference", "Difference", "Subtract one shape from another."],
+  ["intersection", "Intersection", "Keep only the common area."],
+  ["buffer", "Buffer", "Grow shapes by a distance."],
+  ["offset", "Offset", "Parallel copies of lines."],
+  ["simplification", "Simplify", "Remove unnecessary corners."],
+  ["rotation", "Rotate", "Turn shapes around a pivot."],
+  ["scaling", "Scale", "Resize shapes around a pivot."],
+  ["reshape", "Reshape", "Redraw part of a boundary."],
+  ["shared-boundaries", "Shared boundaries", "Move a common edge once."],
+  ["tracing", "Trace", "Follow existing outlines."],
+  ["drawing-constraints", "Angle constraints", "Draw at 45° and 90°."],
+  ["transactions", "Transactions", "Several changes, one undo step."],
+  ["persistence", "Save & load", "React to every committed change."],
+];
+const galleryCards = `<div class="gallery">${gallery
+  .map(
+    ([slug, title, text]) =>
+      `<a href="${slug}.html"><strong>${escape(title)}</strong><span>${escape(text)}</span><span class="card-link">Open example →</span></a>`,
+  )
+  .join("")}</div>`;
 const cards = `<div class="example-cards"><a href="ROOTguides/draw.html"><span class="card-number">01 / DRAW</span><h3>From clicks to geometry <span>↗</span></h3><p>Place a marker, trace a line or draw a polygon. Finish when you are ready.</p><span class="card-link">Try drawing →</span></a><a href="ROOTguides/edit.html"><span class="card-number">02 / EDIT</span><h3>Make every change reversible <span>↗</span></h3><p>Select a shape, move its corners and save. Undo brings the original back.</p><span class="card-link">Try editing →</span></a><a href="ROOTguides/geojson.html"><span class="card-number">03 / EXCHANGE</span><h3>Your data, in and out <span>↗</span></h3><p>Import a GeoJSON collection, edit it on the map and download the result.</p><span class="card-link">Try GeoJSON →</span></a></div>`;
-const homeBody = `<div class="home-intro"><span class="eyebrow"><span class="status-dot"></span> A GEOMETRY EDITOR FOR MAPLIBRE</span><div class="hero-grid"><div class="hero-copy"><h1>Your map.<br>Ready to <em>edit.</em></h1><p>Draw, reshape and manage geometry with a TypeScript API. Built-in snapping, validation and Undo keep every edit under control.</p><div class="hero-buttons"><a class="button" href="./guides/quickstart.html">Start building <span>→</span></a><a class="text-button" href="./guides/examples.html">Explore examples ↗</a></div><div class="install-command"><code>npm i @jorisvdmije/map-master maplibre-gl</code><button data-copy="npm i @jorisvdmije/map-master maplibre-gl" aria-label="Copy install command">Copy</button></div><div class="hero-meta"><span>TypeScript</span><span>GeoJSON</span><span>MIT license</span></div></div>${demo("draw")}</div></div><section class="home-workflows"><div class="section-heading"><div><span class="eyebrow">LEARN BY DOING</span><h2>Three paths to your first integration.</h2></div><a href="./guides/geometry-editor.html">Explore the API →</a></div>${cards.replaceAll("ROOT", "./")}</section><section class="home-bottom"><div><span class="eyebrow">SMALL API. ROOM TO GROW.</span><h2>Start with a polygon.<br>Build a complete workflow.</h2><p>Go from simple drawing to splitting, merging, shared boundaries and transactional updates. Add the tools your application needs.</p><a class="text-button" href="./guides/geometry-editor.html">Browse GeometryEditor →</a></div><div class="beta-note"><span class="version"><span></span> ${prerelease ? "PUBLIC BETA" : "LATEST RELEASE"}</span><h3>Clear about what is tested.</h3><p>Version ${version}. Every change is tested in a real browser with MapLibre 6.15, and checked against latency and memory budgets.</p><a href="./guides/compatibility.html">Compatibility & limits →</a></div></section>`;
+const homeBody = `<div class="home-intro"><span class="eyebrow"><span class="status-dot"></span> A GEOMETRY EDITOR FOR MAPLIBRE</span><div class="hero-grid"><div class="hero-copy"><h1>Your map.<br>Ready to <em>edit.</em></h1><p>Draw, reshape and manage geometry with a TypeScript API. Built-in snapping, validation and Undo keep every edit under control.</p><div class="hero-buttons"><a class="button" href="./guides/quickstart.html">Start building <span>→</span></a><a class="text-button" href="./guides/examples.html">Explore ${gallery.length} examples ↗</a></div><div class="install-command"><code>npm i @jorisvdmije/map-master maplibre-gl</code><button data-copy="npm i @jorisvdmije/map-master maplibre-gl" aria-label="Copy install command">Copy</button></div><div class="hero-meta"><span>TypeScript</span><span>GeoJSON</span><span>MIT license</span></div></div>${demo("home")}</div></div><section class="home-workflows"><div class="section-heading"><div><span class="eyebrow">LEARN BY DOING</span><h2>Three paths to your first integration.</h2></div><a href="./guides/geometry-editor.html">Explore the API →</a></div>${cards.replaceAll("ROOT", "./")}</section><section class="home-bottom"><div><span class="eyebrow">SMALL API. ROOM TO GROW.</span><h2>Start with a polygon.<br>Build a complete workflow.</h2><p>Go from simple drawing to splitting, merging, shared boundaries and transactional updates. Add the tools your application needs.</p><a class="text-button" href="./guides/geometry-editor.html">Browse GeometryEditor →</a></div><div class="beta-note"><span class="version"><span></span> ${prerelease ? "PUBLIC BETA" : "LATEST RELEASE"}</span><h3>Clear about what is tested.</h3><p>Version ${version}. Every change is tested in a real browser with MapLibre 6.15, and checked against latency and memory budgets.</p><a href="./guides/compatibility.html">Compatibility & limits →</a></div></section>`;
 writeFileSync(
   resolve(output, "index.html"),
   shell({
@@ -209,15 +293,21 @@ for (const page of pages) {
     return `<a href="${escape(url)}"${title ? ` title="${escape(title)}"` : ""}${/^https?:/.test(url) ? ' target="_blank" rel="noreferrer"' : ""}>${this.parser.parseInline(tokens)}</a>`;
   };
   renderer.code = ({ text, lang }) =>
-    `<div class="code-block"><div class="code-top"><span>${escape(lang || "Code")}</span><button class="copy-code" aria-label="Copy code example">Copy</button></div><pre><code>${escape(text)}</code></pre></div>`;
+    `<div class="code-block"><div class="code-top"><span>${escape(languageNames[lang] ?? (lang || "Code"))}</span><button class="copy-code" aria-label="Copy code example">Copy</button></div><pre><code>${highlight(text, lang)}</code></pre></div>`;
   let html = marked.parse(source, { renderer, gfm: true });
-  html = html.replace(/<p>\[\[demo:(draw|edit|geojson)\]\]<\/p>/g, (_, kind) =>
-    demo(kind),
-  );
-  html = html.replace(
-    /<p>\[\[examples\]\]<\/p>/g,
-    cards.replaceAll("ROOT", "../"),
-  );
+  let placed = false;
+  html = html.replace(/<p>\[\[demo:([a-z-]+)\]\]<\/p>/g, (_, id) => {
+    placed = true;
+    return demo(id);
+  });
+  // Feature guides open with their live example, right after the introduction.
+  if (!placed && demoHints[page.slug]) {
+    const lead = html.indexOf("</p>");
+    const at = lead >= 0 ? lead + 4 : html.indexOf("</h1>") + 5;
+    html = html.slice(0, at) + demo(page.slug) + html.slice(at);
+  }
+  html = html.replace(/<p>\[\[examples\]\]<\/p>/g, cards.replaceAll("ROOT", "../"));
+  html = html.replace(/<p>\[\[gallery\]\]<\/p>/g, galleryCards);
   const description = source
     .replace(/^#.+$/gm, "")
     .replace(/```[\s\S]*?```/g, "")

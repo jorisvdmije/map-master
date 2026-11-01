@@ -1,18 +1,18 @@
 # Rotate selected shapes
 
-Select one shape, or several with Shift+click, and choose **Rotate selection**.
-Drag the **↻ handle** outside the selection, enter an angle in degrees or use the
-−15° / +15° buttons. Positive angles turn clockwise around the white pivot marker.
-The dashed selection frame stays **horizontal and vertical on the screen**:
-its bounds follow the current projected geometry, including on a rotated or
-pitched map. It never rotates with the shape. A faint dashed outline shows the
-original geometry. **Apply rotation** saves the whole
-selection; Cancel discards it. With the map focused, Enter applies and Escape
-cancels. One Undo restores the complete selection. The demo's adjoining-parcels
-or multipart fixture can be imported to try this workflow.
+Rotation turns the selected shapes around a pivot. Select one shape, or several
+with Shift+click, and start `rotateSelection()` or the toolbar's **Rotate** button.
+Drag the **↻ handle** outside the selection or set an angle with
+`setRotationAngle(degrees)`; positive angles turn clockwise around the white pivot
+marker. The dashed selection frame stays **horizontal and vertical on the screen**:
+its bounds follow the current projected geometry, including on a rotated or pitched
+map, and it never rotates with the shape. A faint dashed outline shows the original
+geometry. `finish()` saves the whole selection and `cancel()` discards it; with the
+map focused, Enter applies and Escape cancels. One Undo restores the complete
+selection.
 
 Hold **Shift** while dragging for 15° angle steps; releasing Shift restores free
-rotation even without another mouse movement. The angle label and demo input
+rotation even without another mouse movement. The angle label and angle field
 follow the current preview. Release the mouse to review or drag again; releasing
 does not save. During a drag, Escape restores the angle at the start of that drag
 and keeps rotation mode open. Escape again cancels the entire session. Enter
@@ -32,7 +32,7 @@ The existing angle field remains available for exact keyboard entry.
 
 The **⊕ pivot** can be dragged or changed through `setRotationPivot`. Pointer
 rotation and pivot dragging currently support desktop mouse input, not touch/pen.
-The demo restores
+The playground restores
 the last preview angle when an incomplete/cleared angle input loses focus; while
 that input is incomplete, Apply is disabled. Map shortcuts do not intercept typing
 in the input field.
@@ -42,7 +42,7 @@ in the input field.
 Drag **⊕** to choose a new geographic pivot, or Tab to it and use arrow keys for
 1 screen-pixel steps (Shift: 10 pixels). **Home** restores the original bounds
 centre. Keyboard nudges bypass snapping for precise placement. The pivot may lie
-outside the selection; off-screen pivots can be recovered with the demo's centre
+outside the selection; off-screen pivots can be recovered with the playground's centre
 control or the API.
 
 Moving the pivot retains the current angle and recomputes the preview from

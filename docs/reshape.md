@@ -1,13 +1,13 @@
 # Reshape one polygon boundary
 
-Select one Polygon **without holes**, then choose **Reshape polygon**. Click the
-old boundary, draw a new route inside or outside the polygon, and click the old
-boundary again. The orange preview shows the resulting polygon. **Other boundary**
-switches which old boundary section is replaced. **Apply reshape** or Enter saves;
-Cancel or Escape restores the original. Backspace/Delete removes the last route
-point, including reopening a completed preview. One Undo restores the whole edit.
-Choose **Reshape a boundary** under **Try an example**, then **Add example**
-to load and select a single-ring polygon.
+Reshape replaces one section of a polygon's boundary with a new route. Select one
+Polygon **without holes** and start `reshapeSelected()` or the toolbar's **Reshape
+boundary** button. Click the old boundary, draw a new route inside or outside the
+polygon, and click the old boundary again. The orange preview shows the result;
+`setReshapeSide()` switches which old boundary section is replaced. `finish()` or
+Enter saves; `cancel()` or Escape restores the original. Backspace/Delete removes the
+last route point, including reopening a completed preview. One Undo restores the
+whole edit.
 
 ## Boundary choice and supported geometry
 
@@ -37,7 +37,7 @@ Hollow green rings mark known contacts with the selected outer boundary. For a
 split whose endpoints lie outside, these are the calculated crossings, not the
 endpoints of the cutting line. A valid preview also keeps a faint original
 outline visible. Split results use the two draft fill colors; reshape uses the
-primary draft fill. The demo shows a contact count and legend beside its status.
+primary draft fill. The playground shows a contact count and legend beside its status.
 
 Red dots and dashed red segments identify the first detected problem: a
 self-crossing/backtrack, forbidden boundary contact, misplaced endpoint, or a

@@ -9,7 +9,12 @@
     "noEmit": true,
     "types": ["vite/client"],
     "noUnusedLocals": true,
-    "noUnusedParameters": true
+    "noUnusedParameters": true,
+    // The examples use the repository build; MapLibre types must come from one copy.
+    "paths": {
+      "@jorisvdmije/map-master": ["../dist/index.d.ts"],
+      "maplibre-gl": ["./node_modules/maplibre-gl"]
+    }
   },
   "include": ["src/**/*.ts"]
 }

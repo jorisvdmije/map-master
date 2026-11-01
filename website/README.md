@@ -1,9 +1,10 @@
 # Map Master documentation website
 
-A static, searchable documentation site with a complete quickstart and three
-interactive examples: drawing, editing/Undo, and GeoJSON import/export.
-The examples install the published `@jorisvdmije/map-master@0.1.0-beta.0` package;
-they do not alias repository source. Updating that version is an explicit change.
+A static, searchable documentation site with syntax-highlighted code, a complete
+quickstart and a live example for every feature guide. The examples run this
+repository's library build (`dist/`, through a Vite alias and TypeScript path) and
+use the library's `EditorToolbar`. Their maps, data and toolbars are configured in
+`src/demos.ts`; the hint under each map lives in `scripts/content.mjs`.
 
 ## Develop
 
@@ -14,8 +15,9 @@ npm ci --prefix website
 npm run dev:docs
 ```
 
-Open http://127.0.0.1:5180. Vite reloads TypeScript/CSS changes. Restart the dev
-command after changing Markdown to regenerate the HTML pages and search index.
+The root scripts build the library first. Open http://127.0.0.1:5180. Vite reloads
+website TypeScript/CSS changes; run `npm run build` after changing the library, and
+restart the dev command after changing Markdown to regenerate the pages and search index.
 
 The existing guides live in `docs/*.md`. New onboarding content lives in
 `website/content/`. `scripts/content.mjs` converts both into static HTML and
@@ -28,12 +30,13 @@ as guide pages point to GitHub. Generated files are ignored by Git.
 npm run test:docs
 ```
 
-This builds the production site, checks every generated local link and section
-anchor, then uses the repository's Playwright Chromium workflow to exercise
-search, copying, navigation, drawing, editing, Undo, GeoJSON error handling and
-export, plus a mobile layout check. It serves the site under `/map-master/` to
-check relative deployment paths. The exact HTML/CSS/TypeScript printed in the
-quickstart is extracted, compiled, built and exercised in a browser too.
+This builds the library and the production site, checks every generated local link
+and section anchor, then uses the repository's Playwright Chromium workflow to exercise
+search, copying, navigation, drawing, editing, a geometry tool and Undo through the
+toolbar, GeoJSON error handling and export, every live example and a mobile layout.
+It serves the site under `/map-master/` to check relative deployment paths. The
+exact HTML/CSS/TypeScript printed in the quickstart is extracted, compiled against
+the library build, built and exercised in a browser too.
 The Vite development server is checked separately for loaded styles, maps and
 drawing controls on both the overview and a nested guide.
 Install Chromium first with the root repository's documented Playwright setup.
@@ -55,11 +58,11 @@ locally against the generated index. Code examples are copyable. The sidebar
 collapses on small screens, dialogs support keyboard dismissal, and wide tables
 scroll inside their article. Fonts are bundled locally with their licenses and have system fallbacks.
 
-Examples use a small fictional map bundled with the site, with no tile service,
-API key, telemetry or persistent storage. They require WebGL and a secure context.
-MapLibre is loaded only on pages containing an interactive example. Pages and
-reference content remain readable without JavaScript; search and examples need it.
-The site does not expand the library's documented browser/device support matrix.
+Examples show OpenStreetMap data from [OpenFreeMap](https://openfreemap.org/), which
+needs no account or API key. If the tile service is unreachable, the examples fall
+back to a plain background and keep working; the checks answer basemap requests
+locally. Edits stay in the page: there is no telemetry or persistent storage.
+The examples require WebGL and a secure context.
 
 ## Public hosting
 

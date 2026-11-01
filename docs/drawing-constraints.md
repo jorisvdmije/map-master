@@ -1,9 +1,11 @@
 # Fixed drawing angles
 
-Enable **Fixed drawing angles** in the demo, then choose **45°** (axes and
-diagonals) or **90°** (axes only). Place the first point normally. Each following
-free pointer placement uses the nearest allowed direction from the last placed
-point. This applies to drawing lines, polygons and polygon holes.
+Angle constraints lock each new segment of a line, polygon or hole to a fixed set of
+directions: 45° steps (axes and diagonals) or 90° steps (axes only). Turn them on
+with `setDrawingConstraints({ enabled: true, angleStep: 45 })`, the
+`drawingConstraints` option or the toolbar's **45° angles** button. Place the first
+point normally; each following free pointer placement uses the nearest allowed
+direction from the last placed point. Hold **Alt** to place a point freely.
 
 The direction grid follows east/west and north/south in the Mercator map plane.
 It does not rotate with the screen, or align to the preceding segment. A 45° step

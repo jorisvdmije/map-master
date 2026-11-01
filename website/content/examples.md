@@ -1,18 +1,16 @@
-# Learn with working examples
+# Interactive examples
 
-Three small workflows, running the published npm package. Each example pairs an editable map with the API calls behind it. All geometry stays in this page unless you download it.
+Every feature guide opens with a live map. This one has all the tools: click shapes to select them, then choose a tool. Tools turn on when the selection qualifies. The basemap shows OpenStreetMap data served by OpenFreeMap; your edits stay in this page.
 
-[[examples]]
+[[demo:examples]]
 
-## What is included
+## Examples by feature
 
-The examples use a bundled, fictional neighborhood. There is no basemap service, access token, backend or account to set up. They demonstrate the public API of `@jorisvdmije/map-master@0.1.0-beta.0` with MapLibre 6.15.0.
+[[gallery]]
 
-## Start from a complete project
+## Larger applications
 
-The [quickstart](quickstart.md) includes every file needed for a minimal Vite application. The examples below show the additional calls for one workflow, assuming `editor` is already attached to a loaded map.
-
-For a larger application, the repository also includes an [area workspace](../../examples/workspace/README.md) with local saving, recovery and validation, and a [full playground](../../docs/playground-workflow.md).
+The repository includes a [full playground](../../docs/playground-workflow.md) with every option, and an [area workspace](../../examples/workspace/README.md) with local saving, recovery and validation. Run them from a clone with `npm run dev` and `npm run dev:workspace`.
 
 ## Where your application takes over
 

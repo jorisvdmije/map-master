@@ -4,6 +4,8 @@ import * as editor from '@jorisvdmije/map-master';
 assert.equal(typeof editor, 'object');
 assert.equal(typeof editor.LineEditor, 'function');
 assert.equal(typeof editor.GeometryEditor, 'function');
+assert.equal(typeof editor.EditorToolbar, 'function');
+assert.deepEqual(editor.EditorToolbar.defaultTools.slice(0, 3), ['point', 'line', 'polygon']);
 
 // Consumers must use the public entry point rather than build internals.
 await assert.rejects(import('@jorisvdmije/map-master/dist/index.js'), {

@@ -6,12 +6,12 @@ Turn map clicks into GeoJSON. Choose a tool, place your coordinates and finish a
 
 ## Try it
 
-1. Choose **Polygon** and click three or more corners in the map.
-2. Select **Finish** or press **Enter** while the map has focus.
-3. Choose **Line** to draw a path with at least two points, or **Marker** to place one point.
-4. Use **Undo** to reverse a completed action. **Cancel** discards only the active draft.
+1. Choose the **polygon** tool in the toolbar and click three or more corners on the map.
+2. Choose **Finish** beside the tool, click the first corner again or press **Enter**.
+3. Choose the **line** tool to draw a path with at least two points, or the **marker** tool to place one point.
+4. **Undo** reverses a completed shape. **Cancel** discards only the active draft, and **Reset** restores the example.
 
-This example starts empty. **Load sample** replaces its contents with two fictional features; **Reset** clears the example and its history.
+The toolbar also switches [snapping](../../docs/geometry-editor.md#snapping-while-drawing) and [45° angle constraints](../../docs/drawing-constraints.md) on and off.
 
 ## The API behind the tools
 
@@ -35,7 +35,7 @@ editor.cancel();
 
 ## Keep controls in sync
 
-Read the state once initially and subscribe to later changes. `canFinish` includes validation, so the Finish button can accurately reflect whether the draft is ready.
+The [toolbar](../../docs/toolbar.md) used in this example is ready-made: `map.addControl(new EditorToolbar(editor))`. To build your own controls, read the state once initially and subscribe to later changes. `canFinish` includes validation, so the Finish button can accurately reflect whether the draft is ready.
 
 ```ts
 const render = () => {

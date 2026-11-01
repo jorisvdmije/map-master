@@ -9,6 +9,7 @@ guides with search and live examples. New users should start with the
 | Topic | Guide |
 | --- | --- |
 | Installation, setup and every public method | [GeometryEditor API](geometry-editor.md) |
+| A ready-made toolbar with every tool | [Toolbar](toolbar.md) |
 | Loading saved data and saving every change | [Saving and loading data](persistence.md) |
 | Browsers, input methods, data limits and performance | [Compatibility and limits](compatibility.md) |
 | Batches of creates, updates and deletes; event order | [Transactions and events](transactions.md) |

@@ -18,9 +18,12 @@ No changes are required: 0.1.0 is backwards compatible with 0.1.0-beta.0.
   before/after snapshots. If you combined `onCreate`, `onUpdate`, `onDelete`,
   `onImport`, `onTransaction` and `onHistory` to save data, you can replace them with
   this single listener. See [saving and loading data](persistence.md).
+- **New:** `EditorToolbar`, a ready-made MapLibre control with buttons for every tool.
+  Add it with `map.addControl(new EditorToolbar(editor))`; see the [toolbar guide](toolbar.md).
 - **New:** `getFeature(id)` returns one committed feature without exporting the whole
   collection.
-- **New:** the `EditorMode`, `DataChangeEvent` and `DataChangeSource` types are exported.
+- **New:** the `EditorMode`, `DataChangeEvent`, `DataChangeSource`, `ToolbarOptions`,
+  `ToolbarTool`, `ToolbarLabels` and `ToolbarLabelKey` types are exported.
 - **Deprecated:** `LineEditor`. Replace it with `GeometryEditor`; the
   [LineEditor page](line-editor.md) maps each method.
 - **Package:** the package no longer declares a Node.js `engines` range, so installing

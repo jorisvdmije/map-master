@@ -1,17 +1,18 @@
 # Buffer selected geometry
 
-Select lines or polygons and choose **Buffer selection**. Drag **↔** or set **Buffer distance
-(Mercator meters)** to a positive number; the initial distance is 10. **Apply
-buffer** replaces each selected feature with its buffered Polygon or MultiPolygon.
-IDs, JSON properties, selection and collection order remain stable. A line becomes
-a polygon; its original path is restored by Undo. To retain a separate source,
-duplicate the selection before buffering. Unselected features remain unchanged.
+Buffer grows the selected lines and polygons outward by a distance in Mercator
+meters. Start it with `bufferSelection(distance = 10)` or the toolbar's **Buffer**
+button, then drag the **↔** handle or call `setBufferDistance(meters)` with a
+positive number. `finish()` replaces each selected feature with its buffered Polygon
+or MultiPolygon. IDs, JSON properties, selection and collection order remain stable.
+A line becomes a polygon; Undo restores its original path. To keep a separate
+source, duplicate the selection before buffering. Unselected features remain unchanged.
 
-Cancel discards the preview. Enter applies and Escape cancels while the map has
-focus. Text input retains ordinary keyboard behavior. Empty, zero, negative and
-incomplete input disables Apply; leaving the field restores the accepted distance.
-The [example fixture](../examples/basic/public/buffer.geojson) contains a parcel and
-a route for trying the tool. Import it in the demo and select either or both.
+`cancel()` discards the preview. Enter applies and Escape cancels while the map has
+focus. In the [playground](playground-workflow.md), empty, zero, negative and
+incomplete input disables Apply, and the
+[example fixture](../examples/basic/public/buffer.geojson) has a parcel and a route
+to try the tool on.
 
 ## Dragging the distance
 

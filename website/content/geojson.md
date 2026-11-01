@@ -6,12 +6,12 @@ Import a collection, edit its geometry and download the result. Map Master valid
 
 ## Try it
 
-1. The sample garden and walking route are already loaded.
-2. Choose **Import GeoJSON** to append the meeting point from the input field.
-3. Select any feature on the map or in the feature list, then edit it.
-4. Choose **Download GeoJSON** to save the current committed collection.
+1. The lawn and the running route are already loaded.
+2. Choose **Import GeoJSON** below the map to append the meeting point from the input field.
+3. Edit any shape with the toolbar.
+4. Choose **Download GeoJSON** to save the committed collection, or open **Current GeoJSON** to read it.
 
-Importing the same ID twice is rejected. Change the input ID or use **Reset** before importing it again. Malformed input displays an error and leaves the current document intact.
+Importing the same ID twice is rejected: change the ID in the input, or choose **Reset** first. Malformed input shows an error and leaves the data unchanged.
 
 ## Import is an append operation
 

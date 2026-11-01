@@ -33,7 +33,7 @@ Hollow green rings mark known contacts with the selected outer boundary. For a
 split whose endpoints lie outside, these are the calculated crossings, not the
 endpoints of the cutting line. A valid preview also keeps a faint original
 outline visible. Split results use the two draft fill colors; reshape uses the
-primary draft fill. The demo shows a contact count and legend beside its status.
+primary draft fill. The playground shows a contact count and legend beside its status.
 
 Red dots and dashed red segments identify the first detected problem: a
 self-crossing/backtrack, forbidden boundary contact, misplaced endpoint, or a

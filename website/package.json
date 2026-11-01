@@ -10,7 +10,6 @@
     "check": "npm run build && node scripts/smoke.mjs"
   },
   "dependencies": {
-    "@jorisvdmije/map-master": "0.1.0-beta.0",
     "maplibre-gl": "6.15.0"
   },
   "devDependencies": {
@@ -19,6 +18,7 @@
     "@types/geojson": "7946.0.16",
     "marked": "18.1.2",
     "playwright": "1.64.1",
+    "shiki": "4.5.0",
     "typescript": "6.0.3",
     "vite": "8.3.5"
   }

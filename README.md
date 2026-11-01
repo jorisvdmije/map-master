@@ -28,6 +28,7 @@
 
 ## Features
 
+- **Toolbar**: a ready-made MapLibre control with every tool, or build your own UI on the same API.
 - **Draw** markers, lines and polygons, including holes. Enter finishes, Escape cancels and Backspace removes the last point.
 - **Select** by click, Shift+click or Shift+drag rectangle, and list every shape under a point to choose between overlaps.
 - **Edit vertices** with mouse, keyboard, touch or pen: drag corners and whole edges, insert midpoints, select and move groups.
@@ -55,24 +56,22 @@ your application installs and configures. The package is ESM-only and ships its 
 ```ts
 import { Map, setWorkerUrl } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-import { GeometryEditor } from '@jorisvdmije/map-master';
+import { EditorToolbar, GeometryEditor } from '@jorisvdmije/map-master';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 setWorkerUrl(workerUrl); // MapLibre 6 loads its worker separately; this is the Vite syntax.
 
 const map = new Map({
   container: 'map',
-  style: 'https://demotiles.maplibre.org/style.json',
-  center: [4.9, 52.37],
-  zoom: 12,
+  style: 'https://tiles.openfreemap.org/styles/liberty', // free OpenStreetMap tiles, no API key
+  center: [4.8679, 52.3579],
+  zoom: 16,
 });
-
-const drawButton = document.querySelector<HTMLButtonElement>('#draw')!;
-const finishButton = document.querySelector<HTMLButtonElement>('#finish')!;
-const undoButton = document.querySelector<HTMLButtonElement>('#undo')!;
 
 map.once('load', () => {
   const editor = new GeometryEditor(map, { snapping: { enabled: true } });
+  // Buttons for drawing, editing, the geometry tools and Undo/Redo.
+  map.addControl(new EditorToolbar(editor), 'top-left');
 
   // Restore saved features, then start with an empty undo history.
   const saved = localStorage.getItem('features');
@@ -83,16 +82,6 @@ map.once('load', () => {
   editor.onDataChange(() => {
     localStorage.setItem('features', JSON.stringify(editor.exportGeoJSON()));
   });
-
-  // Keep your own toolbar in sync with the editor.
-  editor.onChange((state) => {
-    undoButton.disabled = !state.canUndo;
-    finishButton.disabled = !state.canFinish;
-  });
-
-  drawButton.onclick = () => editor.draw('Polygon');
-  finishButton.onclick = () => editor.finish();
-  undoButton.onclick = () => editor.undo();
 });
 ```
 
@@ -100,6 +89,19 @@ The [complete quickstart](https://jorisvdmije.github.io/map-master/guides/quicks
 into a runnable Vite project step by step.
 
 ## Usage
+
+### Toolbar
+
+```ts
+map.addControl(new EditorToolbar(editor, {
+  tools: ['polygon', 'line', 'edit', 'split', 'union', 'buffer', 'delete', 'undo', 'redo'],
+  labels: { polygon: 'Vlak tekenen', finish: 'Klaar' }, // translate any text
+}), 'top-left');
+```
+
+Buttons turn on when the selection qualifies, and the active tool shows Finish/Apply,
+Cancel and its distance, angle or factor beside its button. Every button calls a public
+method, so you can also build your own controls. See the [toolbar guide](docs/toolbar.md).
 
 ### Drawing
 

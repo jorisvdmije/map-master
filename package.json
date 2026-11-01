@@ -68,9 +68,9 @@
     "test:workspace": "node --test scripts/beta-budget-policy.test.mjs && node scripts/workspace.mjs check",
     "lock:workspace": "node scripts/workspace.mjs lock",
     "release:prepare": "node scripts/prepare-release.mjs",
-    "dev:docs": "npm --prefix website run dev",
-    "build:docs": "npm --prefix website run build",
-    "test:docs": "npm --prefix website run check"
+    "dev:docs": "npm run build && npm --prefix website run dev",
+    "build:docs": "npm run build && npm --prefix website run build",
+    "test:docs": "npm run build && npm --prefix website run check"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

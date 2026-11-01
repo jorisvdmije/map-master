@@ -6,14 +6,14 @@ Select an existing feature, adjust its corners and save the result as one revers
 
 ## Try it
 
-The community garden is selected when this example opens.
+The lawn is selected when this example opens.
 
-1. Choose **Edit selected**. Drag a corner, or drag a midpoint to insert a new corner.
-2. Choose **Save edit** to commit. **Cancel** restores the geometry from before the edit.
-3. Choose **Undo** to reverse a saved edit.
-4. Select the walking route on the map or in the feature list to edit a line instead.
+1. Choose **Edit** in the toolbar. Drag a corner or an edge, or click a small midpoint to add a corner.
+2. Choose **Save** beside the tool to commit, or **Cancel** to restore the shape.
+3. **Undo** reverses the saved edit and **Redo** applies it again.
+4. Click the rose garden or the running route to edit another shape.
 
-**Delete** removes the selected feature as a transaction. Undo restores it. **Load sample** resets the example to its original features and clears history.
+**Delete** removes the selection as one transaction, and Undo restores it. **Duplicate** places a copy beside the original. **Reset** restores the example.
 
 ## Select and edit
 
