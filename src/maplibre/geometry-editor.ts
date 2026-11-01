@@ -3,9 +3,15 @@ import { resolveStyling, type EditorStylingOptions, type StylingIssue } from '..
 import { lockedFeatureIds, sameLocks } from '../core/feature-locks.js';
 import { constrainDrawingPoint, drawingConstraintsOptions } from '../core/drawing-constraints.js';
 import { copyAppearance, resolveAppearance, type EditorAppearance, type EditorAppearanceOptions } from '../core/appearance.js';
-import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
+import type { FitBoundsOptions, Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
+import type { DrawShape } from '../core/shapes.js';
+import { circleRadius } from '../core/shapes.js';
+import { formatArea, formatDistance, measure, measurementOptions, pathLength, ringArea, ringPerimeter } from '../core/measurement.js';
+import { geometryParts } from '../core/geometry.js';
+import { MeasurementOverlay, type MeasurementLabel } from './measurement-overlay.js';
+import { FreehandInteraction } from './freehand-interaction.js';
 import { DrawingSession } from '../core/drawing-session.js';
-import type { Coordinate, CutFeedback, VertexUpdate, DrawingConstraintsOptions, SharedBoundaryPreview, TraceTarget, TraceSide, TracingOptions, ReshapePreview, ReshapeSide, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, DataChangeEvent, DataChangeSource, FeatureChange } from '../core/types.js';
+import type { Coordinate, CutFeedback, VertexUpdate, DrawingConstraintsOptions, SharedBoundaryPreview, TraceTarget, TraceSide, TracingOptions, ReshapePreview, ReshapeSide, IntersectionPreview, DifferencePreview, UnionPreview, SplitPreview, FeatureTransaction, TransactionEvent, SnappingOptions, SnapResult, FeatureId, EditorState, EditorMode, EditorOptions, MeasurementOptions, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, DataChangeEvent, DataChangeSource, FeatureChange } from '../core/types.js';
 import { MapLibreRenderer } from './renderer.js';
 import { BoundarySnapping } from './boundary-snapping.js';
 import { MapLibreSnapping } from './snapping.js';
@@ -23,6 +29,58 @@ import { KeyboardInteraction } from './keyboard-interaction.js';
 import { GeoJSONImportError } from '../core/geojson-import.js';
 
 const editors = new WeakSet<MapLibreMap>();
+let instances = 0;
+
+function idGenerator(createId: unknown): () => FeatureId {
+  if (typeof createId !== 'function') throw new TypeError('createId must be a function.');
+  const generate = createId as () => unknown;
+  return () => {
+    const id = generate();
+    if (typeof id !== 'string' && !(typeof id === 'number' && Number.isFinite(id))) throw new TypeError('createId must return a string or finite number.');
+    return id;
+  };
+}
+
+/** Screen length below which a segment gets no measurement label. */
+const minimumLabelSpacing = 64;
+
+/** Whether the active drawing is a polygon ring that a click on its first corner closes. */
+function closesRing(state: EditorState): boolean {
+  return state.mode === 'draw-polygon' || state.mode === 'draw-hole' || state.mode === 'draw-cut'
+    || state.mode === 'draw-part' && state.activeRingIndex !== null;
+}
+
+/** The renderer styles cuts and new parts like ordinary line and polygon drawing. */
+function previewState(state: EditorState): EditorState {
+  const mode: EditorMode = state.mode === 'draw-cut' ? 'draw-polygon'
+    : state.mode === 'draw-part' ? state.activeRingIndex === null ? 'draw-line' : 'draw-polygon' : state.mode;
+  return mode === state.mode ? state : { ...state, mode };
+}
+
+/** Where a shape's total is shown: the middle of a line, or the center of a polygon's largest part. */
+function labelPoint(geometry: GeometryFeature['geometry']): Coordinate {
+  const parts = geometryParts(geometry);
+  const polygons = parts.flatMap((part) => part.type === 'Polygon' ? [part.coordinates[0]!] : []);
+  if (polygons.length) {
+    const ring = polygons.reduce((largest, candidate) => ringArea(candidate) > ringArea(largest) ? candidate : largest);
+    const lngs = ring.map(([lng]) => lng); const lats = ring.map(([, lat]) => lat);
+    return [(Math.min(...lngs) + Math.max(...lngs)) / 2, (Math.min(...lats) + Math.max(...lats)) / 2];
+  }
+  const line = parts.flatMap((part) => part.type === 'LineString' ? [part.coordinates] : []).reduce<Coordinate[]>((longest, candidate) =>
+    pathLength(candidate) > pathLength(longest) ? candidate : longest, []);
+  if (line.length < 2) return line[0] ?? (parts[0]?.type === 'Point' ? parts[0].coordinates : [0, 0]);
+  let remaining = pathLength(line) / 2;
+  for (let index = 1; index < line.length; index++) {
+    const a = line[index - 1]!; const b = line[index]!;
+    const length = pathLength([a, b]);
+    if (length >= remaining && length > 0) {
+      const t = remaining / length;
+      return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    }
+    remaining -= length;
+  }
+  return line.at(-1)!;
+}
 
 /**
  * Interactive geometry editor for one MapLibre map.
@@ -58,6 +116,10 @@ export class GeometryEditor {
   private readonly vertices: VertexInteraction;
   private readonly vertexKeyboard: VertexKeyboard;
   private readonly selection: SelectionInteraction;
+  private readonly freehand: FreehandInteraction;
+  private freehandPath: Coordinate[] = [];
+  private measurements: MeasurementOptions;
+  private readonly measurementOverlay: MeasurementOverlay;
   private readonly translation: TranslationInteraction;
   private readonly rotation: RotationInteraction;
   private readonly scaling: ScalingInteraction;
@@ -84,20 +146,33 @@ export class GeometryEditor {
     this.canvas = map.getCanvas();
     const view = this.canvas.ownerDocument.defaultView;
     if (!view) throw new Error('The map must belong to a browser window.');
-    if (typeof view.crypto?.randomUUID !== 'function') {
-      throw new Error('GeometryEditor requires HTTPS or localhost for feature IDs.');
+    const uuid = typeof view.crypto?.randomUUID === 'function';
+    if (!uuid && options.createId === undefined) {
+      throw new Error('GeometryEditor requires HTTPS or localhost for feature IDs, or a createId option.');
     }
+    const createId = options.createId === undefined ? () => view.crypto.randomUUID() : idGenerator(options.createId);
     this.view = view;
+    this.measurements = measurementOptions(options.measurements);
     this.appearance = resolveAppearance(options.appearance);
     const styling = resolveStyling(options.styling);
     this.drawingConstraints = drawingConstraintsOptions(options.drawingConstraints);
     this.tracing = this.tracingOptions(options.tracing ?? {});
     this.events = new EditorEvents((error) => { view.queueMicrotask(() => { throw error; }); });
-    this.session = new DrawingSession(() => view.crypto.randomUUID(), options.historyLimit, options.lockedFeatureIds);
+    this.session = new DrawingSession(createId, options.historyLimit, options.lockedFeatureIds);
     this.boundarySnapping = new BoundarySnapping(map);
     this.snapping = new MapLibreSnapping(map, options.snapping);
-    this.renderer = new MapLibreRenderer(map, `geo-editor-${view.crypto.randomUUID()}`, this.appearance, styling);
+    this.renderer = new MapLibreRenderer(map, `geo-editor-${uuid ? view.crypto.randomUUID() : ++instances}`, this.appearance, styling);
     this.renderer.mount();
+    this.measurementOverlay = new MeasurementOverlay(map);
+    this.freehand = new FreehandInteraction(map, {
+      enabled: () => !this.destroyed && this.session.state.mode === 'draw-freehand',
+      preview: (path) => { this.freehandPath = path; this.schedulePreview(); },
+      finish: (path) => {
+        this.freehandPath = [];
+        if (this.session.setFreehandPath(path)) this.finish();
+        else this.schedulePreview();
+      },
+    });
     this.vertices = new VertexInteraction(map, {
       state: () => this.session.state, draft: () => this.session.getDraft(),
       select: (indices) => { this.draftChanged(this.session.selectVertices(indices)); },
@@ -224,6 +299,18 @@ export class GeometryEditor {
       removeSelectedVertices: () => { this.removeSelectedVertices(); },
       finish: () => { this.finish(); },
       cancel: () => { this.cancel(); },
+      nudge: (x, y) => {
+        if (this.session.state.selectedFeatureIds.some((id) => this.session.isFeatureLocked(id))) return false;
+        const canvas = this.canvas;
+        const from = this.map.unproject([canvas.clientWidth / 2, canvas.clientHeight / 2]);
+        const to = this.map.unproject([canvas.clientWidth / 2 + x, canvas.clientHeight / 2 + y]);
+        try { return this.translateSelection([to.lng - from.lng, to.lat - from.lat]) !== null; }
+        catch (error) {
+          // Moving past the world's edge is rejected like a dragged move.
+          if (error instanceof GeoJSONImportError || error instanceof RangeError) return true;
+          throw error;
+        }
+      },
     });
     this.view.addEventListener('keydown', this.handleSnapModifier);
     this.view.addEventListener('keyup', this.handleSnapModifier);
@@ -373,7 +460,7 @@ export class GeometryEditor {
     const mode = this.session.state.mode;
     const options = this.snapping.getOptions();
     return this.tracing.enabled && options.enabled && (options.vertices || options.edges)
-      && (mode === 'draw-line' || mode === 'draw-polygon' || mode === 'draw-hole');
+      && (mode === 'draw-line' || mode === 'draw-polygon' || mode === 'draw-hole' || mode === 'draw-cut' || mode === 'draw-part');
   }
 
   /** The current angle-constraint options. */
@@ -949,6 +1036,104 @@ export class GeometryEditor {
   }
 
   /**
+   * Draw a new part for the selected line or polygon. Finishing turns the feature into a
+   * MultiLineString or MultiPolygon; the new polygon part may not overlap the others.
+   * @returns false if the selection is not exactly one unlocked line or polygon.
+   */
+  drawPart(): boolean {
+    this.assertAlive(); this.cancelIdleGestures();
+    if (!this.session.drawPart()) return false;
+    this.renderer.renderEditing(this.session.state.selectedFeatureId);
+    this.enterInteraction(); this.schedulePreview(); return true;
+  }
+
+  /**
+   * Split every selected MultiPolygon or MultiLineString into one feature per part, as one
+   * undo step. The first part keeps the ID; the others get new IDs and copied properties.
+   * @returns null if no selected feature is multipart or the selection contains a locked feature.
+   */
+  explodeSelection(): TransactionEvent | null {
+    this.assertAlive(); this.cancelIdleGestures();
+    return this.publishTransaction(this.session.explodeSelection());
+  }
+
+  /**
+   * Combine two or more selected polygons, or lines, into one multipart feature as one undo
+   * step. The first selected feature keeps its ID and properties; the others are deleted.
+   * @returns null if the selection is mixed, contains a locked feature, or has overlapping
+   * polygons. Merge overlapping polygons with {@link GeometryEditor.unionSelection}.
+   */
+  combineSelection(): TransactionEvent | null {
+    this.assertAlive(); this.cancelIdleGestures();
+    return this.publishTransaction(this.session.combineSelection());
+  }
+
+  /**
+   * Draw a polygon that cuts away from the selected features, or from every unlocked feature
+   * when nothing is selected. Polygons lose the area, lines lose the parts inside, markers
+   * stay. Finish with {@link GeometryEditor.finish} (or Enter, or by closing the ring).
+   * @returns false if the selection contains a locked feature.
+   */
+  drawCut(): boolean {
+    this.assertAlive(); this.cancelIdleGestures();
+    if (!this.session.drawCut()) return false;
+    this.enterInteraction(); this.schedulePreview(); return true;
+  }
+
+  /**
+   * Apply the drawn cut as one undo step. Features left without geometry are deleted.
+   * @returns null if the cut polygon is invalid; the tool then stays active. When the cut
+   * overlaps nothing, the tool ends and null is returned.
+   */
+  finishCut(): TransactionEvent | null {
+    this.assertAlive();
+    if (this.session.state.mode !== 'draw-cut' || !this.session.state.canFinish) return null;
+    this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
+    const event = this.session.finishCut();
+    // A failed calculation keeps the tool; a cut that overlaps nothing has already ended it.
+    if (!event && this.session.state.mode === 'draw-cut') return null;
+    this.leaveDrawing();
+    if (event) return this.publishTransaction(event);
+    this.emitChange();
+    return null;
+  }
+
+  /** The current measurement options. */
+  getMeasurements(): MeasurementOptions { return { ...this.measurements }; }
+
+  /**
+   * Show or hide live length and area labels, or change their units and number format.
+   * @throws TypeError or RangeError for invalid options.
+   */
+  setMeasurements(update: Partial<MeasurementOptions>): void {
+    this.assertAlive();
+    const next = measurementOptions(update, this.measurements);
+    if (JSON.stringify(next) === JSON.stringify(this.measurements)) return;
+    this.measurements = next;
+    this.renderMeasurements();
+    this.events.emit('change', () => this.getState());
+  }
+
+  /**
+   * Move the camera to show the given features, the selection, or else every feature.
+   * `options` are passed to MapLibre's `fitBounds`; the default padding is 48 pixels.
+   * @returns false if there is nothing to show.
+   */
+  zoomToFeatures(ids?: readonly FeatureId[], options: FitBoundsOptions = {}): boolean {
+    this.assertAlive();
+    const selected = this.session.state.selectedFeatureIds;
+    const targets = ids ?? (selected.length ? selected : null);
+    const features = targets ? targets.map((id) => this.session.getFeature(id)).filter((feature): feature is GeometryFeature => feature !== null)
+      : this.session.exportGeoJSON().features;
+    const points = features.flatMap((feature) => geometryParts(feature.geometry).flatMap((part) =>
+      part.type === 'Point' ? [part.coordinates] : part.type === 'LineString' ? part.coordinates : part.coordinates[0]!));
+    if (!points.length) return false;
+    const lngs = points.map(([lng]) => lng); const lats = points.map(([, lat]) => lat);
+    this.map.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 48, maxZoom: 18, ...options });
+    return true;
+  }
+
+  /**
    * Remove an interior ring (index 1 or higher) from the selected polygon as one undo step.
    * @returns null if the selection does not qualify.
    */
@@ -1071,11 +1256,12 @@ export class GeometryEditor {
    * Calling it again with the active type keeps the draft.
    * @throws Error when another tool is active; finish or cancel it first.
    */
-  draw(kind: DrawGeometryType): void {
+  draw(kind: DrawGeometryType | DrawShape): void {
     this.assertAlive();
     this.cancelIdleGestures();
     if (!this.session.start(kind)) return;
     this.renderer.renderSelection([]);
+    this.freehand.setEnabled(kind === 'Freehand');
     this.enterInteraction();
   }
 
@@ -1086,6 +1272,9 @@ export class GeometryEditor {
    */
   finish(): GeometryFeature | null {
     this.assertAlive();
+    if (this.session.state.mode === 'draw-cut') {
+      return this.finishCut()?.changes.find((change) => change.after !== null)?.after ?? null;
+    }
     if (this.session.state.mode === 'offset-lines') {
       const preview = this.session.getOffsetPreview();
       if (!preview) return null;
@@ -1151,7 +1340,7 @@ export class GeometryEditor {
     if (this.session.state.mode === 'split-polygon') return this.finishSplit()?.changes[0]?.after ?? null;
     this.vertexKeyboard.stop(); this.selection.cancel(); this.vertices.stop();
     const before = this.session.state;
-    const editing = before.mode.startsWith('edit-') || before.mode === 'draw-hole';
+    const editing = before.mode.startsWith('edit-') || before.mode === 'draw-hole' || before.mode === 'draw-part';
     const original = editing && before.selectedFeatureId !== null ? this.session.getFeature(before.selectedFeatureId) : null;
     const feature = this.session.finish();
     if (!feature) return null;
@@ -1353,6 +1542,7 @@ export class GeometryEditor {
     if (state.mode === 'reshape-polygon' && state.vertexCount === 0 && resolved.snap?.featureId !== state.selectedFeatureId) return;
     if (resolved.blocked || !this.session.add(resolved.coordinate)) return;
     if (state.mode === 'draw-point') { this.finish(); return; }
+    if ((state.mode === 'draw-rectangle' || state.mode === 'draw-circle' || state.mode === 'draw-ellipse') && this.session.state.vertexCount > 1) { this.finish(); return; }
     this.traceAnchor = this.canTracePointer() && resolved.snap?.featureId !== null && resolved.snap && !this.altPressed
       ? { target: { featureId: resolved.snap.featureId, ...(resolved.snap.partIndex === undefined ? {} : { partIndex: resolved.snap.partIndex }),
         ...(resolved.snap.ringIndex === undefined ? {} : { ringIndex: resolved.snap.ringIndex }) }, coordinate: [...resolved.coordinate] } : null;
@@ -1437,7 +1627,7 @@ export class GeometryEditor {
       const attachment = this.boundarySnapping.resolve(point);
       if (attachment) return { coordinate: attachment.coordinate, snap: attachment, close: false };
     }
-    const first = (state.mode === 'draw-polygon' || state.mode === 'draw-hole') && state.vertexCount >= 3 ? this.session.getDraft()[0] : undefined;
+    const first = closesRing(state) && state.vertexCount >= 3 ? this.session.getDraft()[0] : undefined;
     if (first) {
       const projected = this.map.project(first);
       const distance = Math.hypot(projected.x - point.x, projected.y - point.y);
@@ -1451,7 +1641,7 @@ export class GeometryEditor {
     const snap = altPressed ? null : this.snapping.resolve(point, state.dataRevision, () => this.session.exportGeoJSON(), excludedId, state.mode === 'split-polygon' || this.canTracePointer());
     const coordinate = snap?.coordinate ?? this.map.unproject([point.x, point.y]).wrap().toArray();
     if (!snap && !altPressed && this.drawingConstraints.enabled
-      && (state.mode === 'draw-line' || state.mode === 'draw-polygon' || state.mode === 'draw-hole')) {
+      && (state.mode === 'draw-line' || state.mode === 'draw-polygon' || state.mode === 'draw-hole' || state.mode === 'draw-cut' || state.mode === 'draw-part')) {
       const anchor = this.session.getLastDrawPoint();
       if (anchor) {
         const constrained = constrainDrawingPoint(anchor, coordinate, this.drawingConstraints.angleStep);
@@ -1516,6 +1706,7 @@ export class GeometryEditor {
 
   private emitChange(): void {
     this.vertexKeyboard.render();
+    this.renderMeasurements();
     this.events.emit('change', () => this.getState());
   }
 
@@ -1601,6 +1792,12 @@ export class GeometryEditor {
       this.renderer.renderOverlay(difference?.geometry ?? null);
       return;
     }
+    const mode = this.session.state.mode;
+    if (mode === 'draw-rectangle' || mode === 'draw-circle' || mode === 'draw-ellipse' || mode === 'draw-freehand') {
+      this.renderShapePreview(mode);
+      this.renderMeasurements();
+      return;
+    }
     const reshape = this.session.getReshapePreview();
     if (this.session.state.mode === 'reshape-polygon') this.renderer.renderEditing(reshape ? this.session.state.selectedFeatureId : null);
     const split = this.session.getSplitPreview();
@@ -1611,10 +1808,87 @@ export class GeometryEditor {
     const shared = this.session.getSharedBoundaryPreview();
     if (this.session.state.mode === 'edit-shared-boundary') this.renderer.renderEditingMany(shared ? this.session.state.selectedFeatureIds : []);
     const trace = this.getTracePreview();
-    this.renderer.renderPreview(this.session.getDraft(), reshape || trace ? undefined : this.cursor, this.session.state, this.snap, split, this.session.getDraftRings(), this.session.getInactiveParts(), reshape, trace, shared, this.session.getCutFeedback());
+    this.renderer.renderPreview(this.session.getDraft(), reshape || trace ? undefined : this.cursor, previewState(this.session.state), this.snap, split, this.session.getDraftRings(), this.session.getInactiveParts(), reshape, trace, shared, this.session.getCutFeedback());
+    this.renderMeasurements();
+  }
+
+  private renderShapePreview(mode: 'draw-rectangle' | 'draw-circle' | 'draw-ellipse' | 'draw-freehand'): void {
+    if (mode === 'draw-freehand') {
+      const path = this.freehandPath;
+      this.renderer.renderShape(path.length >= 2 ? { type: 'LineString', coordinates: path } : null, [], null);
+      return;
+    }
+    const anchor = this.session.getDraft()[0];
+    const ring = anchor && this.cursor ? this.session.getShapePreview(this.cursor) : null;
+    const corners = [anchor, this.cursor].filter((point): point is Coordinate => point !== undefined);
+    this.renderer.renderShape(ring ? { type: 'Polygon', coordinates: [[...ring, ring[0]!]] } : null, corners, this.snap);
+  }
+
+  /** Labels for the shape being drawn or edited, a transform preview, or the single selected feature. */
+  private renderMeasurements(): void {
+    if (this.destroyed) return;
+    this.measurementOverlay.render(this.measurements.enabled ? this.measurementLabels() : []);
+  }
+
+  private measurementLabels(): MeasurementLabel[] {
+    const state = this.session.state;
+    const mode = state.mode;
+    const distance = (meters: number): string => formatDistance(meters, this.measurements.units, this.measurements.locale);
+    const area = (squareMeters: number): string => formatArea(squareMeters, this.measurements.units, this.measurements.locale);
+    const labels: MeasurementLabel[] = [];
+    const segments = (points: Coordinate[], closed: boolean): void => {
+      const path = closed && points.length > 2 ? [...points, points[0]!] : points;
+      for (let index = 1; index < path.length; index++) {
+        const a = path[index - 1]!; const b = path[index]!;
+        const from = this.map.project(a); const to = this.map.project(b);
+        if (Math.hypot(to.x - from.x, to.y - from.y) < minimumLabelSpacing) continue;
+        labels.push({ kind: 'segment', coordinate: this.map.unproject([(from.x + to.x) / 2, (from.y + to.y) / 2]).toArray(), text: distance(pathLength([a, b])) });
+      }
+    };
+    const total = (geometry: GeometryFeature['geometry']): void => {
+      const size = measure(geometry);
+      if (size.area > 0) labels.push({ kind: 'total', coordinate: labelPoint(geometry), text: area(size.area), detail: distance(size.perimeter) });
+      else if (size.length > 0) labels.push({ kind: 'total', coordinate: labelPoint(geometry), text: distance(size.length) });
+    };
+    if (mode === 'draw-rectangle' || mode === 'draw-circle' || mode === 'draw-ellipse') {
+      const anchor = this.session.getDraft()[0];
+      const ring = anchor && this.cursor ? this.session.getShapePreview(this.cursor) : null;
+      if (!anchor || !ring || !this.cursor) return labels;
+      if (mode === 'draw-rectangle') segments(ring, true);
+      labels.push({ kind: 'total', coordinate: mode === 'draw-rectangle' ? labelPoint({ type: 'Polygon', coordinates: [ring] }) : anchor,
+        text: area(ringArea(ring)), detail: mode === 'draw-circle' ? `r ${distance(circleRadius(anchor, this.cursor))}` : distance(ringPerimeter(ring)) });
+      return labels;
+    }
+    if (mode === 'draw-line' || mode === 'draw-polygon' || mode === 'draw-hole' || mode === 'draw-cut' || mode === 'draw-part') {
+      const points = this.session.getDraft();
+      const last = points.at(-1);
+      if (this.cursor && last && (last[0] !== this.cursor[0] || last[1] !== this.cursor[1])) points.push(this.cursor);
+      const polygon = closesRing(state);
+      segments(points, polygon);
+      if (polygon && points.length >= 3) labels.push({ kind: 'total', coordinate: labelPoint({ type: 'Polygon', coordinates: [points] }), text: area(ringArea(points)), detail: distance(ringPerimeter(points)) });
+      else if (!polygon && points.length >= 3) labels.push({ kind: 'total', coordinate: points.at(-1)!, text: distance(pathLength(points)) });
+      return labels;
+    }
+    if (mode === 'edit-line' || mode === 'edit-polygon') {
+      const rings = this.session.getDraftRings();
+      total(rings ? { type: 'Polygon', coordinates: rings.map((ring) => [...ring, ring[0]!]) } : { type: 'LineString', coordinates: this.session.getDraft() });
+      return labels;
+    }
+    const preview = mode === 'rotate-features' ? this.session.getRotationPreview() : mode === 'scale-features' ? this.session.getScalePreview()
+      : mode === 'buffer-features' ? this.session.getBufferPreview() : mode === 'offset-lines' ? this.session.getOffsetPreview()
+      : mode === 'simplify-features' ? this.session.getSimplificationPreview() : null;
+    if (preview?.features.length === 1) total(preview.features[0]!.geometry);
+    if (mode === 'idle' && state.selectedFeatureId !== null) {
+      const feature = this.session.getFeature(state.selectedFeatureId);
+      if (feature) total(feature.geometry);
+    }
+    return labels;
   }
 
   private leaveDrawing(): void {
+    this.freehand.stop();
+    this.freehand.setEnabled(false);
+    this.freehandPath = [];
     this.vertexKeyboard.clear();
     this.rotation.clear();
     this.scaling.clear();
@@ -1652,6 +1926,8 @@ export class GeometryEditor {
     this.distance.destroy(removeResources);
     this.pivot.destroy(removeResources);
     this.vertices.destroy(removeResources);
+    this.freehand.destroy();
+    this.measurementOverlay.destroy();
     const wasDrawing = this.session.cancel();
     this.session.clearHistory();
     this.session.select(null);

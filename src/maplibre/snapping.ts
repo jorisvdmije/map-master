@@ -2,7 +2,7 @@ import { traceSource } from '../core/trace-boundary.js';
 import { projectToEdge } from '../core/boundary-anchor.js';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { SnapIndex, snappingOptions, type ScreenPoint } from '../core/snapping.js';
-import type { FeatureId, GeometryFeature, GeometryFeatureCollection, SnapResult, SnappingOptions } from '../core/types.js';
+import type { Coordinate, FeatureId, GeometryFeature, GeometryFeatureCollection, SnapResult, SnappingOptions } from '../core/types.js';
 
 /** Cache source geometry by data revision and projected candidates by camera state. */
 export class MapLibreSnapping {
@@ -16,7 +16,7 @@ export class MapLibreSnapping {
     this.options = snappingOptions(options);
   }
 
-  getOptions(): SnappingOptions { return { ...this.options }; }
+  getOptions(): SnappingOptions { return { ...this.options, layers: [...this.options.layers] }; }
   setOptions(update: Partial<SnappingOptions>): boolean {
     const next = snappingOptions(update, this.options);
     if (JSON.stringify(next) === JSON.stringify(this.options)) return false;
@@ -34,15 +34,44 @@ export class MapLibreSnapping {
       this.features = new Map(this.collection.features.map((feature) => [feature.id, feature]));
     }
     this.index ??= new SnapIndex(this.collection, (coordinate) => this.map.project(coordinate));
-    const snap = this.index.query(point, this.options, ({ x, y }) => this.map.unproject([x, y]).wrap().toArray(), excludedFeatureId);
+    let snap = this.index.query(point, this.options, ({ x, y }) => this.map.unproject([x, y]).wrap().toArray(), excludedFeatureId);
     if (planar && snap?.kind === 'edge' && snap.featureId !== null) {
       const feature = this.features.get(snap.featureId)!;
       const source = traceSource(feature, { ...snap, featureId: snap.featureId })!;
       snap.coordinate = projectToEdge(snap.coordinate, source.points[snap.index]!, source.points[snap.index + 1]!).point;
       const pixel = this.map.project(snap.coordinate);
       snap.distance = Math.hypot(pixel.x - point.x, pixel.y - point.y);
-      if (snap.distance > this.options.distance) return null;
+      if (snap.distance > this.options.distance) snap = null;
     }
-    return snap;
+    // Editor features win ties with the application's map layers.
+    const layer = this.resolveLayers(point);
+    return layer && (!snap || layer.distance < snap.distance) ? layer : snap;
+  }
+
+  /** Snap to rendered features of host layers near the pointer; they are never edited or traced. */
+  private resolveLayers(point: ScreenPoint): SnapResult | null {
+    const layers = this.options.layers.filter((id) => this.map.getLayer(id) !== undefined);
+    if (!layers.length) return null;
+    const distance = this.options.distance;
+    const hits = this.map.queryRenderedFeatures([[point.x - distance, point.y - distance], [point.x + distance, point.y + distance]], { layers });
+    const features: GeometryFeature[] = [];
+    const sources: string[] = [];
+    const add = (geometry: GeometryFeature['geometry'], layer: string): void => {
+      features.push({ type: 'Feature', id: features.length, properties: null, geometry } as GeometryFeature);
+      sources.push(layer);
+    };
+    for (const hit of hits) {
+      const geometry = hit.geometry;
+      if (geometry.type === 'MultiPoint') for (const coordinates of geometry.coordinates) add({ type: 'Point', coordinates: coordinates as Coordinate }, hit.layer.id);
+      else if (geometry.type !== 'GeometryCollection') add(geometry as GeometryFeature['geometry'], hit.layer.id);
+    }
+    if (!features.length) return null;
+    const index = new SnapIndex({ type: 'FeatureCollection', features }, (coordinate) => this.map.project(coordinate));
+    const snap = index.query(point, this.options, ({ x, y }) => this.map.unproject([x, y]).wrap().toArray());
+    if (!snap) return null;
+    return { kind: snap.kind, featureId: null, layer: sources[snap.featureId as number]!, index: snap.index,
+      ...(snap.partIndex === undefined ? {} : { partIndex: snap.partIndex }),
+      ...(snap.ringIndex === undefined ? {} : { ringIndex: snap.ringIndex }),
+      coordinate: snap.coordinate, distance: snap.distance };
   }
 }

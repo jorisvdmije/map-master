@@ -12,7 +12,11 @@ interface KeyboardActions {
   removeSelectedVertices(): void;
   finish(): void;
   cancel(): void;
+  /** Move the selection by screen pixels; false when it cannot move. */
+  nudge(x: number, y: number): boolean;
 }
+
+const arrows: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 
 /** Canvas-scoped commands. Gesture handlers capture Escape first; typing outside
  * the map and unsupported modifiers remain the host application's responsibility.
@@ -26,7 +30,18 @@ export class KeyboardInteraction {
   destroy(): void { this.canvas.removeEventListener('keydown', this.key); }
 
   private readonly key = (event: KeyboardEvent): void => {
-    if (event.target !== this.canvas || event.defaultPrevented || event.isComposing || event.repeat || event.altKey) return;
+    if (event.target !== this.canvas || event.defaultPrevented || event.isComposing || event.altKey) return;
+    // Arrow keys move a selection by 1 pixel (Shift: 10) instead of panning the map.
+    const arrow = arrows[event.key];
+    if (arrow && !event.ctrlKey && !event.metaKey) {
+      const step = event.shiftKey ? 10 : 1;
+      const state = this.actions.state();
+      if (state.mode === 'idle' && state.selectedFeatureIds.length > 0 && this.actions.nudge(arrow[0] * step, arrow[1] * step)) {
+        event.preventDefault(); event.stopPropagation();
+      }
+      return;
+    }
+    if (event.repeat) return;
     const state = this.actions.state();
     if (event.ctrlKey || event.metaKey) {
       if (event.ctrlKey && event.metaKey || state.mode !== 'idle') return;

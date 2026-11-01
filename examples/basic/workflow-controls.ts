@@ -3,6 +3,8 @@ import type { EditorState, GeometryEditor } from '@jorisvdmije/map-master';
 const titles: Record<EditorState['mode'], string> = {
   idle: 'Select or draw', 'draw-point': 'Place a marker', 'draw-line': 'Draw a line',
   'draw-polygon': 'Draw a polygon', 'draw-hole': 'Draw a hole', 'edit-point': 'Move a marker',
+  'draw-rectangle': 'Draw a rectangle', 'draw-circle': 'Draw a circle', 'draw-ellipse': 'Draw an ellipse', 'draw-freehand': 'Draw freehand',
+  'draw-cut': 'Cut features', 'draw-part': 'Add a part',
   'edit-line': 'Edit line vertices', 'edit-polygon': 'Edit polygon vertices',
   'split-polygon': 'Split polygon', 'reshape-polygon': 'Reshape polygon',
   'edit-shared-boundary': 'Edit shared boundary', 'union-polygons': 'Merge polygons',

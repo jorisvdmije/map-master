@@ -4,6 +4,48 @@ All notable changes to `@jorisvdmije/map-master` are recorded here. The project
 follows [semantic versioning](https://semver.org/); see the
 [migration guide](docs/migration.md) for upgrade steps.
 
+## Unreleased
+
+### Added
+
+- Shapes: `draw('Rectangle')`, `draw('Circle')`, `draw('Ellipse')` and
+  `draw('Freehand')` create polygons from two clicks, a center and radius, or a
+  press-and-drag outline (also with one finger on touch screens). See
+  [shapes](docs/shapes.md).
+- Snapping to your own map layers, such as basemap buildings, with
+  `snapping: { layers: [...] }`. Snaps to a layer report its ID in `SnapResult.layer`.
+- Arrow keys move the selected shapes by 1 pixel, or 10 with Shift.
+- Live measurements: segment lengths, totals, areas and perimeters while drawing and
+  editing, and for the selected feature, in metric or imperial units and any locale.
+  Turn them on with the `measurements` option or `setMeasurements()`. The exported
+  `measure()`, `formatDistance()` and `formatArea()` functions measure geometry in
+  your own code. See [measurements](docs/measurements.md).
+- Cut: `drawCut()` and `finishCut()` cut a drawn polygon out of the selected
+  features, or every unlocked feature, as one transaction. See [cut](docs/cut.md).
+- Multipart tools: `drawPart()` adds a part to a line or polygon,
+  `explodeSelection()` turns multipart features into one feature per part, and
+  `combineSelection()` combines polygons or lines into one multipart feature. See
+  [multipart geometry](docs/multipart.md).
+- `zoomToFeatures(ids?, options?)` fits the camera to features, the selection or
+  everything.
+- The `createId` option generates IDs for new features, for example from a
+  database sequence. With it, the editor also works outside secure contexts.
+- Toolbar: buttons for rectangles, circles, ellipses, freehand, adding parts, cutting,
+  combining and separating parts, measurements and zooming to features; application
+  buttons with the `buttons` option; and a collapse button with `collapsible`.
+- Guides for [React, Vue, Svelte and Angular](docs/frameworks.md), and live examples
+  for shapes, measurements, cutting and multipart tools.
+
+### Changed
+
+- `EditorMode` has six new modes: `draw-rectangle`, `draw-circle`, `draw-ellipse`,
+  `draw-freehand`, `draw-cut` and `draw-part`. Exhaustive `switch` statements over the
+  mode need cases for them.
+- `SnappingOptions` has a `layers` field; `getSnapping()` returns it as an empty array
+  by default.
+- With a selection and the map focused, the arrow keys move the selection instead of
+  panning the map. Press Escape to clear the selection first to pan.
+
 ## 0.1.0 — 2026-11-01
 
 First regular release. It is backwards compatible with 0.1.0-beta.0; see the

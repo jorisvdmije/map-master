@@ -3,24 +3,44 @@ import type { Coordinate, EditorMode, EditorState, GeometryFeature } from '../co
 import type { GeometryEditor } from './geometry-editor.js';
 import { toolbarIcon } from './toolbar-icons.js';
 import { toolbarStyles } from './toolbar-styles.js';
+import { adoptStyles } from './adopt-styles.js';
 
 /** A button that {@link EditorToolbar} can show. */
 export type ToolbarTool =
-  | 'point' | 'line' | 'polygon' | 'hole'
-  | 'edit' | 'split' | 'reshape' | 'shared-boundary'
-  | 'union' | 'difference' | 'intersection'
+  | 'point' | 'line' | 'polygon' | 'rectangle' | 'circle' | 'ellipse' | 'freehand' | 'hole' | 'part'
+  | 'edit' | 'split' | 'cut' | 'reshape' | 'shared-boundary'
+  | 'union' | 'difference' | 'intersection' | 'combine' | 'explode'
   | 'rotate' | 'scale' | 'buffer' | 'offset' | 'simplify'
   | 'duplicate' | 'delete'
-  | 'snapping' | 'constraints' | 'tracing'
+  | 'snapping' | 'constraints' | 'tracing' | 'measure' | 'zoom'
   | 'undo' | 'redo';
 
 /** Texts the toolbar shows: one per tool, plus the action panel and its fields. */
 export type ToolbarLabelKey = ToolbarTool
   | 'toolbar' | 'finish' | 'save' | 'apply' | 'cancel' | 'removeLastPoint'
-  | 'distance' | 'tolerance' | 'angle' | 'factor';
+  | 'distance' | 'tolerance' | 'angle' | 'factor' | 'collapse' | 'expand';
 
 /** Every toolbar text, keyed by tool or action. */
 export type ToolbarLabels = Record<ToolbarLabelKey, string>;
+
+/** An application button added to {@link EditorToolbar} with the `buttons` option. */
+export interface ToolbarButton {
+  /** Unique name, exposed as the button's `data-tool` attribute. */
+  id: string;
+  /** Tooltip and accessible name. */
+  label: string;
+  /**
+   * An SVG or other element to show; it is cloned into the button. Without an icon the
+   * button shows the label's first letter.
+   */
+  icon?: Element;
+  /** Runs when the button is clicked. */
+  onClick(editor: GeometryEditor): void;
+  /** Whether the button can be used; called after every editor change. Defaults to always. */
+  enabled?(state: EditorState, editor: GeometryEditor): boolean;
+  /** Makes the button a toggle and returns whether it is on; called after every editor change. */
+  pressed?(state: EditorState, editor: GeometryEditor): boolean;
+}
 
 /** Options for {@link EditorToolbar}. */
 export interface ToolbarOptions {
@@ -31,9 +51,15 @@ export interface ToolbarOptions {
   tools?: readonly ToolbarTool[];
   /** Replace button tooltips and action texts, for example to translate the toolbar. */
   labels?: Partial<ToolbarLabels>;
+  /** Application buttons, shown in their own group after the built-in tools. */
+  buttons?: readonly ToolbarButton[];
+  /** Add a button that hides and shows the tools, for small maps. Default false. */
+  collapsible?: boolean;
+  /** Start collapsed when `collapsible` is true. Default false. */
+  collapsed?: boolean;
 }
 
-type Group = 'draw' | 'edit' | 'aids' | 'history';
+type Group = 'draw' | 'edit' | 'aids' | 'history' | 'custom';
 interface Field {
   label: 'distance' | 'tolerance' | 'angle' | 'factor';
   unit: string;
@@ -44,10 +70,10 @@ interface Field {
 }
 
 const allTools: readonly ToolbarTool[] = Object.freeze<ToolbarTool[]>([
-  'point', 'line', 'polygon', 'hole',
-  'edit', 'split', 'reshape', 'shared-boundary', 'union', 'difference', 'intersection',
+  'point', 'line', 'polygon', 'rectangle', 'circle', 'ellipse', 'freehand', 'hole', 'part',
+  'edit', 'split', 'cut', 'reshape', 'shared-boundary', 'union', 'difference', 'intersection', 'combine', 'explode',
   'rotate', 'scale', 'buffer', 'offset', 'simplify', 'duplicate', 'delete',
-  'snapping', 'constraints', 'tracing',
+  'snapping', 'constraints', 'tracing', 'measure', 'zoom',
   'undo', 'redo',
 ]);
 const defaultTools: readonly ToolbarTool[] = Object.freeze<ToolbarTool[]>([
@@ -55,28 +81,32 @@ const defaultTools: readonly ToolbarTool[] = Object.freeze<ToolbarTool[]>([
 ]);
 
 const defaultLabels: ToolbarLabels = {
-  point: 'Draw marker', line: 'Draw line', polygon: 'Draw polygon', hole: 'Draw hole',
-  edit: 'Edit vertices', split: 'Split polygon', reshape: 'Reshape boundary', 'shared-boundary': 'Edit shared boundary',
+  point: 'Draw marker', line: 'Draw line', polygon: 'Draw polygon', rectangle: 'Draw rectangle', circle: 'Draw circle', ellipse: 'Draw ellipse',
+  freehand: 'Draw freehand', hole: 'Draw hole', part: 'Add part',
+  edit: 'Edit vertices', split: 'Split polygon', cut: 'Cut', reshape: 'Reshape boundary', 'shared-boundary': 'Edit shared boundary',
   union: 'Merge polygons', difference: 'Subtract polygons', intersection: 'Intersect polygons',
+  combine: 'Combine into multipart', explode: 'Separate parts',
   rotate: 'Rotate', scale: 'Scale', buffer: 'Buffer', offset: 'Offset lines', simplify: 'Simplify',
   duplicate: 'Duplicate', delete: 'Delete',
-  snapping: 'Snapping', constraints: '45° angles', tracing: 'Trace boundaries',
+  snapping: 'Snapping', constraints: '45° angles', tracing: 'Trace boundaries', measure: 'Measurements', zoom: 'Zoom to features',
   undo: 'Undo', redo: 'Redo',
   toolbar: 'Geometry tools', finish: 'Finish', save: 'Save', apply: 'Apply', cancel: 'Cancel',
   removeLastPoint: 'Remove last point', distance: 'Distance', tolerance: 'Tolerance', angle: 'Angle', factor: 'Factor',
+  collapse: 'Hide tools', expand: 'Show tools',
 };
 
 const groups: Record<ToolbarTool, Group> = {
-  point: 'draw', line: 'draw', polygon: 'draw', hole: 'draw',
-  edit: 'edit', split: 'edit', reshape: 'edit', 'shared-boundary': 'edit', union: 'edit', difference: 'edit',
-  intersection: 'edit', rotate: 'edit', scale: 'edit', buffer: 'edit', offset: 'edit', simplify: 'edit',
+  point: 'draw', line: 'draw', polygon: 'draw', rectangle: 'draw', circle: 'draw', ellipse: 'draw', freehand: 'draw', hole: 'draw', part: 'draw',
+  edit: 'edit', split: 'edit', cut: 'edit', reshape: 'edit', 'shared-boundary': 'edit', union: 'edit', difference: 'edit',
+  intersection: 'edit', combine: 'edit', explode: 'edit', rotate: 'edit', scale: 'edit', buffer: 'edit', offset: 'edit', simplify: 'edit',
   duplicate: 'edit', delete: 'edit',
-  snapping: 'aids', constraints: 'aids', tracing: 'aids',
+  snapping: 'aids', constraints: 'aids', tracing: 'aids', measure: 'aids', zoom: 'aids',
   undo: 'history', redo: 'history',
 };
 
 const modeTools: Partial<Record<EditorMode, ToolbarTool>> = {
   'draw-point': 'point', 'draw-line': 'line', 'draw-polygon': 'polygon', 'draw-hole': 'hole',
+  'draw-rectangle': 'rectangle', 'draw-circle': 'circle', 'draw-ellipse': 'ellipse', 'draw-freehand': 'freehand', 'draw-part': 'part', 'draw-cut': 'cut',
   'edit-point': 'edit', 'edit-line': 'edit', 'edit-polygon': 'edit',
   'split-polygon': 'split', 'reshape-polygon': 'reshape', 'edit-shared-boundary': 'shared-boundary',
   'union-polygons': 'union', 'difference-polygons': 'difference', 'intersection-polygons': 'intersection',
@@ -93,9 +123,13 @@ const fields: Partial<Record<EditorMode, Field>> = {
 };
 
 // Modes whose last placed point can be removed from the action panel.
-const removable: ReadonlySet<EditorMode> = new Set<EditorMode>(['draw-line', 'draw-polygon', 'draw-hole', 'split-polygon', 'reshape-polygon']);
+const removable: ReadonlySet<EditorMode> = new Set<EditorMode>(['draw-line', 'draw-polygon', 'draw-hole', 'draw-part', 'draw-cut', 'draw-rectangle', 'draw-circle', 'draw-ellipse', 'split-polygon', 'reshape-polygon']);
+// Shapes complete themselves on the last click or when the pointer is released.
+const selfFinishing: ReadonlySet<EditorMode> = new Set<EditorMode>(['draw-point', 'draw-rectangle', 'draw-circle', 'draw-ellipse', 'draw-freehand']);
+// Drawing modes another tool may replace before the first point is placed.
+const drawing: ReadonlySet<EditorMode> = new Set<EditorMode>(['draw-point', 'draw-line', 'draw-polygon', 'draw-rectangle', 'draw-circle', 'draw-ellipse', 'draw-freehand', 'draw-cut']);
 // One-shot commands rather than modes or settings: they have no pressed state.
-const commands: ReadonlySet<ToolbarTool> = new Set<ToolbarTool>(['duplicate', 'delete', 'undo', 'redo']);
+const commands: ReadonlySet<ToolbarTool> = new Set<ToolbarTool>(['combine', 'explode', 'duplicate', 'delete', 'zoom', 'undo', 'redo']);
 // Leaving these modes for another tool discards no user input.
 const previewOnly: ReadonlySet<EditorMode> = new Set<EditorMode>(['union-polygons', 'difference-polygons', 'intersection-polygons']);
 
@@ -103,6 +137,7 @@ const isPoint = (f: GeometryFeature): boolean => f.geometry.type === 'Point';
 const isPolygonal = (f: GeometryFeature): boolean => f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon';
 const isSimplePolygon = (f: GeometryFeature): boolean => f.geometry.type === 'Polygon' && f.geometry.coordinates.length === 1;
 const isLineal = (f: GeometryFeature): boolean => f.geometry.type === 'LineString' || f.geometry.type === 'MultiLineString';
+const isMultipart = (f: GeometryFeature): boolean => f.geometry.type === 'MultiPolygon' || f.geometry.type === 'MultiLineString';
 const format = (value: number | null): string => value === null ? '' : String(Math.round(value * 100) / 100);
 
 function validTools(value: unknown): readonly ToolbarTool[] {
@@ -115,21 +150,23 @@ function validTools(value: unknown): readonly ToolbarTool[] {
   return tools as ToolbarTool[];
 }
 
-const styledRoots = new WeakSet<Node>();
-function injectStyles(root: Document | ShadowRoot): void {
-  if (styledRoots.has(root)) return;
-  styledRoots.add(root);
-  const view = (root instanceof Document ? root : root.ownerDocument).defaultView;
-  // Constructed style sheets also work under a Content Security Policy without 'unsafe-inline'.
-  if (view && 'replaceSync' in view.CSSStyleSheet.prototype) {
-    const sheet = new view.CSSStyleSheet();
-    sheet.replaceSync(toolbarStyles);
-    root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
-    return;
+function validButtons(value: unknown, tools: readonly ToolbarTool[]): readonly ToolbarButton[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) throw new TypeError('Toolbar buttons must be an array.');
+  const ids = new Set<string>(tools);
+  for (const button of value as unknown[]) {
+    const candidate = button as Partial<ToolbarButton> | null;
+    if (typeof candidate !== 'object' || candidate === null || typeof candidate.id !== 'string' || !candidate.id) throw new TypeError('Toolbar buttons need a non-empty string id.');
+    if (ids.has(candidate.id)) throw new TypeError(`Repeated toolbar tool: ${candidate.id}`);
+    ids.add(candidate.id);
+    if (typeof candidate.label !== 'string' || !candidate.label) throw new TypeError(`Toolbar button ${candidate.id} needs a label.`);
+    if (typeof candidate.onClick !== 'function') throw new TypeError(`Toolbar button ${candidate.id} needs an onClick function.`);
+    for (const key of ['enabled', 'pressed'] as const) {
+      if (candidate[key] !== undefined && typeof candidate[key] !== 'function') throw new TypeError(`Toolbar button ${candidate.id}: ${key} must be a function.`);
+    }
+    if (candidate.icon !== undefined && !(candidate.icon instanceof Element)) throw new TypeError(`Toolbar button ${candidate.id}: icon must be an element.`);
   }
-  const style = (root instanceof Document ? root : root.ownerDocument).createElement('style');
-  style.textContent = toolbarStyles;
-  (root instanceof Document ? root.head : root).append(style);
+  return value as ToolbarButton[];
 }
 
 /**
@@ -160,6 +197,9 @@ export class EditorToolbar implements IControl {
   private readonly labels: ToolbarLabels;
   private readonly root: HTMLElement;
   private readonly buttons = new Map<ToolbarTool, HTMLButtonElement>();
+  private readonly custom = new Map<HTMLButtonElement, ToolbarButton>();
+  private readonly toggle: HTMLButtonElement | null = null;
+  private collapsed: boolean;
   private readonly actions: HTMLElement;
   private readonly primary: HTMLButtonElement;
   private readonly removeLast: HTMLButtonElement;
@@ -173,14 +213,16 @@ export class EditorToolbar implements IControl {
   private selection: { key: string; features: GeometryFeature[] } = { key: '', features: [] };
   private fieldMode: EditorMode | null = null;
   private fieldInvalid = false;
-  private focusTool: ToolbarTool | null = null;
+  private focusButton: HTMLButtonElement | null = null;
 
   /**
    * Create a toolbar for an editor. Add it to the editor's map with `map.addControl`.
-   * @throws TypeError if `tools` is empty or contains an unknown or repeated tool, or a label is not a string.
+   * @throws TypeError if `tools` is empty or contains an unknown or repeated tool, a label is
+   * not a string, or a custom button is incomplete.
    */
   constructor(private readonly editor: GeometryEditor, options: ToolbarOptions = {}) {
     const tools = validTools(options.tools ?? defaultTools);
+    const custom = validButtons(options.buttons, tools);
     for (const [key, value] of Object.entries(options.labels ?? {})) {
       if (!(key in defaultLabels)) throw new TypeError(`Unknown toolbar label: ${key}`);
       if (typeof value !== 'string') throw new TypeError(`Toolbar label ${key} must be a string.`);
@@ -192,28 +234,42 @@ export class EditorToolbar implements IControl {
     this.root.setAttribute('role', 'toolbar');
     this.root.setAttribute('aria-orientation', 'vertical');
     this.root.setAttribute('aria-label', this.labels.toolbar);
+    this.collapsed = options.collapsible === true && options.collapsed === true;
+    if (options.collapsible) {
+      const group = this.group();
+      group.dataset.toggle = 'true';
+      this.toggle = this.button('toggle', '', toolbarIcon(document, 'toggle'));
+      this.toggle.addEventListener('click', () => { this.collapsed = !this.collapsed; this.update(); });
+      group.append(this.toggle);
+    }
     let group: HTMLElement | null = null;
     let previous: Group | null = null;
     for (const tool of tools) {
       if (groups[tool] !== previous) {
-        group = document.createElement('div');
-        group.className = 'mm-toolbar-group';
-        group.setAttribute('role', 'group');
-        this.root.append(group);
+        group = this.group();
         previous = groups[tool];
       }
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'mm-toolbar-button';
-      button.dataset.tool = tool;
-      button.setAttribute('aria-label', this.labels[tool]);
+      const button = this.button(tool, this.labels[tool], toolbarIcon(document, tool));
       if (!commands.has(tool)) button.setAttribute('aria-pressed', 'false');
-      button.dataset.tooltip = this.labels[tool];
-      button.append(toolbarIcon(document, tool));
       button.addEventListener('click', (event) => { this.activate(tool, event); });
-      button.addEventListener('focus', () => { this.focusTool = tool; });
       group!.append(button);
       this.buttons.set(tool, button);
+    }
+    if (custom.length) group = this.group();
+    for (const definition of custom) {
+      const icon = definition.icon ? definition.icon.cloneNode(true) as Element : document.createElement('span');
+      if (!definition.icon) { icon.textContent = definition.label.charAt(0).toUpperCase(); icon.className = 'mm-toolbar-letter'; }
+      icon.setAttribute('aria-hidden', 'true');
+      const button = this.button(definition.id, definition.label, icon);
+      if (definition.pressed) button.setAttribute('aria-pressed', 'false');
+      button.addEventListener('click', (event) => {
+        if (button.disabled) return;
+        definition.onClick(this.editor);
+        this.update();
+        if (event.detail > 0 && !definition.pressed) this.map?.getCanvas().focus({ preventScroll: true });
+      });
+      group!.append(button);
+      this.custom.set(button, definition);
     }
 
     this.actions = document.createElement('div');
@@ -247,7 +303,7 @@ export class EditorToolbar implements IControl {
     queueMicrotask(() => {
       if (this.map !== map) return;
       const root = this.root.getRootNode();
-      if (root instanceof Document || root instanceof ShadowRoot) injectStyles(root);
+      if (root instanceof Document || root instanceof ShadowRoot) adoptStyles(root, toolbarStyles);
       this.update();
     });
     return this.root;
@@ -263,6 +319,26 @@ export class EditorToolbar implements IControl {
 
   /** The toolbar is placed top-left unless `map.addControl` names another position. */
   getDefaultPosition(): ControlPosition { return 'top-left'; }
+
+  private group(): HTMLElement {
+    const group = document.createElement('div');
+    group.className = 'mm-toolbar-group';
+    group.setAttribute('role', 'group');
+    this.root.append(group);
+    return group;
+  }
+
+  private button(id: string, label: string, icon: Element): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'mm-toolbar-button';
+    button.dataset.tool = id;
+    button.setAttribute('aria-label', label);
+    button.dataset.tooltip = label;
+    button.append(icon);
+    button.addEventListener('focus', () => { this.focusButton = button; });
+    return button;
+  }
 
   private action(label: ToolbarLabelKey, run: () => void): HTMLButtonElement {
     const button = document.createElement('button');
@@ -294,8 +370,12 @@ export class EditorToolbar implements IControl {
     const locked = state.selectedFeatureIds.some((id) => this.editor.isFeatureLocked(id));
     const single = features.length === 1 ? features[0]! : null;
     switch (tool) {
-      case 'point': case 'line': case 'polygon': return true;
+      case 'point': case 'line': case 'polygon': case 'rectangle': case 'circle': case 'ellipse': case 'freehand': return true;
       case 'hole': return single !== null && isPolygonal(single) && !locked;
+      case 'part': return single !== null && !isPoint(single) && !locked;
+      case 'cut': return state.featureCount > 0 && !locked;
+      case 'combine': return features.length >= 2 && (features.every(isPolygonal) || features.every(isLineal)) && !locked;
+      case 'explode': return features.some(isMultipart) && !locked;
       case 'edit': return single !== null && !locked;
       case 'split': return single?.geometry.type === 'Polygon' && !locked;
       case 'reshape': return single !== null && isSimplePolygon(single) && !locked;
@@ -305,7 +385,8 @@ export class EditorToolbar implements IControl {
       case 'simplify': return features.some((f) => !isPoint(f)) && !locked;
       case 'offset': return features.length > 0 && features.every(isLineal) && !locked;
       case 'duplicate': return features.length > 0;
-      case 'snapping': case 'constraints': case 'tracing': return true;
+      case 'snapping': case 'constraints': case 'tracing': case 'measure': return true;
+      case 'zoom': return state.featureCount > 0;
       case 'undo': return state.canUndo;
       case 'redo': return state.canRedo;
     }
@@ -317,7 +398,7 @@ export class EditorToolbar implements IControl {
     if (state.mode === 'idle') return this.available(tool, state);
     if (modeTools[state.mode] === tool) return true;
     // Switching tools is offered only while it discards no points or values.
-    const empty = state.vertexCount === 0 && (state.mode === 'draw-point' || state.mode === 'draw-line' || state.mode === 'draw-polygon');
+    const empty = state.vertexCount === 0 && drawing.has(state.mode);
     return (empty || previewOnly.has(state.mode)) && this.available(tool, state);
   }
 
@@ -325,6 +406,7 @@ export class EditorToolbar implements IControl {
     if (tool === 'snapping') return this.editor.getSnapping().enabled;
     if (tool === 'constraints') return this.editor.getDrawingConstraints().enabled;
     if (tool === 'tracing') return this.editor.getTracing().enabled;
+    if (tool === 'measure') return this.editor.getMeasurements().enabled;
     return modeTools[state.mode] === tool;
   }
 
@@ -341,7 +423,15 @@ export class EditorToolbar implements IControl {
       case 'point': this.editor.draw('Point'); break;
       case 'line': this.editor.draw('LineString'); break;
       case 'polygon': this.editor.draw('Polygon'); break;
+      case 'rectangle': this.editor.draw('Rectangle'); break;
+      case 'circle': this.editor.draw('Circle'); break;
+      case 'ellipse': this.editor.draw('Ellipse'); break;
+      case 'freehand': this.editor.draw('Freehand'); break;
       case 'hole': this.editor.drawHole(); break;
+      case 'part': this.editor.drawPart(); break;
+      case 'cut': this.editor.drawCut(); break;
+      case 'combine': this.editor.combineSelection(); break;
+      case 'explode': this.editor.explodeSelection(); break;
       case 'edit': this.editor.editSelected(); break;
       case 'split': this.editor.splitSelected(); break;
       case 'reshape': this.editor.reshapeSelected(); break;
@@ -365,6 +455,8 @@ export class EditorToolbar implements IControl {
         this.editor.setTracing({ enabled });
         break;
       }
+      case 'measure': this.editor.setMeasurements({ enabled: !this.editor.getMeasurements().enabled }); break;
+      case 'zoom': this.editor.zoomToFeatures(); break;
       case 'undo': this.editor.undo(); break;
       case 'redo': this.editor.redo(); break;
     }
@@ -372,7 +464,7 @@ export class EditorToolbar implements IControl {
     // Pointer users continue on the map, where Enter and Escape finish or cancel; keyboard
     // users keep their place in the toolbar unless the button they used is now disabled.
     if (event.detail > 0 && group !== 'aids') this.map?.getCanvas().focus({ preventScroll: true });
-    else if (this.buttons.get(tool)!.disabled) [...this.buttons.values()].find((button) => button.tabIndex === 0)?.focus();
+    else if (this.buttons.get(tool)!.disabled) this.navigable().find((button) => button.tabIndex === 0)?.focus();
   }
 
   /** Copies land 24 screen pixels right and down of the originals. */
@@ -406,7 +498,7 @@ export class EditorToolbar implements IControl {
   // Arrow keys move between toolbar buttons; Tab leaves the button column.
   private readonly navigate = (event: KeyboardEvent): void => {
     if (!(event.target instanceof HTMLButtonElement) || !event.target.classList.contains('mm-toolbar-button')) return;
-    const buttons = [...this.buttons.values()].filter((button) => !button.disabled);
+    const buttons = this.navigable();
     const index = buttons.indexOf(event.target);
     const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1
       : event.key === 'ArrowDown' || event.key === 'ArrowRight' ? (index + 1) % buttons.length
@@ -416,24 +508,40 @@ export class EditorToolbar implements IControl {
     buttons[next]!.focus();
   };
 
+  /** Enabled, visible buttons in order, including the collapse toggle. */
+  private navigable(): HTMLButtonElement[] {
+    return [...this.root.querySelectorAll<HTMLButtonElement>('.mm-toolbar-button')].filter((button) => !button.disabled && !button.closest('[hidden]'));
+  }
+
   private update(): void {
     const state = this.editor.getState();
     const active = modeTools[state.mode] ?? null;
     if (this.fieldMode !== state.mode) { this.fieldMode = state.mode; this.fieldInvalid = false; }
     this.root.classList.toggle('mm-toolbar--end', this.root.closest('.maplibregl-ctrl-top-right, .maplibregl-ctrl-bottom-right') !== null);
 
-    let tabStop: HTMLButtonElement | null = null;
+    if (this.toggle) {
+      const label = this.labels[this.collapsed ? 'expand' : 'collapse'];
+      this.toggle.setAttribute('aria-label', label);
+      this.toggle.dataset.tooltip = label;
+      this.toggle.setAttribute('aria-expanded', String(!this.collapsed));
+      for (const group of this.root.querySelectorAll<HTMLElement>('.mm-toolbar-group:not([data-toggle])')) group.hidden = this.collapsed;
+    }
     for (const [tool, button] of this.buttons) {
       button.disabled = !this.enabled(tool, state);
       if (!commands.has(tool)) button.setAttribute('aria-pressed', String(this.pressed(tool, state)));
       if (tool === active) button.dataset.active = 'true';
       else delete button.dataset.active;
-      if (!button.disabled && (tabStop === null || tool === this.focusTool)) tabStop = button;
     }
-    for (const button of this.buttons.values()) button.tabIndex = button === tabStop ? 0 : -1;
+    for (const [button, definition] of this.custom) {
+      button.disabled = definition.enabled ? !definition.enabled(state, this.editor) : false;
+      if (definition.pressed) button.setAttribute('aria-pressed', String(definition.pressed(state, this.editor)));
+    }
+    const navigable = this.navigable();
+    const tabStop = navigable.includes(this.focusButton!) ? this.focusButton : navigable[0] ?? null;
+    for (const button of this.root.querySelectorAll<HTMLButtonElement>('.mm-toolbar-button')) button.tabIndex = button === tabStop ? 0 : -1;
 
     // The panel belongs to the active tool's button; modes started elsewhere are left to their caller.
-    const anchor = active === null ? undefined : this.buttons.get(active);
+    const anchor = active === null || this.collapsed ? undefined : this.buttons.get(active);
     this.actions.hidden = anchor === undefined;
     if (anchor === undefined) return;
     this.actions.style.top = `${anchor.offsetTop}px`;
@@ -450,8 +558,8 @@ export class EditorToolbar implements IControl {
     }
     this.input.setAttribute('aria-invalid', String(this.fieldInvalid));
 
-    this.primary.hidden = state.mode === 'draw-point';
-    this.primary.textContent = this.labels[state.mode.startsWith('draw-') ? 'finish' : state.mode.startsWith('edit-') ? 'save' : 'apply'];
+    this.primary.hidden = selfFinishing.has(state.mode);
+    this.primary.textContent = this.labels[state.mode === 'draw-cut' ? 'apply' : state.mode.startsWith('draw-') ? 'finish' : state.mode.startsWith('edit-') ? 'save' : 'apply'];
     this.primary.disabled = !state.canFinish || this.fieldInvalid;
     this.removeLast.hidden = !removable.has(state.mode);
     this.removeLast.disabled = state.vertexCount === 0;

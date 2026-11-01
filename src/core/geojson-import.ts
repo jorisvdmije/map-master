@@ -109,7 +109,7 @@ function geometry(value: unknown, path: string): GeometryFeature['geometry'] {
 }
 
 /** Validate and copy the whole batch before the caller commits any feature. */
-export function prepareImport(input: unknown, hasId: (id: FeatureId) => boolean, createId: () => string): GeometryFeature[] {
+export function prepareImport(input: unknown, hasId: (id: FeatureId) => boolean, createId: () => FeatureId): GeometryFeature[] {
   if (!record(input)) return fail('invalid-geojson', '$', 'Expected a parsed Feature or FeatureCollection.');
   if ('crs' in input) fail('unsupported-crs', '$.crs', 'Legacy CRS declarations are not supported.');
   const collection = input.type === 'FeatureCollection';

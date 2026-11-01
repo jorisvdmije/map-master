@@ -17,7 +17,7 @@ export class BoundarySnapping {
     const target = this.target;
     if (!target) return null;
     this.index ??= new SnapIndex({ type: 'FeatureCollection', features: [target] }, (coordinate) => this.map.project(coordinate));
-    const snap = this.index.query(point, { enabled: true, vertices: true, edges: true, distance: 18 },
+    const snap = this.index.query(point, { enabled: true, vertices: true, edges: true, distance: 18, layers: [] },
       ({ x, y }) => this.map.unproject([x, y]).wrap().toArray());
     if (snap?.kind === 'edge') {
       const ring = target.geometry.coordinates[0]!;

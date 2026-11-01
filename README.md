@@ -29,18 +29,19 @@
 ## Features
 
 - **Toolbar**: a ready-made MapLibre control with every tool, or build your own UI on the same API.
-- **Draw** markers, lines and polygons, including holes. Enter finishes, Escape cancels and Backspace removes the last point.
+- **Draw** markers, lines, polygons, rectangles, circles, ellipses and freehand outlines, including holes and extra parts. Enter finishes, Escape cancels and Backspace removes the last point.
+- **Measure** lengths, areas and perimeters live while drawing and editing, in metric or imperial units.
 - **Select** by click, Shift+click or Shift+drag rectangle, and list every shape under a point to choose between overlaps.
 - **Edit vertices** with mouse, keyboard, touch or pen: drag corners and whole edges, insert midpoints, select and move groups.
-- **Snap** to vertices and edges, **trace** existing boundaries and constrain new segments to **45°/90°** directions.
-- **Move, duplicate and delete** single features or whole selections.
-- **Geometry tools**: split, reshape, union, difference, intersection, buffer, line offset, simplification, rotation, scaling and shared-boundary editing, each with a live preview.
+- **Snap** to vertices and edges, including your own map layers such as basemap buildings, **trace** existing boundaries and constrain new segments to **45°/90°** directions.
+- **Move, duplicate and delete** single features or whole selections, by mouse or with the arrow keys.
+- **Geometry tools**: split, cut, reshape, union, difference, intersection, buffer, line offset, simplification, rotation, scaling, shared-boundary editing, and combining or separating multipart features, each with a live preview.
 - **Validation**: self-intersecting, degenerate or otherwise invalid geometry is never committed.
 - **Undo/redo** for every committed change, plus atomic multi-feature **transactions**.
 - **GeoJSON in and out**, with stable feature IDs and preserved properties, including MultiLineString and MultiPolygon.
 - **Styling**: theme the editor, style each feature from its properties and stripe overlapping areas.
 - **Feature locks** keep reference geometry read-only while it stays usable for snapping.
-- **Framework-agnostic** TypeScript with full type declarations. Your application owns the map, the UI and persistence.
+- **Framework-agnostic** TypeScript with full type declarations, with examples for React, Vue, Svelte and Angular. Your application owns the map, the UI and persistence.
 
 ## Installation
 
@@ -109,6 +110,7 @@ method, so you can also build your own controls. See the [toolbar guide](docs/to
 editor.draw('Point');      // one click places a marker
 editor.draw('LineString'); // click to add points
 editor.draw('Polygon');    // click the first corner again, press Enter or call finish()
+editor.draw('Rectangle');  // two opposite corners; also 'Circle', 'Ellipse' and 'Freehand'
 
 editor.finish(); // commit a valid draft and return the new feature
 editor.cancel(); // discard the draft
@@ -136,6 +138,7 @@ with `finish()`, or is discarded with `cancel()`.
 | Tool | Start | Adjust |
 | --- | --- | --- |
 | [Split](docs/splitting.md) a polygon in two | `splitSelected()` | draw a cutting line |
+| [Cut](docs/cut.md) a drawn area out of features | `drawCut()` | draw the area to remove |
 | [Reshape](docs/reshape.md) part of a boundary | `reshapeSelected()` | draw a new boundary section |
 | [Union](docs/union.md) of polygons | `unionSelection()` | |
 | [Difference](docs/difference.md) | `differenceSelection()` | first selected polygon is the target |
@@ -147,6 +150,7 @@ with `finish()`, or is discarded with `cancel()`.
 | [Scale](docs/scaling.md) | `scaleSelection(pivot?)` | drag the handles or `setScaleFactor(factor)` |
 | [Edit a shared boundary](docs/shared-boundaries.md) | `editSharedBoundary()` | drag the common vertices |
 | [Draw a hole](docs/geometry-editor.md#polygon-holes) | `drawHole()` | click the hole's corners |
+| [Add a part](docs/multipart.md#add-a-part) | `drawPart()` | click the new part's corners |
 
 ### Data and events
 
@@ -195,6 +199,18 @@ editor.setAppearance({ vertex: { radius: 7 } }); // change it at any time
 
 See [appearance](docs/appearance.md) and [feature styling](docs/feature-styling.md).
 
+### Measurements
+
+```ts
+const editor = new GeometryEditor(map, { measurements: { enabled: true, locale: 'nl' } });
+
+const { area, perimeter, length } = measure(feature.geometry); // m² and m, geodesic
+formatArea(area); // "2.45 ha"
+```
+
+Labels show segment lengths, areas and perimeters while drawing and editing, and the
+size of the selected feature. See [measurements](docs/measurements.md).
+
 ### Keyboard and mouse
 
 | Input | Action |
@@ -202,6 +218,7 @@ See [appearance](docs/appearance.md) and [feature styling](docs/feature-styling.
 | <kbd>Enter</kbd> | Finish the active drawing, edit or tool |
 | <kbd>Escape</kbd> | Cancel the active tool, or clear the selection |
 | <kbd>Delete</kbd> / <kbd>Backspace</kbd> | Delete the selection, remove the last drawn point or the selected vertices |
+| Arrow keys | Move the selected shapes by 1 pixel (<kbd>Shift</kbd>: 10 pixels) |
 | <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Z</kbd> | Undo |
 | <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd>, <kbd>Ctrl</kbd>+<kbd>Y</kbd> | Redo |
 | <kbd>Shift</kbd>+click / drag | Add shapes or vertices to the selection; drag a rectangle |
@@ -213,7 +230,7 @@ Shortcuts apply while the map has keyboard focus. Vertices can also be
 ## Compatibility
 
 - MapLibre GL JS `^6.15.0` on a flat (Mercator) map, with 2D WGS84 coordinates.
-- A modern browser with WebGL, in a secure context (HTTPS or `localhost`).
+- A modern browser with WebGL, in a secure context (HTTPS or `localhost`), or with your own `createId` option.
 - Continuously tested in Chromium with mouse and keyboard, including emulated touch/pen vertex editing.
   The example application is also tested in Firefox and WebKit.
 

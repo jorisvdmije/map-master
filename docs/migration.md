@@ -9,6 +9,27 @@ and commit your lockfile, so that adopting a release is a deliberate change. Imp
 only from the package entry point `@jorisvdmije/map-master`; internal paths are not
 part of the API and are blocked by the package `exports`.
 
+## Upgrading from 0.1.0
+
+No changes are required for most applications.
+
+- **Types:** `EditorMode` has six new values: `draw-rectangle`, `draw-circle`,
+  `draw-ellipse`, `draw-freehand`, `draw-cut` and `draw-part`. If you `switch` over
+  the mode with an exhaustiveness check, add cases for them. `ToolbarTool` and
+  `ToolbarLabelKey` have new values for the new buttons. `SnappingOptions` has a new
+  `layers` field and `SnapResult` an optional `layer`; code that builds a complete
+  `SnappingOptions` object must add `layers: []`.
+- **Keyboard:** with a selection and the map focused, the arrow keys now move the
+  selected shapes instead of panning the map.
+- **New:** `draw('Rectangle' | 'Circle' | 'Ellipse' | 'Freehand')`, `drawCut()`, `finishCut()`,
+  `drawPart()`, `explodeSelection()`, `combineSelection()`, `zoomToFeatures()`,
+  `getMeasurements()` and `setMeasurements()`; the `measurements` and `createId`
+  options; the `measure()`, `formatDistance()` and `formatArea()` functions; and the
+  `DrawShape`, `Measurement`, `MeasurementOptions`, `MeasurementUnits` and
+  `ToolbarButton` types.
+- **Toolbar:** the default buttons are unchanged. Add the new tools to `tools`, or
+  use `EditorToolbar.allTools`.
+
 ## Upgrading from 0.1.0-beta.0
 
 No changes are required: 0.1.0 is backwards compatible with 0.1.0-beta.0.

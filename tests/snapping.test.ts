@@ -77,11 +77,16 @@ it('finds targets throughout a spatial hierarchy and skips nonfinite projections
 });
 
 it('validates bounded options without mutating the previous configuration', () => {
-  expect(snappingOptions()).toEqual({ enabled: false, distance: 18, vertices: true, edges: true });
+  expect(snappingOptions()).toEqual({ enabled: false, distance: 18, vertices: true, edges: true, layers: [] });
   for (const distance of [0, -1, NaN, Infinity, 101]) expect(() => snappingOptions({ distance }, options)).toThrow(RangeError);
   expect(() => snappingOptions({ enabled: 'yes' as unknown as boolean }, options)).toThrow(TypeError);
-  expect(snappingOptions({ distance: 100, edges: false }, options)).toEqual({ enabled: true, distance: 100, vertices: true, edges: false });
-  expect(options).toEqual({ enabled: true, distance: 18, vertices: true, edges: true });
+  expect(snappingOptions({ distance: 100, edges: false }, options)).toEqual({ enabled: true, distance: 100, vertices: true, edges: false, layers: [] });
+  expect(options).toEqual({ enabled: true, distance: 18, vertices: true, edges: true, layers: [] });
+  const layers = ['buildings'];
+  const withLayers = snappingOptions({ layers }, options);
+  layers.push('parcels');
+  expect(withLayers.layers).toEqual(['buildings']);
+  for (const invalid of ['buildings', [''], [1], null]) expect(() => snappingOptions({ layers: invalid as never }, options)).toThrow(TypeError);
 });
 
 it.each(['ordered', 'reversed', 'shuffled', 'coincident'] as const)(

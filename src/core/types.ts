@@ -153,12 +153,19 @@ export interface SnappingOptions {
   distance: number;
   vertices: boolean;
   edges: boolean;
+  /**
+   * IDs of your own map layers to snap to as well, such as building footprints or parcels
+   * from a vector tile source. Rendered geometry is used; default none.
+   */
+  layers: string[];
 }
 /** The snap target currently acquired by the pointer. */
 export interface SnapResult {
   kind: 'vertex' | 'edge';
-  /** null identifies the current polygon's first corner (click to close). */
+  /** null identifies the current polygon's first corner (click to close), or a map layer feature. */
   featureId: FeatureId | null;
+  /** The map layer of a snap to rendered geometry from `SnappingOptions.layers`. */
+  layer?: string;
   /** Vertex index or segment start index in the open ring/line. */
   index: number;
   /** Polygon ring index (0 = exterior); absent for lines and closure targets. */
@@ -167,6 +174,17 @@ export interface SnapResult {
   partIndex?: number;
   coordinate: Coordinate;
   distance: number;
+}
+
+/** Unit system for measurement labels. */
+export type MeasurementUnits = 'metric' | 'imperial';
+/** Live measurement labels; see `EditorOptions.measurements`. */
+export interface MeasurementOptions {
+  enabled: boolean;
+  /** `metric` (m, km, m², ha, km²) or `imperial` (ft, mi, ft², ac, mi²); default `metric`. */
+  units: MeasurementUnits;
+  /** BCP 47 locale for number formatting, such as `nl` for `1,5 km`; default `en`. */
+  locale: string;
 }
 
 /** Options for `new GeometryEditor(map, options)`. Every option is optional. */
@@ -185,6 +203,13 @@ export interface EditorOptions {
   snapping?: Partial<SnappingOptions>;
   /** Opt-in boundary tracing while drawing; uses ordinary snapping acquisition. */
   tracing?: Partial<TracingOptions>;
+  /** Opt-in length and area labels while drawing and editing, and for a selected feature. */
+  measurements?: Partial<MeasurementOptions>;
+  /**
+   * Generate the ID of each new feature, for example from a database sequence. Must return a
+   * string or finite number; IDs already in use are skipped. Defaults to `crypto.randomUUID()`.
+   */
+  createId?: () => FeatureId;
 }
 
 /** Full feature replacements with explicit IDs. An ID may occur only once per transaction. */
@@ -231,6 +256,7 @@ export interface VertexUpdate { index: number; coordinate: Coordinate; }
 
 /** The active tool. `idle` means no draft, edit or preview is in progress. */
 export type EditorMode = 'idle' | 'draw-point' | 'edit-point' | 'draw-line' | 'draw-polygon' | 'edit-line' | 'edit-polygon'
+  | 'draw-rectangle' | 'draw-circle' | 'draw-ellipse' | 'draw-freehand' | 'draw-cut' | 'draw-part'
   | 'split-polygon' | 'draw-hole' | 'union-polygons' | 'difference-polygons' | 'intersection-polygons' | 'reshape-polygon'
   | 'edit-shared-boundary' | 'rotate-features' | 'scale-features' | 'simplify-features' | 'buffer-features' | 'offset-lines';
 

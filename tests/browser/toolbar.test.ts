@@ -108,16 +108,17 @@ it('switches drawing tools while no point is placed and cancels the active tool 
 it('enables each tool only for a qualifying, unlocked selection', async () => {
   load(square('a', 100, 100), square('b', 150, 150), line('l', 400));
   await add(new EditorToolbar(editor, { tools: EditorToolbar.allTools }));
-  const aids = ['snapping', 'constraints', 'tracing'];
-  expect(enabled()).toEqual(['point', 'line', 'polygon', ...aids]);
+  const shapes = ['point', 'line', 'polygon', 'rectangle', 'circle', 'ellipse', 'freehand'];
+  const aids = ['snapping', 'constraints', 'tracing', 'measure', 'zoom'];
+  expect(enabled()).toEqual([...shapes, 'cut', ...aids]);
   editor.select('a');
-  expect(enabled()).toEqual(['point', 'line', 'polygon', 'hole', 'edit', 'split', 'reshape', 'rotate', 'scale', 'buffer', 'simplify', 'duplicate', 'delete', ...aids]);
+  expect(enabled()).toEqual([...shapes, 'hole', 'part', 'edit', 'split', 'cut', 'reshape', 'rotate', 'scale', 'buffer', 'simplify', 'duplicate', 'delete', ...aids]);
   editor.selectMany(['a', 'b']);
-  expect(enabled()).toEqual(['point', 'line', 'polygon', 'shared-boundary', 'union', 'difference', 'intersection', 'rotate', 'scale', 'buffer', 'simplify', 'duplicate', 'delete', ...aids]);
+  expect(enabled()).toEqual([...shapes, 'cut', 'shared-boundary', 'union', 'difference', 'intersection', 'combine', 'rotate', 'scale', 'buffer', 'simplify', 'duplicate', 'delete', ...aids]);
   editor.select('l');
-  expect(enabled()).toEqual(['point', 'line', 'polygon', 'edit', 'rotate', 'scale', 'buffer', 'offset', 'simplify', 'duplicate', 'delete', ...aids]);
+  expect(enabled()).toEqual([...shapes, 'part', 'edit', 'cut', 'rotate', 'scale', 'buffer', 'offset', 'simplify', 'duplicate', 'delete', ...aids]);
   editor.setLockedFeatureIds(['l']);
-  expect(enabled()).toEqual(['point', 'line', 'polygon', 'duplicate', ...aids]);
+  expect(enabled()).toEqual([...shapes, 'duplicate', ...aids]);
 
   editor.setLockedFeatureIds([]); editor.selectMany(['a', 'b']);
   await userEvent.click(button('union'));
@@ -238,8 +239,8 @@ it('accepts translated labels and rejects invalid options', async () => {
 
   expect(() => new EditorToolbar(editor, { tools: [] })).toThrow(TypeError);
   expect(() => new EditorToolbar(editor, { tools: ['polygon', 'polygon'] })).toThrow('Repeated toolbar tool: polygon');
-  expect(() => new EditorToolbar(editor, { tools: ['circle' as ToolbarTool] })).toThrow('Unknown toolbar tool: circle');
-  expect(() => new EditorToolbar(editor, { labels: { circle: 'Circle' } as never })).toThrow('Unknown toolbar label: circle');
+  expect(() => new EditorToolbar(editor, { tools: ['hexagon' as ToolbarTool] })).toThrow('Unknown toolbar tool: hexagon');
+  expect(() => new EditorToolbar(editor, { labels: { hexagon: 'Hexagon' } as never })).toThrow('Unknown toolbar label: hexagon');
   expect(() => new EditorToolbar(editor, { labels: { polygon: 1 as unknown as string } })).toThrow(TypeError);
 });
 
@@ -267,4 +268,103 @@ it('shows the action panel only on the toolbar that holds the active tool', asyn
   editor.cancel();
   editor.draw('LineString');
   expect([shown(left!), shown(right!)]).toEqual([false, false]);
+});
+
+it('offers shape, part, cut, multipart, measurement and zoom tools', async () => {
+  await add(new EditorToolbar(editor, { tools: EditorToolbar.allTools }));
+  expect(enabled()).toEqual(['point', 'line', 'polygon', 'rectangle', 'circle', 'ellipse', 'freehand', 'snapping', 'constraints', 'tracing', 'measure']);
+  await userEvent.click(button('rectangle'));
+  expect(editor.getState().mode).toBe('draw-rectangle');
+  expect(shown(action('Cancel'))).toBe(true);
+  expect(shown(action('Finish'))).toBe(false);
+  await click(150, 150);
+  expect(action('Remove last point').disabled).toBe(false);
+  await click(250, 220);
+  expect(editor.getState()).toMatchObject({ mode: 'idle', featureCount: 1 });
+
+  load(square('a', 300, 100), square('b', 450, 100), line('route', 400));
+  editor.select('a');
+  expect(enabled()).toEqual(expect.arrayContaining(['part', 'cut', 'zoom']));
+  expect(enabled()).not.toContain('combine');
+  expect(enabled()).not.toContain('explode');
+  editor.selectMany(['a', 'b']);
+  expect(enabled()).toContain('combine');
+  await userEvent.click(button('combine'));
+  expect(editor.getFeature('a')?.geometry.type).toBe('MultiPolygon');
+  expect(button('combine').hasAttribute('aria-pressed')).toBe(false);
+  expect(enabled()).toContain('explode');
+  await userEvent.click(button('explode'));
+  expect(editor.getState().selectedFeatureIds).toHaveLength(2);
+  editor.selectMany(['a', 'route']);
+  expect(enabled()).not.toContain('combine');
+
+  editor.select('route');
+  await userEvent.click(button('part'));
+  expect(editor.getState().mode).toBe('draw-part');
+  expect(shown(action('Remove last point'))).toBe(true);
+  await userEvent.click(action('Cancel'));
+
+  editor.select(null);
+  await userEvent.click(button('cut'));
+  expect(editor.getState().mode).toBe('draw-cut');
+  expect(shown(action('Apply'))).toBe(true);
+  await userEvent.click(button('cut'));
+  expect(editor.getState().mode).toBe('idle');
+
+  await userEvent.click(button('measure'));
+  expect(editor.getMeasurements().enabled).toBe(true);
+  expect(button('measure').getAttribute('aria-pressed')).toBe('true');
+  const zoom = map.getZoom();
+  await userEvent.click(button('zoom'));
+  await new Promise<void>((resolve) => { if (!map.isMoving()) resolve(); else map.once('moveend', () => { resolve(); }); });
+  expect(map.getZoom()).not.toBe(zoom);
+});
+
+it('adds application buttons and collapses', async () => {
+  const saved: number[] = [];
+  let archived = false;
+  const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  await add(new EditorToolbar(editor, {
+    tools: ['polygon', 'undo'],
+    collapsible: true,
+    buttons: [
+      { id: 'save', label: 'Save', icon, onClick: (current) => { saved.push(current.getState().featureCount); }, enabled: (state) => state.mode === 'idle' },
+      { id: 'archive', label: 'archive', onClick: () => { archived = !archived; }, pressed: () => archived },
+    ],
+  }));
+  const save = button('save' as ToolbarTool);
+  const archive = button('archive' as ToolbarTool);
+  expect(save.getAttribute('aria-label')).toBe('Save');
+  expect(save.querySelector('svg')).not.toBe(icon);
+  expect(save.hasAttribute('aria-pressed')).toBe(false);
+  expect(archive.textContent).toBe('A');
+  expect(archive.getAttribute('aria-pressed')).toBe('false');
+  await userEvent.click(save);
+  expect(saved).toEqual([0]);
+  await userEvent.click(archive);
+  expect(archive.getAttribute('aria-pressed')).toBe('true');
+  await userEvent.click(button('polygon'));
+  expect(save.disabled).toBe(true);
+  editor.cancel();
+
+  const toggle = button('toggle' as ToolbarTool);
+  expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  expect(toggle.getAttribute('aria-label')).toBe('Hide tools');
+  await userEvent.click(toggle);
+  expect(toggle.getAttribute('aria-expanded')).toBe('false');
+  expect(toggle.getAttribute('aria-label')).toBe('Show tools');
+  expect(shown(button('polygon'))).toBe(false);
+  expect(shown(save)).toBe(false);
+  await userEvent.click(toggle);
+  expect(shown(button('polygon'))).toBe(true);
+
+  expect(() => new EditorToolbar(editor, { buttons: [{ id: 'undo', label: 'x', onClick: () => undefined }] })).toThrow('Repeated toolbar tool: undo');
+  expect(() => new EditorToolbar(editor, { buttons: [{ id: '', label: 'x', onClick: () => undefined }] })).toThrow(TypeError);
+  expect(() => new EditorToolbar(editor, { buttons: [{ id: 'x', label: '', onClick: () => undefined }] })).toThrow(TypeError);
+  expect(() => new EditorToolbar(editor, { buttons: [{ id: 'x', label: 'x' } as never] })).toThrow(TypeError);
+  expect(() => new EditorToolbar(editor, { buttons: [{ id: 'x', label: 'x', onClick: () => undefined, icon: 'svg' as never }] })).toThrow(TypeError);
+  expect(() => new EditorToolbar(editor, { buttons: 'save' as never })).toThrow(TypeError);
+  const collapsed = await add(new EditorToolbar(editor, { tools: ['point'], collapsible: true, collapsed: true }), 'bottom-left');
+  expect(collapsed).toBeDefined();
+  expect(container.querySelector('.maplibregl-ctrl-bottom-left .mm-toolbar-button[data-tool="point"]')!.checkVisibility()).toBe(false);
 });

@@ -20,9 +20,11 @@ concrete requirements move items up.
 | --- | --- |
 | Browsers | Qualify shipping Firefox and Safari releases with the full library test suite and performance budgets, not only the example application's workflows. |
 | Touch | Extend touch and pen input from vertex editing to drawing, selection rectangles, moving shapes and transform handles; test on physical devices. |
-| Multipart | Interactive construction of multipart features: add, remove and split individual parts. |
+| Multipart | Remove and split individual parts of multipart features. |
 | Geometry tools | Trim and extend lines to other geometry; split lines and multipart features, and cut through holes. |
-| Integrations | Thin wrappers or examples for UI frameworks such as React, Vue and Svelte. |
+| Integrations | Thin wrapper packages for UI frameworks, beyond the [framework examples](frameworks.md). |
+| Map libraries | An adapter for Mapbox GL JS. |
+| Drawing aids | Alignment guides, shared-vertex pinning, snapping to other map layers, and constraining features to an area. |
 | Scale | Incremental rendering updates instead of full source uploads for large datasets. |
 
 ## Principles

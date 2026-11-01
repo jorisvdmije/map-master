@@ -23,6 +23,7 @@ export const toolbarStyles = `
   color: var(--mm-toolbar-color);
 }
 /* Several parts reset all properties; keep the hidden attribute effective. */
+.mm-toolbar .mm-toolbar-letter { font-size: 14px; font-weight: 700; line-height: 1; }
 .mm-toolbar [hidden] { display: none !important; }
 .mm-toolbar .mm-toolbar-group {
   display: flex;

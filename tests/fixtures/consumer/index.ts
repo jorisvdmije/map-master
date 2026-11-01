@@ -70,7 +70,7 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
   const labelKey: editor.ToolbarLabelKey = 'removeLastPoint';
   void [allTools, labelKey, editor.EditorToolbar.defaultTools];
   // @ts-expect-error tools are a closed set
-  void new editor.EditorToolbar(tool, { tools: ['circle'] });
+  void new editor.EditorToolbar(tool, { tools: ['hexagon'] });
   void committed;
   const target: editor.TraceTarget = { featureId: 'boundary', partIndex: 0, ringIndex: 0 };
   const side: editor.TraceSide = 'shorter';
@@ -95,7 +95,17 @@ export function integrateGeometry(map: Map): editor.GeometryFeatureCollection {
     void [error, selectedId];
   });
   // @ts-expect-error unsupported geometry must be rejected by the public types
-  tool.draw('Circle');
+  tool.draw('Hexagon');
+  const shape: editor.DrawShape = 'Circle';
+  tool.draw(shape); tool.cancel();
+  tool.setMeasurements({ enabled: true, units: 'imperial', locale: 'nl' });
+  const measurement: editor.Measurement = editor.measure({ type: 'LineString', coordinates: [[0, 0], [0, 1]] });
+  const measurementOptions: editor.MeasurementOptions = tool.getMeasurements();
+  const units: editor.MeasurementUnits = measurementOptions.units;
+  void [measurement, units, editor.formatDistance(measurement.length), editor.formatArea(measurement.area, 'imperial', 'nl')];
+  const button: editor.ToolbarButton = { id: 'save', label: 'Save', onClick: (current) => { void current.exportGeoJSON(); } };
+  void new editor.EditorToolbar(tool, { buttons: [button], collapsible: true });
+  void [tool.drawCut(), tool.finishCut(), tool.drawPart(), tool.explodeSelection(), tool.combineSelection(), tool.zoomToFeatures(['a'], { padding: 10 })];
   tool.cancel();
   tool.select(null);
   const hits: editor.GeometryFeature[] = tool.queryFeatures({ x: 100, y: 100 });

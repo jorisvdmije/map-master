@@ -313,6 +313,16 @@ export class MapLibreRenderer {
     });
   }
 
+  /** Rectangle, circle and freehand previews: the outline without editing handles, plus the given corners. */
+  renderShape(geometry: PreviewFeature['geometry'] | null, corners: Coordinate[], snap: SnapResult | null): void {
+    this.translationVisible = false; this.translationPreview.clear();
+    const features: PreviewFeature[] = corners.map((coordinates) => ({ type: 'Feature', properties: { kind: 'vertex' }, geometry: { type: 'Point', coordinates } }));
+    if (geometry) features.push({ type: 'Feature', properties: {}, geometry });
+    if (snap) features.push({ type: 'Feature', properties: { kind: 'snap', snapKind: snap.kind }, geometry: { type: 'Point', coordinates: [...snap.coordinate] } });
+    this.draftBorder.render(geometry && geometry.type !== 'Point' ? [geometry] : [], 8);
+    void this.map.getSource<GeoJSONSource>(this.draftId)?.setData({ type: 'FeatureCollection', features });
+  }
+
   /** Prefer outlines near the pointer, then polygon interiors, in rendered order. */
   pick({ x, y }: { x: number; y: number }): FeatureId | null {
     const fillId = this.layers[0]!.id;
