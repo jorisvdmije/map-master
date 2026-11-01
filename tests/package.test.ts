@@ -82,7 +82,9 @@ describe('packed package', () => {
     expect(manifest.author.url).toBe('https://github.com/jorisvdmije');
     expect(manifest.repository.url).toBe('git+https://github.com/jorisvdmije/map-master.git');
     expect(manifest.bugs.url).toBe('https://github.com/jorisvdmije/map-master/issues');
-    expect(manifest.publishConfig).toMatchObject({ tag: 'beta', access: 'public' });
+    // Prereleases go to the `beta` dist-tag, regular releases to `latest`.
+    const tag = manifest.version.includes('-') ? 'beta' : 'latest';
+    expect(manifest.publishConfig).toMatchObject({ tag, access: 'public' });
     // Bundlers may tree-shake unused exports; consumers' Node versions are not restricted.
     expect(manifest).toMatchObject({ sideEffects: false });
     expect(manifest).not.toHaveProperty('engines');

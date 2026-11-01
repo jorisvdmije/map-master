@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@jorisvdmije/map-master"><img src="https://img.shields.io/npm/v/@jorisvdmije/map-master/beta?label=npm" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/@jorisvdmije/map-master"><img src="https://img.shields.io/npm/v/@jorisvdmije/map-master?label=npm" alt="npm version"></a>
   <a href="https://github.com/jorisvdmije/map-master/actions/workflows/ci.yml"><img src="https://github.com/jorisvdmije/map-master/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
   <img src="https://img.shields.io/badge/types-TypeScript-3178c6" alt="TypeScript types included">
   <a href="LICENSE"><img src="https://img.shields.io/npm/l/@jorisvdmije/map-master" alt="MIT license"></a>
