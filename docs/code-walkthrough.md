@@ -76,7 +76,8 @@ tests/                       Core behavior, boundary checks and packed-package i
 | --- | --- | --- |
 | Integrate into an application | [API guide](geometry-editor.md), `examples/basic/main.ts` | `tests/fixtures/consumer/`, demo browser tests |
 | Change the toolbar | `maplibre/toolbar.ts` | `tests/browser/toolbar.test.ts`, `npm run test:docs` |
-| Change a live documentation example | `website/src/demos.ts`, hints in `website/scripts/content.mjs` | `npm run test:docs` |
+| Change a live documentation example | `website/src/features/examples/`, hints in `website/src/content/demo-hints.ts` | `npm run test:docs` |
+| Change the documentation app, navigation or search | `website/src/app/`, `components/layout/`, `features/search/` | `npm run test:docs` (Next.js export, browser and framework checks) |
 | Add a geometry operation | `core/` algorithm, then `DrawingSession` | Core behavior tests, operation benchmark |
 | Change committed data or Undo | `core/transaction.ts`, `drawing-session.ts`, `history.ts` | Transaction/history tests, mixed selections and failure cases |
 | Add a mouse gesture | Corresponding `maplibre/*-interaction.ts`, wired in `GeometryEditor` | Browser tests for release, Escape, blur, style changes and destruction |

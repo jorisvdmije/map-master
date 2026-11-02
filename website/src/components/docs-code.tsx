@@ -1,30 +1,14 @@
+"use client";
+
 import * as React from "react";
-import { FileCodeIcon, TerminalIcon, WrapTextIcon, InfoIcon, TriangleAlertIcon } from "lucide-react";
+import type { CodeExample } from "@/content/types";
+import { FileCodeIcon, TerminalIcon, WrapTextIcon } from "lucide-react";
 import { Button } from "./ui/button";
 import {
   CodeBlock, CodeBlockActions, CodeBlockContent, CodeBlockCopyButton,
   CodeBlockFooter, CodeBlockHeader, CodeBlockLine, CodeBlockTitle,
 } from "./ui/code-block";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Alert, AlertTitle, AlertDescription } from "./ui/alert";
-
-export interface CodeToken {
-  content: string;
-  color?: string;
-  fontStyle?: number;
-}
-
-export interface CodeExample {
-  code: string;
-  language: string;
-  title: string;
-  lines: CodeToken[][];
-}
-
-export type DocsIslandProps = { id: string } & (
-  | ({ kind: "code" } & CodeExample)
-  | { kind: "install" }
-);
 
 export const installCommands = {
   npm: "npm i @jorisvdmije/map-master maplibre-gl",
@@ -33,7 +17,7 @@ export const installCommands = {
   bun: "bun add @jorisvdmije/map-master maplibre-gl",
 };
 
-function DocsCodeBlock({ code, language, title, lines, id }: CodeExample & { id: string }) {
+export function DocsCodeBlock({ code, language, title, lines, id }: CodeExample & { id: string }) {
   const [wrap, setWrap] = React.useState(false);
   const [expanded, setExpanded] = React.useState(false);
   const long = lines.length > 18;
@@ -76,7 +60,7 @@ function DocsCodeBlock({ code, language, title, lines, id }: CodeExample & { id:
   );
 }
 
-function InstallCommands() {
+export function InstallCommands() {
   return <Tabs defaultValue="npm" className="install-tabs" aria-label="Install Map Master">
     <TabsList variant="line" aria-label="Package manager">
       {Object.keys(installCommands).map(manager => <TabsTrigger key={manager} value={manager}>{manager}</TabsTrigger>)}
@@ -88,20 +72,4 @@ function InstallCommands() {
       </CodeBlock>
     </TabsContent>)}
   </Tabs>;
-}
-
-export function DocsIsland(props: DocsIslandProps) {
-  React.useEffect(() => {
-    document.getElementById(props.id)!.dataset.hydrated = "true";
-  }, [props.id]);
-  return props.kind === "install" ? <InstallCommands /> : <DocsCodeBlock {...props} />;
-}
-
-export function DocsAlert({ kind, title, html }: { kind: string; title: string; html: string }) {
-  const warning = kind === "WARNING" || kind === "IMPORTANT";
-  return <Alert className="docs-alert" role="note" data-kind={warning ? "important" : "note"}>
-    {warning ? <TriangleAlertIcon aria-hidden="true" /> : <InfoIcon aria-hidden="true" />}
-    <AlertTitle>{title}</AlertTitle>
-    <AlertDescription dangerouslySetInnerHTML={{ __html: html }} />
-  </Alert>;
 }

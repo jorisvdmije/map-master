@@ -8,6 +8,19 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Added
 
+- Keep full toolbars, action panels, tooltips, data-layer panels and translation
+  readouts inside their map canvas. Scroll long tool lists and panels, wrap narrow
+  inputs and retain focus/values on resize. Cover all control corners, transformed
+  hosts, MapLibre/Mapbox and embedded mobile documentation maps.
+- Harden documentation search against malformed responses and offline requests;
+  keep mobile focus out of covered content, expose search selection to assistive
+  technology, and retain mobile guide navigation without JavaScript. Add safe
+  clipboard fallback/error feedback, recoverable map loading, atomic content
+  publication and isolated browser-test development builds with regressions.
+- Migrate the complete documentation website to the Next.js App Router and React
+  Query, with persistent navigation, server-rendered guides, lazy map examples and
+  React controls. Preserve static GitHub Pages hosting and existing guide URLs;
+  verify cache reuse, error recovery, resource cleanup and root/subpath development.
 - Check the exact published React, Vue, Svelte and Angular component examples
   with their real TypeScript/template compilers in both CI Node jobs. Fix
   MapLibre 6 namespace imports and name the examples' files in the documentation.
@@ -113,6 +126,14 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Changed
 
+- Keep the documentation header, sidebar and search state mounted during page
+  navigation. Restore browser history/scroll, hydrate new code blocks and release
+  outgoing maps and React roots. Retain direct static links and a full-visit
+  fallback for failed fetches or a changed deployed build.
+- Reduce the default snapping radius from 18 to 10 CSS pixels for more precise
+  drawing, vertex editing, pivots and shape movement. Acquisition and release
+  keep the same radius; Alt still bypasses snapping immediately. Applications
+  can retain the previous tolerance with `snapping: { distance: 18 }`.
 - `EditorMode` has six new modes: `draw-rectangle`, `draw-circle`, `draw-ellipse`,
   `draw-freehand`, `draw-cut` and `draw-part`. Exhaustive `switch` statements over the
   mode need cases for them.

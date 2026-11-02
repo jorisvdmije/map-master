@@ -65,6 +65,27 @@ describe.each(['MapLibre 6.15.0', 'Mapbox 3.34.1'] as const)('%s adapter', rende
     expect(container.querySelector('.mm-toolbar')?.classList.contains('mm-toolbar--end')).toBe(true);
   });
 
+  it('keeps long tool lists, action panels and data controls inside a small canvas', async () => {
+    map.removeControl(toolbar);
+    toolbar = new api.EditorToolbar(editor, { tools: api.EditorToolbar.allTools });
+    map.addControl(toolbar, 'top-right');
+    container.style.width = '260px'; container.style.height = '200px'; map.resize();
+    await new Promise<void>(resolve => { queueMicrotask(resolve); });
+    const inside = (node: Element) => {
+      const box = node.getBoundingClientRect(); const canvas = map.getCanvas().getBoundingClientRect();
+      expect(box.left).toBeGreaterThanOrEqual(canvas.left - 1);
+      expect(box.top).toBeGreaterThanOrEqual(canvas.top - 1);
+      expect(box.right).toBeLessThanOrEqual(canvas.right + 1);
+      expect(box.bottom).toBeLessThanOrEqual(canvas.bottom + 1);
+    };
+    inside(container.querySelector('.mm-toolbar')!);
+    editor.drawText({ text: 'A responsive label' });
+    inside(container.querySelector('.mm-toolbar-actions')!);
+    editor.cancel();
+    layers.setCollapsed(false);
+    inside(container.querySelector('.mm-data-layers')!);
+  });
+
   it('draws from toolbar and keyboard, validates and cancels without adding history', async () => {
     await userEvent.click(container.querySelector<HTMLButtonElement>('[data-tool="polygon"]')!);
     await click(160, 130); await click(370, 130);

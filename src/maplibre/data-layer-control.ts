@@ -1,7 +1,8 @@
-import type { ControlPosition, IControl } from '../gl/map.js';
+import type { ControlPosition, IControl, EditorMap } from '../gl/map.js';
 import type { DataLayer } from '../core/data-layers.js';
 import type { GeometryEditor } from './geometry-editor.js';
 import { adoptStylesFor } from './adopt-styles.js';
+import { controlHeight } from './control-layout.js';
 
 const defaultLabels = {
   title: 'Data layers', active: 'Draw in', none: 'No drawing layer', scope: 'Select from', all: 'All visible layers', activeOnly: 'Active layer',
@@ -11,17 +12,17 @@ const defaultLabels = {
 export type DataLayerControlLabels = typeof defaultLabels;
 export interface DataLayerControlOptions { collapsed?: boolean; labels?: Partial<DataLayerControlLabels> }
 const styles = `
-.mm-data-layers{font:12px/1.4 system-ui;background:#fff;border-radius:5px;box-shadow:0 1px 5px #0004;color:#1e293b;max-width:calc(100vw - 60px)}
+.mm-data-layers{font:12px/1.4 system-ui;background:#fff;border-radius:5px;box-shadow:0 1px 5px #0004;color:#1e293b;box-sizing:border-box;max-width:calc(100vw - 60px)}
 .mm-data-layers button,.mm-data-layers select,.mm-data-layers input{font:inherit;color:inherit}
 .mm-data-layers>button{display:block;width:100%;height:auto;padding:8px 12px;border:0;background:white;cursor:pointer;border-radius:5px}
 .mm-data-layers [hidden]{display:none!important}
-.mm-data-layers-panel{width:286px;max-width:100%;max-height:60vh;overflow:auto;padding:10px;box-sizing:border-box}
+.mm-data-layers-panel{width:286px;max-width:100%;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:10px;box-sizing:border-box}
 .mm-data-layers-panel>label{display:grid;grid-template-columns:75px 1fr;align-items:center;gap:6px;margin-bottom:8px}
 .mm-data-layers-panel select{min-width:0;width:100%;padding:4px;border:1px solid #cbd5e1;border-radius:4px}
 .mm-data-layer-row{padding:9px 0;border-top:1px solid #e2e8f0}
 .mm-data-layer-row>strong{display:block;margin-bottom:5px;overflow-wrap:anywhere}
-.mm-data-layer-fields{display:grid;grid-template-columns:1fr 1fr;gap:5px}
-.mm-data-layer-fields label{display:flex;align-items:center;gap:4px}
+.mm-data-layer-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.mm-data-layer-fields label{display:flex;align-items:center;flex-wrap:wrap;gap:4px;overflow-wrap:anywhere}
 .mm-data-layer-fields input[type=color]{width:28px;height:22px;padding:0;border:0;background:none}
 .mm-data-layer-order{display:flex;gap:5px;margin-top:6px}
 .mm-data-layers-panel button{padding:4px 7px;border:1px solid #cbd5e1;border-radius:4px;background:#f8fafc;cursor:pointer;width:auto;height:auto}
@@ -39,6 +40,8 @@ export class DataLayerControl implements IControl {
   private key = '';
   private moveTarget: string | null = null;
   private unsubscribe: (() => void) | null = null;
+  private map: EditorMap | null = null;
+  private observer: ResizeObserver | null = null;
 
   constructor(private readonly editor: GeometryEditor, options: DataLayerControlOptions = {}) {
     if (!options || typeof options !== 'object' || Array.isArray(options) || Object.keys(options).some(key => key !== 'collapsed' && key !== 'labels')
@@ -53,17 +56,35 @@ export class DataLayerControl implements IControl {
     this.root.append(this.toggle, this.panel); this.setCollapsed(this.collapsed);
   }
   getDefaultPosition(): ControlPosition { return 'top-right'; }
-  onAdd(): HTMLElement {
+  onAdd(map: EditorMap): HTMLElement {
+    this.map = map;
+    map.on('resize', this.layout);
+    this.observer = new ResizeObserver(this.layout);
+    this.observer.observe(map.getCanvas());
+    this.observer.observe(this.root);
     this.unsubscribe = this.editor.onChange(() => { this.render(); }); this.render();
-    queueMicrotask(() => { if (this.root.isConnected) adoptStylesFor(this.root, styles); });
+    queueMicrotask(() => { if (this.map === map && this.root.isConnected) { adoptStylesFor(this.root, styles); this.layout(); } });
     return this.root;
   }
-  onRemove(): void { this.unsubscribe?.(); this.unsubscribe = null; this.root.remove(); }
+  onRemove(): void {
+    this.unsubscribe?.(); this.unsubscribe = null;
+    this.map?.off('resize', this.layout); this.map = null;
+    this.observer?.disconnect(); this.observer = null;
+    this.root.remove();
+  }
   isCollapsed(): boolean { return this.collapsed; }
   setCollapsed(value: boolean): void {
     if (typeof value !== 'boolean') throw new TypeError('collapsed must be boolean.');
     this.collapsed = value; this.panel.hidden = value; this.toggle.setAttribute('aria-expanded', String(!value));
+    this.layout();
   }
+
+  private readonly layout = (): void => {
+    if (!this.map || !this.root.isConnected) return;
+    const canvas = this.map.getCanvas();
+    this.root.style.maxWidth = `${Math.max(0, canvas.clientWidth - 20)}px`;
+    this.panel.style.maxHeight = `${Math.max(0, controlHeight(this.root, canvas) - this.toggle.offsetHeight)}px`;
+  };
 
   private select(label: string, key: string, choices: readonly { value: string; label: string; disabled?: boolean }[], value: string, disabled: boolean, update: (value: string) => void): HTMLSelectElement {
     const field = document.createElement('label'); field.append(document.createTextNode(label));

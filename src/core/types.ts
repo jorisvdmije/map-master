@@ -149,7 +149,7 @@ export interface DrawingConstraintsOptions {
 /** Snapping settings; see `EditorOptions.snapping`. */
 export interface SnappingOptions {
   enabled: boolean;
-  /** Acquisition radius in CSS pixels, default 18, range (0, 100]. */
+  /** Acquisition and release radius in CSS pixels, default 10, range (0, 100]. */
   distance: number;
   vertices: boolean;
   edges: boolean;
@@ -209,7 +209,7 @@ export interface EditorOptions {
   drawingConstraints?: Partial<DrawingConstraintsOptions>;
   /** Maximum retained actions, default 100; 0 disables history. Not a byte limit. */
   historyLimit?: number;
-  /** Drawing and vertex-drag snapping is opt-in; vertices/edges default true, distance defaults to 18. */
+  /** Drawing and vertex-drag snapping is opt-in; vertices/edges default true, distance defaults to 10. */
   snapping?: Partial<SnappingOptions>;
   /** Opt-in boundary tracing while drawing; uses ordinary snapping acquisition. */
   tracing?: Partial<TracingOptions>;

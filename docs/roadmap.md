@@ -22,6 +22,26 @@ the candidates below.
 - Remove the deprecated `LineEditor` facade.
 - Define a compatibility and deprecation policy for 1.x.
 
+## Next release gates
+
+The ten scoped Geoman comparison steps are implemented. A complete release also
+requires the code, published package and live documentation to agree:
+
+1. Merge the Next.js documentation migration and responsive control fixes, then
+   deploy the checked artifact through GitHub Pages. Verify the public site has
+   persistent header/sidebar navigation and bounded controls, including mobile
+   maps and expanded toolbars.
+2. Run `npm run release:prepare` for the final committed candidate. Require passing
+   Node 22/24 CI, package-consumer tests, both renderer adapters, workspace budgets
+   and documentation checks. A dirty local checkout is verification evidence,
+   rather than a publishable release candidate.
+3. Choose the release version, finalize its changelog and migration notes, publish
+   the verified archive, and record the matching Git tag and GitHub release. Update
+   the pinned published-workspace version and verify a fresh registry install.
+4. Gather application feedback before declaring the 1.x API stable. The browser,
+   device and large-dataset qualifications below remain explicit support limits;
+   they are separate from the completed feature comparison.
+
 ## Candidates
 
 | Area | Idea |

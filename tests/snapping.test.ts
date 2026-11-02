@@ -11,11 +11,11 @@ const collection = (...features: GeometryFeatureCollection['features']): Geometr
 
 it('uses an inclusive circular pixel tolerance, with vertices preferred over closer edges', () => {
   const index = new SnapIndex(collection(polygon), project);
-  expect(index.query({ x: 0, y: -18 }, options, unproject)).toMatchObject({ kind: 'vertex', index: 0, coordinate: [0, 0], distance: 18 });
-  expect(index.query({ x: -13, y: -13 }, options, unproject)).toBeNull();
-  expect(index.query({ x: 17, y: 1 }, options, unproject)).toMatchObject({ kind: 'vertex', index: 0 });
-  expect(index.query({ x: 50, y: 18 }, options, unproject)).toMatchObject({ kind: 'edge', index: 0, coordinate: [50, 0] });
-  expect(index.query({ x: 50, y: 18.001 }, options, unproject)).toBeNull();
+  expect(index.query({ x: 0, y: -10 }, options, unproject)).toMatchObject({ kind: 'vertex', index: 0, coordinate: [0, 0], distance: 10 });
+  expect(index.query({ x: -8, y: -8 }, options, unproject)).toBeNull();
+  expect(index.query({ x: 9, y: 1 }, options, unproject)).toMatchObject({ kind: 'vertex', index: 0 });
+  expect(index.query({ x: 50, y: 10 }, options, unproject)).toMatchObject({ kind: 'edge', index: 0, coordinate: [50, 0] });
+  expect(index.query({ x: 50, y: 10.001 }, options, unproject)).toBeNull();
 });
 
 it('includes the polygon closing edge and excludes a synthetic line closing edge', () => {
@@ -26,7 +26,7 @@ it('includes the polygon closing edge and excludes a synthetic line closing edge
 
 it('supports independent vertex/edge toggles and disabled snapping', () => {
   const index = new SnapIndex(collection(polygon), project);
-  expect(index.query({ x: 17, y: 1 }, { ...options, vertices: false }, unproject)).toMatchObject({ kind: 'edge', coordinate: [17, 0] });
+  expect(index.query({ x: 9, y: 1 }, { ...options, vertices: false }, unproject)).toMatchObject({ kind: 'edge', coordinate: [9, 0] });
   expect(index.query({ x: 50, y: 1 }, { ...options, edges: false }, unproject)).toBeNull();
   expect(index.query({ x: 0, y: 0 }, { ...options, enabled: false }, unproject)).toBeNull();
   expect(index.query({ x: 0, y: 0 }, { ...options, vertices: false, edges: false }, unproject)).toBeNull();
@@ -52,7 +52,7 @@ it('preserves exact source vertices/endpoints and returns independent coordinate
 
 it('excludes every candidate of the edited feature while retaining typed IDs and the next best target', () => {
   const index = new SnapIndex(collection(line(0, [[0, 0], [100, 0]]), line('0', [[0, 10], [100, 10]])), project);
-  expect(index.query({ x: 1, y: 0 }, options, unproject, 0)).toMatchObject({ featureId: '0', kind: 'vertex', coordinate: [0, 10] });
+  expect(index.query({ x: 1, y: 1 }, options, unproject, 0)).toMatchObject({ featureId: '0', kind: 'vertex', coordinate: [0, 10] });
   expect(index.query({ x: 50, y: 0 }, options, unproject, 0)).toMatchObject({ featureId: '0', kind: 'edge', coordinate: [50, 10] });
   expect(index.query({ x: 0, y: 10 }, options, unproject, '0')?.featureId).toBe(0);
   expect(index.query({ x: 0, y: 0 }, options, unproject)?.featureId).toBe(0);
@@ -77,11 +77,11 @@ it('finds targets throughout a spatial hierarchy and skips nonfinite projections
 });
 
 it('validates bounded options without mutating the previous configuration', () => {
-  expect(snappingOptions()).toEqual({ enabled: false, distance: 18, vertices: true, edges: true, layers: [] });
+  expect(snappingOptions()).toEqual({ enabled: false, distance: 10, vertices: true, edges: true, layers: [] });
   for (const distance of [0, -1, NaN, Infinity, 101]) expect(() => snappingOptions({ distance }, options)).toThrow(RangeError);
   expect(() => snappingOptions({ enabled: 'yes' as unknown as boolean }, options)).toThrow(TypeError);
   expect(snappingOptions({ distance: 100, edges: false }, options)).toEqual({ enabled: true, distance: 100, vertices: true, edges: false, layers: [] });
-  expect(options).toEqual({ enabled: true, distance: 18, vertices: true, edges: true, layers: [] });
+  expect(options).toEqual({ enabled: true, distance: 10, vertices: true, edges: true, layers: [] });
   const layers = ['buildings'];
   const withLayers = snappingOptions({ layers }, options);
   layers.push('parcels');
