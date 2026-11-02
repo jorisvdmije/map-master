@@ -6,8 +6,18 @@ follows [semantic versioning](https://semver.org/); see the
 
 ## Unreleased
 
+## 0.2.0 — 2026-11-02
+
+First regular npm release, including the prepared 0.1.0 changes below.
+
 ### Added
 
+- Add optional `appearance.polygonOutline` zoom scaling for Polygon/MultiPolygon
+  borders, selected and per-feature widths, comparison strokes and SVG previews.
+  Halve the width per zoom-out level below a configurable reference and cap at the
+  configured CSS-pixel width when zooming in. Preserve line/marker widths, data,
+  history and feature-style caching. Enable scaling in the docs examples, with a
+  live checkbox on the Appearance page. Cover actual WebGL pixels and both GL adapters.
 - Keep full toolbars, action panels, tooltips, data-layer panels and translation
   readouts inside their map canvas. Scroll long tool lists and panels, wrap narrow
   inputs and retain focus/values on resize. Cover all control corners, transformed
@@ -134,8 +144,8 @@ follows [semantic versioning](https://semver.org/); see the
   drawing, vertex editing, pivots and shape movement. Acquisition and release
   keep the same radius; Alt still bypasses snapping immediately. Applications
   can retain the previous tolerance with `snapping: { distance: 18 }`.
-- `EditorMode` has six new modes: `draw-rectangle`, `draw-circle`, `draw-ellipse`,
-  `draw-freehand`, `draw-cut` and `draw-part`. Exhaustive `switch` statements over the
+- `EditorMode` has eight new modes: `draw-rectangle`, `draw-circle`, `draw-ellipse`,
+  `draw-freehand`, `draw-cut`, `draw-part`, `remove-hole` and `select-lasso`. Exhaustive `switch` statements over the
   mode need cases for them.
 - `SnappingOptions` has a `layers` field; `getSnapping()` returns it as an empty array
   by default.
@@ -144,7 +154,8 @@ follows [semantic versioning](https://semver.org/); see the
 
 ## 0.1.0 — 2026-11-01
 
-First regular release. It is backwards compatible with 0.1.0-beta.0; see the
+Prepared changes, not published separately to npm; included in 0.2.0.
+These changes are backwards compatible with 0.1.0-beta.0; see the
 [migration guide](docs/migration.md#upgrading-from-010-beta0).
 
 ### Added

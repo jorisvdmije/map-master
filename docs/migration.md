@@ -10,7 +10,17 @@ only from the package entry points `@jorisvdmije/map-master`,
 `@jorisvdmije/map-master/maplibre` or `@jorisvdmije/map-master/mapbox`; internal
 paths are not part of the API and are blocked by the package `exports`.
 
-## Upgrading from 0.1.0
+## Upgrading to 0.2.0 from 0.1.0-beta.0 or local 0.1.0
+
+0.1.0 was prepared locally but never published to npm. The first regular npm
+release is 0.2.0, containing those changes and the additions below.
+
+- **Polygon borders:** optional `appearance.polygonOutline` zoom scaling keeps
+  small polygons from being overwhelmed by fixed-width borders. Set
+  `{ scaleWithZoom: true, referenceZoom: 14 }` in that group to enable it. Existing
+  applications keep fixed widths. Code constructing a complete `EditorAppearance`
+  value must add the new group; constructor/patch `EditorAppearanceOptions` remain
+  partial. See [polygon borders](appearance.md#polygon-borders-while-zooming).
 
 - **Mapbox:** applications can now install `mapbox-gl@^3.34.1` and import the same
   API from `@jorisvdmije/map-master/mapbox`. Existing MapLibre imports work

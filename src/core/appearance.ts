@@ -30,8 +30,16 @@ export interface SnapAppearance extends PointAppearance {
   edgeRadius: number;
 }
 
+export interface PolygonOutlineAppearance {
+  /** Shrink polygon outlines below referenceZoom; cap at the configured lineWidth. */
+  scaleWithZoom: boolean;
+  /** Zoom at which the configured lineWidth is reached, from 0 to 24. */
+  referenceZoom: number;
+}
+
 /** Presentation only: no geometry, properties, selection or history. */
 export interface EditorAppearance {
+  polygonOutline: PolygonOutlineAppearance;
   marker: PointAppearance;
   selectedMarker: PointAppearance;
   draftMarker: PointAppearance;
@@ -48,6 +56,7 @@ export interface EditorAppearance {
 export type EditorAppearanceOptions = { [Key in keyof EditorAppearance]?: Partial<EditorAppearance[Key]> };
 
 const defaults: EditorAppearance = {
+  polygonOutline: { scaleWithZoom: false, referenceZoom: 14 },
   marker: { color: '#116b5b', radius: 8, opacity: 1, strokeColor: '#fff', strokeWidth: 2 },
   selectedMarker: { color: '#2563eb', radius: 10, opacity: 1, strokeColor: '#fff', strokeWidth: 3 },
   draftMarker: { color: '#df772e', radius: 8, opacity: 0.85, strokeColor: '#fff', strokeWidth: 2 },
@@ -61,8 +70,13 @@ const defaults: EditorAppearance = {
 };
 
 export function copyAppearance(value: EditorAppearance): EditorAppearance {
-  return { marker: { ...value.marker }, selectedMarker: { ...value.selectedMarker }, draftMarker: { ...value.draftMarker }, feature: { ...value.feature }, selected: { ...value.selected }, draft: { ...value.draft },
+  return { polygonOutline: { ...value.polygonOutline }, marker: { ...value.marker }, selectedMarker: { ...value.selectedMarker }, draftMarker: { ...value.draftMarker }, feature: { ...value.feature }, selected: { ...value.selected }, draft: { ...value.draft },
     vertex: { ...value.vertex }, midpoint: { ...value.midpoint }, snap: { ...value.snap }, pivot: { ...value.pivot } };
+}
+
+/** Match the GL camera expression, including the supported minimum zoom of -2. */
+export function polygonOutlineScale(zoom: number, appearance: PolygonOutlineAppearance): number {
+  return appearance.scaleWithZoom ? Math.min(1, 2 ** (Math.max(-2, zoom) - appearance.referenceZoom)) : 1;
 }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -76,17 +90,20 @@ export function resolveAppearance(patch: EditorAppearanceOptions = {}, current: 
   const next = copyAppearance(current);
   for (const [group, fields] of Object.entries(patch)) {
     if (!Object.hasOwn(defaults, group) || !record(fields)) throw new TypeError(`Unknown or invalid appearance group: ${group}.`);
-    const target = next[group as keyof EditorAppearance] as unknown as Record<string, string | number>;
+    const target = next[group as keyof EditorAppearance] as unknown as Record<string, string | number | boolean>;
     for (const [key, value] of Object.entries(fields)) {
       const path = `appearance.${group}.${key}`;
       if (!Object.hasOwn(target, key)) throw new TypeError(`Unknown appearance field: ${path}.`);
-      if (typeof target[key] === 'string') {
+      if (typeof target[key] === 'boolean') {
+        if (typeof value !== 'boolean') throw new TypeError(`${path} must be boolean.`);
+        target[key] = value;
+      } else if (typeof target[key] === 'string') {
         if (typeof value !== 'string' || !/^#(?:[a-f\d]{3}|[a-f\d]{6})$/iu.test(value)) {
           throw new TypeError(`${path} must be a #RGB or #RRGGBB hex color.`);
         }
         target[key] = value.toLowerCase();
       } else {
-        const maximum = key.toLowerCase().endsWith('opacity') ? 1 : key === 'strokeWidth' ? 16 : 32;
+        const maximum = key === 'referenceZoom' ? 24 : key.toLowerCase().endsWith('opacity') ? 1 : key === 'strokeWidth' ? 16 : 32;
         if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > maximum) {
           throw new RangeError(`${path} must be a finite number between 0 and ${maximum}.`);
         }

@@ -5,6 +5,10 @@ let applications choose colors from properties or external state, configure
 selection overrides and order features without accessing editor-owned map layers.
 Nothing implicitly interprets a property named `color`, `category` or `style`.
 
+Per-object and selected `shape.lineWidth` values also respect the editor's
+[zoom-scaled polygon outline option](appearance.md#polygon-borders-while-zooming).
+That option changes polygon borders; line features retain their CSS-pixel width.
+
 ```ts
 const editor = new GeometryEditor(map, {
   styling: {

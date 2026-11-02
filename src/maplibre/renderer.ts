@@ -11,6 +11,7 @@ import { samePosition } from '../core/polygon.js';
 import type { Coordinate, CutFeedback, SharedBoundaryPreview, ReshapePreview, UnionPreview, SplitPreview, SnapResult, FeatureId, EditorState, GeometryFeatureCollection } from '../core/types.js';
 import { PreviewBorder } from './preview-border.js';
 import { vertexHandles } from './vertex-handles.js';
+import { polygonLineWidth } from './polygon-outline.js';
 
 const emptyCollection = () => ({ type: 'FeatureCollection' as const, features: [] });
 const circlePaint = (point: PointAppearance) => ({
@@ -54,8 +55,8 @@ export class MapLibreRenderer {
     this.textMarkers = new TextMarkerOverlay(map);
     this.appearance = appearance;
     this.styling = new FeatureStyling(map, namespace, styling);
-    this.translationPreview = new PreviewBorder(map, 'translation-preview', appearance.draft, true, appearance.draftMarker);
-    this.draftBorder = new PreviewBorder(map, 'draft-border', appearance.draft, false, appearance.draftMarker);
+    this.translationPreview = new PreviewBorder(map, 'translation-preview', appearance.draft, true, appearance.draftMarker, appearance.polygonOutline);
+    this.draftBorder = new PreviewBorder(map, 'draft-border', appearance.draft, false, appearance.draftMarker, appearance.polygonOutline);
     this.featuresId = `${namespace}-features`;
     this.draftId = `${namespace}-draft`;
     this.layers = this.makeLayers(appearance);
@@ -84,7 +85,7 @@ export class MapLibreRenderer {
       { id: this.featuresId, type: 'line', source: this.featuresId,
         layout: { 'line-cap': 'round', 'line-join': 'round', 'line-sort-key': sort },
         paint: { 'line-color': shape('lineColor'),
-          'line-width': shape('lineWidth'),
+          'line-width': polygonLineWidth(shape('lineWidth'), appearance.polygonOutline),
           'line-opacity': visible(shape('lineOpacity')), 'line-opacity-transition': { duration: 0 } } },
       { id: `${namespace}-markers`, type: 'circle', source: this.featuresId,
         filter: ['all', ['==', '$type', 'Point'], ['!=', '__mm_text', true]], layout: { 'circle-sort-key': sort },
@@ -98,7 +99,7 @@ export class MapLibreRenderer {
       { id: `${namespace}-simplification-original`, type: 'line', source: this.featuresId,
         filter: ['!=', '$type', 'Point'],
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': feature.lineColor, 'line-width': Math.max(1, feature.lineWidth),
+        paint: { 'line-color': feature.lineColor, 'line-width': polygonLineWidth(Math.max(1, feature.lineWidth), appearance.polygonOutline),
           'line-opacity': ['case', ['boolean', ['feature-state', 'comparison'], false], feature.lineOpacity * 0.3, 0],
           'line-opacity-transition': { duration: 0 } } },
       { id: `${namespace}-draft-marker`, type: 'circle', source: this.draftId,
@@ -159,8 +160,8 @@ export class MapLibreRenderer {
     this.layers = this.makeLayers(appearance);
     this.applyLayers();
     // Restyle existing overlays without interrupting a drag/commit handoff.
-    this.draftBorder.setAppearance(appearance.draft, appearance.draftMarker);
-    this.translationPreview.setAppearance(appearance.draft, appearance.draftMarker);
+    this.draftBorder.setAppearance(appearance.draft, appearance.draftMarker, appearance.polygonOutline);
+    this.translationPreview.setAppearance(appearance.draft, appearance.draftMarker, appearance.polygonOutline);
   }
 
   private applyLayers(): void {

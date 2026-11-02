@@ -1,7 +1,7 @@
 import type { EditorMap as MapLibreMap } from '../gl/map.js';
 import { geometryParts, type Geometry } from '../core/geometry.js';
 import type { Coordinate } from '../core/types.js';
-import { resolveAppearance, type PointAppearance, type DraftAppearance } from '../core/appearance.js';
+import { polygonOutlineScale, resolveAppearance, type PointAppearance, type DraftAppearance, type PolygonOutlineAppearance } from '../core/appearance.js';
 
 type Point = { x: number; y: number };
 const spacing = 9;
@@ -38,17 +38,19 @@ export class PreviewBorder {
   private geometries: Geometry[] = [];
   private inset = 0;
 
-  constructor(private readonly map: MapLibreMap, kind: 'draft-border' | 'translation-preview', private appearance: DraftAppearance, private readonly filled = false, private marker: PointAppearance = resolveAppearance().draftMarker) {
+  constructor(private readonly map: MapLibreMap, kind: 'draft-border' | 'translation-preview', private appearance: DraftAppearance, private readonly filled = false, private marker: PointAppearance = resolveAppearance().draftMarker, private outline: PolygonOutlineAppearance = resolveAppearance().polygonOutline) {
     this.svg = map.getCanvas().ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
     this.svg.setAttribute(`data-geo-${kind}`, '');
     this.svg.setAttribute('aria-hidden', 'true');
     this.svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;';
   }
 
-  setAppearance(appearance: DraftAppearance, marker: PointAppearance = this.marker): void {
+  setAppearance(appearance: DraftAppearance, marker: PointAppearance = this.marker, outline: PolygonOutlineAppearance = this.outline): void {
     this.marker = marker;
-    const resize = this.appearance.lineWidth !== appearance.lineWidth;
+    const resize = this.appearance.lineWidth !== appearance.lineWidth
+      || this.outline.scaleWithZoom !== outline.scaleWithZoom || this.outline.referenceZoom !== outline.referenceZoom;
     this.appearance = appearance;
+    this.outline = outline;
     // Only wider/narrower dots require re-clipping. Color/opacity changes keep paths intact.
     if (resize && this.svg.isConnected) this.render(this.geometries, this.inset);
     else for (const group of this.svg.children) this.styleGroup(group);
@@ -64,11 +66,15 @@ export class PreviewBorder {
     marker?.setAttribute('stroke-opacity', String(this.marker.opacity));
     const border = group.querySelector('[data-geo-border]')!;
     border.setAttribute('stroke', this.appearance.lineColor);
-    border.setAttribute('stroke-width', String(this.appearance.lineWidth));
+    border.setAttribute('stroke-width', String(this.lineWidth(group)));
     border.setAttribute('stroke-opacity', String(this.appearance.lineOpacity));
     const fill = group.querySelector('[data-geo-fill]');
     fill?.setAttribute('fill', this.appearance.fillColor);
     fill?.setAttribute('fill-opacity', String(this.appearance.fillOpacity));
+  }
+
+  private lineWidth(group: Element): number {
+    return this.appearance.lineWidth * (this.outline.scaleWithZoom && group.getAttribute('data-geo-geometry') === 'Polygon' ? polygonOutlineScale(this.map.getZoom(), this.outline) : 1);
   }
 
   render(geometries: Geometry[], inset = 0): void {
@@ -89,6 +95,7 @@ export class PreviewBorder {
         border.setAttribute('fill', 'none'); border.setAttribute('stroke-linecap', 'round');
         group.append(border); this.svg.append(group);
       }
+      group.setAttribute('data-geo-geometry', geometry.type);
       this.styleGroup(group);
       const marker = group.querySelector('[data-geo-marker]')!;
       marker.setAttribute('display', geometry.type === 'Point' ? 'inline' : 'none');
@@ -102,8 +109,9 @@ export class PreviewBorder {
       const rings = geometry.type === 'Polygon' ? geometry.coordinates : [geometry.coordinates];
       const projected = rings.map((ring) => ring.map((coordinate: Coordinate) => this.map.project(coordinate)));
       const canvas = this.map.getCanvas(); const dots: Point[] = [];
+      const margin = Math.max(2, this.lineWidth(group) / 2);
       for (const ring of projected) {
-        for (let i = 1; i < ring.length; i++) dots.push(...edgeDots(ring[i - 1]!, ring[i]!, canvas.clientWidth, canvas.clientHeight, inset, Math.max(2, this.appearance.lineWidth / 2)));
+        for (let i = 1; i < ring.length; i++) dots.push(...edgeDots(ring[i - 1]!, ring[i]!, canvas.clientWidth, canvas.clientHeight, inset, margin));
       }
       group.querySelector('[data-geo-border]')!.setAttribute('d', dots.map(({ x, y }) => `M${x},${y}h0`).join(' '));
       group.querySelector('[data-geo-fill]')?.setAttribute('d', geometry.type === 'Polygon'

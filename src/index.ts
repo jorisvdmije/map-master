@@ -21,7 +21,7 @@ export type { ToolbarButton, ToolbarLabelKey, ToolbarLabels, ToolbarOptions, Too
 export { measure, formatArea, formatDistance } from './core/measurement.js';
 export type { Measurement } from './core/measurement.js';
 export type { DrawShape } from './core/shapes.js';
-export type { EditorAppearance, EditorAppearanceOptions, ShapeAppearance, DraftAppearance, PointAppearance, VertexAppearance, SnapAppearance } from './core/appearance.js';
+export type { EditorAppearance, EditorAppearanceOptions, ShapeAppearance, DraftAppearance, PointAppearance, VertexAppearance, SnapAppearance, PolygonOutlineAppearance } from './core/appearance.js';
 export type {
   // Geometry and identity.
   Coordinate, CutFeedback, FeatureId, FeatureProperties, JsonValue,

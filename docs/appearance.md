@@ -52,6 +52,42 @@ Create the editor after the MapLibre style has initialized, as usual.
 Every group is optional; every field within a group is optional when patching.
 `getAppearance()` returns all of them.
 
+### Polygon borders while zooming
+
+Fixed CSS-pixel outlines can dominate small polygons when zooming out. Enable
+`polygonOutline.scaleWithZoom` to shrink polygon outlines with the map:
+
+```ts
+editor.setAppearance({
+  polygonOutline: { scaleWithZoom: true, referenceZoom: 15.5 },
+});
+```
+
+At zoom 15.5 and above, `lineWidth` retains its configured width. At zoom 14.5 it
+is half that width; at zoom 13.5 it is a quarter. Fractional zooms interpolate
+smoothly. There is no minimum pixel width that could overwhelm tiny polygons.
+Choose a reference zoom appropriate to the scale of your data.
+
+The option applies to Polygon and MultiPolygon outlines, selection and per-feature
+widths, comparison outlines and dotted drawing/editing/translation previews.
+LineString widths and marker/handle sizes remain in CSS pixels so they stay usable.
+Changing it is presentation-only and preserves data, selection, drafts and history.
+The setting survives style replacement in both MapLibre and Mapbox.
+
+Defaults are `scaleWithZoom: false` and `referenceZoom: 14` (a finite number from
+0 to 24). Existing applications retain fixed pixel widths until they opt in.
+The live documentation examples enable scaling with their initial zoom as the
+reference; the Appearance example includes a checkbox to compare both behaviors.
+Use `{ polygonOutline: { scaleWithZoom: false } }` to restore fixed widths.
+
+Committed strokes use a native camera expression, so zooming does not upload
+geometry or call feature-style resolvers. The camera input is at the top level as
+required by the [MapLibre](https://maplibre.org/maplibre-style-spec/expressions/#zoom)
+and [Mapbox](https://docs.mapbox.com/style-spec/reference/expressions/#zoom) style
+specifications.
+
+### Shape appearance
+
 **ShapeAppearance** (`feature` and `selected`):
 
 | Field | Meaning | Default feature / selected |
@@ -73,6 +109,8 @@ Draft outlines retain their fixed dotted pattern (nine CSS pixels between center
 anchored to each edge). Width changes the dot diameter; it does not select a
 different dash pattern. Large widths can make neighboring dots overlap.
 Editing corner insets retain their existing spacing.
+
+### Point appearance
 
 **PointAppearance** (`marker`, `selectedMarker`, `draftMarker`, `midpoint` and `pivot`, also the basis for `vertex`/`snap`):
 
@@ -106,7 +144,8 @@ subset renders consistently in MapLibre paint and the SVG preview. Use opacity
 fields instead of embedding alpha in colors.
 
 All numeric values must be finite. Opacities are in [0, 1], widths/radii in [0, 32]
-CSS pixels, except `strokeWidth` in [0, 16]. Zero is accepted. Unknown groups,
+CSS pixels, except `strokeWidth` in [0, 16]. `polygonOutline.referenceZoom` is in
+[0, 24], and `scaleWithZoom` must be a boolean. Zero is accepted. Unknown groups,
 unknown fields, null, explicit undefined fields and invalid structures are rejected.
 Color/structure errors throw `TypeError`; invalid numeric values throw `RangeError`.
 
