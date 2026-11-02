@@ -15,6 +15,8 @@ type Overlay = { pathname: string; kind: "menu" | "search" | null };
 
 export function DocsShell({ version, children }: { version: string; children: ReactNode }) {
   const pathname = usePathname();
+  const currentPath = basePath && pathname.startsWith(`${basePath}/`) ? pathname.slice(basePath.length) : pathname;
+  const playground = currentPath === "/playground" || currentPath === "/playground/";
   const [overlay, setOverlay] = useState<Overlay>({ pathname, kind: null });
   // Reset route-dependent UI during rendering, before committing the new page.
   if (overlay.pathname !== pathname) setOverlay({ pathname, kind: null });
@@ -35,6 +37,7 @@ export function DocsShell({ version, children }: { version: string; children: Re
     return () => media.removeEventListener("change", closeMenu);
   }, [closeMenu]);
   useEffect(() => {
+    if (playground) return;
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.isComposing) return;
       if (event.key === "Escape") closeOverlays();
@@ -48,9 +51,9 @@ export function DocsShell({ version, children }: { version: string; children: Re
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [pathname, closeMenu, closeOverlays]);
+  }, [pathname, closeMenu, closeOverlays, playground]);
 
-  const currentPath = basePath && pathname.startsWith(`${basePath}/`) ? pathname.slice(basePath.length) : pathname;
+  if (playground) return <>{children}</>;
   return <div className={`docs-shell${menuOpen ? " menu-open" : ""}`}>
     <a className="skip-link" href="#main">Skip to content</a>
     <header className="topbar">
@@ -63,6 +66,7 @@ export function DocsShell({ version, children }: { version: string; children: Re
       </button>
       <noscript><a className="nojs-navigation" href={`${basePath}${guidePath("all-guides")}`}>All guides</a></noscript>
       <nav className="header-links" aria-label="Project links">
+        <Link href="/playground/" prefetch={false} onClick={closeOverlays}>Playground ↗</Link>
         <Link className="version" href={guidePath("changelog")} onClick={closeOverlays} prefetch={false}><span />{version}</Link>
         <a href={github} target="_blank" rel="noreferrer">GitHub ↗</a>
         <button ref={menu} className="menu-button" aria-expanded={menuOpen} aria-controls="sidebar" aria-label="Open navigation"
@@ -71,6 +75,7 @@ export function DocsShell({ version, children }: { version: string; children: Re
     </header>
     <div className="sidebar-shade" hidden={!menuOpen} onClick={closeMenu} />
     <aside className="sidebar" id="sidebar" aria-label="Documentation navigation" inert={mobile && !menuOpen}>
+      <section className="nav-group"><h2>Work with your data</h2><Link href="/playground/" prefetch={false} onClick={closeOverlays}>Open playground ↗</Link></section>
       {groups.map(([name, links]) => <section className="nav-group" key={name}><h2>{name}</h2>
         {links.map(([id, label]) => <Link href={guidePath(id)} key={id} prefetch={false} onClick={closeOverlays}
           aria-current={currentPath === guidePath(id).split("#")[0] && id !== "snapping" ? "page" : undefined}>
