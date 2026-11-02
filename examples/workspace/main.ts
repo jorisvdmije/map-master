@@ -71,7 +71,8 @@ function fit(features: GeometryFeatureCollection): void {
   map.fitBounds([[west, south], [east, north]], { padding: 110, maxZoom: 16, duration: 0 });
 }
 
-const validation: Record<ValidationError, string> = {
+const validation: Record<ValidationError | 'feature-limit', string> = {
+  'feature-limit': 'Feature limit reached. Delete features before adding more.',
   'too-few-vertices': 'Add more points to finish this shape.',
   'duplicate-vertex': 'Two corners share a position. Move or remove the duplicate.',
   'zero-area': 'The boundary must enclose an area.',

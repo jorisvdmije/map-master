@@ -49,7 +49,7 @@ export class PlaygroundRuntime {
       dataLayers: { layers: initial.layers }, snapping: { enabled: true },
       appearance: { feature: { lineWidth: 2 }, selected: { fillColor: "#e6a446", fillOpacity: 0.27, lineColor: "#ad6819", lineWidth: 3 },
         draft: { fillColor: "#23836d", lineColor: "#176a57" }, vertex: { strokeColor: "#176a57", activeColor: "#176a57" } },
-      styling: { feature: featureStyle }, historyLimit: 100,
+      styling: { feature: featureStyle }, historyLimit: 100, maxFeatures,
     });
     map.addControl(new EditorToolbar(this.editor, { tools: EditorToolbar.allTools, collapsible: true }), "top-left");
     map.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
@@ -102,7 +102,7 @@ export class PlaygroundRuntime {
     this.assertIdle();
     if (this.editor.getDataLayers().length >= 200) throw new Error("A playground project can contain at most 200 layers.");
     const count = typeof input === "object" && input !== null && "features" in input && Array.isArray(input.features) ? input.features.length : 1;
-    if (this.editor.getState().featureCount + count > maxFeatures) throw new Error(`Keep this playground project below ${maxFeatures.toLocaleString()} features.`);
+    if (this.editor.getState().featureCount + count > maxFeatures) throw new Error(`A playground project can contain at most ${maxFeatures.toLocaleString()} features.`);
     return this.batch(() => {
       const previous = this.editor.getActiveDataLayer();
       const id = crypto.randomUUID();

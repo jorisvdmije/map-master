@@ -28,9 +28,9 @@ export function toolAvailable(editor: GeometryEditor, tool: KeyboardTool, state:
     case 'part': return single !== null && !isPoint(single) && !locked;
     case 'cut': return state.featureCount > 0 && !locked;
     case 'combine': return features.length >= 2 && (features.every(isPolygonal) || features.every(isLineal)) && !locked;
-    case 'explode': return features.some(isMultipart) && !locked;
+    case 'explode': return features.some(isMultipart) && !locked && editor.canCreateFeatures(features.reduce((count, feature) => count + (isMultipart(feature) ? geometryParts(feature.geometry).length - 1 : 0), 0));
     case 'edit': return single !== null && !locked;
-    case 'split': return single?.geometry.type === 'Polygon' && !locked;
+    case 'split': return single?.geometry.type === 'Polygon' && !locked && editor.canCreateFeatures();
     case 'reshape': return single !== null && isSimplePolygon(single) && !locked;
     case 'shared-boundary': return features.length === 2 && features.every(isSimplePolygon) && !locked;
     case 'union': case 'difference': case 'intersection': return features.length >= 2 && features.every(isPolygonal) && !locked;

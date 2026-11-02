@@ -183,7 +183,7 @@ export class GeometryEditor {
     this.drawingConstraints = drawingConstraintsOptions(options.drawingConstraints);
     this.tracing = this.tracingOptions(options.tracing ?? {});
     this.events = new EditorEvents((error) => { view.queueMicrotask(() => { throw error; }); });
-    this.session = new DrawingSession(createId, options.historyLimit, options.lockedFeatureIds, options.shapeTemplates, options.geofencing, options.dataLayers);
+    this.session = new DrawingSession(createId, options.historyLimit, options.lockedFeatureIds, options.shapeTemplates, options.geofencing, options.dataLayers, options.maxFeatures);
     this.boundarySnapping = new BoundarySnapping(map);
     this.snapping = new MapLibreSnapping(map, options.snapping);
     this.alignment = new MapLibreAlignmentGuides(map, alignment);
@@ -1348,6 +1348,11 @@ export class GeometryEditor {
   getActiveDataLayer(): string | null { return this.session.getActiveDataLayer(); }
   getFeatureDataLayer(id: FeatureId): string | null { return this.session.getFeatureDataLayer(id); }
   canDrawInDataLayer(): boolean { return this.session.canDrawInDataLayer(); }
+
+  /** Whether this many additional features fit within `maxFeatures`, independent of locks or layers.
+   * @throws RangeError if count is not a nonnegative safe integer.
+   */
+  canCreateFeatures(count = 1): boolean { return this.session.canCreateFeatures(count); }
   canDuplicateSelection(): boolean { return this.session.canDuplicateSelection(); }
   canSelectFeature(id: FeatureId): boolean { return this.session.canSelectFeature(id); }
   getHistoryDataLayerIssues(direction: HistoryEvent['direction']): DataLayerIssue[] { return this.session.getHistoryDataLayerIssues(direction); }
@@ -1558,6 +1563,7 @@ export class GeometryEditor {
    * Copy the selection with new IDs, optionally offset in degrees, and select the copies.
    * One undo step.
    * @returns The committed changes, or null when nothing is selected.
+   * @throws RangeError if the complete batch would exceed `maxFeatures`.
    */
   duplicateSelection(delta: Coordinate = [0, 0]): TransactionEvent | null {
     this.assertAlive();
@@ -1758,6 +1764,7 @@ export class GeometryEditor {
    * Features without an ID receive a generated UUID; existing IDs cannot be overwritten.
    * @returns The imported features as stored.
    * @throws GeoJSONImportError if any feature is invalid; nothing is imported then.
+   * @throws RangeError if the complete import would exceed `maxFeatures`.
    */
   importGeoJSON(input: unknown, options?: DataLayerImportOptions): GeometryFeatureCollection {
     this.assertAlive();

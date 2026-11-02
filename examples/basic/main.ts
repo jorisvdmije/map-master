@@ -96,6 +96,7 @@ const removeVertex = element<HTMLButtonElement>('remove-vertex');
 let editor: GeometryEditor | undefined;
 let selected: DrawGeometryType = 'LineString';
 const validationMessages: Record<Exclude<ValidationError, 'too-few-vertices'>, string> = {
+  'feature-limit': 'Feature limit reached. Delete features before adding more.',
   'part-intersection': 'Polygon parts cannot touch, cross, or share boundaries.',
   'part-overlap': 'Polygon parts cannot overlap. Keep their filled areas separate.',
   'ring-intersection': 'Ring boundaries cannot touch, cross, or overlap.',

@@ -10,6 +10,15 @@ only from the package entry points `@jorisvdmije/map-master`,
 `@jorisvdmije/map-master/maplibre` or `@jorisvdmije/map-master/mapbox`; internal
 paths are not part of the API and are blocked by the package `exports`.
 
+## Unreleased changes after 0.2.0
+
+Optional constructor `maxFeatures` caps the committed feature count; omitted
+preserves the uncapped behavior. `canCreateFeatures(count)` checks available
+capacity for a whole batch. `ValidationError` now includes `feature-limit`:
+applications with exhaustive error switches or message maps must add that case.
+At capacity, growth tools are unavailable and oversized drawing previews cannot
+finish. Imports and transactions that exceed the cap throw `RangeError` atomically.
+
 ## Upgrading to 0.2.0 from 0.1.0-beta.0 or local 0.1.0
 
 0.1.0 was prepared locally but never published to npm. The first regular npm

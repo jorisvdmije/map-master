@@ -32,8 +32,8 @@ export function PropertyDialog({ runtime, field, close, notify }: { runtime: Pla
   const submit = (form: HTMLFormElement, remove = false) => {
     try {
       const data = new FormData(form);
-      const key = String(data.get("key") ?? "").trim();
-      if (!key || !editableField(key)) throw new Error("Choose a field name that is not reserved for layer or style settings.");
+      const key = field.key ?? String(data.get("key") ?? "").trim();
+      if ((field.key === null && !key) || !editableField(key)) throw new Error("Choose a field name that is not reserved for layer or style settings.");
       const current = runtime.editor.getFeature(field.id);
       if (!current) throw new Error("This feature no longer exists.");
       if (field.key === null && Object.hasOwn(current.properties ?? {}, key)) throw new Error("This field already exists.");
@@ -55,7 +55,7 @@ export function PropertyDialog({ runtime, field, close, notify }: { runtime: Pla
   return <Dialog title={field.key === null ? "Add an attribute" : `Edit ${field.key}`} close={close}>
     <p className="pg-muted">{featureName(feature)} · {feature.geometry.type}</p>
     <form onSubmit={event => { event.preventDefault(); submit(event.currentTarget); }}>
-      <label className="pg-field">Field name<input aria-label="Field name" name="key" defaultValue={field.key ?? ""} readOnly={field.key !== null} required autoFocus maxLength={200} /></label>
+      <label className="pg-field">Field name<input aria-label="Field name" name="key" defaultValue={field.key ?? ""} readOnly={field.key !== null} required={field.key === null} autoFocus maxLength={200} /></label>
       <label className="pg-field">Value type<select aria-label="Value type" value={type} onChange={event => setType(event.target.value)}>
         <option value="string">Text</option><option value="number">Number</option><option value="boolean">Boolean</option><option value="null">Null</option><option value="json">JSON object or array</option>
       </select></label>

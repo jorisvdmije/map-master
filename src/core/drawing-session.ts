@@ -117,7 +117,8 @@ export class DrawingSession {
   private fenceCache: { key: string; violations: GeofencingViolation[] } | null = null;
   private historyFences = new WeakMap<HistoryEntry, Partial<Record<HistoryEvent['direction'], GeofencingViolation[]>>>();
 
-  constructor(private readonly createId: () => FeatureId, historyLimit = 100, lockedIds: readonly FeatureId[] = [], templates: readonly ShapeTemplate[] = defaultShapeTemplates(), geofencing?: Partial<GeofencingOptions>, layers: DataLayerOptions = {}) {
+  constructor(private readonly createId: () => FeatureId, historyLimit = 100, lockedIds: readonly FeatureId[] = [], templates: readonly ShapeTemplate[] = defaultShapeTemplates(), geofencing?: Partial<GeofencingOptions>, layers: DataLayerOptions = {}, private readonly maxFeatures = Number.MAX_SAFE_INTEGER) {
+    if (!Number.isSafeInteger(maxFeatures) || maxFeatures < 0) throw new RangeError('maxFeatures must be a nonnegative safe integer.');
     if (!layers || typeof layers !== 'object' || Array.isArray(layers) || Object.keys(layers).some(key => !['layers', 'activeLayerId', 'selectionScope'].includes(key))) throw new TypeError('Invalid data layer options.');
     this.dataLayers = new DataLayerStore(layers.layers);
     this.dataLayerSelectionScope = layers.selectionScope === undefined ? 'all' : layers.selectionScope;
@@ -136,7 +137,11 @@ export class DrawingSession {
   getActiveDataLayer(): string | null { return this.activeDataLayerId; }
   getReferenceRevision(): number { return this.dataRevision + this.dataLayerRevision; }
   getFeatureDataLayer(id: FeatureId): string | null { const feature = this.features.get(id); return feature ? featureDataLayerId(feature) : null; }
-  canDrawInDataLayer(): boolean { return this.dataLayers.issue(this.activeDataLayerId) === null; }
+  canCreateFeatures(count = 1): boolean {
+    if (!Number.isSafeInteger(count) || count < 0) throw new RangeError('Feature count must be a nonnegative safe integer.');
+    return count <= this.maxFeatures - this.features.size;
+  }
+  canDrawInDataLayer(): boolean { return this.canCreateFeatures() && this.dataLayers.issue(this.activeDataLayerId) === null; }
 
   canSelectFeature(id: FeatureId): boolean {
     const feature = this.features.get(id); if (!feature) return false;
@@ -362,6 +367,8 @@ export class DrawingSession {
 
   get state(): EditorState {
     const geofencingViolations = this.draftGeofencingViolations();
+    const growth = this.template ? this.template.result.preview?.features.length ?? 0 : this.splitId !== null ? 1 : this.isCreationDraft() ? 1 : 0;
+    const featureLimitReached = !this.canCreateFeatures(growth);
     return {
       mode: this.template ? 'draw-template' : this.lasso ? 'select-lasso' : this.holeRemoval ? 'remove-hole' : this.offsetting ? 'offset-lines' : this.buffering ? 'buffer-features' : this.simplification ? 'simplify-features' : this.scaling ? 'scale-features' : this.rotation ? 'rotate-features' : this.sharedBoundary ? 'edit-shared-boundary' : this.reshapeId !== null ? 'reshape-polygon' : this.intersectionActive ? 'intersection-polygons' : this.differenceActive ? 'difference-polygons' : this.unionActive ? 'union-polygons' : this.holeId !== null ? 'draw-hole' : this.splitId !== null ? 'split-polygon' : this.cutting ? 'draw-cut' : this.partId !== null ? 'draw-part' : this.kind === null ? 'idle' : this.editingId !== null
         ? this.kind === 'Point' ? 'edit-point' : this.kind === 'LineString' ? 'edit-line' : 'edit-polygon'
@@ -376,10 +383,10 @@ export class DrawingSession {
       activePartIndex: this.activePartIndex,
       dataRevision: this.dataRevision,
       dataLayerRevision: this.dataLayerRevision, activeDataLayerId: this.activeDataLayerId, dataLayerSelectionScope: this.dataLayerSelectionScope,
-      canFinish: geofencingViolations.length || this.pinningError !== null ? false : this.template ? this.template.draft.position !== null && this.template.result.preview !== null : this.textMarker && !this.textMarker.text.trim() ? false : this.lasso ? false : this.holeRemoval ? this.validationError === null : this.offsetting ? this.offsetting.preview !== null : this.buffering ? this.buffering.preview !== null : this.simplification ? this.simplification.preview !== null : this.scaling ? this.scaling.preview !== null : this.rotation ? this.rotation.preview !== null : this.sharedBoundary ? this.sharedBoundaryPreview !== null : this.reshapeId !== null ? this.reshapePreview !== null : this.intersectionActive ? this.intersectionPreview !== null : this.differenceActive ? this.differencePreview !== null : this.unionActive ? this.unionPreview !== null : this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
+      canFinish: featureLimitReached || geofencingViolations.length || this.pinningError !== null ? false : this.template ? this.template.draft.position !== null && this.template.result.preview !== null : this.textMarker && !this.textMarker.text.trim() ? false : this.lasso ? false : this.holeRemoval ? this.validationError === null : this.offsetting ? this.offsetting.preview !== null : this.buffering ? this.buffering.preview !== null : this.simplification ? this.simplification.preview !== null : this.scaling ? this.scaling.preview !== null : this.rotation ? this.rotation.preview !== null : this.sharedBoundary ? this.sharedBoundaryPreview !== null : this.reshapeId !== null ? this.reshapePreview !== null : this.intersectionActive ? this.intersectionPreview !== null : this.differenceActive ? this.differencePreview !== null : this.unionActive ? this.unionPreview !== null : this.splitId !== null ? this.splitPreview !== null : this.kind !== null && this.validationError === null,
       canUndo: this.kind === null && this.canReplay('undo'),
       canRedo: this.kind === null && this.canReplay('redo'),
-      validationError: this.validationError,
+      validationError: featureLimitReached ? 'feature-limit' : this.validationError,
       pinningError: this.pinningError,
       geofencingViolations: copyViolations(geofencingViolations),
       templateError: this.template?.result.error ?? null,
@@ -982,6 +989,8 @@ export class DrawingSession {
   /** The only entry point for recording and applying prepared committed mutations. */
   private commit(action: HistoryAction, changes: FeatureChange[]): boolean {
     if (changes.length === 0) return false;
+    const count = changes.reduce((count, change) => count + (change.before === null ? 1 : change.after === null ? -1 : 0), this.features.size);
+    if (count > this.maxFeatures) throw new RangeError(`The editor allows at most ${this.maxFeatures} features.`);
     this.dataLayers.assertChanges(changes);
     this.assertGeofencing(changes);
     this.pins.validate(changes);
@@ -1165,7 +1174,7 @@ export class DrawingSession {
    * Reserve every new ID before committing; a failed batch changes nothing.
    */
   canDuplicateSelection(): boolean {
-    return this.kind === null && this.selectedFeatureIds.size > 0 && [...this.selectedFeatureIds].every(id => this.dataLayers.issue(featureDataLayerId(this.features.get(id)!)) === null);
+    return this.kind === null && this.selectedFeatureIds.size > 0 && this.canCreateFeatures(this.selectedFeatureIds.size) && [...this.selectedFeatureIds].every(id => this.dataLayers.issue(featureDataLayerId(this.features.get(id)!)) === null);
   }
 
   duplicateSelection(delta: Coordinate = [0, 0]): TransactionEvent | null {

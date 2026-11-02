@@ -12,7 +12,11 @@ Drop a GeoJSON file anywhere in the workspace or choose **Import data**. Each fi
 becomes a separate layer. A file must be valid JSON, smaller than 10 MB, with valid
 WGS84 longitude/latitude coordinates. Point, LineString, Polygon, MultiLineString
 and MultiPolygon features are supported. The initial playground supports at most
-20,000 features and 200 layers per project. MultiPoint, GeometryCollection, raster
+20,000 features and 200 layers per project. The feature limit applies to drawing,
+duplication, templates and geometry operations as well as imports. At capacity,
+creation tools are disabled; editing, deletion and Undo/Redo remain available.
+Projects at the limit can still be saved, downloaded and restored.
+MultiPoint, GeometryCollection, raster
 data, Shapefiles and other coordinate systems need conversion before importing.
 
 Feature IDs and JSON attributes are preserved. Missing IDs receive new IDs. IDs
@@ -53,6 +57,8 @@ JSON. The feature's Properties panel also adds or removes fields, locks features
 moves selections between layers and starts geometry editing. Feature IDs and
 editor-managed layer/pin/style metadata are read-only in the attribute form. Other
 attributes, including nested values, round-trip as JSON.
+Existing attribute names are preserved exactly when editing or deleting a field,
+including empty names and leading/trailing spaces. Only new field names are trimmed.
 
 Layer styles define fills, outlines, opacity, line width and point size. A feature
 can override that style or return to its layer's appearance. Per-feature overrides
