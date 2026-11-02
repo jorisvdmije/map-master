@@ -59,6 +59,9 @@ editor-managed layer/pin/style metadata are read-only in the attribute form. Oth
 attributes, including nested values, round-trip as JSON.
 Existing attribute names are preserved exactly when editing or deleting a field,
 including empty names and leading/trailing spaces. Only new field names are trimmed.
+Switching the value type preserves your pending input, including a switch to Null
+and back. Conversion and validation happen when you save. For Boolean, choose
+true or false if the current input is not already one of those values.
 
 Layer styles define fills, outlines, opacity, line width and point size. A feature
 can override that style or return to its layer's appearance. Per-feature overrides
