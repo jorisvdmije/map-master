@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowUpRight, Check, ChevronRight, Download, FileJson2, FolderOpen, Layers, LocateFixed, MapPinned, MousePointer2, Plus, Redo2, SlidersHorizontal, Undo2, Upload, X } from "lucide-react";
+import { ArrowUpRight, Check, ChevronRight, Columns2, Download, FileJson2, FolderOpen, Layers, LocateFixed, MapPinned, MousePointer2, Plus, Redo2, SlidersHorizontal, Undo2, Upload, X } from "lucide-react";
 import { assetPath } from "@/lib/paths";
 import { AttributeTable, Dialog, Inspector, LayersPanel, PropertyDialog, type EditField, type Run } from "./panels";
 import { download, emptyProject, filename, layerId, parseProject, projectFormat, readFile, sampleProject, type Project } from "./project";
@@ -227,6 +227,7 @@ function Workbench({ session, version, message, notify, dismiss }: { session: Se
       <button className="pg-button pg-fit" disabled={!state.featureCount || busy} onClick={() => run(() => { runtime.editor.zoomToFeatures(undefined, { padding: 70, maxZoom: 17, duration: 250 }); })}><LocateFixed size={15} /><span>Fit data</span></button>
       <span className="pg-ribbon-divider" /><label className="pg-ribbon-toggle"><input type="checkbox" checked={project.settings.snapping} onChange={event => run(() => runtime.setSetting("snapping", event.target.checked))} />Snapping</label>
       <label className="pg-ribbon-toggle pg-guides-toggle"><input type="checkbox" checked={project.settings.guides} onChange={event => run(() => runtime.setSetting("guides", event.target.checked))} />Guides</label>
+      <label className="pg-toolbar-layout" title="Number of tool columns"><Columns2 size={15} /><span>Tool columns</span><select aria-label="Toolbar columns" value={project.settings.toolbarColumns} onChange={event => run(() => runtime.setSetting("toolbarColumns", Number(event.target.value) as 1 | 2))}><option value="1">1</option><option value="2">2</option></select></label>
       <div className="pg-ribbon-end"><button className="pg-button pg-layers-toggle" aria-expanded={drawer === "layers"} onClick={() => setDrawer(drawer === "layers" ? null : "layers")}><Layers size={15} />Layers</button>
         <button className="pg-button pg-properties-toggle" aria-expanded={drawer === "properties"} onClick={() => setDrawer(drawer === "properties" ? null : "properties")}><SlidersHorizontal size={15} />Properties</button>
         <span className="pg-local-note"><span className="pg-status-dot" />Browser-local workspace</span></div>
