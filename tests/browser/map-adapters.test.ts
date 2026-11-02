@@ -86,6 +86,30 @@ describe.each(['MapLibre 6.15.0', 'Mapbox 3.34.1'] as const)('%s adapter', rende
     inside(container.querySelector('.mm-data-layers')!);
   });
 
+  it('scales polygon outlines with camera zoom while keeping line widths and live drafts usable', async () => {
+    editor.setAppearance({ polygonOutline: { scaleWithZoom: true, referenceZoom: 13 }, feature: { lineWidth: 12 }, draft: { lineWidth: 8 } });
+    editor.importGeoJSON(collection()); editor.clearHistory();
+    const edge = coordinate(260, 130); const saved = editor.exportGeoJSON();
+    const id = committedIds()[0]!;
+    await expect.poll(() => visible(7), { timeout: 5000 }).toBe(true);
+    const outsideHits = () => {
+      const point = map.project(edge);
+      return map.queryRenderedFeatures([point.x, point.y - 4], { layers: [id] }).some(feature => feature.properties?.__geo_editor_id === '7');
+    };
+    await expect.poll(outsideHits, { timeout: 5000 }).toBe(true);
+    map.jumpTo({ zoom: 11 });
+    await expect.poll(outsideHits, { timeout: 5000 }).toBe(false);
+    editor.setAppearance({ polygonOutline: { scaleWithZoom: false } });
+    await expect.poll(outsideHits, { timeout: 5000 }).toBe(true);
+    editor.setAppearance({ polygonOutline: { scaleWithZoom: true } });
+    editor.select(7); editor.editSelected();
+    const border = () => container.querySelector('[data-geo-draft-border] [data-geo-border]');
+    await expect.poll(() => border()?.getAttribute('stroke-width')).toBe('2');
+    map.jumpTo({ zoom: 12 });
+    await expect.poll(() => border()?.getAttribute('stroke-width')).toBe('4');
+    expect(editor.exportGeoJSON()).toEqual(saved); expect(editor.getState().canUndo).toBe(false);
+  });
+
   it('draws from toolbar and keyboard, validates and cancels without adding history', async () => {
     await userEvent.click(container.querySelector<HTMLButtonElement>('[data-tool="polygon"]')!);
     await click(160, 130); await click(370, 130);

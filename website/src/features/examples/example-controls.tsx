@@ -33,6 +33,8 @@ export function ExampleControls({ runtime, snapshot, hint }: ExampleControlsProp
     {extras.has("appearance") && <div className="demo-panel"><span>Theme:</span>
       {Object.keys(themes).map(name => <button type="button" key={name} aria-pressed={theme === name} disabled={!idle}
         onClick={() => { editor.setAppearance(themes[name]); setTheme(name); }}>{name}</button>)}
+      <label><input type="checkbox" checked={editor.getAppearance().polygonOutline.scaleWithZoom}
+        onChange={event => editor.setAppearance({ polygonOutline: { scaleWithZoom: event.target.checked } })} /> Scale polygon borders with zoom</label>
     </div>}
     {extras.has("transaction") && <div className="demo-panel">
       <button type="button" className="button small" data-requires="lawn kiosk" onClick={runTransaction}

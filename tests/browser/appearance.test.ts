@@ -47,7 +47,9 @@ it('applies constructor options and live patches without uploads, selection chan
   editor.setAppearance(patch);
   expect(map.getPaintProperty(layerId('-features'), 'line-color')).toEqual(['case', ['boolean', ['feature-state', 'selected'], false], '#acb', '#123456']);
   expect(map.getPaintProperty(layerId('-fill'), 'fill-color')).toEqual(['case', ['boolean', ['feature-state', 'selected'], false], '#fedcba', '#abcdef']);
-  expect(map.getPaintProperty(layerId('-features'), 'line-width')).toEqual(['case', ['boolean', ['feature-state', 'selected'], false], 9, 4]);
+  const width = ['case', ['boolean', ['feature-state', 'selected'], false], 9, 4];
+  expect(map.getPaintProperty(layerId('-features'), 'line-width')).toEqual(['interpolate', ['exponential', 2], ['zoom'],
+    -2, ['case', ['==', ['geometry-type'], 'Polygon'], ['*', width, 1], width], 14, width]);
   expect(uploads).not.toHaveBeenCalled(); expect(draftUploads).not.toHaveBeenCalled();
   expect(editor.getState()).toEqual(state); expect(editor.exportGeoJSON()).toEqual(before);
   expect(changes).toHaveBeenCalledOnce(); expect(transaction).not.toHaveBeenCalled();

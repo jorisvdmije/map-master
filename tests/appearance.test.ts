@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { resolveAppearance, type EditorAppearanceOptions } from '../src/core/appearance.js';
+import { polygonOutlineScale, resolveAppearance, type EditorAppearanceOptions } from '../src/core/appearance.js';
 
 it('preserves existing defaults and merges individual fields without sharing snapshots', () => {
   const original = resolveAppearance();
@@ -26,10 +26,27 @@ it.each([
   { feature: { lineWidth: '4' } }, { midpoint: { radius: -1 } },
   { snap: { edgeRadius: 33 } }, { pivot: { strokeWidth: 17 } },
   { draft: { fillOpacity: 1.01 } }, { vertex: { activeRadius: 33 } },
+  { polygonOutline: { scaleWithZoom: 1 } }, { polygonOutline: { scaleWithZoom: undefined } },
+  { polygonOutline: { referenceZoom: -1 } }, { polygonOutline: { referenceZoom: 24.1 } },
+  { polygonOutline: { referenceZoom: NaN } }, { polygonOutline: { referenceZoom: '14' } },
 ])('rejects invalid patches atomically: %j', (patch) => {
   const current = resolveAppearance(); const before = resolveAppearance();
   expect(() => resolveAppearance(patch as EditorAppearanceOptions, current)).toThrow();
   expect(current).toEqual(before);
+});
+
+it('scales polygon outlines smoothly below the reference, caps zooming in and isolates snapshots', () => {
+  const current = resolveAppearance();
+  expect(current.polygonOutline).toEqual({ scaleWithZoom: false, referenceZoom: 14 });
+  expect(polygonOutlineScale(8, current.polygonOutline)).toBe(1);
+  const next = resolveAppearance({ polygonOutline: { scaleWithZoom: true, referenceZoom: 15.5 } }, current);
+  for (const zoom of [-2, 0, 12.5, 14, 15, 15.5, 18, 24]) {
+    expect(polygonOutlineScale(zoom, next.polygonOutline)).toBeCloseTo(Math.min(1, 2 ** (zoom - 15.5)), 12);
+  }
+  next.polygonOutline.referenceZoom = 10;
+  expect(current.polygonOutline.referenceZoom).toBe(14);
+  expect(resolveAppearance({ polygonOutline: { referenceZoom: 0 } }).polygonOutline.referenceZoom).toBe(0);
+  expect(resolveAppearance({ polygonOutline: { referenceZoom: 24 } }).polygonOutline.referenceZoom).toBe(24);
 });
 
 it('rejects a later invalid field without applying earlier valid fields', () => {

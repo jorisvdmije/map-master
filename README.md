@@ -198,6 +198,7 @@ the stored data unchanged. See [transactions and events](docs/transactions.md).
 ```ts
 const editor = new GeometryEditor(map, {
   appearance: {
+    polygonOutline: { scaleWithZoom: true, referenceZoom: 14 },
     feature: { fillColor: '#2563eb', lineColor: '#1d4ed8' },
     selected: { lineWidth: 4 },
   },

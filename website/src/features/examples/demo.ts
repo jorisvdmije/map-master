@@ -46,7 +46,7 @@ export async function mountDemo(container: HTMLElement, signal: AbortSignal, sty
   const options = config.options ?? {};
   const editor = new GeometryEditor(map, {
     ...options, snapping: { enabled: true, ...options.snapping },
-    appearance: { ...defaultTheme, ...options.appearance },
+    appearance: { polygonOutline: { scaleWithZoom: true, referenceZoom: config.zoom ?? 15.6 }, ...defaultTheme, ...options.appearance },
   });
   const [left, right] = isPair(config.tools) ? config.tools : [config.tools, undefined];
   const narrow = container.clientWidth < 640;

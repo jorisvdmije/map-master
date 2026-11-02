@@ -1,6 +1,6 @@
 {
   "name": "@jorisvdmije/map-master",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Interactive geometry editor for MapLibre GL JS and Mapbox GL JS: draw, select, edit, snap, split, merge and transform GeoJSON features with undo/redo.",
   "keywords": [
     "maplibre",

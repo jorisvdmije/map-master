@@ -13,6 +13,31 @@ export async function checkControlLayout({ context, origin, evidence }) {
     ["lasso", "lasso"], ["data-layers", null],
   ];
   try {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${origin}/map-master/guides/appearance/`, { waitUntil: 'networkidle' });
+    await page.locator('[data-demo]').scrollIntoViewIfNeeded();
+    await page.locator('[data-ready="true"]').waitFor();
+    const scale = page.getByRole('checkbox', { name: 'Scale polygon borders with zoom' });
+    assert.equal(await scale.isChecked(), true);
+    await page.locator('.mm-toolbar-button[data-tool="polygon"]').click();
+    const canvas = page.locator('.demo-map canvas'); const box = await canvas.boundingBox();
+    for (const [x, y] of [[0.3, 0.65], [0.7, 0.65], [0.5, 0.9]]) {
+      await canvas.click({ position: { x: box.width * x, y: box.height * y } });
+    }
+    const draftWidth = () => page.locator('[data-geo-draft-border] [data-geo-border]').getAttribute('stroke-width');
+    const fullWidth = Number(await draftWidth());
+    assert.ok(fullWidth > 0);
+    const data = await page.locator('[data-demo]').getAttribute('data-feature-count');
+    await page.locator('.maplibregl-ctrl-zoom-out').click();
+    await page.waitForFunction(max => Number(document.querySelector('[data-geo-draft-border] [data-geo-border]')?.getAttribute('stroke-width')) < max - 0.01, fullWidth);
+    await scale.uncheck();
+    assert.equal(Number(await draftWidth()), fullWidth);
+    await scale.check();
+    await page.waitForFunction(max => Number(document.querySelector('[data-geo-draft-border] [data-geo-border]')?.getAttribute('stroke-width')) < max - 0.01, fullWidth);
+    assert.equal(await page.locator('[data-demo]').getAttribute('data-mode'), 'draw-polygon');
+    assert.equal(await page.locator('[data-demo]').getAttribute('data-feature-count'), data);
+    console.log('✓ Zoom-scaled polygon borders and live appearance toggle preserve the active draft');
+
     for (const width of [320, 768]) {
       await page.setViewportSize({ width, height: 844 });
       for (const [slug, tool] of examples) {
