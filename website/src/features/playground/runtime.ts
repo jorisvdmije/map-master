@@ -33,6 +33,7 @@ export class PlaygroundRuntime {
   private snapshot!: Snapshot;
   private name = "Untitled project";
   private basemap: Settings["basemap"] = "streets";
+  private toolbarColumns: Settings["toolbarColumns"] = 2;
   private revision = 0;
   private configFingerprint = "";
   private suspended = false;
@@ -43,6 +44,7 @@ export class PlaygroundRuntime {
 
   constructor(readonly map: GLMap, private client: QueryClient, private notice: Notice) {
     const initial = emptyProject();
+    this.applyToolbarColumns();
     this.editor = new GeometryEditor(map, {
       dataLayers: { layers: initial.layers }, snapping: { enabled: true },
       appearance: { feature: { lineWidth: 2 }, selected: { fillColor: "#e6a446", fillOpacity: 0.27, lineColor: "#ad6819", lineWidth: 3 },
@@ -68,7 +70,7 @@ export class PlaygroundRuntime {
   }
   private settings(): Settings {
     return { basemap: this.basemap, snapping: this.editor.getSnapping().enabled, guides: this.editor.getAlignmentGuides().enabled,
-      measurements: this.editor.getMeasurements().enabled, scaleBorders: this.editor.getAppearance().polygonOutline.scaleWithZoom };
+      measurements: this.editor.getMeasurements().enabled, scaleBorders: this.editor.getAppearance().polygonOutline.scaleWithZoom, toolbarColumns: this.toolbarColumns };
   }
   private refresh(force = false) {
     if (this.suspended || this.disposed) return;
@@ -153,6 +155,8 @@ export class PlaygroundRuntime {
       this.editor.setAlignmentGuides({ enabled: project.settings.guides });
       this.editor.setMeasurements({ enabled: project.settings.measurements });
       this.editor.setAppearance({ polygonOutline: { scaleWithZoom: project.settings.scaleBorders } });
+      this.toolbarColumns = project.settings.toolbarColumns;
+      this.applyToolbarColumns();
       const changeStyle = this.basemap !== project.settings.basemap;
       this.basemap = project.settings.basemap;
       this.map.jumpTo({ center: project.camera.center, zoom: project.camera.zoom });
@@ -209,12 +213,17 @@ export class PlaygroundRuntime {
     return this.snapshot.state.mode === "idle" && !!layer?.visible && layer.editable && !layer.locked && !this.editor.isFeatureLocked(feature.id);
   }
   setSetting(key: keyof Settings, value: Settings[keyof Settings]) {
-    if (key === "basemap") { this.basemap = value as Settings["basemap"]; this.refresh(); void this.applyBasemap(); }
+    if (key === "toolbarColumns") {
+      if (value !== 1 && value !== 2) throw new Error("Toolbar columns must be 1 or 2.");
+      this.toolbarColumns = value; this.applyToolbarColumns(); this.refresh();
+    }
+    else if (key === "basemap") { this.basemap = value as Settings["basemap"]; this.refresh(); void this.applyBasemap(); }
     else if (key === "snapping") this.editor.setSnapping({ enabled: Boolean(value) });
     else if (key === "guides") this.editor.setAlignmentGuides({ enabled: Boolean(value) });
     else if (key === "measurements") this.editor.setMeasurements({ enabled: Boolean(value) });
     else this.editor.setAppearance({ polygonOutline: { scaleWithZoom: Boolean(value) } });
   }
+  private applyToolbarColumns() { this.map.getContainer().parentElement!.dataset.toolbarColumns = String(this.toolbarColumns); }
   private async applyBasemap() {
     const request = ++this.styleRequest;
     if (this.basemap === "blank") { this.map.setStyle(structuredClone(fallbackStyle)); return; }

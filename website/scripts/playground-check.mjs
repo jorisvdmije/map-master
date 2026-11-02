@@ -31,6 +31,23 @@ export async function checkPlayground({ context, origin, evidence, basePath = "/
   try {
     await page.goto(path, { waitUntil: "networkidle" }); await ready(); await count(0);
     assert.equal(await page.locator(".sidebar").count(), 0, "The playground has its own full-width shell");
+    const toolbarColumns = page.getByLabel("Toolbar columns", { exact: true });
+    const assertColumns = async columns => {
+      const point = await page.locator('.mm-toolbar-button[data-tool="point"]').boundingBox();
+      const text = await page.locator('.mm-toolbar-button[data-tool="text"]').boundingBox();
+      assert.ok(point && text);
+      if (columns === 2) { assert.equal(point.y, text.y); assert.ok(text.x > point.x); }
+      else { assert.equal(point.x, text.x); assert.ok(text.y > point.y); }
+    };
+    assert.equal(await toolbarColumns.inputValue(), "2"); await assertColumns(2);
+    const chrome = await page.locator(".pg-map .mm-toolbar").evaluate(toolbar => ({
+      background: getComputedStyle(toolbar).backgroundColor, shadow: getComputedStyle(toolbar).boxShadow,
+      border: getComputedStyle(toolbar).borderTopWidth,
+      scrollbar: getComputedStyle(toolbar.querySelector(".mm-toolbar-tools")).scrollbarWidth,
+    }));
+    assert.deepEqual(chrome, { background: "rgba(0, 0, 0, 0)", shadow: "none", border: "0px", scrollbar: "none" });
+    await toolbarColumns.selectOption("1"); await assertColumns(1);
+    await toolbarColumns.selectOption("2"); await assertColumns(2);
     await page.getByRole("button", { name: "Or explore the sample project" }).click(); await count(6);
     assert.equal(await layers(), 3);
     await page.getByLabel("Table scope", { exact: true }).selectOption("all");
@@ -124,16 +141,19 @@ export async function checkPlayground({ context, origin, evidence, basePath = "/
     await page.getByLabel("Search attributes", { exact: true }).fill("");
     await page.getByLabel("Basemap", { exact: true }).selectOption("blank");
     await page.getByLabel("Scale borders with zoom", { exact: true }).check();
+    await toolbarColumns.selectOption("1");
     await page.getByRole("button", { name: "Lock / unlock", exact: true }).click();
     await page.getByLabel("Project name", { exact: true }).fill("My survey project");
     await page.getByLabel("Project name", { exact: true }).press("Enter");
     const portable = await downloadProject();
     assert.equal(portable.name, "My survey project"); assert.deepEqual(portable.lockedFeatureIds, [7]);
     assert.equal(portable.settings.basemap, "blank"); assert.equal(portable.settings.scaleBorders, true);
+    assert.equal(portable.settings.toolbarColumns, 1);
     await saved(); await page.reload({ waitUntil: "networkidle" }); await ready(); await count(8); await saved();
     const restored = await downloadProject();
     assert.deepEqual(restored.data, portable.data); assert.deepEqual(restored.layers, portable.layers); assert.deepEqual(restored.lockedFeatureIds, [7]);
     assert.deepEqual(restored.settings, portable.settings); assert.deepEqual(restored.camera, portable.camera);
+    assert.equal(await toolbarColumns.inputValue(), "1"); await assertColumns(1);
 
     // Both open-project and empty-project drawing are covered independently of autosave.
     await page.getByRole("button", { name: "New project", exact: true }).click();
@@ -141,12 +161,25 @@ export async function checkPlayground({ context, origin, evidence, basePath = "/
     await page.locator('.mm-toolbar-button[data-tool="polygon"]').click();
     assert.equal(await page.locator(".pg-empty-card").count(), 0, "The empty state cannot intercept drawing");
     const canvas = page.locator(".pg-map canvas"); const box = await canvas.boundingBox();
-    for (const [x, y] of [[0.35, 0.48], [0.7, 0.48], [0.55, 0.75]]) await canvas.click({ position: { x: box.width * x, y: box.height * y } });
+    for (const [x, y] of [[0.35, 0.48], [0.7, 0.48]]) await canvas.click({ position: { x: box.width * x, y: box.height * y } });
+    await toolbarColumns.selectOption("1");
+    await toolbarColumns.selectOption("2");
+    assert.equal(await page.locator(".pg-workbench").getAttribute("data-mode"), "draw-polygon");
+    await canvas.click({ position: { x: box.width * 0.55, y: box.height * 0.75 } });
     await page.getByRole("button", { name: "Finish", exact: true }).click(); await count(1);
     await page.locator(".pg-ribbon").getByRole("button", { name: "Undo", exact: true }).click(); await count(0);
     await openProject(portable); await count(8);
     assert.deepEqual((await downloadProject()).data, portable.data);
     await saved();
+
+    const legacy = structuredClone(portable); delete legacy.settings.toolbarColumns;
+    await openProject(legacy);
+    await page.getByRole("dialog").getByRole("button", { name: "Open project", exact: true }).click();
+    assert.equal(await toolbarColumns.inputValue(), "2"); await assertColumns(2);
+    const invalidLayout = structuredClone(portable); invalidLayout.settings.toolbarColumns = 3;
+    await openProject(invalidLayout);
+    await page.getByRole("alert").filter({ hasText: /Toolbar columns must/ }).waitFor();
+    assert.equal(await toolbarColumns.inputValue(), "2"); await count(8); await saved();
 
     // A second tab reads without writing; an actual conflicting save is rejected.
     const second = await context.newPage(); second.on("dialog", dialog => dialog.accept());
@@ -179,6 +212,27 @@ export async function checkPlayground({ context, origin, evidence, basePath = "/
       const clippedControls = await page.evaluate(() => [...document.querySelectorAll(".pg-header button,.pg-header summary,.pg-ribbon button,.pg-table-controls")]
         .filter(node => node.checkVisibility()).filter(node => { const box = node.getBoundingClientRect(); return box.left < -1 || box.right > innerWidth + 1; }).map(node => node.getAttribute("aria-label") ?? node.textContent));
       assert.deepEqual(clippedControls, [], `Workspace controls remain reachable at ${width}`);
+      for (const columns of [1, 2]) {
+        await toolbarColumns.selectOption(String(columns));
+        const toggle = page.locator('.mm-toolbar-button[data-tool="toggle"]');
+        await toggle.focus(); await toggle.press("Home"); await assertColumns(columns);
+        await toggle.press("End");
+        assert.equal(await page.locator(".mm-toolbar-tools").evaluate(tools => {
+          const frame = tools.getBoundingClientRect(); const focused = document.activeElement.getBoundingClientRect();
+          return tools.contains(document.activeElement) && focused.top >= frame.top - 1 && focused.bottom <= frame.bottom + 1;
+        }), true, `The last tool stays keyboard-accessible at ${width}px in ${columns} columns`);
+        await page.keyboard.press("Home");
+      }
+      await page.locator('.mm-toolbar-button[data-tool="text"]').click();
+      for (const columns of [1, 2]) {
+        await toolbarColumns.selectOption(String(columns));
+        await page.waitForFunction(() => {
+          const map = document.querySelector(".pg-map").getBoundingClientRect();
+          const panel = document.querySelector(".mm-toolbar-actions").getBoundingClientRect();
+          return panel.left >= map.left && panel.right <= map.right && panel.top >= map.top && panel.bottom <= map.bottom;
+        });
+      }
+      await page.locator(".mm-toolbar-actions").getByRole("button", { name: "Cancel", exact: true }).click();
       await page.getByRole("button", { name: "Properties", exact: true }).click();
       await page.getByRole("complementary", { name: "Properties", exact: true }).waitFor({ state: "visible" });
       await page.getByRole("button", { name: "Close properties", exact: true }).click();

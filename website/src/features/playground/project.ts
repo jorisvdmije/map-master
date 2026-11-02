@@ -6,7 +6,7 @@ export const maxFileBytes = 10 * 1024 * 1024;
 const maxProjectBytes = 50 * 1024 * 1024;
 export const maxFeatures = 20_000;
 export const palette = ["#23836d", "#c77837", "#5278bd", "#9861a9", "#be626d", "#789443"];
-export type Settings = { basemap: "streets" | "blank"; snapping: boolean; guides: boolean; measurements: boolean; scaleBorders: boolean };
+export type Settings = { basemap: "streets" | "blank"; snapping: boolean; guides: boolean; measurements: boolean; scaleBorders: boolean; toolbarColumns: 1 | 2 };
 export interface Project {
   format: typeof projectFormat;
   version: 1;
@@ -32,7 +32,7 @@ export function emptyProject(): Project {
     format: projectFormat, version: 1, name: "Untitled project",
     data: { type: "FeatureCollection", features: [] }, layers: [newLayer("default", "My first layer")],
     activeLayerId: "default", lockedFeatureIds: [], camera: { center: [4.895, 52.372], zoom: 13 },
-    settings: { basemap: "streets", snapping: true, guides: false, measurements: false, scaleBorders: false },
+    settings: { basemap: "streets", snapping: true, guides: false, measurements: false, scaleBorders: false, toolbarColumns: 2 },
   };
 }
 
@@ -106,7 +106,11 @@ export function parseProject(value: unknown): Project {
   if (value.activeLayerId !== null && (typeof value.activeLayerId !== "string" || !(value.layers as DataLayer[]).some(layer => layer.id === value.activeLayerId && layer.visible && layer.editable && !layer.locked))) throw new Error("The active layer must be visible and editable.");
   if (!record(value.camera) || !Array.isArray(value.camera.center) || value.camera.center.length !== 2 || !number(value.camera.center[0], -180, 180) || !number(value.camera.center[1], -85.05112878, 85.05112878) || !number(value.camera.zoom, -2, 22)) throw new Error("The project has an invalid map position.");
   if (!record(value.settings) || !["streets", "blank"].includes(String(value.settings.basemap)) || ["snapping", "guides", "measurements", "scaleBorders"].some(key => typeof (value.settings as Record<string, unknown>)[key] !== "boolean")) throw new Error("The project has invalid map settings.");
-  return structuredClone(value) as unknown as Project;
+  if (value.settings.toolbarColumns !== undefined && value.settings.toolbarColumns !== 1 && value.settings.toolbarColumns !== 2) throw new Error("Toolbar columns must be 1 or 2.");
+  const project = structuredClone(value) as unknown as Project;
+  // Projects saved before the layout option use the new default.
+  project.settings.toolbarColumns ??= 2;
+  return project;
 }
 
 export async function readFile(file: File, project = false): Promise<unknown> {

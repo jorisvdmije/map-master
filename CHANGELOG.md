@@ -6,6 +6,13 @@ follows [semantic versioning](https://semver.org/); see the
 
 ## Unreleased
 
+### Changed
+
+- Make the playground toolbar default to two columns, with a saved one/two-column
+  choice in the workspace bar. Remove the surrounding toolbar background and
+  visible scrollbar while preserving tool groups, keyboard/wheel access on short
+  maps, active edits and bounded action panels. Older project files keep loading.
+
 ### Added
 
 - Add a browser-local geodata playground at `/playground/`: GeoJSON imports into

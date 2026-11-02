@@ -28,7 +28,12 @@ default layer can be renamed but cannot be removed. Other layers can be removed
 when empty; first move or delete their features.
 
 The map toolbar contains the editor's drawing, geometry, multipart, text, template,
-selection and editing tools. Scroll the toolbar to reach more tools. Tool-specific
+selection and editing tools. It defaults to two columns; **Tool columns** in the
+workspace bar switches between one and two columns. The choice is saved with the
+project, including local restore. Older project files use the two-column default.
+The tools float in separate groups without a surrounding background or visible
+scrollbar. On short maps, wheel/touch scrolling and the toolbar's arrow/Home/End
+keys still reach every tool. Tool-specific
 panels provide Apply/Finish and Cancel. Selection, snapping, locks, topology
 validation and the editor's keyboard commands apply throughout the workspace.
 Geofencing requires application-defined areas; the playground does not yet expose
