@@ -51,7 +51,7 @@ requires the code, published package and live documentation to agree:
 | Multipart | Remove and split individual parts of multipart features. |
 | Geometry tools | Trim and extend lines to other geometry; split lines and multipart features, and cut through holes. |
 | Integrations | Thin wrapper packages for UI frameworks, beyond the [framework examples](frameworks.md). |
-| Map libraries | Broader Mapbox qualification: hosted styles, Standard slots, CSP/ESM builds, other browsers and performance budgets. |
+| Map libraries | Broader Mapbox qualification: authenticated rendering and pixel checks (tokenless testMode has no visual output), hosted styles, Standard slots, CSP/ESM builds, other browsers and performance budgets. |
 | Scale | Incremental rendering updates instead of full source uploads for large datasets. |
 
 ## Principles
