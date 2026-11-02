@@ -6,6 +6,13 @@ follows [semantic versioning](https://semver.org/); see the
 
 ## Unreleased
 
+### Fixed
+
+- Preserve imported attribute keys exactly when editing or deleting playground
+  fields, preventing names with surrounding spaces from overwriting other fields.
+- Enforce the playground's 20,000-feature cap across all creation paths before
+  committing, keeping autosaved and downloaded projects readable at the limit.
+
 ### Changed
 
 - Make the playground toolbar default to two columns, with a saved one/two-column
@@ -15,6 +22,8 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Added
 
+- Add optional editor `maxFeatures` and `canCreateFeatures(count)` capacity checks,
+  with atomic enforcement for imports, transactions and multi-feature tools.
 - Add a browser-local geodata playground at `/playground/`: GeoJSON imports into
   separate layers, the complete editing toolbar, linked and searchable attribute
   tables, typed attribute editing, layer and feature styles, locks, scoped GeoJSON

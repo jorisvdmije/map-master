@@ -146,6 +146,7 @@ restore data, see [saving and loading](persistence.md).
 | Member | Contract |
 | --- | --- |
 | `new GeometryEditor(map, options?)` | Attach after `style.load` or `load`. One editor per map. `historyLimit` defaults to 100; `snapping.enabled` defaults to false. `createId` replaces `crypto.randomUUID()` for new IDs; it must return a string or finite number, and IDs in use are skipped. `measurements` configures [live measurements](measurements.md). |
+| `canCreateFeatures(count = 1)` | Whether the additional feature count fits within constructor `maxFeatures`, independent of locks and layer policy. The count must be a nonnegative safe integer. |
 | `getLockedFeatureIds()` / `setLockedFeatureIds(ids)` / `isFeatureLocked(id)` | Read/replace the host-owned set of read-only IDs; also constructor `lockedFeatureIds`. Locked targets reject mutations, block applicable history and remain snap references. See [feature locks](feature-locks.md). |
 | `getAppearance()` / `setAppearance(patch)` | Read an independent complete appearance / atomically patch presentation fields. Also available as constructor `appearance`. Live updates survive style reloads without changing geometry, drafts or history. See [appearance](appearance.md). |
 | `getShapeTemplates()` / `setShapeTemplates(definitions)` | Read or replace the validated template library; defaults to an arrow and a star. |
@@ -964,6 +965,18 @@ only changed feature versions, sharing internal immutable versions where possibl
 there is no full-dataset snapshot per action. Restoring a middle deletion rebuilds
 Map order without copying unrelated geometries. The renderer still uploads the
 full collection after replay.
+
+Constructor `maxFeatures` optionally caps the committed feature count. It must be
+a nonnegative safe integer; 0 prevents creation, and omission leaves the editor
+uncapped. The cap covers every creation path, including imports, duplication,
+template groups, splits and separating multipart features. Mixed transactions
+check the resulting count after both creations and deletions. An oversized import
+or transaction throws `RangeError` before changing data, selection, revision or
+history. Drawing/template/split previews that would exceed the cap have
+`canFinish: false` and `validationError: 'feature-limit'` and remain cancellable.
+Toolbar and shortcut availability respect the available capacity. Editing and
+deletion remain available at capacity, and ordinary Undo/Redo restores the exact
+previous states. `canCreateFeatures(count)` lets host controls check a whole batch.
 
 `clearHistory()` releases both stacks, emits `onChange` only if history existed,
 and preserves data, revision, and selection. Style changes preserve history.

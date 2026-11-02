@@ -73,7 +73,7 @@ export interface GeometryFeatureCollection {
 /** Why a drawn or edited geometry cannot be committed. */
 export type ValidationError = 'too-few-vertices' | 'duplicate-vertex'
   | 'zero-area' | 'self-intersection' | 'antimeridian-crossing'
-  | 'ring-intersection' | 'hole-outside' | 'nested-holes' | 'part-intersection' | 'part-overlap';
+  | 'ring-intersection' | 'hole-outside' | 'nested-holes' | 'part-intersection' | 'part-overlap' | 'feature-limit';
 
 /** Map feedback for placed split/reshape points, never the hover cursor.
  * Empty problem arrays mean the failure has no reliably localized cause. */
@@ -209,6 +209,8 @@ export interface EditorOptions {
   drawingConstraints?: Partial<DrawingConstraintsOptions>;
   /** Maximum retained actions, default 100; 0 disables history. Not a byte limit. */
   historyLimit?: number;
+  /** Maximum committed feature count, including batches. Nonnegative safe integer; omitted means no cap, 0 prevents creation. */
+  maxFeatures?: number;
   /** Drawing and vertex-drag snapping is opt-in; vertices/edges default true, distance defaults to 10. */
   snapping?: Partial<SnappingOptions>;
   /** Opt-in boundary tracing while drawing; uses ordinary snapping acquisition. */

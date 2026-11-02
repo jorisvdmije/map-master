@@ -7,7 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, Check, ChevronRight, Columns2, Download, FileJson2, FolderOpen, Layers, LocateFixed, MapPinned, MousePointer2, Plus, Redo2, SlidersHorizontal, Undo2, Upload, X } from "lucide-react";
 import { assetPath } from "@/lib/paths";
 import { AttributeTable, Dialog, Inspector, LayersPanel, PropertyDialog, type EditField, type Run } from "./panels";
-import { download, emptyProject, filename, layerId, parseProject, projectFormat, readFile, sampleProject, type Project } from "./project";
+import { download, emptyProject, filename, layerId, maxFeatures, parseProject, projectFormat, readFile, sampleProject, type Project } from "./project";
 import type { PlaygroundRuntime } from "./runtime";
 import type { ProjectStorage } from "./storage";
 import "./playground.css";
@@ -246,7 +246,7 @@ function Workbench({ session, version, message, notify, dismiss }: { session: Se
     </div>
     <Inspector snapshot={snapshot} runtime={runtime} layer={layer} run={run} edit={edit} close={() => setDrawer(null)} />
     <AttributeTable snapshot={snapshot} runtime={runtime} focused={layer.id} run={run} edit={edit} />
-    <footer className="pg-statusbar"><span><span className="pg-status-dot" />{busy ? "Reading your file…" : `${state.featureCount.toLocaleString()} features`}{state.selectedFeatureIds.length > 0 && ` · ${state.selectedFeatureIds.length} selected`}</span><span className="pg-status-coordinates">{project.camera.center[1].toFixed(5)}° N, {project.camera.center[0].toFixed(5)}° E</span><span>WGS84 <span className="pg-status-version">· Map Master {version}</span></span></footer>
+    <footer className="pg-statusbar"><span title={state.featureCount >= maxFeatures ? "Project limit reached. Delete features before adding more." : undefined}><span className="pg-status-dot" />{busy ? "Reading your file…" : `${state.featureCount.toLocaleString()} features`}{state.selectedFeatureIds.length > 0 && ` · ${state.selectedFeatureIds.length} selected`}{state.featureCount >= maxFeatures && " · limit reached"}</span><span className="pg-status-coordinates">{project.camera.center[1].toFixed(5)}° N, {project.camera.center[0].toFixed(5)}° E</span><span>WGS84 <span className="pg-status-version">· Map Master {version}</span></span></footer>
     {message && <div className={`pg-notice${message.error ? " pg-notice-error" : ""}`} role={message.error ? "alert" : "status"}><span>{message.text}</span><button className="pg-icon-button" aria-label="Dismiss message" onClick={dismiss}><X size={15} /></button></div>}
     {storageError && <span className="sr-only" role="status">{storageError}</span>}
     {dragging && <div className="pg-drop-overlay"><div><Upload size={36} /><h2>Drop your data here</h2><p>GeoJSON up to 10 MB per file · one Map Master project up to 50 MB</p></div></div>}
