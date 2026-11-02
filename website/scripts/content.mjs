@@ -29,6 +29,9 @@ const guides = [];
 const search = [{
   title: "Overview", href: "/", description: "Map Master, an open-source geometry editor for MapLibre and Mapbox.",
   text: "drawing polygons lines markers TypeScript GeoJSON snapping undo MapLibre Mapbox",
+}, {
+  title: "Geodata playground", href: "/playground/", description: "Import and edit your own GeoJSON, manage layers and attributes, style features and export projects.",
+  text: "playground workspace import export GeoJSON data layers attribute table project save local browser editor",
 }];
 try {
   for (const page of pages) {

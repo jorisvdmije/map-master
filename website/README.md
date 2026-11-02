@@ -2,7 +2,7 @@
 
 The complete documentation website is a Next.js App Router application with
 React 19, TypeScript and TanStack React Query. It exports static HTML and React
-Server Component payloads for all 59 pages, including 42 live map examples.
+Server Component payloads for the documentation and playground, including 42 live map examples.
 The library itself remains independent of the website's framework dependencies.
 
 ## Architecture
@@ -22,6 +22,11 @@ The library itself remains independent of the website's framework dependencies.
   and cached basemap query. MapLibre and the geometry editor are dynamically
   imported when a map approaches the viewport. Leaving the page aborts its
   lifecycle and releases the map, editor, controls and WebGL resources.
+- `src/features/playground/`: full-page geodata workbench at `/playground/`, a
+  public-API map/editor boundary, typed project envelopes, IndexedDB revision
+  checks, layer/style/attribute panels and scoped downloads. Geometry changes
+  stay in the editor; project settings and persistence belong to this app. See
+  [the playground guide](../docs/playground.md) for file formats and limits.
 - `src/content/`: shared navigation, gallery, hints and content types.
 - `src/lib/`: server-only content access, routes/public assets, responsive state
   and QueryClient configuration. `src/providers/` owns the stable browser client;

@@ -17,7 +17,8 @@ export default async function HomePage() {
         <h1>Your map.<br />Ready to <em>edit.</em></h1>
         <p>Draw, reshape and manage geometry with a TypeScript API. Built-in snapping, validation and Undo keep every edit under control.</p>
         <div className="hero-buttons">
-          <Link className="button" href={guidePath("quickstart")} prefetch={false}>Start building <span>→</span></Link>
+          <Link className="button" href="/playground/" prefetch={false}>Open playground <span>↗</span></Link>
+          <Link className="text-button" href={guidePath("quickstart")} prefetch={false}>Start building →</Link>
           <Link className="text-button" href={guidePath("examples")} prefetch={false}>Explore {gallery.length} examples ↗</Link>
         </div>
         <InteractiveCode id="docs-install"><InstallCommands /></InteractiveCode>

@@ -6,6 +6,15 @@ follows [semantic versioning](https://semver.org/); see the
 
 ## Unreleased
 
+### Added
+
+- Add a browser-local geodata playground at `/playground/`: GeoJSON imports into
+  separate layers, the complete editing toolbar, linked and searchable attribute
+  tables, typed attribute editing, layer and feature styles, locks, scoped GeoJSON
+  exports and portable project files. Includes IndexedDB autosave/recovery,
+  transactional protection against conflicting tabs, a sample project, responsive
+  panels and end-to-end browser checks.
+
 ## 0.2.0 — 2026-11-02
 
 First regular npm release, including the prepared 0.1.0 changes below.

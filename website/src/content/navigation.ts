@@ -5,6 +5,7 @@ export const groups = [
       ["index", "Overview"],
       ["quickstart", "Quickstart"],
       ["examples", "Interactive examples"],
+      ["playground", "Playground guide"],
       ["frameworks", "Framework integrations"],
       ["mapbox", "Mapbox GL JS"],
       ["troubleshooting", "Troubleshooting"],

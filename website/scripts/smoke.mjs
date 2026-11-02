@@ -19,6 +19,8 @@ import { createStaticServer } from "./lib/static-server.mjs";
 import { checkNavigation } from "./navigation-check.mjs";
 import { checkRegressions } from "./regression-check.mjs";
 import { checkControlLayout } from "./layout-check.mjs";
+import { checkPlayground } from "./playground-check.mjs";
+import { checkPlaygroundStorage } from "./playground-storage-check.mjs";
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repo = resolve(site, "..");
@@ -28,7 +30,7 @@ mkdirSync(evidence, { recursive: true });
 const { guides } = JSON.parse(readFileSync(resolve(site, ".generated/manifest.json"), "utf8"));
 const { basePath } = JSON.parse(readFileSync(resolve(dist, ".build-info.json"), "utf8"));
 assert.equal(basePath, "/map-master", "Run npm run check to test the deployment base path");
-const htmlFiles = [resolve(dist, "index.html"), ...guides.map(g => resolve(dist, "guides", g.slug, "index.html"))];
+const htmlFiles = [resolve(dist, "index.html"), resolve(dist, "playground", "index.html"), ...guides.map(g => resolve(dist, "guides", g.slug, "index.html"))];
 // Verify real exported pages, public assets and fragments under the deployment base path.
 for (const file of htmlFiles) {
   for (const match of readFileSync(file, "utf8").replace(/<link\b[^>]*rel="(?:preconnect|dns-prefetch)"[^>]*>/g, "").matchAll(/(?:href|src)="([^"\s]+)"/g)) {
@@ -199,6 +201,8 @@ try {
   await checkNavigation({ page, context, browser, origin });
   await checkRegressions({ context, browser, origin, site });
   await checkControlLayout({ context, origin, evidence });
+  await checkPlayground({ context, origin, evidence });
+  await checkPlaygroundStorage({ browser, origin });
 
   await open("guides/draw.html");
   await ready();
@@ -698,6 +702,7 @@ try {
           "malformed-offline-search-clipboard-and-map-recovery",
           "mobile-focus-and-no-javascript-navigation",
           "embedded-map-toolbar-and-action-panel-containment",
+          "playground-import-edit-style-project-recovery-and-export",
         ],
         errorCount: errors.length,
       },
