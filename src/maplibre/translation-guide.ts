@@ -23,7 +23,7 @@ export class TranslationGuide {
     this.dot.dataset.geoTranslationAnchor = ''; this.dot.setAttribute('stroke-width', '2');
     svg.append(this.line, this.dot);
     this.label = doc.createElement('span'); this.label.dataset.geoTranslationLabel = '';
-    this.label.style.cssText = 'position:absolute;padding:3px 7px;border-radius:5px;background:#1e293b;color:#fff;font:12px/18px system-ui;white-space:nowrap;';
+    this.label.style.cssText = 'position:absolute;box-sizing:border-box;max-width:calc(100% - 8px);max-height:calc(100% - 8px);overflow:hidden;padding:3px 7px;border-radius:5px;background:#1e293b;color:#fff;font:12px/18px system-ui;white-space:normal;overflow-wrap:anywhere;';
     this.root.append(svg, this.label);
   }
 
@@ -52,8 +52,8 @@ export class TranslationGuide {
     this.label.style.backgroundColor = valid ? '#1e293b' : '#b91c1c';
     if (!this.root.isConnected) this.map.getCanvasContainer().append(this.root);
     const canvas = this.map.getCanvas();
-    this.label.style.left = `${Math.max(0, Math.min(canvas.clientWidth - this.label.offsetWidth, pointer.x + 18))}px`;
-    this.label.style.top = `${Math.max(0, Math.min(canvas.clientHeight - this.label.offsetHeight, pointer.y + 18))}px`;
+    this.label.style.left = `${Math.max(4, Math.min(canvas.clientWidth - this.label.offsetWidth - 4, pointer.x + 18))}px`;
+    this.label.style.top = `${Math.max(4, Math.min(canvas.clientHeight - this.label.offsetHeight - 4, pointer.y + 18))}px`;
   }
 
   clear(): void { this.root.remove(); }

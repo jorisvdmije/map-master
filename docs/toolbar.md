@@ -8,6 +8,13 @@ changes. Binding a tool does not require showing its toolbar button.
 the geometry tools, drawing aids, measurements and Undo/Redo. Add it to the map and users can
 work with the whole editor without any UI code of your own.
 
+The tool list scrolls within the map when its buttons exceed the canvas height.
+Arrow keys, Home and End keep the focused button visible. Action panels, warnings
+and tooltips fit inside the canvas at each control corner; narrow panels wrap their
+fields and scroll when necessary. Resizing the map retains typed values and focus.
+This sizing belongs to the control, so embedded maps and the Mapbox entry point
+receive the same behavior without website-specific CSS.
+
 ```ts
 import { EditorToolbar, GeometryEditor } from '@jorisvdmije/map-master';
 

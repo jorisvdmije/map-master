@@ -43,19 +43,40 @@ afterEach(async () => {
   vi.restoreAllMocks(); editor.destroy(); map.remove(); container.remove();
 });
 
+it.each(['vertex', 'edge'] as const)('releases a dragged %s after 10 pixels and follows the free pointer again', async kind => {
+  const original = setup();
+  const y = kind === 'vertex' ? 100 : 200;
+  await commands.vertexPointer('down', 400, 150);
+  await commands.vertexPointer('move', 317, y);
+  await expect.poll(() => editor.getDraft()[0]).toEqual(coordinate(317, y));
+  expect(editor.getSnap()).toBeNull();
+  for (let pass = 0; pass < 2; pass++) {
+    await commands.vertexPointer('move', 309, y);
+    await expect.poll(() => editor.getSnap()).toMatchObject({ kind, featureId: '0' });
+    await commands.vertexPointer('move', 311, y);
+    await expect.poll(() => editor.getSnap()).toBeNull();
+    expect(editor.getDraft()[0]).toEqual(coordinate(311, y));
+  }
+  await commands.vertexPointer('up', 311, y);
+  editor.finish();
+  const saved = editor.exportGeoJSON().features[0]!.geometry;
+  expect(saved.type === 'LineString' && saved.coordinates[0]).toEqual(coordinate(311, y));
+  expect(editor.exportGeoJSON().features[1]).toEqual(original[1]);
+});
+
 it.each([false, true])('snaps an edited vertex (polygon=%s), saves once, and replays exact geometry/properties', async (polygon) => {
   const original = setup(polygon);
   const update = vi.fn(); editor.onUpdate(update);
   const upload = vi.spyOn(source('-features'), 'setData');
   const center = map.getCenter().toArray();
   await commands.vertexPointer('down', 400, 150);
-  await commands.vertexPointer('move', 308, 106);
+  await commands.vertexPointer('move', 307, 106);
   await expect.poll(() => editor.getSnap()).toMatchObject({ kind: 'vertex', featureId: '0', coordinate: coordinate(300, 100) });
   await expect.poll(() => editor.getDraft()).toContainEqual(coordinate(300, 100));
   await expect.poll(async () => JSON.stringify(await source('-draft').getData())).toContain('"kind":"snap"');
   expect(editor.exportGeoJSON().features).toEqual(original); expect(upload).not.toHaveBeenCalled();
   expect(map.getCenter().toArray()).toEqual(center); expect(map.dragPan.isEnabled()).toBe(false);
-  await commands.vertexPointer('up', 308, 106);
+  await commands.vertexPointer('up', 307, 106);
   expect(editor.getSnap()).toBeNull(); expect(map.dragPan.isEnabled()).toBe(true);
   const saved = editor.finish(); expect(saved?.id).toBe(0); expect(saved?.properties).toEqual(original[0]!.properties);
   expect(upload).toHaveBeenCalledOnce(); expect(update).toHaveBeenCalledExactlyOnceWith(saved);
@@ -90,22 +111,22 @@ it('recalculates a stationary drag for Alt and live option changes, and permits 
   setup();
   await userEvent.keyboard('{Alt>}');
   await commands.vertexPointer('down', 400, 150);
-  await commands.vertexPointer('move', 308, 106);
-  await expect.poll(() => editor.getDraft()[0]).toEqual(coordinate(308, 106));
+  await commands.vertexPointer('move', 307, 106);
+  await expect.poll(() => editor.getDraft()[0]).toEqual(coordinate(307, 106));
   expect(editor.getSnap()).toBeNull();
   await userEvent.keyboard('{/Alt}');
   await expect.poll(() => editor.getSnap()?.kind).toBe('vertex');
   await expect.poll(() => editor.getDraft()[0]).toEqual(coordinate(300, 100));
   await userEvent.keyboard('{Alt>}');
   await expect.poll(() => editor.getSnap()).toBeNull();
-  await expect.poll(() => editor.getDraft()[0]).toEqual(coordinate(308, 106));
+  await expect.poll(() => editor.getDraft()[0]).toEqual(coordinate(307, 106));
   await userEvent.keyboard('{/Alt}');
   await expect.poll(() => editor.getSnap()?.kind).toBe('vertex');
   editor.setSnapping({ vertices: false });
   await expect.poll(() => editor.getSnap()?.kind).toBe('edge');
   editor.setSnapping({ enabled: false });
   await expect.poll(() => editor.getSnap()).toBeNull();
-  await expect.poll(() => editor.getDraft()[0]).toEqual(coordinate(308, 106));
+  await expect.poll(() => editor.getDraft()[0]).toEqual(coordinate(307, 106));
   editor.setSnapping({ enabled: true, vertices: true });
   await expect.poll(() => editor.getSnap()?.kind).toBe('vertex');
   await commands.vertexPointer('up', 208, 108);
@@ -119,7 +140,7 @@ it.each(['blur', 'pointercancel', 'lostpointercapture', 'style', 'cancel', 'dest
   let pointerId = -1;
   map.getCanvas().addEventListener('pointerdown', (event) => { pointerId = event.pointerId; }, { once: true });
   await commands.vertexPointer('down', 500, 150);
-  await commands.vertexPointer('move', 308, 106);
+  await commands.vertexPointer('move', 307, 106);
   await expect.poll(() => editor.getSnap()?.kind).toBe('vertex');
   if (reason === 'blur') window.dispatchEvent(new Event('blur'));
   if (reason === 'pointercancel' || reason === 'lostpointercapture') map.getCanvas().dispatchEvent(new PointerEvent(reason, { pointerId }));
@@ -132,7 +153,7 @@ it.each(['blur', 'pointercancel', 'lostpointercapture', 'style', 'cancel', 'dest
   expect(editor.getSnap()).toBeNull(); expect(map.dragPan.isEnabled()).toBe(false);
   expect(editor.exportGeoJSON().features).toEqual(original);
   expect(editor.getDraft()).toEqual(reason === 'cancel' || reason === 'destroy' ? [] : draft);
-  await commands.vertexPointer('up', 308, 106);
+  await commands.vertexPointer('up', 307, 106);
   expect(editor.getState().canUndo).toBe(false);
 });
 
@@ -140,7 +161,7 @@ it('keeps invalid snapped polygons editable and cancellation preserves redo', as
   setup(true); editor.cancel();
   editor.applyTransaction({ create: [{ type: 'Feature', id: 'extra', properties: {}, geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] } }] });
   editor.undo(); const original = editor.exportGeoJSON(); editor.editSelected();
-  await drag(600, 350, 108, 306);
+  await drag(600, 350, 107, 306);
   expect(editor.getDraft()).toContainEqual(coordinate(100, 300));
   expect(editor.getState()).toMatchObject({ canFinish: false, validationError: 'self-intersection' });
   expect(editor.finish()).toBeNull(); expect(editor.getState().mode).toBe('edit-polygon');
@@ -157,29 +178,29 @@ it.each([6, 17])('refreshes a captured drag after camera changes at zoom %s with
   } }] });
   editor.editSelected();
   editor.setSnapping({ edges: false });
-  await commands.vertexPointer('down', 400, 150); await commands.vertexPointer('move', 308, 106);
+  await commands.vertexPointer('down', 400, 150); await commands.vertexPointer('move', 307, 106);
   await expect.poll(() => editor.getSnap()?.coordinate).toEqual(target);
   map.jumpTo({ center: target, zoom, bearing: 30, pitch: 40 });
   await expect.poll(() => editor.getSnap()).toBeNull();
-  await commands.vertexPointer('move', 365, 225);
+  await commands.vertexPointer('move', 359, 225);
   await expect.poll(() => editor.getSnap()?.coordinate).toEqual(target);
   await expect.poll(() => editor.getDraft()[0]).toEqual(target);
-  await commands.vertexPointer('move', 370, 225);
+  await commands.vertexPointer('move', 361, 225);
   await expect.poll(() => editor.getSnap()).toBeNull();
   editor.cancel();
 });
 
 it('reuses targets while dragging and excludes the next selected feature without a revision change', async () => {
   setup();
-  await commands.vertexPointer('down', 400, 150); await commands.vertexPointer('move', 308, 106);
+  await commands.vertexPointer('down', 400, 150); await commands.vertexPointer('move', 307, 106);
   await expect.poll(() => editor.getSnap()?.featureId).toBe('0');
   const project = vi.spyOn(map, 'project');
-  await commands.vertexPointer('move', 309, 106);
+  await commands.vertexPointer('move', 308, 105);
   // Rendering projects draft handles; saved target vertices must not be reprojected.
-  await expect.poll(() => editor.getSnap()?.distance).toBeCloseTo(Math.hypot(9, 6), 5);
+  await expect.poll(() => editor.getSnap()?.distance).toBeCloseTo(Math.hypot(8, 5), 5);
   expect(project.mock.calls.some(([point]) => Array.isArray(point) && point[0] === coordinate(100, 300)[0] && point[1] === coordinate(100, 300)[1])).toBe(false);
   editor.cancel(); editor.select('0'); editor.editSelected();
-  await commands.vertexPointer('up', 309, 106);
+  await commands.vertexPointer('up', 308, 105);
   await drag(300, 100, 407, 155);
   expect(editor.getDraft()).toContainEqual(coordinate(400, 150));
 });
@@ -187,7 +208,7 @@ it('reuses targets while dragging and excludes the next selected feature without
 it('allows snap observers to cancel an active gesture without a late move or stale indicator', async () => {
   const original = setup(); const observed = vi.fn<(snap: SnapResult | null) => void>();
   editor.onSnap(observed); editor.onSnap((snap) => { if (snap) editor.cancel(); });
-  await drag(400, 150, 308, 106);
+  await drag(400, 150, 307, 106);
   expect(observed).toHaveBeenCalled(); expect(editor.getState().mode).toBe('idle');
   expect(editor.getSnap()).toBeNull(); expect(editor.exportGeoJSON().features).toEqual(original);
   expect(map.dragPan.isEnabled()).toBe(true);
@@ -207,7 +228,7 @@ it('uploads a coalesced pointer edit in its movement frame without a second prev
     // still have no upload here, even if it eventually rendered correctly.
     observed.push(upload.mock.calls.at(-1)?.[0]);
   });
-  await commands.vertexPointer('move', 308, 106);
+  await commands.vertexPointer('move', 307, 106);
   await expect.poll(() => observed.length).toBe(1);
   const uploaded = observed[0] as GeoJSON.FeatureCollection | undefined;
   expect(uploaded?.type).toBe('FeatureCollection');

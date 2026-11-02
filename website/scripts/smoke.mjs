@@ -10,50 +10,40 @@ import {
   symlinkSync,
   copyFileSync,
 } from "node:fs";
-import { dirname, resolve, extname, relative } from "node:path";
+import { dirname, resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { chromium } from "playwright";
-import { createServer as createViteServer } from "vite";
+import { createStaticServer } from "./lib/static-server.mjs";
+import { checkNavigation } from "./navigation-check.mjs";
+import { checkRegressions } from "./regression-check.mjs";
+import { checkControlLayout } from "./layout-check.mjs";
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repo = resolve(site, "..");
 const dist = resolve(site, "dist");
 const evidence = resolve(site, "../artifacts/documentation");
 mkdirSync(evidence, { recursive: true });
-const htmlFiles = [
-  resolve(dist, "index.html"),
-  ...readdirSync(resolve(dist, "guides"))
-    .filter((f) => f.endsWith(".html"))
-    .map((f) => resolve(dist, "guides", f)),
-];
-// Verify every generated local page/asset link and fragment, including subdirectory routes.
+const { guides } = JSON.parse(readFileSync(resolve(site, ".generated/manifest.json"), "utf8"));
+const { basePath } = JSON.parse(readFileSync(resolve(dist, ".build-info.json"), "utf8"));
+assert.equal(basePath, "/map-master", "Run npm run check to test the deployment base path");
+const htmlFiles = [resolve(dist, "index.html"), ...guides.map(g => resolve(dist, "guides", g.slug, "index.html"))];
+// Verify real exported pages, public assets and fragments under the deployment base path.
 for (const file of htmlFiles) {
-  const html = readFileSync(file, "utf8");
-  for (const match of html.matchAll(/(?:href|src)="([^"\s]+)"/g)) {
+  for (const match of readFileSync(file, "utf8").replace(/<link\b[^>]*rel="(?:preconnect|dns-prefetch)"[^>]*>/g, "").matchAll(/(?:href|src)="([^"\s]+)"/g)) {
     const href = match[1].replaceAll("&amp;", "&");
     if (/^(https?:|mailto:|data:)/.test(href)) continue;
     const [pathname, hash] = href.split("#");
-    const target = pathname
-      ? resolve(dirname(file), pathname.split("?")[0])
-      : file;
-    assert.ok(
-      existsSync(target),
-      `Broken link in ${relative(dist, file)}: ${href}`,
-    );
-    if (hash && target.endsWith(".html"))
-      assert.ok(
-        readFileSync(target, "utf8").includes(
-          `id="${decodeURIComponent(hash)}"`,
-        ),
-        `Missing anchor in ${relative(dist, file)}: ${href}`,
-      );
+    let target = !pathname ? file : pathname.startsWith("/")
+      ? resolve(dist, pathname.replace(/^\/map-master\//, "").split("?")[0])
+      : resolve(dirname(file), pathname.split("?")[0]);
+    if (pathname.endsWith("/")) target = resolve(target, "index.html");
+    assert.ok(existsSync(target), `Broken link in ${relative(dist, file)}: ${href}`);
+    if (hash && target.endsWith(".html")) assert.ok(readFileSync(target, "utf8").includes(`id="${decodeURIComponent(hash)}"`), `Missing anchor in ${relative(dist, file)}: ${href}`);
   }
 }
-console.log(
-  `✓ ${htmlFiles.length} generated pages: local links and section anchors`,
-);
+console.log(`✓ ${htmlFiles.length} exported Next.js pages: local links and section anchors`);
 
 // Compile and build the exact files printed in the quickstart, rather than a separate fixture.
 const quickstart = mkdtempSync(resolve(tmpdir(), "map-master-quickstart-"));
@@ -107,39 +97,10 @@ execFileSync(
 );
 console.log("✓ Quickstart: displayed TypeScript, HTML and CSS build together");
 
-const mime = {
-  ".html": "text/html",
-  ".js": "text/javascript",
-  ".mjs": "text/javascript",
-  ".css": "text/css",
-  ".json": "application/json",
-  ".svg": "image/svg+xml",
-  ".woff2": "font/woff2",
-};
+const docsServer = createStaticServer({ directory: dist, basePath });
+const quickServer = createStaticServer({ directory: resolve(quickstart, "dist"), basePath: "/quickstart" });
 const server = createServer((request, response) => {
-  const url = new URL(request.url, "http://localhost");
-  const prefix = url.pathname.startsWith("/quickstart/")
-    ? "/quickstart/"
-    : "/map-master/";
-  const directory =
-    prefix === "/quickstart/" ? resolve(quickstart, "dist") : dist;
-  const name =
-    decodeURIComponent(url.pathname.slice(prefix.length)) || "index.html";
-  const file = resolve(directory, name);
-  if (
-    !url.pathname.startsWith(prefix) ||
-    !file.startsWith(`${directory}/`) ||
-    !existsSync(file)
-  ) {
-    response.writeHead(404);
-    response.end("Not found");
-    return;
-  }
-  response.setHeader(
-    "Content-Type",
-    mime[extname(file)] ?? "application/octet-stream",
-  );
-  response.end(readFileSync(file));
+  (request.url.startsWith("/quickstart/") ? quickServer : docsServer).emit("request", request, response);
 });
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -172,12 +133,14 @@ page.on("request", (request) => {
   }
 });
 page.on("pageerror", (error) => errors.push(error.message));
+page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
 page.on("response", (response) => {
   if (/^https?:/.test(response.url()) && allowedOrigins.has(new URL(response.url()).origin) && response.status() >= 400)
     errors.push(`${response.status()} ${response.url()}`);
 });
+const canonicalPath = slug => slug === "index.html" ? "" : slug.replace(/\/index\.html$/, "/").replace(/\.html$/, "/");
 const open = async (slug) => {
-  await page.goto(`${origin}/map-master/${slug}`, { waitUntil: "networkidle" });
+  await page.goto(`${origin}/map-master/${canonicalPath(slug)}`, { waitUntil: "networkidle" });
 };
 const ready = async () => {
   await page.locator('[data-demo][data-ready="true"]').waitFor();
@@ -232,6 +195,10 @@ try {
   console.log(
     "✓ Overview, copy, full-text search, keyboard navigation and empty results",
   );
+
+  await checkNavigation({ page, context, browser, origin });
+  await checkRegressions({ context, browser, origin, site });
+  await checkControlLayout({ context, origin, evidence });
 
   await open("guides/draw.html");
   await ready();
@@ -575,6 +542,15 @@ try {
   }
   console.log(`✓ ${demoPages.length} live examples load their data and toolbar`);
 
+  for (const guide of guides) {
+    if (demoPages.includes(resolve(dist, "guides", guide.slug, "index.html"))) continue;
+    await open(`guides/${guide.slug}/`);
+    assert.equal(await page.locator(".article h1").first().textContent(), guide.title);
+    await page.locator(".sidebar").getByRole("link", { name: "Quickstart", exact: true }).click();
+    await page.waitForURL("**/guides/quickstart/");
+  }
+  console.log("✓ All remaining guide routes render and navigate with React");
+
   await open("guides/quickstart.html");
   await page.locator('[data-ui-root][data-hydrated="true"]').first().waitFor();
   const mainCode = page.locator('[data-slot="code-block"]').filter({ has: page.locator('[data-slot="code-block-title"]', { hasText: "main.ts" }) });
@@ -598,13 +574,21 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await open("index.html");
   await ready();
+  await page.evaluate(() => { window.__mobileShell = { header: document.querySelector(".topbar"), sidebar: document.querySelector(".sidebar") }; });
   await page.locator(".menu-button").click();
   assert.equal(
     await page.locator(".menu-button").getAttribute("aria-expanded"),
     "true",
   );
   await page.locator(".sidebar a", { hasText: "Quickstart" }).click();
-  await page.waitForURL("**/guides/quickstart.html");
+  await page.waitForURL("**/guides/quickstart/");
+  assert.equal(await page.evaluate(() => window.__mobileShell.header === document.querySelector(".topbar") && window.__mobileShell.sidebar === document.querySelector(".sidebar")), true);
+  assert.equal(await page.locator(".menu-button").getAttribute("aria-expanded"), "false");
+  assert.equal(await page.locator(".sidebar").evaluate(node => node.inert), true);
+  await page.locator(".menu-button").click();
+  await page.locator(".sidebar").getByRole("link", { name: "Quickstart", exact: true }).click();
+  assert.equal(await page.locator(".menu-button").getAttribute("aria-expanded"), "false", "Selecting the current page closes mobile navigation");
+  await page.waitForFunction(() => document.querySelector(".sidebar").getBoundingClientRect().right <= 1);
   assert.ok(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -652,15 +636,26 @@ try {
   console.log("✓ Exact quickstart works in the browser: draw, save and Undo");
 
   // A successful production build cannot catch source URLs broken only in dev mode.
-  devServer = await createViteServer({
-    server: { host: "127.0.0.1", port: 0, strictPort: false },
-    clearScreen: false,
+  const portProbe = createServer();
+  await new Promise(resolve => portProbe.listen(0, "127.0.0.1", resolve));
+  const devPort = portProbe.address().port;
+  await new Promise(resolve => portProbe.close(resolve));
+  const devOrigin = `http://127.0.0.1:${devPort}/`;
+  const devLog = [];
+  devServer = spawn(process.execPath, [resolve(site, "node_modules/next/dist/bin/next"), "dev", "--hostname", "127.0.0.1", "--port", String(devPort)], {
+    cwd: site, env: { ...process.env, NEXT_PUBLIC_BASE_PATH: "", NEXT_DIST_DIR: ".next-dev" }, stdio: ["ignore", "pipe", "pipe"],
   });
-  await devServer.listen();
-  const devOrigin = devServer.resolvedUrls.local[0];
+  devServer.stdout.on("data", chunk => devLog.push(String(chunk)));
+  devServer.stderr.on("data", chunk => devLog.push(String(chunk)));
+  const deadline = Date.now() + 60_000;
+  while (true) {
+    try { if ((await fetch(devOrigin, { signal: AbortSignal.timeout(2000) })).ok) break; } catch {}
+    if (devServer.exitCode !== null || Date.now() > deadline) throw new Error(`Next.js dev server failed: ${devLog.join("")}`);
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
   allowedOrigins.add(new URL(devOrigin).origin);
   await page.setViewportSize({ width: 1440, height: 1050 });
-  for (const path of ["", "guides/draw.html"]) {
+  for (const path of ["", "guides/draw/"]) {
     await page.goto(new URL(path, devOrigin).href, { waitUntil: "networkidle" });
     await ready();
     assert.equal(await page.locator(".sidebar").evaluate((node) => getComputedStyle(node).position), "fixed");
@@ -668,6 +663,10 @@ try {
     await page.locator('[data-demo][data-mode="draw-polygon"]').waitFor();
     await action("Cancel").click();
   }
+  await page.goto(new URL("guides/draw.html?legacy=1#try-it", devOrigin).href, { waitUntil: "networkidle" });
+  await page.waitForURL(new URL("guides/draw/?legacy=1#try-it", devOrigin).href);
+  await ready();
+  assert.equal(await page.locator("#try-it").count(), 1);
   await page.screenshot({ path: resolve(evidence, "development-desktop.png") });
   console.log("✓ Development server: styled overview and nested guide, loaded map and drawing controls");
   assert.deepEqual(errors, []);
@@ -684,14 +683,21 @@ try {
           "copy",
           "shadcn-code-block-tabs-alerts",
           "search",
+          "persistent-navigation-history-scroll-and-cleanup",
           "toolbar-drawing",
           "toolbar-editing-history",
           "toolbar-geometry-tool",
           "every-live-example",
+          "every-guide-route",
           "geojson-errors-download",
           "mobile",
           "exact-quickstart-build-and-browser",
-          "development-server-styles-and-map",
+          "next-development-server-styles-and-map",
+          "next-static-export-and-legacy-urls",
+          "react-query-cache-and-errors",
+          "malformed-offline-search-clipboard-and-map-recovery",
+          "mobile-focus-and-no-javascript-navigation",
+          "embedded-map-toolbar-and-action-panel-containment",
         ],
         errorCount: errors.length,
       },
@@ -701,6 +707,10 @@ try {
   );
 } finally {
   await browser.close();
-  await devServer?.close();
+  if (devServer && devServer.exitCode === null && devServer.signalCode === null) {
+    const stopped = new Promise(resolve => devServer.once("exit", resolve));
+    devServer.kill("SIGTERM");
+    await stopped;
+  }
   await new Promise((resolve) => server.close(resolve));
 }

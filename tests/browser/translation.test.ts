@@ -39,6 +39,22 @@ beforeEach(async () => {
   await new Promise<void>((resolve) => { map.once('load', () => { resolve(); }); });
   editor = new GeometryEditor(map);
 });
+
+it('wraps the live displacement readout inside a narrow map during dragging', async () => {
+  container.style.width = '240px'; container.style.height = '180px'; map.resize();
+  const idle = map.once('idle');
+  editor.importGeoJSON({ type: 'FeatureCollection', features: [{ type: 'Feature', id: 'label-test', properties: {}, geometry: { type: 'Polygon', coordinates: [[position(40, 40), position(130, 40), position(130, 110), position(40, 110), position(40, 40)]] } }] });
+  editor.select('label-test'); await idle;
+  await commands.vertexPointer('down', 80, 70); await commands.vertexPointer('move', 225, 165);
+  await expect.poll(() => container.querySelector('[data-geo-translation-label]')?.textContent).toContain('Mercator m');
+  const label = container.querySelector<HTMLElement>('[data-geo-translation-label]')!.getBoundingClientRect();
+  const canvas = map.getCanvas().getBoundingClientRect();
+  expect(label.left).toBeGreaterThanOrEqual(canvas.left);
+  expect(label.right).toBeLessThanOrEqual(canvas.right);
+  expect(label.top).toBeGreaterThanOrEqual(canvas.top);
+  expect(label.bottom).toBeLessThanOrEqual(canvas.bottom);
+  await commands.vertexPointer('up', 225, 165);
+});
 afterEach(async () => {
   if (map.getCanvas().isConnected) await commands.vertexPointer('up', 650, 400);
   vi.restoreAllMocks(); editor.destroy(); map.remove(); container.remove();

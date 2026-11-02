@@ -10,3 +10,8 @@ coverage/
 artifacts/
 website/.generated/
 website/dist/
+website/.next/
+website/.next-dev/
+website/out/
+website/public/
+website/next-env.d.ts

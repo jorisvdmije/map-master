@@ -10,6 +10,7 @@ import { geometryParts } from '../core/geometry.js';
 import { toolbarIcon } from './toolbar-icons.js';
 import { toolbarStyles } from './toolbar-styles.js';
 import { adoptStyles } from './adopt-styles.js';
+import { controlHeight, fitControlPanel } from './control-layout.js';
 
 /** A button that {@link EditorToolbar} can show. */
 export type ToolbarTool = KeyboardTool;
@@ -210,6 +211,11 @@ export class EditorToolbar implements IControl {
   private readonly templatePicker: ToolbarOptions['templatePicker'];
   private readonly labels: ToolbarLabels;
   private readonly root: HTMLElement;
+  private readonly column: HTMLElement;
+  private readonly tooltip: HTMLElement;
+  private tooltipAnchor: HTMLButtonElement | null = null;
+  private lastActive: ToolbarTool | null = null;
+  private observer: ResizeObserver | null = null;
   private readonly buttons = new Map<ToolbarTool, HTMLButtonElement>();
   private readonly custom = new Map<HTMLButtonElement, ToolbarButton>();
   private readonly toggle: HTMLButtonElement | null = null;
@@ -265,6 +271,18 @@ export class EditorToolbar implements IControl {
     this.root.setAttribute('role', 'toolbar');
     this.root.setAttribute('aria-orientation', 'vertical');
     this.root.setAttribute('aria-label', this.labels.toolbar);
+    this.column = document.createElement('div');
+    this.column.className = 'mm-toolbar-tools';
+    this.root.append(this.column);
+    this.column.addEventListener('scroll', this.layout, { passive: true });
+    this.tooltip = document.createElement('div');
+    this.tooltip.className = 'mm-toolbar-tooltip';
+    this.tooltip.setAttribute('role', 'tooltip');
+    this.tooltip.hidden = true;
+    this.root.addEventListener('pointerover', this.showTooltip);
+    this.root.addEventListener('focusin', this.showTooltip);
+    this.root.addEventListener('pointerout', this.hideTooltip);
+    this.root.addEventListener('focusout', this.hideTooltip);
     this.collapsed = options.collapsible === true && options.collapsed === true;
     if (options.collapsible) {
       const group = this.group();
@@ -390,9 +408,8 @@ export class EditorToolbar implements IControl {
     this.root.append(this.actions);
     this.geofenceNotice = document.createElement('div');
     this.geofenceNotice.className = 'mm-geofencing-notice';
-    this.geofenceNotice.style.cssText = 'position:absolute;top:0;inset-inline-start:38px;width:240px;padding:10px;background:white;border:1px solid #b91c1c;border-radius:6px;color:#991b1b;pointer-events:none;font:12px/1.5 system-ui;';
     this.geofenceNotice.setAttribute('role', 'status');
-    this.root.append(this.geofenceNotice);
+    this.root.append(this.geofenceNotice, this.tooltip);
 
     this.input.addEventListener('input', this.changeField);
     this.input.addEventListener('keydown', this.fieldKey);
@@ -403,6 +420,10 @@ export class EditorToolbar implements IControl {
   onAdd(map: MapLibreMap): HTMLElement {
     this.map = map;
     map.on('resize', this.resize);
+    this.observer = new ResizeObserver(this.layout);
+    this.observer.observe(map.getCanvas());
+    this.observer.observe(this.root);
+    this.observer.observe(this.actions);
     this.unsubscribe = this.editor.onChange(() => { this.update(); });
     this.update();
     // MapLibre inserts the element right after onAdd; styles and placement need its position.
@@ -420,6 +441,10 @@ export class EditorToolbar implements IControl {
     this.unsubscribe?.();
     this.unsubscribe = null;
     this.map?.off('resize', this.resize);
+    this.observer?.disconnect();
+    this.observer = null;
+    this.tooltipAnchor = null;
+    this.tooltip.hidden = true;
     this.map = null;
     this.root.remove();
   }
@@ -433,7 +458,7 @@ export class EditorToolbar implements IControl {
     const group = document.createElement('div');
     group.className = 'mm-toolbar-group';
     group.setAttribute('role', 'group');
-    this.root.append(group);
+    this.column.append(group);
     return group;
   }
 
@@ -584,7 +609,9 @@ export class EditorToolbar implements IControl {
       : event.key === 'ArrowUp' || event.key === 'ArrowLeft' ? (index + buttons.length - 1) % buttons.length : -1;
     if (index < 0 || next < 0) return;
     event.preventDefault();
-    buttons[next]!.focus();
+    const target = buttons[next]!;
+    target.focus({ preventScroll: true });
+    this.reveal(target);
   };
 
   /** Enabled, visible buttons in order, including the collapse toggle. */
@@ -640,12 +667,15 @@ export class EditorToolbar implements IControl {
 
     // The panel belongs to the active tool's button; modes started elsewhere are left to their caller.
     const anchor = active === null || this.collapsed ? undefined : this.buttons.get(active);
+    if (this.root.isConnected) {
+      if (anchor && active !== this.lastActive) this.reveal(anchor);
+      this.lastActive = active;
+    }
     this.actions.hidden = anchor === undefined;
-    if (anchor === undefined) return;
-    this.actions.style.top = `${anchor.offsetTop}px`;
+    const noticeHost = anchor ? this.actions : this.root;
+    if (this.geofenceNotice.parentElement !== noticeHost) noticeHost.append(this.geofenceNotice);
+    if (anchor === undefined) { this.layout(); return; }
     this.actions.dataset.mode = state.mode;
-    this.actions.style.maxWidth = (template !== null || text !== null || state.mode === 'remove-hole' || state.mode === 'select-lasso') && this.map
-      ? `${Math.max(160, this.map.getCanvas().clientWidth - 60)}px` : '';
 
     this.textFields.hidden = text === null;
     this.actions.dataset.text = String(text !== null);
@@ -708,7 +738,51 @@ export class EditorToolbar implements IControl {
     this.shortcutHint(this.removeLast, 'delete', this.labels.removeLastPoint);
     this.removeLast.hidden = !removable.has(state.mode);
     this.removeLast.disabled = state.vertexCount === 0;
+    this.layout();
   }
+
+  private readonly layout = (): void => {
+    if (!this.map || !this.root.isConnected) return;
+    const canvas = this.map.getCanvas();
+    if (!canvas.clientWidth || !canvas.clientHeight) return;
+    this.column.style.maxHeight = `${controlHeight(this.root, canvas)}px`;
+    const end = this.root.classList.contains('mm-toolbar--end');
+    if (!this.actions.hidden) {
+      const tool = modeTools[this.editor.getState().mode];
+      const anchor = tool && this.buttons.get(tool);
+      if (anchor) fitControlPanel(this.actions, this.root, canvas, anchor, end);
+    }
+    if (!this.geofenceNotice.hidden && this.geofenceNotice.parentElement === this.root) {
+      fitControlPanel(this.geofenceNotice, this.root, canvas, this.column, end);
+    }
+    if (this.tooltipAnchor && !this.tooltip.hidden) {
+      if (!this.tooltipAnchor.checkVisibility() || this.tooltipAnchor.dataset.active === 'true') this.tooltip.hidden = true;
+      else fitControlPanel(this.tooltip, this.root, canvas, this.tooltipAnchor, end);
+    }
+  };
+
+  private reveal(button: HTMLButtonElement): void {
+    const frame = this.column.getBoundingClientRect();
+    const rect = button.getBoundingClientRect();
+    const scale = frame.height / this.column.offsetHeight || 1;
+    this.column.scrollTop += (Math.min(0, rect.top - frame.top) + Math.max(0, rect.bottom - frame.bottom)) / scale;
+  }
+
+  private readonly showTooltip = (event: Event): void => {
+    const button = event.target instanceof Element ? event.target.closest('.mm-toolbar-button') : null;
+    if (!(button instanceof HTMLButtonElement) || button.dataset.active === 'true' || !button.dataset.tooltip) return;
+    this.tooltipAnchor = button;
+    this.tooltip.textContent = button.dataset.tooltip;
+    this.tooltip.hidden = false;
+    this.layout();
+  };
+
+  private readonly hideTooltip = (event: Event): void => {
+    const next = event instanceof MouseEvent || event instanceof FocusEvent ? event.relatedTarget : null;
+    if (next instanceof Node && this.tooltipAnchor?.contains(next)) return;
+    this.tooltipAnchor = null;
+    this.tooltip.hidden = true;
+  };
 
   private shortcutHint(button: HTMLButtonElement, action: import('../core/keyboard-shortcuts.js').KeyboardAction, label: string): void {
     const shortcut = this.editor.getKeyboardShortcutLabel(action);

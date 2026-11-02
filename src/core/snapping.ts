@@ -18,7 +18,7 @@ interface Candidate extends Bounds {
 interface Node extends Bounds { start: number; end: number; left?: Node; right?: Node }
 
 export function snappingOptions(update: Partial<SnappingOptions> = {}, previous: SnappingOptions = {
-  enabled: false, distance: 18, vertices: true, edges: true, layers: [],
+  enabled: false, distance: 10, vertices: true, edges: true, layers: [],
 }): SnappingOptions {
   const options = { ...previous, ...update };
   const layers: unknown = options.layers;

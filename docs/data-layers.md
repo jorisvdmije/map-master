@@ -5,6 +5,10 @@ layers have stable string IDs, a drawing target, bottom-to-top order, visibility
 editability, locks, selection and snapping settings, and their own base styles.
 They are distinct from the MapLibre basemap layers named in `snapping.layers`.
 
+`DataLayerControl` bounds its expanded panel to the map's available height and
+width. Large layer lists scroll within the panel, including on short embedded
+maps; native map controls in the opposite corner retain their space.
+
 ```ts
 import { DataLayerControl, EditorToolbar, GeometryEditor } from '@jorisvdmije/map-master';
 

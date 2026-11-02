@@ -37,12 +37,39 @@ beforeEach(async () => {
   container = document.createElement('div'); container.style.cssText = 'width:700px;height:450px;position:relative;'; document.body.append(container);
   map = new Map({ container, style: style(), center: [4.895, 52.372], zoom: 13, fadeDuration: 0 });
   await new Promise<void>(resolve => { map.once('load', () => { resolve(); }); });
-  editor = new GeometryEditor(map, { snapping: { enabled: true, distance: 18 } });
+  editor = new GeometryEditor(map, { snapping: { enabled: true } });
 });
 afterEach(async () => {
   await userEvent.keyboard('{/Alt}{/Shift}');
   if (map.getCanvas().isConnected) await commands.vertexPointer('up', 650, 400);
   vi.restoreAllMocks(); editor.destroy(); map.remove(); container.remove();
+});
+
+it.each(['vertex', 'edge'] as const)('releases a moving group from a %s using the free anchor and retains its grab offset', async kind => {
+  await fixture();
+  const before = editor.exportGeoJSON();
+  const freeAnchor = (distance: number): Coordinate => kind === 'vertex' ? position(430 - distance, 170) : position(500, 170 - distance);
+  const move = async (distance: number): Promise<void> => {
+    const point = pointerNear(freeAnchor(distance));
+    await commands.vertexPointer('move', point.x, point.y);
+  };
+  await commands.vertexPointer('down', 110, 110);
+  await move(17);
+  await expect.poll(label).toContain('Mercator m');
+  expect(editor.getSnap()).toBeNull();
+  for (let pass = 0; pass < 2; pass++) {
+    await move(9);
+    await expect.poll(() => editor.getSnap()).toMatchObject({ kind, featureId: 'target' });
+    await move(11);
+    await expect.poll(() => editor.getSnap()).toBeNull();
+  }
+  const release = pointerNear(freeAnchor(11));
+  await commands.vertexPointer('up', release.x, release.y);
+  const actual = map.project(coordinates(0)[0]!);
+  const expected = map.project(freeAnchor(11));
+  expect(Math.hypot(actual.x - expected.x, actual.y - expected.y)).toBeLessThan(1);
+  expect(editor.exportGeoJSON().features[2]).toEqual(before.features[2]);
+  editor.undo(); expect(editor.exportGeoJSON()).toEqual(before);
 });
 
 it.each([6, 17])('snaps the grabbed feature anchor at zoom %s with bearing/pitch and moves mixed typed IDs as one transaction', async zoom => {

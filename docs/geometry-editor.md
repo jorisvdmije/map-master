@@ -975,7 +975,7 @@ reloads.
 
 ```ts
 const editor = new GeometryEditor(map, {
-  snapping: { enabled: true, distance: 18, vertices: true, edges: true },
+  snapping: { enabled: true, distance: 10, vertices: true, edges: true },
 });
 editor.draw('Polygon'); // Also applies to drawing a LineString.
 editor.setSnapping({ distance: 24 }); // Partial update; other options stay intact.
@@ -992,9 +992,15 @@ behavior takes inspiration from [Geoman's snapping helper](https://geoman.io/doc
 (pixel tolerance and vertex priority) and its [Alt bypass](https://geoman.io/docs/leaflet/options/snapping).
 The implementation is independent; it does not depend on Geoman or copy Pro code.
 
-- The default tolerance is **18 CSS pixels**, independent of device-pixel ratio
+- The default tolerance is **10 CSS pixels**, independent of device-pixel ratio
   and zoom. `distance` must be finite, greater than 0 and at most 100; boolean
   options require booleans. Invalid updates leave all previous options intact.
+- The same radius controls acquisition and release: a target is eligible at or
+  within `distance`, and releases immediately beyond it. There is no delay or
+  larger sticky release radius. Drawing and dragging resolve from the unsnapped
+  pointer or moving anchor, so an earlier snap cannot pull the next movement
+  back toward itself. For finer placement, use `setSnapping({ distance: 6 })`;
+  `distance: 18` restores the previous, more generous tolerance.
 - The nearest vertex within tolerance wins, even if an edge is closer. Without
   an eligible vertex, the nearest point on an edge wins. `vertices` and `edges`
   can be disabled independently. An exact distance tie chooses the later feature
@@ -1023,6 +1029,10 @@ The implementation is independent; it does not depend on Geoman or copy Pro code
   Its radius is `max(8, distance)` with vertex snapping enabled. Otherwise the
   existing 8-pixel click-to-close behavior remains, including while holding Alt.
   Closing validates the polygon and does not add an extra corner to the draft.
+- [Splitting](splitting.md) and [reshaping](reshape.md#mouse-attachment-and-preview)
+  also use a separate, fixed 18-pixel attachment radius for connecting their route
+  to the selected polygon boundary. These required attachments are independent
+  of the ordinary snapping radius and toggle; each guide describes its Alt behavior.
 
 `SnapResult.kind` is `vertex` or `edge`; `featureId` preserves string/numeric
 identity and is `null` only for the current polygon's closing corner. `index` is

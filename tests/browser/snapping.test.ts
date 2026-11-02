@@ -25,6 +25,26 @@ beforeEach(async () => {
 });
 afterEach(() => { vi.restoreAllMocks(); editor.destroy(); map.remove(); container.remove(); });
 
+it.each(['vertex', 'edge'] as const)('acquires and releases a %s at the smaller default radius without snap feedback', async kind => {
+  editor.draw('LineString');
+  const point = (distance: number): [number, number] => kind === 'vertex' ? [100 - distance, 100] : [200, 100 - distance];
+  await hover(...point(17));
+  await expect.poll(() => editor.getSnap()).toBeNull();
+  for (let pass = 0; pass < 2; pass++) {
+    await hover(...point(9));
+    await expect.poll(() => editor.getSnap()).toMatchObject({ kind, featureId: 'target' });
+    await hover(...point(11));
+    await expect.poll(() => editor.getSnap()).toBeNull();
+  }
+  // The click also resolves the free pointer, not the previously snapped point.
+  const free = point(11);
+  await click(...free);
+  expect(editor.getDraft()[0]).toEqual(map.unproject(free).wrap().toArray());
+  editor.setSnapping({ distance: 18 });
+  await hover(...point(17));
+  await expect.poll(() => editor.getSnap()).toMatchObject({ kind, featureId: 'target' });
+});
+
 it('previews and commits exact vertices and edge points, with unchanged targets and one undo action', async () => {
   const original = editor.exportGeoJSON().features[0]!;
   const coordinate = (original as PolygonFeature).geometry.coordinates[0]![0]!;
@@ -50,27 +70,27 @@ it('previews and commits exact vertices and edge points, with unchanged targets 
 it('resolves clicks afresh, prioritizes vertices, and closes at the draft start without adding a corner', async () => {
   editor.draw('Polygon');
   await hover(200, 105); await expect.poll(() => editor.getSnap()?.kind).toBe('edge');
-  await click(117, 101); // Vertex wins even though the edge is closer.
+  await click(109, 101); // Vertex wins even though the edge is closer.
   expect(editor.getDraft()[0]).toEqual(square().geometry.coordinates[0]![0]);
   await click(450, 100); await click(450, 300);
-  await hover(112, 105);
+  await hover(107, 105);
   await expect.poll(() => editor.getSnap()).toMatchObject({ kind: 'vertex', featureId: null, index: 0 });
-  await click(112, 105);
+  await click(107, 105);
   expect(editor.getState().mode).toBe('idle');
   const feature = editor.exportGeoJSON().features[1] as PolygonFeature;
   expect(feature.geometry.coordinates[0]).toHaveLength(4);
 });
 
 it('temporarily bypasses snapping with Alt and clears the marker on leave, blur, and cancel', async () => {
-  editor.draw('LineString'); await hover(108, 106);
+  editor.draw('LineString'); await hover(107, 106);
   await expect.poll(() => editor.getSnap()?.kind).toBe('vertex');
   await userEvent.keyboard('{Alt>}'); await expect.poll(() => editor.getSnap()).toBeNull();
-  await click(108, 106); expect(editor.getDraft()[0]).toEqual(map.unproject([108, 106]).wrap().toArray());
+  await click(107, 106); expect(editor.getDraft()[0]).toEqual(map.unproject([107, 106]).wrap().toArray());
   await userEvent.keyboard('{/Alt}'); await expect.poll(() => editor.getSnap()?.kind).toBe('vertex');
   await userEvent.unhover(map.getCanvas()); await expect.poll(() => editor.getSnap()).toBeNull();
-  await hover(108, 106); await expect.poll(() => editor.getSnap()?.kind).toBe('vertex');
+  await hover(107, 106); await expect.poll(() => editor.getSnap()?.kind).toBe('vertex');
   window.dispatchEvent(new Event('blur')); expect(editor.getSnap()).toBeNull();
-  await hover(109, 106); await expect.poll(() => editor.getSnap()?.kind).toBe('vertex');
+  await hover(108, 105); await expect.poll(() => editor.getSnap()?.kind).toBe('vertex');
   editor.cancel(); expect(editor.getSnap()).toBeNull();
   await expect.poll(async () => JSON.stringify(await source('-draft').getData())).not.toContain('"kind":"snap"');
   expect(editor.getState()).toMatchObject({ featureCount: 1, canUndo: false });
@@ -80,16 +100,16 @@ it('applies toggles immediately, validates atomically, and isolates event/getter
   const ignored = vi.fn(); editor.onSnap(ignored)();
   editor.onSnap((snap) => { if (snap) snap.coordinate[0] = 99; });
   const observed = vi.fn<(snap: SnapResult | null) => void>(); editor.onSnap(observed);
-  editor.draw('LineString'); await hover(108, 106);
+  editor.draw('LineString'); await hover(107, 106);
   await expect.poll(() => observed.mock.calls.length).toBe(1);
   expect(observed.mock.calls[0]![0]!.coordinate[0]).not.toBe(99);
   editor.getSnap()!.coordinate[0] = 99; editor.getSnapping().enabled = false;
   expect(editor.getSnap()!.coordinate[0]).not.toBe(99); expect(editor.getSnapping().enabled).toBe(true);
-  await hover(109, 106); await new Promise((resolve) => requestAnimationFrame(resolve));
+  await hover(108, 105); await new Promise((resolve) => requestAnimationFrame(resolve));
   expect(observed).toHaveBeenCalledOnce(); expect(ignored).not.toHaveBeenCalled();
   editor.setSnapping({ vertices: false }); expect(editor.getSnap()?.kind).toBe('edge');
   editor.setSnapping({ enabled: false }); expect(editor.getSnap()).toBeNull();
-  await click(109, 106); expect(editor.getDraft()[0]).toEqual(map.unproject([109, 106]).wrap().toArray());
+  await click(108, 105); expect(editor.getDraft()[0]).toEqual(map.unproject([108, 105]).wrap().toArray());
   const before = editor.getSnapping(); expect(() => editor.setSnapping({ distance: 0, enabled: true })).toThrow(RangeError);
   expect(editor.getSnapping()).toEqual(before);
   editor.setSnapping({ enabled: true, vertices: true, edges: false });
@@ -99,7 +119,7 @@ it('applies toggles immediately, validates atomically, and isolates event/getter
 
 it('keeps tolerance in CSS pixels through zoom/rotation/pitch and invalidates projected candidates', async () => {
   const target = square().geometry.coordinates[0]![0]!;
-  editor.draw('LineString'); await hover(108, 106); await expect.poll(() => editor.getSnap()?.kind).toBe('vertex');
+  editor.draw('LineString'); await hover(107, 106); await expect.poll(() => editor.getSnap()?.kind).toBe('vertex');
   const project = vi.spyOn(map, 'project');
   await hover(110, 106); await new Promise((resolve) => requestAnimationFrame(resolve));
   expect(project).not.toHaveBeenCalled();
@@ -109,8 +129,8 @@ it('keeps tolerance in CSS pixels through zoom/rotation/pitch and invalidates pr
   editor.setSnapping({ edges: false });
   for (const zoom of [6, 17]) {
     map.jumpTo({ center: target, zoom, bearing: 30, pitch: 40 });
-    await hover(365, 225); await expect.poll(() => editor.getSnap()?.coordinate).toEqual(target);
-    await hover(370, 225); await expect.poll(() => editor.getSnap()).toBeNull();
+    await hover(359, 225); await expect.poll(() => editor.getSnap()?.coordinate).toEqual(target);
+    await hover(361, 225); await expect.poll(() => editor.getSnap()).toBeNull();
   }
   expect(project).toHaveBeenCalled();
 });
