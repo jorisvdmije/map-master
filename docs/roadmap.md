@@ -24,11 +24,14 @@ the candidates below.
 
 ## Next release gates
 
-The ten scoped Geoman comparison steps are implemented. A complete release also
-requires the code, published package and live documentation to agree:
+The ten scoped Geoman comparison steps are implemented. [Version 0.2.0](https://github.com/jorisvdmije/map-master/releases/tag/v0.2.0)
+is published on [npm](https://www.npmjs.com/package/@jorisvdmije/map-master/v/0.2.0),
+with the Next.js docs, responsive controls and optional zoom-scaled polygon borders.
+The following gates apply again to future releases so that the code, published
+package and live documentation agree:
 
-1. Merge the Next.js documentation migration and responsive control fixes, then
-   deploy the checked artifact through GitHub Pages. Verify the public site has
+1. Build and deploy the checked documentation artifact through GitHub Pages.
+   Verify the public site has
    persistent header/sidebar navigation and bounded controls, including mobile
    maps and expanded toolbars.
 2. Run `npm run release:prepare` for the final committed candidate. Require passing
