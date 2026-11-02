@@ -106,15 +106,17 @@ is not part of the browser qualification below.
 | Area | Qualification |
 | --- | --- |
 | MapLibre GL JS | 6.15.0; the full library suite, installed workspace and performance budgets run in Chromium. |
-| Mapbox GL JS | 3.34.1; the shared adapter scenarios run in Chromium using its actual WebGL renderer and default worker. |
+| Mapbox GL JS | 3.34.1; the shared adapter scenarios run in Chromium against its full JavaScript API and default worker in tokenless `testMode`. Visual output is not qualified by those scenarios. |
 | Equivalent scenarios | Toolbar/keyboard drawing, invalid drafts, cancellation, typed IDs, multipart geometry, holes, locks, snapping, vertex and whole-feature dragging, worker handoff, lasso, data layers, labels, geofences, style replacement and teardown during a gesture. |
 | Source updates | MapLibre returns a promise from `GeoJSONSource.setData()`; Mapbox returns the source. The editor handles both and keeps a released drag preview until the source and rendered tiles are ready. |
 | Camera roll | MapLibre exposes `getRoll()`; Mapbox does not. Lasso camera-change detection treats absent roll as zero. |
 | Host teardown | Mapbox releases style/container resources before `remove`. Cleanup retains registered DOM targets and avoids querying a released style. |
 
 Mapbox browser tests use its documented `testMode` with an in-memory background
-style. They exercise real rendering and workers without a token, hosted tiles or
-Mapbox services. See [Mapbox's automated testing documentation](https://docs.mapbox.com/mapbox-gl-js/guides/security-and-testing/#automated-tests).
+style. They cover interactions, data queries, workers and layer lifecycle without
+a token, hosted tiles or Mapbox services. Test mode does not produce visual
+output, so these checks do not verify polygon colors or border pixels. Visual
+rendering requires a valid application-owned Mapbox token and separate tests. See [Mapbox's automated testing documentation](https://docs.mapbox.com/mapbox-gl-js/guides/security-and-testing/#automated-tests).
 The configured-token example builds and type-checks; hosted-map authentication,
 billing, service availability and production CSP deployment require your own
 integration checks. The MIT license covers Map Master; Mapbox GL JS and its

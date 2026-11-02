@@ -6,7 +6,7 @@ cross-browser and published-release checks, which run in separate CI jobs.
 | Level | Command | What it covers |
 | --- | --- | --- |
 | Core and package | `npm test` | Geometry, validation, editing state, transactions and history in Node.js; packs the library, installs the archive in a clean consumer and compiles it with NodeNext and Bundler resolution. |
-| Browser | `npm run test:browser` | Full MapLibre rendering suite in Chromium plus equivalent MapLibre/Mapbox adapter scenarios for geometry, gestures, sources, style reload and teardown. Mapbox uses a local style and its documented `testMode`; see [qualification](mapbox.md). |
+| Browser | `npm run test:browser` | Full MapLibre rendering suite in Chromium plus equivalent MapLibre/Mapbox adapter scenarios for geometry, gestures, sources, style reload and teardown. Mapbox uses a local style and its documented `testMode` for API/worker behavior; this does not qualify visual output. See [qualification](mapbox.md). |
 | Installed application | `npm run test:workspace` | The [area workspace](../examples/workspace/README.md) installed from a packed archive outside the repository, exercised through its UI, plus the performance budgets. |
 | Documentation site | `npm run test:docs` | Lints and exports the Next.js App Router website under its deployment path, compiles the published framework components with their real compilers, checks every link and anchor, and runs persistent navigation/history, resource cleanup, React Query caching/error recovery, legacy URLs, the quickstart and interactive examples in a browser. |
 

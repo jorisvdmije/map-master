@@ -21,7 +21,7 @@ browser, device or dataset.
 | Area | Status |
 | --- | --- |
 | Chromium (desktop) | Supported. The complete MapLibre library suite, playground/workspace and performance budgets run in CI on every change, using Playwright's Chromium. |
-| Mapbox adapter (Chromium) | The same 13 adapter scenarios run on both renderers, covering geometry, gestures, style reload and lifecycle. Hosted styles, production CSP, the complete Mapbox library suite and Mapbox performance budgets are not qualified. |
+| Mapbox adapter (Chromium) | The same 15 adapter scenarios run on both renderers, covering geometry, gestures, responsive controls, zoom-dependent outline queries, style reload and lifecycle. Tokenless Mapbox `testMode` covers API/worker behavior, not visual output. Authenticated Mapbox rendering, hosted styles, production CSP, the complete Mapbox library suite and Mapbox performance budgets are not qualified. |
 | Firefox and WebKit (desktop) | The example application's workflows pass in CI on Linux and macOS, using Playwright's Firefox and WebKit. The full library test suite and performance budgets run in Chromium only. Playwright's WebKit is not the shipping Safari application. |
 | Mouse and keyboard | Supported for every tool. Keyboard shortcuts apply while the map canvas has focus. |
 | Touch and pen | [Vertex editing](touch-pen-vertices.md) is tested with emulated touch and pen input in Chromium. Drawing, selection rectangles and transform handles are designed for a mouse. Physical tablets and styluses have not been qualified. |
