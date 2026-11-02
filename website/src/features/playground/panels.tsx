@@ -27,6 +27,7 @@ export function PropertyDialog({ runtime, field, close, notify }: { runtime: Pla
   const feature = runtime.editor.getFeature(field.id);
   const value = field.key === null ? "" : feature?.properties?.[field.key];
   const [type, setType] = useState(value === null ? "null" : typeof value === "object" ? "json" : typeof value === "number" ? "number" : typeof value === "boolean" ? "boolean" : "string");
+  const [draft, setDraft] = useState(() => value === undefined ? "" : typeof value === "string" ? value : JSON.stringify(value, null, 2));
   const [error, setError] = useState("");
   if (!feature) return null;
   const submit = (form: HTMLFormElement, remove = false) => {
@@ -40,7 +41,7 @@ export function PropertyDialog({ runtime, field, close, notify }: { runtime: Pla
       const properties = { ...current.properties };
       if (remove) delete properties[key];
       else {
-        const raw = String(data.get("value") ?? "");
+        const raw = draft;
         let parsed: JsonValue = raw;
         if (type === "number") { if (!raw.trim() || !Number.isFinite(Number(raw))) throw new Error("Enter a finite number."); parsed = Number(raw); }
         if (type === "boolean") { if (!["true", "false"].includes(raw)) throw new Error("Use true or false for a boolean."); parsed = raw === "true"; }
@@ -56,11 +57,11 @@ export function PropertyDialog({ runtime, field, close, notify }: { runtime: Pla
     <p className="pg-muted">{featureName(feature)} · {feature.geometry.type}</p>
     <form onSubmit={event => { event.preventDefault(); submit(event.currentTarget); }}>
       <label className="pg-field">Field name<input aria-label="Field name" name="key" defaultValue={field.key ?? ""} readOnly={field.key !== null} required={field.key === null} autoFocus maxLength={200} /></label>
-      <label className="pg-field">Value type<select aria-label="Value type" value={type} onChange={event => setType(event.target.value)}>
+      <label className="pg-field">Value type<select aria-label="Value type" value={type} onChange={event => { setType(event.target.value); setError(""); }}>
         <option value="string">Text</option><option value="number">Number</option><option value="boolean">Boolean</option><option value="null">Null</option><option value="json">JSON object or array</option>
       </select></label>
-      <label className="pg-field">Value{type === "boolean" ? <select aria-label="Value" name="value" defaultValue={String(value ?? true)}><option value="true">true</option><option value="false">false</option></select>
-        : <textarea aria-label="Value" key={type} name="value" rows={type === "json" ? 6 : 3} disabled={type === "null"} defaultValue={value === undefined ? "" : typeof value === "string" ? value : JSON.stringify(value, null, type === "json" ? 2 : undefined)} spellCheck={type === "string"} />}</label>
+      <label className="pg-field">Value{type === "boolean" ? <select aria-label="Value" name="value" value={["true", "false"].includes(draft) ? draft : ""} onChange={event => { setDraft(event.target.value); setError(""); }}><option value="" disabled>Choose true or false…</option><option value="true">true</option><option value="false">false</option></select>
+        : <textarea aria-label="Value" name="value" rows={type === "json" ? 6 : 3} disabled={type === "null"} value={type === "null" ? "null" : draft} onChange={event => { setDraft(event.target.value); setError(""); }} spellCheck={type === "string"} />}</label>
       {error && <p className="pg-form-error" role="alert">{error}</p>}
       <div className="pg-dialog-actions">{field.key !== null && <button type="button" className="pg-button pg-danger" onClick={event => submit(event.currentTarget.form!, true)}><Trash2 size={15} />Delete field</button>}
         <button type="button" className="pg-button" onClick={close}>Cancel</button><button className="pg-button pg-primary" type="submit">Save attribute</button></div>

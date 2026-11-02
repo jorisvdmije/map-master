@@ -8,6 +8,8 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Fixed
 
+- Keep pending playground attribute values when switching between text, number,
+  boolean, JSON and null; invalid conversions preserve both the draft and saved data.
 - Preserve imported attribute keys exactly when editing or deleting playground
   fields, preventing names with surrounding spaces from overwriting other fields.
 - Enforce the playground's 20,000-feature cap across all creation paths before
