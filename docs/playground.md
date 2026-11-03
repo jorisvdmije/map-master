@@ -99,6 +99,14 @@ your work before reloading.
 
 On narrow screens, **Layers** and **Properties** open the side panels, and the
 folder menu contains New project, Open project and Documentation. The attribute
-table scrolls horizontally and can collapse to provide more map space. Mouse and
-keyboard are the primary editing inputs; the library's documented touch/pen
+table scrolls horizontally and can collapse to provide more map space.
+
+On short maps, the start card reduces to its main actions and stays separate from
+the map controls. Both Measurements and Scale borders with zoom remain available
+on narrow screens. Longer recovery messages scroll within their card so their
+download and restart buttons stay reachable.
+The Layers and Properties drawers stay within the map area in both attribute
+table layouts, with their close buttons available at the top.
+
+Mouse and keyboard are the primary editing inputs; the library's documented touch/pen
 qualification limits still apply.
