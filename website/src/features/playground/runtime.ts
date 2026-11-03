@@ -14,7 +14,7 @@ export async function mountPlayground(container: HTMLElement, signal: AbortSigna
   const initial = emptyProject();
   const map = new GLMap({ container, style: structuredClone(fallbackStyle), center: initial.camera.center, zoom: initial.camera.zoom,
     minZoom: -2, maxZoom: 22, dragRotate: false, pitchWithRotate: false, touchPitch: false, fadeDuration: 0,
-    attributionControl: { compact: true }, maxPitch: 0 });
+    attributionControl: { compact: true }, maxPitch: 0, trackResize: false });
   map.touchZoomRotate.disableRotation();
   const remove = () => map.remove();
   signal.addEventListener("abort", remove, { once: true });
@@ -40,7 +40,6 @@ export class PlaygroundRuntime {
   private disposed = false;
   private styleRequest = 0;
   private unsubscribe: () => void;
-  private observer: ResizeObserver;
 
   constructor(readonly map: GLMap, private client: QueryClient, private notice: Notice) {
     const initial = emptyProject();
@@ -56,8 +55,6 @@ export class PlaygroundRuntime {
     map.addControl(new ScaleControl({ maxWidth: 110 }), "bottom-left");
     this.unsubscribe = this.editor.onChange(() => this.refresh());
     map.on("moveend", this.moved);
-    this.observer = new ResizeObserver(() => map.resize());
-    this.observer.observe(map.getContainer());
     this.refresh(true);
     void this.applyBasemap();
   }
@@ -237,7 +234,7 @@ export class PlaygroundRuntime {
   destroy() {
     if (this.disposed) return;
     this.disposed = true; this.styleRequest++;
-    this.unsubscribe(); this.observer.disconnect(); this.listeners.clear();
+    this.unsubscribe(); this.listeners.clear();
     this.map.off("moveend", this.moved);
     this.map.remove();
   }

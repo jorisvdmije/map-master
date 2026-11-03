@@ -15,6 +15,7 @@
     "check:content": "node scripts/content-check.mjs",
     "check:frameworks": "node scripts/frameworks.mjs",
     "check:browser": "node scripts/smoke.mjs",
+    "check:playground": "node scripts/playground-browsers.mjs",
     "check": "node scripts/check.mjs",
     "lint": "eslint . --max-warnings 0"
   },

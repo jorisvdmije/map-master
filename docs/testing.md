@@ -85,6 +85,30 @@ budgets are skipped in Firefox and WebKit. Set `GEO_COMPAT_HEADED=1` to watch th
 browser; on Linux CI the job runs headed under `xvfb-run`. Reports are written to
 `artifacts/browser-compatibility/`.
 
+## Playground browser checks
+
+After building the website, run the focused mobile and resize scenarios in all
+three Playwright engines, or pass individual engine names:
+
+```sh
+npm run build:docs
+npm --prefix website run check:playground -- chromium firefox webkit
+```
+
+The checks cover real control clicks on short and landscape maps, recovery
+actions, repeated viewport/table resizing, both toolbar layouts, canvas resolution
+at device pixel ratios 1 and 2, active drawing with Undo/Redo, and navigation
+cleanup/remount with saved data. Every browser page error fails the check,
+including ResizeObserver loop errors. Reports and failure screenshots are written
+to `artifacts/playground/<browser>/`.
+
+Chromium also runs these scenarios in `npm run test:docs`. The Browser
+compatibility workflow runs the Firefox and WebKit scenarios on Ubuntu and macOS.
+On Linux CI they run headed under `xvfb-run` with `GEO_COMPAT_HEADED=1`, matching
+the workspace compatibility checks.
+These automated engines do not replace shipping-browser or physical-device
+qualification.
+
 ## Published release checks
 
 ```sh
@@ -117,4 +141,4 @@ conditions are kept in [performance notes](performance.md).
   reports for 14 days, checks the published release and deploys the documentation
   site from `main`.
 - **Browser compatibility** runs the cross-browser checks for Firefox and WebKit on
-  Ubuntu and macOS.
+  Ubuntu and macOS, including the playground mobile and resize checks.

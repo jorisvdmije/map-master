@@ -118,15 +118,28 @@ function Workbench({ session, version, message, notify, dismiss }: { session: Se
     const frame = mapFrame.current!;
     const map = runtime.map.getContainer();
     const root = map.parentElement!;
+    let pending: number | null = null;
+    let previous = "";
     const sync = () => {
+      pending = null;
       const bounds = frame.getBoundingClientRect(); const parent = root.getBoundingClientRect();
-      Object.assign(map.style, { inset: "auto", left: `${bounds.left - parent.left}px`, top: `${bounds.top - parent.top}px`, width: `${bounds.width}px`, height: `${bounds.height}px` });
+      const left = bounds.left - parent.left; const top = bounds.top - parent.top;
+      const next = [left, top, bounds.width, bounds.height, window.devicePixelRatio].join(",");
+      if (next === previous) return;
+      previous = next;
+      Object.assign(map.style, { inset: "auto", left: `${left}px`, top: `${top}px`, width: `${bounds.width}px`, height: `${bounds.height}px` });
       runtime.map.resize();
     };
-    const observer = new ResizeObserver(sync);
+    // Resizing the map also changes observed canvas/control sizes. Write outside
+    // ResizeObserver delivery, once per frame, with this workbench as the owner.
+    const schedule = () => { pending ??= requestAnimationFrame(sync); };
+    const observer = new ResizeObserver(schedule);
     observer.observe(frame); sync();
-    window.addEventListener("resize", sync);
-    return () => { observer.disconnect(); window.removeEventListener("resize", sync); };
+    window.addEventListener("resize", schedule);
+    return () => {
+      observer.disconnect(); window.removeEventListener("resize", schedule);
+      if (pending !== null) cancelAnimationFrame(pending);
+    };
   }, [runtime]);
 
   useEffect(() => {

@@ -4,17 +4,13 @@ import { resolve } from "node:path";
 
 /** Check actual hit targets: a visible button must not activate a different control. */
 export async function checkPlaygroundMobile({ browser, origin, evidence, basePath = "/map-master" }) {
-  const diagnostics = [];
   const sizes = [[320, 568], [320, 540], [568, 320], [844, 390], [390, 844], [768, 1024], [1280, 800], [1440, 1050]];
   const open = async (width, height) => {
     const context = await browser.newContext({ viewport: { width, height } });
     await context.route("https://tiles.openfreemap.org/**", route => route.fulfill({ json: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#eef0e8" } }] } }));
     const page = await context.newPage(); const errors = [];
-    page.on("pageerror", error => {
-      // Separately tracked in the playground review; keep all other errors fatal.
-      if (browser.browserType().name() === "webkit" && error.message === "ResizeObserver loop completed with undelivered notifications.") diagnostics.push({ width, height, message: error.message });
-      else errors.push(error.message);
-    }); page.on("dialog", dialog => dialog.accept());
+    page.on("pageerror", error => errors.push(error.message));
+    page.on("dialog", dialog => dialog.accept());
     await page.goto(`${origin}${basePath}/playground/`, { waitUntil: "networkidle" }); await page.locator('[data-playground][data-ready="true"]').waitFor();
     await page.evaluate(() => document.fonts.ready);
     return { context, page, errors };
@@ -113,6 +109,4 @@ export async function checkPlaygroundMobile({ browser, origin, evidence, basePat
     } finally { await context.close(); }
   }
   console.log("✓ Playground mobile: unobstructed real clicks, both column layouts, short/landscape maps, table resizing, drawing, drawers and recovery controls");
-  if (diagnostics.length) console.warn(`Known WebKit ResizeObserver diagnostic: ${diagnostics.length} occurrences (tracked separately from welcome hit targets).`);
-  return { diagnostics };
 }
