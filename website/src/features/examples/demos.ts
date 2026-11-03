@@ -200,7 +200,8 @@ export const demos: Record<string, DemoConfig> = {
       properties: { name: "Meeting point", mapMasterText: { text: "Meeting point\nVondelpark", style: { color: "#175c4c", fontSize: 20, fontWeight: "bold", backgroundColor: "#ffffff" } } } }],
     select: ["park-label"], extras: ["geojson"], options: { keyboardShortcuts: { text: [{ key: "t" }] } },
   },
-  markers: { tools: ["point", "edit", "duplicate", "delete", "undo", "redo"], features: [...benches, lawn], select: ["bench"] },
+  markers: { tools: ["point", "edit", "duplicate", "delete", "undo", "redo"], features: [...benches, lawn], select: ["bench"],
+    options: { styling: { feature: feature => feature.geometry.type === "Point" ? { marker: { shape: "pin", radius: 10 } } : undefined } } },
   appearance: { tools: defaults, features: everything, select: ["garden"], extras: ["appearance"] },
   "keyboard-vertices": { tools: ["edit", "undo", "redo"], features: [lawn, garden], select: ["lawn"] },
   "keyboard-shortcuts": {

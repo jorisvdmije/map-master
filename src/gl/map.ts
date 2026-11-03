@@ -6,14 +6,14 @@ import type { ScreenPoint } from '../core/snapping.js';
 // structurally; no renderer, worker or renderer declarations enter this module.
 export type ExpressionSpecification = [string, ...unknown[]];
 type FilterSpecification = ['==', string, string | number | boolean] | ['!=', string, string | number | boolean] | ['all', ...FilterSpecification[]];
-export type LayerSpecification = { [Kind in 'fill' | 'line' | 'circle']: {
+export type LayerSpecification = { [Kind in 'fill' | 'line' | 'circle' | 'symbol']: {
   id: string;
   type: Kind;
   source: string;
   filter?: FilterSpecification;
   layout?: Record<string, unknown>;
   paint?: Record<string, unknown>;
-} }['fill' | 'line' | 'circle'];
+} }['fill' | 'line' | 'circle' | 'symbol'];
 type LngLatLike = Coordinate | { lng: number; lat: number } | { lon: number; lat: number };
 interface LngLat {
   lng: number; lat: number;
@@ -69,7 +69,7 @@ export interface EditorMap {
   isSourceLoaded(id: string): boolean;
   queryRenderedFeatures(bounds: [number, number] | [[number, number], [number, number]], options: { layers: string[] }): (GeoJSON.Feature & { layer?: { id: string } })[];
   hasImage(id: string): boolean;
-  addImage(id: string, image: { width: number; height: number; data: Uint8Array }, options: { pixelRatio: number }): unknown;
+  addImage(id: string, image: { width: number; height: number; data: Uint8Array }, options: { pixelRatio: number; sdf?: boolean }): unknown;
   removeImage(id: string): unknown;
   project(coordinate: Coordinate): ScreenPoint;
   unproject(point: [number, number]): LngLat;

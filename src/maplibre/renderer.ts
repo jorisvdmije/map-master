@@ -12,6 +12,7 @@ import type { Coordinate, CutFeedback, SharedBoundaryPreview, ReshapePreview, Un
 import { PreviewBorder } from './preview-border.js';
 import { vertexHandles } from './vertex-handles.js';
 import { polygonLineWidth } from './polygon-outline.js';
+import { pinImage } from './pin-image.js';
 
 const emptyCollection = () => ({ type: 'FeatureCollection' as const, features: [] });
 const circlePaint = (point: PointAppearance) => ({
@@ -88,7 +89,7 @@ export class MapLibreRenderer {
           'line-width': polygonLineWidth(shape('lineWidth'), appearance.polygonOutline),
           'line-opacity': visible(shape('lineOpacity')), 'line-opacity-transition': { duration: 0 } } },
       { id: `${namespace}-markers`, type: 'circle', source: this.featuresId,
-        filter: ['all', ['==', '$type', 'Point'], ['!=', '__mm_text', true]], layout: { 'circle-sort-key': sort },
+        filter: ['all', ['==', '$type', 'Point'], ['!=', '__mm_text', true], ['!=', '__mm_pin', true]], layout: { 'circle-sort-key': sort },
         paint: { 'circle-radius': marker('radius'),
           'circle-color': marker('color'),
           'circle-stroke-color': marker('strokeColor'),
@@ -96,6 +97,14 @@ export class MapLibreRenderer {
           'circle-opacity': visible(marker('opacity')),
           'circle-stroke-opacity': visible(marker('opacity')),
           'circle-opacity-transition': { duration: 0 }, 'circle-stroke-opacity-transition': { duration: 0 } } },
+      { id: `${namespace}-pins`, type: 'symbol', source: this.featuresId,
+        filter: ['all', ['==', '$type', 'Point'], ['!=', '__mm_text', true], ['==', '__mm_pin', true]],
+        layout: { 'icon-image': `${namespace}-pin`, 'icon-anchor': 'bottom', 'icon-offset': [0, 4],
+          'icon-size': ['/', ['coalesce', ['get', '__geo_editor_style_marker_radius'], appearance.marker.radius], 12],
+          'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-pitch-alignment': 'viewport', 'icon-rotation-alignment': 'viewport', 'symbol-sort-key': sort },
+        paint: { 'icon-color': marker('color'), 'icon-opacity': visible(marker('opacity')),
+          'icon-halo-color': marker('strokeColor'), 'icon-halo-width': marker('strokeWidth'),
+          'icon-opacity-transition': { duration: 0 }, 'icon-color-transition': { duration: 0 }, 'icon-halo-color-transition': { duration: 0 } } },
       { id: `${namespace}-simplification-original`, type: 'line', source: this.featuresId,
         filter: ['!=', '$type', 'Point'],
         layout: { 'line-cap': 'round', 'line-join': 'round' },
@@ -130,7 +139,7 @@ export class MapLibreRenderer {
         filter: ['==', 'kind', 'snap'],
         paint: { ...circlePaint(snap), 'circle-radius': ['case', ['==', ['get', 'snapKind'], 'vertex'], snap.radius, snap.edgeRadius] } },
     ];
-    const committed = layers.slice(0, 6);
+    const committed = layers.slice(0, 7);
     const stack = this.dataLayers.flatMap(dataLayer => committed.map((layer): LayerSpecification => ({
       ...layer,
       id: dataLayer.id === 'default' ? layer.id : `${namespace}-data-${encodeURIComponent(dataLayer.id)}-${layer.id.slice(namespace.length + 1)}`,
@@ -138,8 +147,8 @@ export class MapLibreRenderer {
       layout: { ...layer.layout, visibility: dataLayer.visible ? layer.layout?.visibility ?? 'visible' : 'none' },
     })));
     this.fillIds = stack.filter(layer => layer.type === 'fill' && layer.source === this.featuresId).map(layer => layer.id);
-    this.outlineIds = stack.filter(layer => 'source' in layer && layer.source === this.featuresId && (layer.type === 'circle' || layer.type === 'line' && !layer.id.endsWith('simplification-original'))).map(layer => layer.id);
-    return [...stack, ...layers.slice(6)];
+    this.outlineIds = stack.filter(layer => 'source' in layer && layer.source === this.featuresId && (layer.type === 'circle' || layer.type === 'symbol' || layer.type === 'line' && !layer.id.endsWith('simplification-original'))).map(layer => layer.id);
+    return [...stack, ...layers.slice(7)];
   }
 
   setDataLayers(layers: readonly DataLayer[]): void {
@@ -187,6 +196,7 @@ export class MapLibreRenderer {
         ...(id !== this.draftId ? { promoteId: renderIdProperty } : {}),
       });
     }
+    if (!this.map.hasImage(`${this.namespace}-pin`)) this.map.addImage(`${this.namespace}-pin`, pinImage(), { pixelRatio: 2, sdf: true });
     for (const layer of this.layers) {
       if (!this.map.getLayer(layer.id)) this.map.addLayer(layer);
     }
@@ -213,7 +223,8 @@ export class MapLibreRenderer {
     // Encode ID types; keep old tiles hidden until the worker AND visible tiles are ready.
     void Promise.resolve(source?.setData({
       type: 'FeatureCollection', features: collection.features.map((feature) => ({
-        ...feature, properties: { [renderIdProperty]: JSON.stringify(feature.id), ...this.styling.properties(feature.id), __mm_text: isTextMarker(feature), [dataLayerProperty]: featureDataLayerId(feature) },
+        ...feature, properties: { [renderIdProperty]: JSON.stringify(feature.id), ...this.styling.properties(feature.id),
+          __mm_text: isTextMarker(feature), __mm_pin: this.styling.properties(feature.id).__geo_editor_style_marker_shape === 'pin', [dataLayerProperty]: featureDataLayerId(feature) },
       })),
     })).then(() => {
       if (this.transfer?.revision !== revision || this.map.getSource(this.featuresId) !== source) return;
@@ -503,6 +514,7 @@ export class MapLibreRenderer {
     for (const id of [this.draftId, this.featuresId, this.styling.sourceId]) {
       if (this.map.getSource(id)) this.map.removeSource(id);
     }
+    if (this.map.hasImage(`${this.namespace}-pin`)) this.map.removeImage(`${this.namespace}-pin`);
     this.styling.destroy(true);
   }
 }

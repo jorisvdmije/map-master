@@ -4,6 +4,7 @@ import { assetPath } from "@/lib/paths";
 import { defaultTheme } from "./appearance";
 import { center, demos, type DemoConfig } from "./demos";
 import type { DemoRuntime, DemoSnapshot } from "./types";
+import { attachFeaturePreview } from "./feature-preview";
 
 setWorkerUrl(assetPath("/maplibre-worker.mjs"));
 const isPair = (tools: DemoConfig["tools"]): tools is readonly [readonly ToolbarTool[], readonly ToolbarTool[]] =>
@@ -48,6 +49,7 @@ export async function mountDemo(container: HTMLElement, signal: AbortSignal, sty
     ...options, snapping: { enabled: true, ...options.snapping },
     appearance: { polygonOutline: { scaleWithZoom: true, referenceZoom: config.zoom ?? 15.6 }, ...defaultTheme, ...options.appearance },
   });
+  subscriptions.push(attachFeaturePreview(map, editor));
   const [left, right] = isPair(config.tools) ? config.tools : [config.tools, undefined];
   const narrow = container.clientWidth < 640;
   const toolbar = { collapsible: narrow, collapsed: narrow && right !== undefined };

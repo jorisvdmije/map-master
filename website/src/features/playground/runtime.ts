@@ -3,6 +3,7 @@ import { EditorToolbar, GeometryEditor, type DataLayer, type EditorState, type F
 import type { QueryClient } from "@tanstack/react-query";
 import { assetPath } from "@/lib/paths";
 import { basemapQuery, fallbackStyle } from "@/features/examples/queries";
+import { attachFeaturePreview } from "@/features/examples/feature-preview";
 import { emptyProject, featureStyle, layerId, maxFeatures, newLayer, palette, parseProject, styleProperty, type Project, type Settings } from "./project";
 
 export interface Snapshot { state: EditorState; project: Project; revision: number }
@@ -40,6 +41,7 @@ export class PlaygroundRuntime {
   private disposed = false;
   private styleRequest = 0;
   private unsubscribe: () => void;
+  private removePreview: () => void;
 
   constructor(readonly map: GLMap, private client: QueryClient, private notice: Notice) {
     const initial = emptyProject();
@@ -54,6 +56,7 @@ export class PlaygroundRuntime {
     map.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
     map.addControl(new ScaleControl({ maxWidth: 110 }), "bottom-left");
     this.unsubscribe = this.editor.onChange(() => this.refresh());
+    this.removePreview = attachFeaturePreview(map, this.editor);
     map.on("moveend", this.moved);
     this.refresh(true);
     void this.applyBasemap();
@@ -234,7 +237,7 @@ export class PlaygroundRuntime {
   destroy() {
     if (this.disposed) return;
     this.disposed = true; this.styleRequest++;
-    this.unsubscribe(); this.listeners.clear();
+    this.removePreview(); this.unsubscribe(); this.listeners.clear();
     this.map.off("moveend", this.moved);
     this.map.remove();
   }

@@ -3,7 +3,8 @@ import type { FeatureId, GeometryFeature } from './types.js';
 
 export interface FeatureStyle {
   shape?: Partial<ShapeAppearance>;
-  marker?: Partial<PointAppearance>;
+  /** Pin tips anchor to the feature coordinate; omitted shape keeps a circle. */
+  marker?: Partial<PointAppearance> & { shape?: 'circle' | 'pin' };
   /** Larger values draw above smaller values within each geometry layer. */
   sortKey?: number;
 }
@@ -53,8 +54,11 @@ export function validateFeatureStyle(value: FeatureStyle): FeatureStyle {
     result.shape = Object.fromEntries(Object.keys(value.shape!).map(key => [key, resolved.feature[key as keyof ShapeAppearance]]));
   }
   if (Object.hasOwn(value, 'marker')) {
-    const resolved = resolveAppearance({ marker: value.marker! });
-    result.marker = Object.fromEntries(Object.keys(value.marker!).map(key => [key, resolved.marker[key as keyof PointAppearance]]));
+    object(value.marker, ['shape', 'color', 'radius', 'opacity', 'strokeColor', 'strokeWidth'], 'marker style');
+    const { shape, ...fields } = value.marker!;
+    if (shape !== undefined && shape !== 'circle' && shape !== 'pin') throw new TypeError('Invalid marker shape.');
+    const resolved = resolveAppearance({ marker: fields });
+    result.marker = { ...Object.fromEntries(Object.keys(fields).map(key => [key, resolved.marker[key as keyof PointAppearance]])), ...(shape === undefined ? {} : { shape }) };
   }
   if (Object.hasOwn(value, 'sortKey')) {
     if (typeof value.sortKey !== 'number' || !Number.isFinite(value.sortKey)) throw new RangeError('sortKey must be finite.');
@@ -79,6 +83,7 @@ export function resolveStyling(value: EditorStylingOptions = {}): EditorStylingO
   }
   if (Object.hasOwn(value, 'selected')) {
     object(value.selected, ['shape', 'marker'], 'selection style');
+    if (value.selected?.marker && Object.hasOwn(value.selected.marker, 'shape')) throw new TypeError('Selection styles cannot change marker shape.');
     result.selected = validateFeatureStyle(value.selected!);
   }
   if (Object.hasOwn(value, 'overlap')) {

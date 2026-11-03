@@ -52,7 +52,9 @@ listeners. Host basemap styles are unchanged.
 `feature(feature)` returns a `FeatureStyle`, `null` or `undefined`:
 
 - `shape`: partial `ShapeAppearance`, for polygon fills, outlines and lines.
-- `marker`: partial `PointAppearance`, for points.
+- `marker`: partial `PointAppearance`, for points, with an optional `shape` of
+  `circle` or `pin`. See [map pins](markers.md#map-pins) for anchoring and sizing.
+  Shape is a feature/layer style, rather than a selection override.
 - `sortKey`: a finite number, default 0. Higher values draw later within each
   fill, line or marker layer. Equal values retain source order. All outlines
   remain above all polygon fills, and markers above outlines. This is not a

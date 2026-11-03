@@ -6,6 +6,7 @@ import { chromium, firefox, webkit } from "playwright";
 import { createStaticServer } from "./lib/static-server.mjs";
 import { checkPlaygroundMobile } from "./playground-mobile-check.mjs";
 import { checkPlaygroundResize } from "./playground-resize-check.mjs";
+import { checkFeaturePreviews } from "./feature-preview-check.mjs";
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const types = { chromium, firefox, webkit };
@@ -25,6 +26,7 @@ try {
       browser = await types[name].launch({ headless, ...(name === "chromium" ? { args: ["--enable-unsafe-swiftshader"] } : {}) });
       await checkPlaygroundMobile({ browser, origin, evidence, basePath });
       await checkPlaygroundResize({ browser, origin, evidence, basePath });
+      await checkFeaturePreviews({ browser, origin, basePath });
       results.push({ browser: name, version: browser.version(), headless, passed: true });
       console.log(`✓ ${name}: playground mobile and resize checks passed`);
     } catch (error) {

@@ -108,5 +108,11 @@ download and restart buttons stay reachable.
 The Layers and Properties drawers stay within the map area in both attribute
 table layouts, with their close buttons available at the top.
 
+In Layer style or Feature style, **Marker shape** switches points between circles
+and classic map pins. Apply the style to save it. Hover over a feature for a safe,
+scrollable property preview; Escape dismisses it. Selecting a point with the map
+focused also shows its preview. On touch screens, select a feature and open
+**Properties** to inspect or edit its attributes.
+
 Mouse and keyboard are the primary editing inputs; the library's documented touch/pen
 qualification limits still apply.
