@@ -24,6 +24,7 @@ import { checkPlaygroundStorage } from "./playground-storage-check.mjs";
 import { checkPlaygroundIntegrity } from "./playground-integrity-check.mjs";
 import { checkPlaygroundAttributeDrafts } from "./playground-attributes-check.mjs";
 import { checkPlaygroundMobile } from "./playground-mobile-check.mjs";
+import { checkPlaygroundResize } from "./playground-resize-check.mjs";
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repo = resolve(site, "..");
@@ -209,6 +210,7 @@ try {
   await checkPlaygroundIntegrity({ browser, origin, evidence });
   await checkPlaygroundAttributeDrafts({ browser, origin, evidence });
   await checkPlaygroundMobile({ browser, origin, evidence });
+  await checkPlaygroundResize({ browser, origin, evidence });
 
   await open("guides/draw.html");
   await ready();

@@ -8,6 +8,9 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Fixed
 
+- Coalesce playground map resizes outside ResizeObserver delivery to prevent
+  WebKit loop errors when the attribute table or viewport changes. Cancel pending
+  resize work on navigation and keep active drafts and history intact.
 - Keep playground start actions separate from map controls on short and landscape
   screens, with compact start cards, bounded recovery messages and both map-option
   toggles available on mobile. Keep mobile Layers and Properties drawers in the
