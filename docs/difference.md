@@ -9,6 +9,16 @@ cutting polygons. `cancel()` or Escape leaves all originals untouched.
 Selection order matters: `A − B` is different from `B − A`. The first selected
 feature is the target. If all of its area is removed, confirming deletes the target.
 
+The toolbar opens a **preview** first. Its action panel names the target, states
+that cutting polygons are kept, and asks you to choose **Apply** or **Cancel**.
+An empty result warns that Apply deletes the target. The cutter can still fill
+the removed region on the map after applying: deselect the shapes, inspect the
+target's geometry or hide the cutter's layer to see the cut clearly.
+
+Only the target must be editable. Cutting polygons may be feature-locked or in
+a visible, selectable read-only/locked layer; Difference never changes them.
+The toolbar and configured keyboard shortcut follow the same rule as the API.
+
 ## Public API
 
 ```ts

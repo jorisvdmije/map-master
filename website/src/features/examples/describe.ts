@@ -22,7 +22,7 @@ const instructions: Partial<Record<EditorState["mode"], string>> = {
   "reshape-polygon": "Draw a new boundary section that starts and ends on the outline.",
   "edit-shared-boundary": "Drag the common corners. Both polygons change together.",
   "union-polygons": "Preview of the merged shape. Apply merges the selection.",
-  "difference-polygons": "The first selected shape minus the others. Apply subtracts them.",
+  "difference-polygons": "Preview only: the first selected shape minus the others. Choose Apply to save. Cutting polygons are kept.",
   "intersection-polygons": "Only the area common to all shapes remains. Apply keeps it.",
   "rotate-features": "Drag the round handle or type an angle.",
   "scale-features": "Drag a corner handle or type a factor.",

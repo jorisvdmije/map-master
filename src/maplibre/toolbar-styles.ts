@@ -118,6 +118,8 @@ export const toolbarStyles = `
 .mm-toolbar .mm-toolbar-actions[data-mode="select-lasso"],
 .mm-toolbar .mm-toolbar-actions[data-text="true"] { flex-wrap: wrap; }
 .mm-toolbar .mm-toolbar-actions[data-mode="draw-template"] { width: 340px; }
+.mm-toolbar .mm-toolbar-actions[data-mode="difference-polygons"] { width: 300px; }
+.mm-toolbar .mm-toolbar-difference { flex: 0 0 100%; padding: 6px; box-sizing: border-box; white-space: normal; overflow-wrap: anywhere; font-size: 12px; line-height: 1.5; color: var(--mm-toolbar-color); }
 .mm-toolbar .mm-toolbar-template { display: flex; flex-wrap: wrap; flex: 0 0 100%; width: 100%; box-sizing: border-box; gap: 6px; padding: 4px; }
 .mm-toolbar .mm-toolbar-template .mm-toolbar-field { white-space: normal; }
 .mm-toolbar .mm-toolbar-template-notice { font-size: 11px; color: var(--mm-toolbar-danger); padding: 4px; }

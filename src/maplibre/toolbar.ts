@@ -20,6 +20,7 @@ export type ToolbarLabelKey = ToolbarTool | TemplateLabelKey
   | 'layerHistoryBlocked' | 'outsideAllowed' | 'intersectsExcluded' | 'insideExcluded' | 'geofencingFailed' | 'pinInvalid' | 'toolbar' | 'finish' | 'save' | 'apply' | 'cancel' | 'removeLastPoint'
   | 'distance' | 'tolerance' | 'angle' | 'factor' | 'collapse' | 'expand'
   | 'holeChoice' | 'holeNumber' | 'partNumber' | 'holeOverlap'
+  | 'differenceTarget' | 'differenceCutters' | 'differenceReview' | 'differenceEmpty' | 'differenceInvalid'
   | 'lassoOperation' | 'replaceSelection' | 'addToSelection' | 'subtractFromSelection'
   | 'lassoMatch' | 'intersects' | 'contains' | 'lassoInvalid'
   | 'labelText' | 'fontSize' | 'textColor' | 'textBackground' | 'fontWeight' | 'normal' | 'bold' | 'textAlign' | 'left' | 'center' | 'right';
@@ -102,6 +103,10 @@ const defaultLabels: ToolbarLabels = {
   lasso: 'Lasso selection', lassoOperation: 'Action', replaceSelection: 'Replace', addToSelection: 'Add', subtractFromSelection: 'Remove',
   lassoMatch: 'Match', intersects: 'Touches', contains: 'Fully inside', lassoInvalid: 'Draw a loop with at least three corners, without crossing its own path.',
   union: 'Merge polygons', difference: 'Subtract polygons', intersection: 'Intersect polygons',
+  differenceTarget: 'Target (first selected):', differenceCutters: 'Cutting polygons are kept',
+  differenceReview: 'Preview only. Choose Apply to save the subtraction, or Cancel to keep the originals.',
+  differenceEmpty: 'The target is fully covered. Apply deletes only the target.',
+  differenceInvalid: 'The subtraction could not produce a valid result. Cancel and adjust the polygons.',
   combine: 'Combine into multipart', explode: 'Separate parts',
   rotate: 'Rotate', scale: 'Scale', buffer: 'Buffer', offset: 'Offset lines', simplify: 'Simplify',
   duplicate: 'Duplicate', delete: 'Delete',
@@ -231,6 +236,7 @@ export class EditorToolbar implements IControl {
   private readonly holeField: HTMLLabelElement;
   private readonly holeSelect: HTMLSelectElement;
   private readonly holeWarning: HTMLElement;
+  private readonly differenceNotice: HTMLElement;
   private readonly pinWarning: HTMLElement;
   private readonly geofenceNotice: HTMLElement;
   private holeOptionsKey = '';
@@ -400,11 +406,13 @@ export class EditorToolbar implements IControl {
       this.textStyleInputs.set(key, select); field.append(name, select); this.textFields.append(field);
     }
     this.templateControls = new TemplateControls(editor, this.labels, () => { this.update(); }, this.fieldKey);
+    this.differenceNotice = document.createElement('span');
+    this.differenceNotice.className = 'mm-toolbar-difference'; this.differenceNotice.setAttribute('role', 'status');
     this.primary = this.action('finish', () => { this.editor.finish(); });
     this.primary.dataset.primary = 'true';
     this.removeLast = this.action('removeLastPoint', () => { this.removeLastPoint(); });
     this.cancel = this.action('cancel', () => { this.editor.cancel(); });
-    this.actions.append(this.field, this.holeField, this.lassoFields, this.textFields, this.templateControls.root, this.primary, this.removeLast, this.cancel, this.holeWarning, this.lassoWarning, this.pinWarning);
+    this.actions.append(this.field, this.holeField, this.lassoFields, this.textFields, this.templateControls.root, this.differenceNotice, this.primary, this.removeLast, this.cancel, this.holeWarning, this.lassoWarning, this.pinWarning);
     this.root.append(this.actions);
     this.geofenceNotice = document.createElement('div');
     this.geofenceNotice.className = 'mm-geofencing-notice';
@@ -676,6 +684,14 @@ export class EditorToolbar implements IControl {
     if (this.geofenceNotice.parentElement !== noticeHost) noticeHost.append(this.geofenceNotice);
     if (anchor === undefined) { this.layout(); return; }
     this.actions.dataset.mode = state.mode;
+    this.differenceNotice.hidden = state.mode !== 'difference-polygons';
+    if (state.mode === 'difference-polygons') {
+      const target = this.selected(state)[0]!;
+      const name = typeof target.properties?.name === 'string' && target.properties.name.trim() ? target.properties.name : String(target.id);
+      const instruction = state.differenceError ? this.labels.differenceInvalid
+        : this.editor.getDifferencePreview()?.geometry === null ? this.labels.differenceEmpty : this.labels.differenceReview;
+      this.differenceNotice.textContent = `${this.labels.differenceTarget} ${name.slice(0, 160)}. ${this.labels.differenceCutters} (${state.selectedFeatureIds.length - 1}). ${instruction}`;
+    }
 
     this.textFields.hidden = text === null;
     this.actions.dataset.text = String(text !== null);
