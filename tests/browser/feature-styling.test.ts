@@ -156,5 +156,5 @@ it('rejects invalid constructor styling and prunes obsolete textures on idle', a
   const idle = new Promise<void>(resolve => { map.once('idle', () => { resolve(); }); });
   editor.setStyling({ ...options(), overlap: { enabled: true, palette: ['#abcdef', '#123456'] } });
   await idle;
-  expect(map.listImages()).toHaveLength(1); expect(map.listImages()[0]).toContain('#abcdef');
+  expect(map.listImages().filter(id => !id.endsWith('-pin'))).toHaveLength(1); expect(map.listImages().find(id => id.includes('#abcdef'))).toBeDefined();
 });

@@ -101,6 +101,8 @@ at device pixel ratios 1 and 2, active drawing with Undo/Redo, and navigation
 cleanup/remount with saved data. Every browser page error fails the check,
 including ResizeObserver loop errors. Reports and failure screenshots are written
 to `artifacts/playground/<browser>/`.
+The same run checks map-pin layer/feature styles, safe nested property previews,
+Escape dismissal, project persistence and readable documentation contents links.
 
 Chromium also runs these scenarios in `npm run test:docs`. The Browser
 compatibility workflow runs the Firefox and WebKit scenarios on Ubuntu and macOS.

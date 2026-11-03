@@ -62,13 +62,14 @@ function id(value: unknown): value is FeatureId { return typeof value === "strin
 function validStyle(value: unknown): value is FeatureStyle {
   if (!record(value) || Object.keys(value).some(key => !["shape", "marker", "sortKey"].includes(key))) return false;
   if (value.sortKey !== undefined && !number(value.sortKey, -Number.MAX_VALUE, Number.MAX_VALUE)) return false;
-  for (const [group, allowed] of [["shape", ["lineColor", "lineWidth", "lineOpacity", "fillColor", "fillOpacity"]], ["marker", ["color", "radius", "opacity", "strokeColor", "strokeWidth"]]] as const) {
+  for (const [group, allowed] of [["shape", ["lineColor", "lineWidth", "lineOpacity", "fillColor", "fillOpacity"]], ["marker", ["shape", "color", "radius", "opacity", "strokeColor", "strokeWidth"]]] as const) {
     const fields = value[group];
     if (fields === undefined) continue;
     if (!record(fields)) return false;
     for (const [key, val] of Object.entries(fields)) {
       if (!(allowed as readonly string[]).includes(key)) return false;
-      if (key.toLowerCase().includes("color")) { if (typeof val !== "string" || !/^#(?:[a-f\d]{3}|[a-f\d]{6})$/iu.test(val)) return false; }
+      if (key === "shape") { if (val !== "circle" && val !== "pin") return false; }
+      else if (key.toLowerCase().includes("color")) { if (typeof val !== "string" || !/^#(?:[a-f\d]{3}|[a-f\d]{6})$/iu.test(val)) return false; }
       else if (!number(val, 0, key.toLowerCase().includes("opacity") ? 1 : key === "strokeWidth" ? 16 : 32)) return false;
     }
   }
@@ -124,6 +125,7 @@ export function sampleProject(): Project {
   const project = emptyProject();
   project.name = "Amsterdam field notes";
   project.layers = [newLayer("default", "Places", palette[2]), newLayer("routes", "Walking routes", palette[1]), newLayer("areas", "Study areas", palette[0])];
+  project.layers[0]!.style.marker = { ...project.layers[0]!.style.marker, shape: "pin", radius: 10 };
   project.activeLayerId = "areas";
   project.camera = { center: [4.8876, 52.371], zoom: 14.1 };
   project.data.features = [

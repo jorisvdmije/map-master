@@ -22,6 +22,15 @@ it('isolates and normalizes style options without inventing selection overrides'
   expect(validateFeatureStyle({ shape: { fillOpacity: 0 }, marker: { radius: 0 }, sortKey: -42 })).toEqual({ shape: { fillOpacity: 0 }, marker: { radius: 0 }, sortKey: -42 });
 });
 
+it('validates pin shapes for feature/layer styles without accepting arbitrary icons or selection shape changes', () => {
+  expect(validateFeatureStyle({ marker: { shape: 'pin', color: '#ABC', radius: 12 } })).toEqual({ marker: { shape: 'pin', color: '#abc', radius: 12 } });
+  expect(validateFeatureStyle({ marker: { shape: 'circle' } })).toEqual({ marker: { shape: 'circle' } });
+  for (const value of [{ shape: 'star' }, { shape: null }, { shape: 'pin', radius: -1 }, { shape: 'pin', surprise: true }, new Date()]) {
+    expect(() => validateFeatureStyle({ marker: value } as never)).toThrow();
+  }
+  expect(() => resolveStyling({ selected: { marker: { shape: 'pin' } } } as never)).toThrow('shape');
+});
+
 it.each([null, { selected: { sortKey: 1 } }, { feature: 1 }, { overlap: { enabled: undefined } }, { overlap: { direction: 'left' } },
   { overlap: { opacity: NaN } }, { overlap: { stripeWidth: 0 } }, { overlap: { palette: [] } }, { overlap: { palette: ['red'] } },
   { selected: { shape: { fillColor: 'red' } } }, { selected: undefined }, { overlap: { surprise: true } }])('rejects malformed configuration %j', value => {

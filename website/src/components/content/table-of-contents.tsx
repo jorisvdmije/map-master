@@ -21,7 +21,7 @@ export function TableOfContents({ headings, sourcePath }: { headings: Heading[];
   if (!headings.some(heading => heading.depth === 2)) return null;
   return <aside ref={ref} className="toc" aria-label="On this page"><h2>On this page</h2>
     {headings.filter(heading => heading.depth === 2).map(heading =>
-      <a href={`#${heading.id}`} key={heading.id} className={active === heading.id ? "active" : undefined}>{heading.text}</a>,
+      <a href={`#${heading.id}`} key={heading.id} className={active === heading.id ? "active" : undefined} aria-current={active === heading.id ? "location" : undefined}>{heading.text}</a>,
     )}
     <a className="toc-source" href={`${github}/blob/main/${sourcePath}`} target="_blank" rel="noreferrer">View source ↗</a>
   </aside>;

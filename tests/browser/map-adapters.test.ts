@@ -65,6 +65,19 @@ describe.each(['MapLibre 6.15.0', 'Mapbox 3.34.1'] as const)('%s adapter', rende
     expect(container.querySelector('.mm-toolbar')?.classList.contains('mm-toolbar--end')).toBe(true);
   });
 
+  it('renders and picks map pins through the shared native symbol/image API', async () => {
+    editor.setStyling({ feature: () => ({ marker: { shape: 'pin', radius: 12, color: '#23836d' } }) });
+    editor.importGeoJSON({ type: 'Feature', id: 'pin', properties: { name: 'Map pin' }, geometry: { type: 'Point', coordinates: coordinate(280, 260) } });
+    editor.clearHistory(); const saved = editor.exportGeoJSON();
+    await expect.poll(() => editor.queryFeatures({ x: 280, y: 230 }).map(feature => feature.id), { timeout: 5000 }).toContain('pin');
+    editor.select('pin'); expect(editor.getState().canUndo).toBe(false); expect(editor.exportGeoJSON()).toEqual(saved);
+    const reloaded = new Promise<void>(resolve => {
+      if (map instanceof MapLibreMap) map.once('style.load', () => resolve()); else map.once('style.load', () => resolve());
+    });
+    replaceStyle(); await reloaded;
+    await expect.poll(() => editor.queryFeatures({ x: 280, y: 230 }).map(feature => feature.id), { timeout: 5000 }).toContain('pin');
+  });
+
   it('keeps long tool lists, action panels and data controls inside a small canvas', async () => {
     map.removeControl(toolbar);
     toolbar = new api.EditorToolbar(editor, { tools: api.EditorToolbar.allTools });

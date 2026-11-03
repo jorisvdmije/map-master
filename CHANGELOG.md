@@ -6,8 +6,17 @@ follows [semantic versioning](https://semver.org/); see the
 
 ## Unreleased
 
+### Added
+
+- Native map-pin marker styles through `FeatureStyle.marker.shape`, including
+  layer/feature pickers in the playground and pins in the sample project.
+- Safe, scrollable property previews on hover in documentation maps and the
+  playground, with keyboard point-selection access and Escape dismissal.
+
 ### Fixed
 
+- Improve the documentation's right-hand contents menu with larger text, wider
+  links and clearer hover/focus/active states; enlarge playground inspector fields.
 - Coalesce playground map resizes outside ResizeObserver delivery to prevent
   WebKit loop errors when the attribute table or viewport changes. Cancel pending
   resize work on navigation and keep active drafts and history intact.

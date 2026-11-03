@@ -98,8 +98,9 @@ export function StyleEditor({ style, apply, disabled, reset }: { style: FeatureS
     event.preventDefault(); const data = new FormData(event.currentTarget);
     const fillColor = String(data.get("fill")); const lineColor = String(data.get("stroke"));
     apply({ shape: { ...style.shape, fillColor, lineColor, fillOpacity: Number(data.get("opacity")), lineWidth: Number(data.get("width")) },
-      marker: { ...style.marker, color: fillColor, radius: Number(data.get("radius")), strokeColor: lineColor } });
+      marker: { ...style.marker, shape: data.get("markerShape") as "circle" | "pin", color: fillColor, radius: Number(data.get("radius")), strokeColor: lineColor } });
   }}>
+    <label className="pg-field">Marker shape<select aria-label="Marker shape" name="markerShape" defaultValue={style.marker?.shape ?? "circle"} disabled={disabled}><option value="circle">Circle</option><option value="pin">Map pin</option></select></label>
     <div className="pg-color-row"><label>Fill &amp; marker<input aria-label="Fill color" name="fill" type="color" defaultValue={style.shape?.fillColor ?? style.marker?.color ?? "#23836d"} disabled={disabled} /></label>
       <label>Outline<input aria-label="Outline color" name="stroke" type="color" defaultValue={style.shape?.lineColor ?? "#23836d"} disabled={disabled} /></label></div>
     <div className="pg-number-row"><label className="pg-field">Opacity<input aria-label="Fill opacity" name="opacity" type="number" min="0" max="1" step="any" defaultValue={style.shape?.fillOpacity ?? 0.22} disabled={disabled} required /></label>

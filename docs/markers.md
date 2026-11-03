@@ -1,8 +1,9 @@
 # Point markers
 
 `GeometryEditor` supports 2D GeoJSON `Point` features alongside lines and polygons.
-For persisted, styled labels, see [text markers](text-markers.md). Ordinary markers are circular map symbols, rendered in one shared MapLibre circle layer;
-the editor does not create a DOM element for each committed marker.
+For persisted, styled labels, see [text markers](text-markers.md). Ordinary markers
+can be circles or classic map pins. They use shared native map layers and one
+reusable icon; the editor does not create a DOM element for each committed marker.
 
 ```ts
 import { GeometryEditor, type PointFeature } from '@jorisvdmije/map-master';
@@ -67,6 +68,45 @@ All three groups use `PointAppearance` and the existing atomic validation rules.
 Defaults are green, blue when selected and orange while placing/moving. Vertex
 editing uses the existing vertex handle appearance. Settings survive style reloads;
 changes during movement also restyle the synchronous marker preview.
+
+### Map pins
+
+Choose the shape through a [feature or layer style](feature-styling.md):
+
+```ts
+editor.setStyling({
+  feature: feature => feature.geometry.type === 'Point'
+    ? { marker: { shape: 'pin', color: '#23836d', radius: 10 } }
+    : undefined,
+});
+```
+
+`marker.shape` accepts `circle` (default) or `pin`. The pin's tip sits at the exact
+feature coordinate; the head rises above it. `radius` controls the head radius in
+CSS pixels. Pins stay upright with pitch and bearing, and remain visible when
+they overlap. Selection changes their color/outline using the normal selection
+style; pin size and shape stay constant. Drawing/moving previews and edit handles
+keep the existing circular draft theme. The pin is included in picking, layer
+visibility/order, style reload and cleanup. A circle and pin in the same layer
+render in separate native sublayers, with pins above circles.
+
+In the playground, choose **Marker shape → Map pin** in Layer style or Feature
+style, then **Apply style**. Layer styles persist in project files; feature style
+overrides persist in GeoJSON and support Undo/Redo. The sample project's Places
+layer demonstrates pins.
+
+### Inspect properties
+
+Hover over a feature in the documentation maps or playground to inspect its
+properties, including nested JSON. The preview does not change selection. It
+also appears for a keyboard-selected point when the map canvas has focus. Escape
+dismisses it; leaving the feature or moving the map clears it. Select a feature
+to use the playground inspector on touch screens.
+
+Values render as plain text. The preview scrolls and shows up to 20 properties
+and 1,000 characters per value; select the feature to inspect all attributes.
+Internal layer, pin-link and playground-style metadata are omitted. This preview
+is a documentation/playground feature, not a library-owned popup API.
 
 ## Verification
 
