@@ -8,6 +8,10 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Fixed
 
+- Keep playground start actions separate from map controls on short and landscape
+  screens, with compact start cards, bounded recovery messages and both map-option
+  toggles available on mobile. Keep mobile Layers and Properties drawers in the
+  map area so their close buttons remain reachable.
 - Keep pending playground attribute values when switching between text, number,
   boolean, JSON and null; invalid conversions preserve both the draft and saved data.
 - Preserve imported attribute keys exactly when editing or deleting playground
