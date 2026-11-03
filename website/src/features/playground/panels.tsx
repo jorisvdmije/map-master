@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, Eye, EyeOff, Layers, LockKeyhole, LockKeyholeOp
 import type { DataLayer, FeatureId, FeatureStyle, JsonValue } from "@jorisvdmije/map-master";
 import { displayValue, editableField, featureKey, featureName, featureStyle, layerId } from "./project";
 import type { PlaygroundRuntime, Snapshot } from "./runtime";
+import { HoverSettings } from "./hover-settings";
 
 export type Run = (action: () => void, message?: string) => void;
 export type EditField = { id: FeatureId; key: string | null };
@@ -153,6 +154,11 @@ export function Inspector({ snapshot, runtime, layer, run, edit, close }: { snap
           apply={style => run(() => feature ? runtime.setFeatureStyle([feature.id], style) : runtime.updateLayer(layer.id, { style }), "Style updated.")}
           reset={feature && featureStyle(feature) ? () => run(() => runtime.setFeatureStyle([feature.id], null), "Layer style restored.") : undefined} />
       </section>}
+      <section className="pg-inspector-section"><h3>Hover · {feature ? featureLayer.name : layer.name}</h3>
+        <HoverSettings key={`${feature ? featureLayer.id : layer.id}:${JSON.stringify(snapshot.project.hoverPreviews)}`} options={snapshot.project.hoverPreviews.find(item => item.layerId === (feature ? featureLayer.id : layer.id))?.options ?? {}}
+          features={snapshot.project.data.features.filter(item => layerId(item) === (feature ? featureLayer.id : layer.id))} disabled={!idle}
+          apply={options => run(() => runtime.setHoverPreview(feature ? featureLayer.id : layer.id, options), "Hover settings saved for this layer.")} />
+      </section>
       <section className="pg-inspector-section pg-tip"><span className="pg-kicker">A LITTLE SHORTCUT</span><p>Shift-click adds to a selection. Select a shape and choose Edit vertices. Press Escape to cancel an edit.</p></section>
     </div>
   </aside>;

@@ -1,4 +1,7 @@
 import type { DataLayer, FeatureId, FeatureStyle, GeometryFeature, GeometryFeatureCollection, JsonValue } from "@jorisvdmije/map-master";
+import { resolveFeaturePreview, type FeaturePreviewOptions } from "@jorisvdmije/map-master";
+
+export type LayerFeaturePreview = { layerId: string; options: FeaturePreviewOptions };
 
 export const projectFormat = "map-master-playground";
 export const styleProperty = "mapMasterPlaygroundStyle";
@@ -17,6 +20,7 @@ export interface Project {
   lockedFeatureIds: FeatureId[];
   camera: { center: [number, number]; zoom: number };
   settings: Settings;
+  hoverPreviews: LayerFeaturePreview[];
 }
 
 export function layerStyle(color: string): FeatureStyle {
@@ -33,6 +37,7 @@ export function emptyProject(): Project {
     data: { type: "FeatureCollection", features: [] }, layers: [newLayer("default", "My first layer")],
     activeLayerId: "default", lockedFeatureIds: [], camera: { center: [4.895, 52.372], zoom: 13 },
     settings: { basemap: "streets", snapping: true, guides: false, measurements: false, scaleBorders: false, toolbarColumns: 2 },
+    hoverPreviews: [],
   };
 }
 
@@ -109,6 +114,15 @@ export function parseProject(value: unknown): Project {
   if (!record(value.settings) || !["streets", "blank"].includes(String(value.settings.basemap)) || ["snapping", "guides", "measurements", "scaleBorders"].some(key => typeof (value.settings as Record<string, unknown>)[key] !== "boolean")) throw new Error("The project has invalid map settings.");
   if (value.settings.toolbarColumns !== undefined && value.settings.toolbarColumns !== 1 && value.settings.toolbarColumns !== 2) throw new Error("Toolbar columns must be 1 or 2.");
   const project = structuredClone(value) as unknown as Project;
+  if (value.hoverPreviews !== undefined) {
+    if (!Array.isArray(value.hoverPreviews) || value.hoverPreviews.length > 200) throw new Error("Invalid layer hover settings.");
+    const configured = new Set<string>();
+    for (const item of value.hoverPreviews) {
+      if (!record(item) || !record(item.options) || Object.keys(item).some(key => !["layerId", "options"].includes(key)) || typeof item.layerId !== "string" || !ids.has(item.layerId) || configured.has(item.layerId)) throw new Error("Invalid or duplicate hover layer.");
+      configured.add(item.layerId); resolveFeaturePreview(item.options as FeaturePreviewOptions);
+    }
+  }
+  project.hoverPreviews ??= [];
   // Projects saved before the layout option use the new default.
   project.settings.toolbarColumns ??= 2;
   return project;
@@ -126,6 +140,11 @@ export function sampleProject(): Project {
   project.name = "Amsterdam field notes";
   project.layers = [newLayer("default", "Places", palette[2]), newLayer("routes", "Walking routes", palette[1]), newLayer("areas", "Study areas", palette[0])];
   project.layers[0]!.style.marker = { ...project.layers[0]!.style.marker, shape: "pin", radius: 10 };
+  project.hoverPreviews = [
+    { layerId: "default", options: { fields: [{ key: "category", label: "Type" }, { key: "capacity", label: "Capacity", format: "number", decimals: 0 }] } },
+    { layerId: "areas", options: { fields: [{ key: "status", label: "Status" }] } },
+    { layerId: "routes", options: { fields: [{ key: "accessible", label: "Accessible" }] } },
+  ];
   project.activeLayerId = "areas";
   project.camera = { center: [4.8876, 52.371], zoom: 14.1 };
   project.data.features = [

@@ -103,10 +103,73 @@ also appears for a keyboard-selected point when the map canvas has focus. Escape
 dismisses it; leaving the feature or moving the map clears it. Select a feature
 to use the playground inspector on touch screens.
 
-Values render as plain text. The preview scrolls and shows up to 20 properties
-and 1,000 characters per value; select the feature to inspect all attributes.
+Values render as plain text. The default preview has up to five rows: custom
+fields followed by geometry information. Points show latitude then longitude
+(six decimal places), lines show length, and polygons show area and perimeter.
+Holes are excluded from area and included in perimeter; multipart totals include
+all parts. Measurements use the existing [spherical contract](measurements.md).
+Height/width are not shown. Values are bounded to 1,000 characters; select the
+feature to inspect all attributes.
 Internal layer, pin-link and playground-style metadata are omitted. This preview
 is a documentation/playground feature, not a library-owned popup API.
+
+### Configure hover cards per layer
+
+In the playground, open **Properties → Hover card settings** for the layer (or a
+selected feature's layer). Choose a title property or Feature ID, enable **Choose
+custom fields**, then add/remove properties, edit their display labels and move
+them up/down. Number fields accept a maximum decimal count; Date uses UTC; JSON
+keeps nested values. Choose geometry rows, metric/imperial units, English/Dutch
+formatting and a total row budget of 2–10, or hide the card for the entire layer.
+The example card previews the first feature using your draft settings. Choose
+**Apply hover settings** to save; **Reset hover settings** restores the defaults.
+
+Settings belong to the layer in the project, not to individual GeoJSON
+properties. Project download, autosave and reopening retain them; older projects
+use defaults. Hover configuration does not change feature data or geometry Undo.
+
+### Developer configuration
+
+`featurePreview(feature, options)` builds the same plain-text content for your own
+popup on either renderer. `resolveFeaturePreview(options)` validates and copies
+serializable configuration. Neither function creates a map popup or modifies
+features/history:
+
+```ts
+import { featurePreview, type FeaturePreviewOptions } from '@jorisvdmije/map-master';
+
+const hover: FeaturePreviewOptions = {
+  titleProperty: 'name',
+  fields: [
+    { key: 'status', label: 'Status' },
+    { key: 'inspection_date', label: 'Last inspection', format: 'date' },
+    { key: 'capacity', label: 'Capacity', format: 'number', decimals: 0 },
+  ],
+  geometry: { area: true, perimeter: true, length: true, coordinates: true },
+  maxRows: 5,
+  units: 'metric',
+  locale: 'en',
+};
+const content = featurePreview(feature, hover); // { title, rows, omittedFields } | null
+// Render content.title and each row.label/value with textContent (never innerHTML).
+```
+
+`enabled: false` returns null. Omitted/null `fields` automatically picks own custom
+properties except the title and internal metadata; `fields: []` hides custom
+properties. Explicit fields retain their configured order and may include the
+title property. Keys match exactly (including spaces); missing fields are skipped.
+Null, false and zero remain visible. Geometry rows reserve room within `maxRows`,
+so large property sets cannot hide coordinates/measurements. `omittedFields`
+counts custom fields cut off by that budget. Disable individual geometry rows
+with false. The title defaults to `name`, with a feature-ID fallback.
+
+Formats are `auto`, `number`, `date` and `json`. Number formats only numeric
+values, with 0–8 maximum decimals. Date accepts ISO dates or timestamps with an
+explicit timezone and formats their date in UTC; incompatible values stay as
+stored. Labels are limited to 120 characters, exact keys to 200, configured
+fields to 40, and titles to 200 visible characters. Invalid options throw before
+use. Hosts can select different options by `featureDataLayerId(feature)` and
+pass their own language tag through `locale`.
 
 ## Verification
 

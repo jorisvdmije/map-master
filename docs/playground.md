@@ -114,5 +114,13 @@ scrollable property preview; Escape dismisses it. Selecting a point with the map
 focused also shows its preview. On touch screens, select a feature and open
 **Properties** to inspect or edit its attributes.
 
+Open **Hover card settings** in Properties to configure the layer's title field,
+custom fields/labels/order, number/date/JSON formatting, geometry rows, units and
+maximum visible rows. Changes apply to that entire layer after **Apply hover
+settings** and persist in project files and browser storage. Feature properties
+and geometry history remain unchanged. The default is five rows with appropriate
+geometry information: area/perimeter for polygons, length for lines and
+latitude/longitude for markers. Reset restores the defaults.
+
 Mouse and keyboard are the primary editing inputs; the library's documented touch/pen
 qualification limits still apply.

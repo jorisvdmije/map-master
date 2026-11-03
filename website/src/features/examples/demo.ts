@@ -49,7 +49,7 @@ export async function mountDemo(container: HTMLElement, signal: AbortSignal, sty
     ...options, snapping: { enabled: true, ...options.snapping },
     appearance: { polygonOutline: { scaleWithZoom: true, referenceZoom: config.zoom ?? 15.6 }, ...defaultTheme, ...options.appearance },
   });
-  subscriptions.push(attachFeaturePreview(map, editor));
+  subscriptions.push(attachFeaturePreview(map, editor).destroy);
   const [left, right] = isPair(config.tools) ? config.tools : [config.tools, undefined];
   const narrow = container.clientWidth < 640;
   const toolbar = { collapsible: narrow, collapsed: narrow && right !== undefined };
