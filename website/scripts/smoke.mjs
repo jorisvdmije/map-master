@@ -26,6 +26,7 @@ import { checkPlaygroundAttributeDrafts } from "./playground-attributes-check.mj
 import { checkPlaygroundMobile } from "./playground-mobile-check.mjs";
 import { checkPlaygroundResize } from "./playground-resize-check.mjs";
 import { checkFeaturePreviews } from "./feature-preview-check.mjs";
+import { checkDifference } from "./difference-check.mjs";
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repo = resolve(site, "..");
@@ -213,6 +214,7 @@ try {
   await checkPlaygroundMobile({ browser, origin, evidence });
   await checkPlaygroundResize({ browser, origin, evidence });
   await checkFeaturePreviews({ browser, origin });
+  await checkDifference({ browser, origin });
 
   await open("guides/draw.html");
   await ready();

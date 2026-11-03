@@ -15,6 +15,10 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Fixed
 
+- Allow Difference in the toolbar and keyboard shortcuts when only cutting
+  polygons are locked or read-only; keep the first selected target protected.
+  Show the target, retained cutters and explicit Apply/Cancel instructions during
+  review, with a warning before deleting a fully covered target.
 - Improve the documentation's right-hand contents menu with larger text, wider
   links and clearer hover/focus/active states; enlarge playground inspector fields.
 - Coalesce playground map resizes outside ResizeObserver delivery to prevent

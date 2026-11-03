@@ -136,6 +136,46 @@ it('enables each tool only for a qualifying, unlocked selection', async () => {
   expect(editor.getState()).toMatchObject({ mode: 'idle', featureCount: 3 });
 });
 
+it.each(['feature lock', 'read-only layer', 'locked layer'] as const)('subtracts a cutter protected by %s without modifying it', async policy => {
+  editor.setDataLayers([{ id: 'default' }, { id: 'references' }]);
+  load({ ...square('target', 100, 100), properties: { name: '<img src=x onerror=alert(1)>' } },
+    { ...square('cutter', 150, 150), properties: { mapMasterLayer: 'references' } });
+  editor.selectMany(['target', 'cutter']);
+  if (policy === 'feature lock') editor.setLockedFeatureIds(['cutter']);
+  else editor.updateDataLayer('references', policy === 'read-only layer' ? { editable: false } : { locked: true });
+  await add(new EditorToolbar(editor, { tools: ['difference', 'undo', 'redo'] }));
+  expect(button('difference').disabled).toBe(false);
+  const before = editor.exportGeoJSON();
+  editor.setKeyboardShortcuts({ difference: [{ key: 'd' }] }); map.getCanvas().focus();
+  await userEvent.keyboard('d'); expect(editor.getState().mode).toBe('difference-polygons');
+  await userEvent.keyboard('{Escape}'); expect(editor.exportGeoJSON()).toEqual(before);
+  await userEvent.click(button('difference'));
+  expect(editor.getState().mode).toBe('difference-polygons');
+  const notice = container.querySelector('.mm-toolbar-difference')!;
+  expect(notice.textContent).toContain('Target (first selected): <img src=x onerror=alert(1)>');
+  expect(notice.textContent).toContain('Cutting polygons are kept (1)');
+  expect(notice.textContent).toContain('Preview only'); expect(notice.querySelector('img')).toBeNull();
+  expect(action('Apply').disabled).toBe(false);
+  await userEvent.click(action('Apply'));
+  const after = editor.exportGeoJSON();
+  expect(after.features[0]!.geometry).not.toEqual(before.features[0]!.geometry);
+  expect(after.features[1]).toEqual(before.features[1]);
+  await userEvent.click(button('undo')); expect(editor.exportGeoJSON()).toEqual(before);
+  await userEvent.click(button('redo')); expect(editor.exportGeoJSON()).toEqual(after);
+  editor.selectMany(['cutter', 'target']); expect(button('difference').disabled).toBe(true);
+});
+
+it('explains full target deletion before applying difference and restores it with Undo', async () => {
+  load(square('target', 100, 100), square('cutter', 100, 100)); editor.selectMany(['target', 'cutter']);
+  await add(new EditorToolbar(editor, { tools: ['difference', 'undo'] }));
+  const before = editor.exportGeoJSON();
+  await userEvent.click(button('difference'));
+  expect(container.querySelector('.mm-toolbar-difference')!.textContent).toContain('The target is fully covered. Apply deletes only the target.');
+  expect(action('Apply').disabled).toBe(false); await userEvent.click(action('Apply'));
+  expect(editor.exportGeoJSON().features).toEqual([before.features[1]]);
+  await userEvent.click(button('undo')); expect(editor.exportGeoJSON()).toEqual(before);
+});
+
 it('chooses an original hole on the map and applies one transaction with exact undo/redo', async () => {
   load(courtyards()); editor.select('courtyards');
   const before = editor.exportGeoJSON(); const changes: string[] = [];

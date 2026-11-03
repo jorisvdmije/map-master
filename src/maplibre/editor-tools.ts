@@ -33,7 +33,10 @@ export function toolAvailable(editor: GeometryEditor, tool: KeyboardTool, state:
     case 'split': return single?.geometry.type === 'Polygon' && !locked && editor.canCreateFeatures();
     case 'reshape': return single !== null && isSimplePolygon(single) && !locked;
     case 'shared-boundary': return features.length === 2 && features.every(isSimplePolygon) && !locked;
-    case 'union': case 'difference': case 'intersection': return features.length >= 2 && features.every(isPolygonal) && !locked;
+    // Difference only changes the first selected feature. Cutters are references
+    // and may be feature-locked or belong to a read-only data layer.
+    case 'difference': return features.length >= 2 && features.every(isPolygonal) && !editor.isFeatureLocked(features[0]!.id);
+    case 'union': case 'intersection': return features.length >= 2 && features.every(isPolygonal) && !locked;
     case 'rotate': case 'scale': case 'buffer': case 'delete': return features.length > 0 && !locked;
     case 'simplify': return features.some((f) => !isPoint(f)) && !locked;
     case 'offset': return features.length > 0 && features.every(isLineal) && !locked;

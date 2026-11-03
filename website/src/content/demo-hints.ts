@@ -30,7 +30,7 @@ export const demoHints = {
   multipart: "The two pond islands are one MultiPolygon. Separate parts turns them into two features; select both flower beds and Combine makes them one. Add part draws another island.",
   splitting: "The lawn is selected. Choose Split, draw a line across it and Apply.",
   union: "Both areas are selected. Choose Merge to preview the union, then Apply.",
-  difference: "Choose Subtract: the market area is cut out of the festival area.",
+  difference: "Both areas are selected: choose Subtract to preview Festival area minus Market area, then Apply. The market polygon is kept; hide or deselect it to inspect the cut edge.",
   intersection: "Choose Intersect: only the overlap of both areas remains.",
   buffer: "The running route is selected. Choose Buffer and drag the handle or type a distance.",
   offset: "The running route is selected. Choose Offset and type a distance to create a parallel line.",

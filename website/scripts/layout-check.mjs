@@ -11,6 +11,7 @@ export async function checkControlLayout({ context, origin, evidence }) {
     ["buffer", "buffer"], ["offset", "offset"], ["scaling", "scale"],
     ["rotation", "rotate"], ["simplification", "simplify"], ["remove-hole", "remove-hole"],
     ["lasso", "lasso"], ["data-layers", null],
+    ["difference", "difference"],
   ];
   try {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -66,6 +67,6 @@ export async function checkControlLayout({ context, origin, evidence }) {
       }
     }
     assert.deepEqual(errors, []);
-    console.log("✓ All-tools toolbar, data layers and 9 action panels stay inside embedded mobile/tablet maps");
+    console.log("✓ All-tools toolbar, data layers and action panels, including Difference, stay inside embedded mobile/tablet maps");
   } finally { await page.close(); }
 }
