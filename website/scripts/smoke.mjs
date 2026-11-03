@@ -27,6 +27,7 @@ import { checkPlaygroundMobile } from "./playground-mobile-check.mjs";
 import { checkPlaygroundResize } from "./playground-resize-check.mjs";
 import { checkFeaturePreviews } from "./feature-preview-check.mjs";
 import { checkDifference } from "./difference-check.mjs";
+import { checkMapOverlays } from "./map-overlay-check.mjs";
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repo = resolve(site, "..");
@@ -207,6 +208,7 @@ try {
   await checkNavigation({ page, context, browser, origin });
   await checkRegressions({ context, browser, origin, site });
   await checkControlLayout({ context, origin, evidence });
+  await checkMapOverlays({ browser, origin, evidence });
   await checkPlayground({ context, origin, evidence });
   await checkPlaygroundStorage({ browser, origin });
   await checkPlaygroundIntegrity({ browser, origin, evidence });
