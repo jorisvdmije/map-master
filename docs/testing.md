@@ -103,6 +103,8 @@ including ResizeObserver loop errors. Reports and failure screenshots are writte
 to `artifacts/playground/<browser>/`.
 The same run checks map-pin layer/feature styles, safe nested property previews,
 Escape dismissal, project persistence and readable documentation contents links.
+Real wheel gestures also check that zoom hints paint below the fixed docs header
+and mobile navigation, while map controls remain clickable on narrow maps.
 
 Chromium also runs these scenarios in `npm run test:docs`. The Browser
 compatibility workflow runs the Firefox and WebKit scenarios on Ubuntu and macOS.

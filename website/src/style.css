@@ -361,9 +361,19 @@ kbd {
   min-width: 0;
 }
 .demo-map {
+  /* Vendor gesture hints use very high z-indices. Keep every map overlay below
+     the fixed documentation header and mobile navigation. */
+  isolation: isolate;
   height: 400px;
   width: 100%;
   background: #eef0e8;
+}
+.demo-map .maplibregl-cooperative-gesture-screen {
+  text-align: center;
+  padding: 16px;
+  font-size: clamp(13px, 2.5vw, 17px);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 .demo-map .maplibregl-ctrl-group {
   box-shadow: 0 1px 5px #34433418;

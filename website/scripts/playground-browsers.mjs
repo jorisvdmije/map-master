@@ -8,6 +8,7 @@ import { checkPlaygroundMobile } from "./playground-mobile-check.mjs";
 import { checkPlaygroundResize } from "./playground-resize-check.mjs";
 import { checkFeaturePreviews } from "./feature-preview-check.mjs";
 import { checkDifference } from "./difference-check.mjs";
+import { checkMapOverlays } from "./map-overlay-check.mjs";
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const types = { chromium, firefox, webkit };
@@ -29,6 +30,7 @@ try {
       await checkPlaygroundResize({ browser, origin, evidence, basePath });
       await checkFeaturePreviews({ browser, origin, basePath });
       await checkDifference({ browser, origin, basePath });
+      await checkMapOverlays({ browser, origin, evidence, basePath });
       results.push({ browser: name, version: browser.version(), headless, passed: true });
       console.log(`✓ ${name}: playground mobile and resize checks passed`);
     } catch (error) {

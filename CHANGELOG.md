@@ -15,6 +15,9 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Fixed
 
+- Keep documentation map overlays, including the Command/Ctrl-scroll zoom hint,
+  below the fixed header and mobile navigation. Fit long gesture hints to narrow
+  maps without blocking map controls.
 - Allow Difference in the toolbar and keyboard shortcuts when only cutting
   polygons are locked or read-only; keep the first selected target protected.
   Show the target, retained cutters and explicit Apply/Cancel instructions during
