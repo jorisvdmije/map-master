@@ -9,6 +9,7 @@ import { checkPlaygroundResize } from "./playground-resize-check.mjs";
 import { checkFeaturePreviews } from "./feature-preview-check.mjs";
 import { checkDifference } from "./difference-check.mjs";
 import { checkMapOverlays } from "./map-overlay-check.mjs";
+import { checkHoverSettings } from "./hover-settings-check.mjs";
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const types = { chromium, firefox, webkit };
@@ -29,6 +30,7 @@ try {
       await checkPlaygroundMobile({ browser, origin, evidence, basePath });
       await checkPlaygroundResize({ browser, origin, evidence, basePath });
       await checkFeaturePreviews({ browser, origin, basePath });
+      await checkHoverSettings({ browser, origin, basePath });
       await checkDifference({ browser, origin, basePath });
       await checkMapOverlays({ browser, origin, evidence, basePath });
       results.push({ browser: name, version: browser.version(), headless, passed: true });

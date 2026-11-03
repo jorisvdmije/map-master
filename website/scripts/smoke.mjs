@@ -28,6 +28,7 @@ import { checkPlaygroundResize } from "./playground-resize-check.mjs";
 import { checkFeaturePreviews } from "./feature-preview-check.mjs";
 import { checkDifference } from "./difference-check.mjs";
 import { checkMapOverlays } from "./map-overlay-check.mjs";
+import { checkHoverSettings } from "./hover-settings-check.mjs";
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repo = resolve(site, "..");
@@ -216,6 +217,7 @@ try {
   await checkPlaygroundMobile({ browser, origin, evidence });
   await checkPlaygroundResize({ browser, origin, evidence });
   await checkFeaturePreviews({ browser, origin });
+  await checkHoverSettings({ browser, origin });
   await checkDifference({ browser, origin });
 
   await open("guides/draw.html");

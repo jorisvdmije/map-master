@@ -4,6 +4,8 @@ import type { QueryClient } from "@tanstack/react-query";
 import { assetPath } from "@/lib/paths";
 import { basemapQuery, fallbackStyle } from "@/features/examples/queries";
 import { attachFeaturePreview } from "@/features/examples/feature-preview";
+import { resolveFeaturePreview, type FeaturePreviewOptions } from "@jorisvdmije/map-master";
+import type { LayerFeaturePreview } from "./project";
 import { emptyProject, featureStyle, layerId, maxFeatures, newLayer, palette, parseProject, styleProperty, type Project, type Settings } from "./project";
 
 export interface Snapshot { state: EditorState; project: Project; revision: number }
@@ -41,7 +43,8 @@ export class PlaygroundRuntime {
   private disposed = false;
   private styleRequest = 0;
   private unsubscribe: () => void;
-  private removePreview: () => void;
+  private preview: ReturnType<typeof attachFeaturePreview>;
+  private hoverPreviews: LayerFeaturePreview[] = [];
 
   constructor(readonly map: GLMap, private client: QueryClient, private notice: Notice) {
     const initial = emptyProject();
@@ -56,7 +59,7 @@ export class PlaygroundRuntime {
     map.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
     map.addControl(new ScaleControl({ maxWidth: 110 }), "bottom-left");
     this.unsubscribe = this.editor.onChange(() => this.refresh());
-    this.removePreview = attachFeaturePreview(map, this.editor);
+    this.preview = attachFeaturePreview(map, this.editor, feature => this.hoverPreviews.find(item => item.layerId === layerId(feature))?.options ?? {});
     map.on("moveend", this.moved);
     this.refresh(true);
     void this.applyBasemap();
@@ -77,13 +80,15 @@ export class PlaygroundRuntime {
     const state = this.editor.getState();
     const settings = this.settings();
     const locks = this.editor.getLockedFeatureIds();
-    const fingerprint = JSON.stringify([this.name, settings, locks]);
+    const layers = this.editor.getDataLayers();
+    const hoverPreviews = this.hoverPreviews.filter(item => layers.some(layer => layer.id === item.layerId));
+    const fingerprint = JSON.stringify([this.name, settings, locks, hoverPreviews]);
     const changed = force || !this.snapshot || state.dataRevision !== this.snapshot.state.dataRevision || state.dataLayerRevision !== this.snapshot.state.dataLayerRevision || this.configFingerprint !== fingerprint;
     if (changed) this.revision++;
     const project: Project = changed ? {
       format: "map-master-playground", version: 1, name: this.name,
       data: !this.snapshot || state.dataRevision !== this.snapshot.state.dataRevision ? this.editor.exportGeoJSON() : this.snapshot.project.data,
-      layers: this.editor.getDataLayers(), activeLayerId: this.editor.getActiveDataLayer(), lockedFeatureIds: locks, camera: this.camera(), settings,
+      layers, activeLayerId: this.editor.getActiveDataLayer(), lockedFeatureIds: locks, camera: this.camera(), settings, hoverPreviews: structuredClone(hoverPreviews),
     } : this.snapshot.project;
     this.configFingerprint = fingerprint;
     this.snapshot = { state, project, revision: this.revision };
@@ -92,6 +97,14 @@ export class PlaygroundRuntime {
   private moved = () => { if (JSON.stringify(this.camera()) !== JSON.stringify(this.snapshot.project.camera)) this.refresh(true); };
   capture(): Project { return structuredClone({ ...this.snapshot.project, camera: this.camera() }); }
   rename(name: string) { this.name = name.trim().slice(0, 150) || "Untitled project"; this.refresh(); }
+  setHoverPreview(id: string, options: FeaturePreviewOptions | null) {
+    this.assertIdle();
+    if (!this.editor.getDataLayers().some(layer => layer.id === id)) throw new Error("This layer no longer exists.");
+    const validated = options === null ? null : resolveFeaturePreview(options);
+    this.hoverPreviews = this.hoverPreviews.filter(item => item.layerId !== id);
+    if (validated !== null) this.hoverPreviews.push({ layerId: id, options: validated });
+    this.preview.refresh(); this.refresh();
+  }
   private batch<T>(action: () => T): T {
     this.suspended = true;
     try { return action(); } finally { this.suspended = false; this.refresh(); }
@@ -151,6 +164,7 @@ export class PlaygroundRuntime {
       this.editor.select(null);
       this.editor.clearHistory();
       this.name = project.name;
+      this.hoverPreviews = structuredClone(project.hoverPreviews); this.preview.refresh();
       this.editor.setSnapping({ enabled: project.settings.snapping });
       this.editor.setAlignmentGuides({ enabled: project.settings.guides });
       this.editor.setMeasurements({ enabled: project.settings.measurements });
@@ -237,7 +251,7 @@ export class PlaygroundRuntime {
   destroy() {
     if (this.disposed) return;
     this.disposed = true; this.styleRequest++;
-    this.removePreview(); this.unsubscribe(); this.listeners.clear();
+    this.preview.destroy(); this.unsubscribe(); this.listeners.clear();
     this.map.off("moveend", this.moved);
     this.map.remove();
   }

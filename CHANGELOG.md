@@ -8,6 +8,11 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Added
 
+- Configurable layer hover cards with title fields, ordered/labeled custom
+  properties, number/date/JSON formatting, geometry rows, units and row budgets.
+  Projects preserve the settings; default cards show polygon area/perimeter,
+  line length or marker latitude/longitude. Public `featurePreview()` and
+  `resolveFeaturePreview()` helpers provide the same safe text content to hosts.
 - Native map-pin marker styles through `FeatureStyle.marker.shape`, including
   layer/feature pickers in the playground and pins in the sample project.
 - Safe, scrollable property previews on hover in documentation maps and the

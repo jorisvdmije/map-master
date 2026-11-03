@@ -107,6 +107,14 @@
 .pg-mode-indicator strong { color: #b26b42; font-size: 9px; }
 .pg-inspector { grid-column: 3; grid-row: 3; border-left: 1px solid var(--pg-border); }
 .pg-inspector-scroll { overflow: auto; min-height: 0; scrollbar-width: thin; }
+.pg-hover-settings summary { cursor: pointer; font-size: 12px; padding: 8px 0; }
+.pg-hover-settings fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.pg-hover-fields { list-style: none; padding: 0; margin: 12px 0; }
+.pg-hover-fields li { padding: 10px; border: 1px solid var(--pg-border); border-radius: 6px; margin-bottom: 8px; overflow-wrap: anywhere; }
+.pg-hover-example { padding: 12px; margin: 14px 0; background: #f1f5ed; border-radius: 6px; font-size: 12px; overflow-wrap: anywhere; max-height: 240px; overflow: auto; }
+.pg-hover-example dl { margin-bottom: 0; }
+.pg-hover-example dl > div { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; margin-top: 6px; }
+.pg-hover-example dd { margin: 0; }
 .pg-inspector-section { padding: 19px 17px; border-bottom: 1px solid #edf0e9; }
 .pg-inspector h3 { font-size: 14px; font-weight: 650; margin: 6px 0 9px; overflow-wrap: anywhere; }
 .pg-inspector .pg-field,.pg-inspector .pg-check { font-size: 12px; color: #5e715b; }

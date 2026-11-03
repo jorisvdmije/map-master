@@ -103,6 +103,8 @@ including ResizeObserver loop errors. Reports and failure screenshots are writte
 to `artifacts/playground/<browser>/`.
 The same run checks map-pin layer/feature styles, safe nested property previews,
 Escape dismissal, project persistence and readable documentation contents links.
+Layer hover settings also exercise title/field/label/order/format changes,
+geometry toggles, row budgets, disabled/reset states and invalid/legacy projects.
 Real wheel gestures also check that zoom hints paint below the fixed docs header
 and mobile navigation, while map controls remain clickable on narrow maps.
 
