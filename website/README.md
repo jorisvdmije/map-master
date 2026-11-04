@@ -255,3 +255,11 @@ position on every frame; clicking pins an interactive card at the center without
 moving the camera. Cards remain bounded on resize, support touch and Escape,
 and render attribute values as text. `npm run check:properties` verifies these
 interactions and existing per-layer content settings in all three browsers.
+
+
+Linux CI runs documentation browser suites under `xvfb-run` with
+`GEO_DOCS_HEADED=1`, matching the existing windowed WebGL qualification used
+for Firefox and WebKit. Browser scripts also accept `GEO_COMPAT_HEADED=1`
+for interactive debugging. This setting does not change the core Chromium
+performance-budget browser configuration. Failures retain the analysis,
+properties, street and heatmap screenshots alongside documentation evidence.

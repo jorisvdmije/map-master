@@ -166,5 +166,10 @@ export async function checkAnalysis({ context, origin, evidence, basePath = "/ma
     }
     assert.deepEqual(errors, []);
     console.log("✓ Analysis: first-visit/reopenable introduction, guided sample, spatial/category filters, statistics, area editing/history, CSV, save/reopen, exports, invalid imports and mobile layout");
+  } catch (error) {
+    console.error("Analysis initialization/browser errors:", errors);
+    console.error("Analysis loading state:", await page.locator(".an-loading").allTextContents().catch(() => []));
+    await page.screenshot({ path: resolve(evidence, "analysis-failure.png") }).catch(() => {});
+    throw error;
   } finally { await page.close(); }
 }

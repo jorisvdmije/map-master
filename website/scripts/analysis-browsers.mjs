@@ -15,7 +15,8 @@ const bnbOnly = process.argv.includes("--bnb");
 const names = process.argv.slice(2).filter(arg => arg !== "--bnb");
 try {
   for (const name of names.length ? names : Object.keys(browsers)) {
-    const browser = await browsers[name].launch({ headless: true, ...(name === "chromium" ? { args: ["--enable-unsafe-swiftshader"] } : {}) });
+    console.log(`Analysis browser: ${name}`);
+    const browser = await browsers[name].launch({ headless: (process.env.GEO_DOCS_HEADED ?? process.env.GEO_COMPAT_HEADED) !== "1", ...(name === "chromium" ? { args: ["--enable-unsafe-swiftshader"] } : {}) });
     const context = await browser.newContext();
     const evidence = resolve(site, `../artifacts/analysis/${name}`); mkdirSync(evidence, { recursive: true });
     try {

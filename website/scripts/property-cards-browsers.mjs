@@ -14,7 +14,7 @@ const browsers={chromium,firefox,webkit};
 const polygon={type:'Feature',id:'park',properties:{name:'Test park',status:'Open',details:{text:'<img src=x onerror=alert(1)>'}},geometry:{type:'Polygon',coordinates:[[[4.88,52.36],[4.91,52.36],[4.91,52.38],[4.88,52.38],[4.88,52.36]]]}};
 try {
   for(const name of process.argv.slice(2).length?process.argv.slice(2):Object.keys(browsers)) {
-    const browser=await browsers[name].launch({headless:true,...(name==='chromium'?{args:['--enable-unsafe-swiftshader']}: {})});
+    const browser=await browsers[name].launch({headless:(process.env.GEO_DOCS_HEADED ?? process.env.GEO_COMPAT_HEADED) !== "1",...(name==='chromium'?{args:['--enable-unsafe-swiftshader']}: {})});
     try {
       const context=await browser.newContext({viewport:{width:1440,height:1000}});
       await context.route('https://tiles.openfreemap.org/**',route=>route.fulfill({json:{version:8,sources:{},layers:[]}}));

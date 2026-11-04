@@ -11,7 +11,7 @@ const server = createStaticServer({ directory: resolve(site, 'dist'), basePath }
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 try {
   for (const name of names.length ? names : Object.keys(browsers)) {
-    const browser = await browsers[name].launch({ headless: true, ...(name === 'chromium' ? { args: ['--enable-unsafe-swiftshader'] } : {}) });
+    const browser = await browsers[name].launch({ headless: (process.env.GEO_DOCS_HEADED ?? process.env.GEO_COMPAT_HEADED) !== "1", ...(name === 'chromium' ? { args: ['--enable-unsafe-swiftshader'] } : {}) });
     const context = await browser.newContext({ viewport: { width: 1536, height: 1100 }, acceptDownloads: true }), page = await context.newPage(), errors = [];
     const evidence = resolve(site, `../artifacts/heatmaps/${name}${visual ? "-visual" : ""}`); mkdirSync(evidence, { recursive: true });
     page.on('pageerror', e => errors.push(e.message));

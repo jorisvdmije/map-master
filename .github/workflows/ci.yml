@@ -33,7 +33,12 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix website
       - run: npx playwright install --with-deps chromium firefox webkit
-      - run: npm run release:prepare
+      - name: Verify candidate and documentation browsers
+        run: xvfb-run -a npm run release:prepare
+        env:
+          # Scope windowed WebGL to the documentation suites; core Chromium
+          # performance budgets retain their existing headless configuration.
+          GEO_DOCS_HEADED: '1'
       - name: Upload verified documentation
         if: matrix.node == 22
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
@@ -60,7 +65,12 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: documentation-node-${{ matrix.node }}
-          path: artifacts/documentation/
+          path: |
+            artifacts/documentation/
+            artifacts/analysis/
+            artifacts/streets/
+            artifacts/heatmaps/
+            artifacts/properties/
           if-no-files-found: ignore
           retention-days: 14
 

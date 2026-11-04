@@ -11,7 +11,7 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const browsers = { chromium, firefox, webkit }, names = process.argv.slice(2);
 try {
   for (const name of names.length ? names : Object.keys(browsers)) {
-    const browser = await browsers[name].launch({ headless: true, ...(name === 'chromium' ? { args: ['--enable-unsafe-swiftshader'] } : {}) });
+    const browser = await browsers[name].launch({ headless: (process.env.GEO_DOCS_HEADED ?? process.env.GEO_COMPAT_HEADED) !== "1", ...(name === 'chromium' ? { args: ['--enable-unsafe-swiftshader'] } : {}) });
     const context = await browser.newContext({ acceptDownloads: true });
     const page = await context.newPage(), errors = [];
     const evidence = resolve(site, `../artifacts/streets/${name}`); mkdirSync(evidence, { recursive: true });
