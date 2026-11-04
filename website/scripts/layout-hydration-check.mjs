@@ -5,19 +5,25 @@ export async function checkLayoutHydration({ browser, context, origin, basePath 
   const url = path => `${origin}${basePath}${path}`;
   const serverContext = await browser.newContext({ javaScriptEnabled: false });
   const serverPage = await serverContext.newPage();
+  let serverPath = "";
   try {
     for (const [path, workspace] of [["/analysis/streets/", "[data-streets]"], ["/analysis/bnb/", "[data-bnb]"], ["/analysis/", "[data-analysis]"], ["/playground/", "[data-playground]"]]) {
+      serverPath = path;
       const response = await serverPage.goto(url(path));
       assert.equal(response.status(), 200);
       assert.equal(await serverPage.locator(workspace).count(), 1, `${path}: the server renders the workspace`);
       assert.equal(await serverPage.locator(".docs-shell").count(), 0, `${path}: no documentation wrapper in server HTML`);
     }
     for (const path of ["/", "/guides/draw/", "/missing-layout-test/"]) {
+      serverPath = path;
       const response = await serverPage.goto(url(path));
       assert.equal(response.status(), path.startsWith("/missing") ? 404 : 200);
       assert.equal(await serverPage.locator(".docs-shell").count(), 1, `${path}: documentation and 404s retain their shell`);
       assert.equal(await serverPage.locator("#main").count(), 1);
     }
+  } catch (error) {
+    console.error("Server layout failure:", { browser: browser.browserType().name(), path: serverPath, pageClosed: serverPage.isClosed(), browserConnected: browser.isConnected() });
+    throw error;
   } finally { await serverContext.close(); }
 
   const page = await context.newPage(), errors = [];

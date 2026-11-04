@@ -16,15 +16,21 @@ const names = process.argv.slice(2).filter(arg => arg !== "--bnb");
 try {
   for (const name of names.length ? names : Object.keys(browsers)) {
     console.log(`Analysis browser: ${name}`);
-    const browser = await browsers[name].launch({ headless: (process.env.GEO_DOCS_HEADED ?? process.env.GEO_COMPAT_HEADED) !== "1", ...(name === "chromium" ? { args: ["--enable-unsafe-swiftshader"] } : {}) });
-    const context = await browser.newContext();
     const evidence = resolve(site, `../artifacts/analysis/${name}`); mkdirSync(evidence, { recursive: true });
-    try {
-      const options = { context, origin: `http://127.0.0.1:${server.address().port}`, evidence, basePath };
+    const isolated = async check => {
+      const browser = await browsers[name].launch({ headless: (process.env.GEO_DOCS_HEADED ?? process.env.GEO_COMPAT_HEADED) !== "1", ...(name === "chromium" ? { args: ["--enable-unsafe-swiftshader"] } : {}) });
+      try {
+        const context = await browser.newContext();
+        try { await check({ browser, context, origin: `http://127.0.0.1:${server.address().port}`, evidence, basePath }); }
+        finally { await context.close(); }
+      } finally { await browser.close(); }
+    };
+    await isolated(async options => {
       if (!bnbOnly) await checkAnalysis(options);
       await checkBnb(options);
-      await checkLayoutHydration({ ...options, browser });
-    }
-    finally { await browser.close(); }
+    });
+    // Keep the disabled-JavaScript context and route-hydration checks independent
+    // of the native WebGL/GPU resources exercised by the map interaction suites.
+    await isolated(checkLayoutHydration);
   }
 } finally { await new Promise(resolve => server.close(resolve)); }
