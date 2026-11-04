@@ -99,9 +99,14 @@ layer demonstrates pins.
 
 Hover over a feature in the documentation maps or playground to inspect its
 properties, including nested JSON. The preview does not change selection. It
-also appears for a keyboard-selected point when the map canvas has focus. Escape
-dismisses it; leaving the feature or moving the map clears it. Select a feature
-to use the playground inspector on touch screens.
+also appears for a keyboard-selected feature when the map canvas has focus.
+Use **Property display** on the map to choose **follow cursor**, **center on
+hover**, **center on click**, or **hidden**. Following tracks every pointer move,
+including movement within the same polygon; hovering never captures pointer
+input. Click or tap an object to keep its properties in the center of the map,
+where you can select text and scroll. The map camera stays in place. Close with
+the × button or Escape. Hover-only cards disappear on pointer exit or navigation;
+clicked cards stay centered while navigating or resizing the map.
 
 Values render as plain text. The default preview has up to five rows: custom
 fields followed by geometry information. Points show latitude then longitude

@@ -13,7 +13,7 @@ import { checkHoverSettings } from "./hover-settings-check.mjs";
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const types = { chromium, firefox, webkit };
-const headless = process.env.GEO_COMPAT_HEADED !== "1";
+const headless = (process.env.GEO_DOCS_HEADED ?? process.env.GEO_COMPAT_HEADED) !== "1";
 const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(types);
 for (const name of names) assert.ok(Object.hasOwn(types, name), `Unknown browser: ${name}`);
 const { basePath } = JSON.parse(readFileSync(resolve(site, "dist/.build-info.json"), "utf8"));

@@ -8,6 +8,16 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Added
 
+- Add a spatial analysis workspace, an explicitly simulated B&B permit example
+  on real Amsterdam boundaries, and a Street Lab using local NWB and municipal
+  lighting, tree and MORA snapshots. Include pooled street indicators, monthly
+  windows, correlations, profiles, area comparisons, smooth/hexagon concentration
+  maps, a shift radar, accessible tables and source-aware exports.
+- Add cursor-following, centered hover and centered click-only property cards
+  throughout the map examples. Clicked cards stay centered, support touch,
+  scrolling and Escape, and preserve the map camera.
+- Validate the new analysis and property-card interactions in Chromium, Firefox
+  and WebKit before publishing the documentation site.
 - Configurable layer hover cards with title fields, ordered/labeled custom
   properties, number/date/JSON formatting, geometry rows, units and row budgets.
   Projects preserve the settings; default cards show polygon area/perimeter,
@@ -20,6 +30,8 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Fixed
 
+- Clear stale hover dismissal after a map resize while keeping clicked property
+  cards pinned, so WebKit can show the same object's properties at its new place.
 - Keep documentation map overlays, including the Command/Ctrl-scroll zoom hint,
   below the fixed header and mobile navigation. Fit long gesture hints to narrow
   maps without blocking map controls.

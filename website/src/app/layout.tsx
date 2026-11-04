@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { QueryProvider } from "@/providers/query-provider";
-import { DocsShell } from "@/components/layout/docs-shell";
-import { getManifest } from "@/lib/content";
 import { assetPath } from "@/lib/paths";
 import "../style.css";
 import "../components.css";
@@ -15,10 +13,9 @@ export const metadata: Metadata = {
 };
 export const viewport: Viewport = { themeColor: "#153b32" };
 
-export default async function RootLayout({ children }: { children: ReactNode }) {
-  const { version } = await getManifest();
+export default function RootLayout({ children }: { children: ReactNode }) {
   return <html lang="en"><body>
     <noscript><style>{`.docs-island .docs-code-collapsed{max-height:none;overflow:auto}.docs-code-footer,[data-slot=code-block-actions],[data-slot=tabs-list],.search-trigger,.menu-button,.demo-map,.demo-caption{display:none}@media(max-width:700px){.sidebar{display:none}}`}</style></noscript>
-    <QueryProvider><DocsShell version={version}>{children}</DocsShell></QueryProvider>
+    <QueryProvider>{children}</QueryProvider>
   </body></html>;
 }

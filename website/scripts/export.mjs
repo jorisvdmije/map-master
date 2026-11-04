@@ -14,7 +14,7 @@ for (const { slug } of guides) {
     `<head><script>location.replace(${target}+location.search+location.hash)</script><link rel="canonical" href="./${slug}/"/>`));
 }
 writeFileSync(resolve(output, ".nojekyll"), "");
-writeFileSync(resolve(output, ".build-info.json"), JSON.stringify({ basePath: process.env.NEXT_PUBLIC_BASE_PATH?.replace(/\/$/, "") ?? "", pages: guides.length + 2 }));
+writeFileSync(resolve(output, ".build-info.json"), JSON.stringify({ basePath: process.env.NEXT_PUBLIC_BASE_PATH?.replace(/\/$/, "") ?? "", pages: guides.length + 5 }));
 rmSync(resolve(site, "dist"), { recursive: true, force: true });
 renameSync(output, resolve(site, "dist"));
-console.log(`Exported ${guides.length + 2} Next.js pages and ${guides.length} legacy URL aliases to website/dist.`);
+console.log(`Exported ${guides.length + 5} Next.js pages and ${guides.length} legacy URL aliases to website/dist.`);

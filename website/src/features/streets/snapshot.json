@@ -1,0 +1,9 @@
+{
+  "source": "https://api.pdok.nl/rws/nationaal-wegenbestand-wegen/ogc/v1/collections/wegvakken/items",
+  "query": "gme_naam=Amsterdam",
+  "retrieved": "2026-11-03",
+  "pages": 46,
+  "count": 45870,
+  "namedStreets": 5752,
+  "outsideWards": 22
+}

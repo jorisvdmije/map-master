@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 /** User-visible pin styles, safe previews, persistence and documentation navigation. */
 export async function checkFeaturePreviews({ browser, origin, basePath = "/map-master" }) {
@@ -13,7 +14,16 @@ export async function checkFeaturePreviews({ browser, origin, basePath = "/map-m
     return JSON.parse(readFileSync(await file.path(), "utf8"));
   };
   const hoverPin = async () => {
+    // React positions the map host before MapLibre resizes its canvas. WebKit
+    // can expose those changes in separate frames, so wait for both dimensions
+    // and the repaint before sending a single, stationary hover to the pin.
+    await page.waitForFunction(() => {
+      const canvas = document.querySelector(".pg-map canvas"), frame = document.querySelector(".pg-map-frame");
+      return canvas.clientWidth === frame.clientWidth && canvas.clientHeight === frame.clientHeight;
+    });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const canvas = await page.locator(".pg-map canvas").boundingBox();
+    await page.mouse.move(20, 20);
     await page.mouse.move(canvas.x + canvas.width / 2 + 8, canvas.y + canvas.height / 2 - 25);
     await page.locator(".mm-feature-preview").waitFor();
   };
@@ -39,10 +49,16 @@ export async function checkFeaturePreviews({ browser, origin, basePath = "/map-m
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     assert.equal(await card.count(), 0, "Dismissed preview stays closed while hovering the same pin");
     await page.mouse.move(20, 20); await hoverPin();
-    await card.hover(); assert.equal(await card.isVisible(), true, "The preview remains readable when moving into it");
+    const follow = await card.boundingBox();
+    assert.equal(await page.evaluate(p => document.elementFromPoint(p.x,p.y).tagName, {x:follow.x+10,y:follow.y+10}), "CANVAS", "Following properties never block the pointer");
+    const pinBox = await page.locator('.pg-map canvas').boundingBox();
+    await page.mouse.click(pinBox.x+pinBox.width/2+8,pinBox.y+pinBox.height/2-25);
+    await page.locator('.mm-property-overlay[data-pinned="true"]').waitFor();
+    await page.mouse.move(20,20); assert.equal(await card.isVisible(),true,"Click keeps properties open");
+    await page.getByRole('button',{name:'Sluit eigenschappen',exact:true}).click();
+    await card.waitFor({state:'detached'});
     assert.deepEqual((await downloadProject()).data, before.data, "Hover never changes saved geometry or properties");
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.waitForFunction(() => document.querySelector(".pg-map").clientWidth === document.querySelector(".pg-map-frame").clientWidth);
     await hoverPin();
     assert.equal(await card.evaluate(element => { const box = element.getBoundingClientRect(); return box.left >= 0 && box.right <= innerWidth; }), true, "Preview stays within a narrow map");
     assert.equal(await card.evaluate(element => { const box = element.getBoundingClientRect(); const map = document.querySelector(".pg-map").getBoundingClientRect(); return box.top >= map.top && box.bottom <= map.bottom; }), true, "Preview fits the available map height");
@@ -77,6 +93,19 @@ export async function checkFeaturePreviews({ browser, origin, basePath = "/map-m
     await card.waitFor(); assert.ok((await card.textContent()).includes("Bench"), "Documentation markers share the property preview");
     await page.keyboard.press("Escape"); await card.waitFor({ state: "detached" });
     assert.deepEqual(errors, []);
+  } catch (error) {
+    const evidence = resolve(import.meta.dirname, "../../artifacts/playground", browser.browserType().name());
+    mkdirSync(evidence, { recursive: true });
+    await page.screenshot({ path: resolve(evidence, "feature-preview-failure.png") }).catch(() => {});
+    const layout = await page.evaluate(() => {
+      const elements = [".pg-map-frame", ".pg-map", ".pg-map canvas", ".mm-property-overlay"];
+      return { viewport: { width: innerWidth, height: innerHeight }, elements: elements.map(selector => {
+        const el = document.querySelector(selector);
+        return { selector, bounds: el?.getBoundingClientRect().toJSON(), clientWidth: el?.clientWidth, clientHeight: el?.clientHeight, hidden: el?.hidden };
+      }) };
+    }).catch(() => null);
+    writeFileSync(resolve(evidence, "feature-preview-failure.json"), JSON.stringify({ error: String(error.stack ?? error), layout }, null, 2));
+    throw error;
   } finally { await context.close(); }
   console.log("✓ Map pins and property previews: layer/feature styles, safe nested values, hover without selection, dismissal, project restore, exact history and readable docs contents");
 }
