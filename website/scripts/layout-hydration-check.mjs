@@ -1,4 +1,19 @@
 import assert from "node:assert/strict";
+import { htmlToDOM } from "html-react-parser";
+
+/** Inspect actual HTML elements, not escaped markup inside Next's scripts. */
+function serverElements(html) {
+  const elements = [];
+  const visit = nodes => {
+    for (const node of nodes) {
+      if (node.type === "tag") elements.push(node);
+      if (node.children) visit(node.children);
+    }
+  };
+  visit(htmlToDOM(html));
+  return elements;
+}
+const docsShell = element => (element.attribs.class ?? "").split(/\s+/u).includes("docs-shell");
 
 /** Prove that full-page workspaces have the same shell before and after hydration. */
 export async function checkLayoutHydration({ browser, context, origin, basePath = "/map-master" }) {
@@ -7,19 +22,24 @@ export async function checkLayoutHydration({ browser, context, origin, basePath 
   const serverPage = await serverContext.newPage();
   let serverPath = "";
   try {
-    for (const [path, workspace] of [["/analysis/streets/", "[data-streets]"], ["/analysis/bnb/", "[data-bnb]"], ["/analysis/", "[data-analysis]"], ["/playground/", "[data-playground]"]]) {
+    for (const [path, workspace] of [["/analysis/streets/", "data-streets"], ["/analysis/bnb/", "data-bnb"], ["/analysis/", "data-analysis"], ["/playground/", "data-playground"]]) {
       serverPath = path;
       const response = await serverPage.goto(url(path));
       assert.equal(response.status(), 200);
-      assert.equal(await serverPage.locator(workspace).count(), 1, `${path}: the server renders the workspace`);
-      assert.equal(await serverPage.locator(".docs-shell").count(), 0, `${path}: no documentation wrapper in server HTML`);
+      // Read the navigation response directly: locator queries inject JavaScript
+      // even on a no-JS page, which is unreliable in Linux WebKit. Parsing the
+      // response proves the shell was sent by the server before hydration.
+      const elements = serverElements(await response.text());
+      assert.equal(elements.filter(el => Object.hasOwn(el.attribs, workspace)).length, 1, `${path}: the server renders the workspace`);
+      assert.equal(elements.filter(docsShell).length, 0, `${path}: no documentation wrapper in server HTML`);
     }
     for (const path of ["/", "/guides/draw/", "/missing-layout-test/"]) {
       serverPath = path;
       const response = await serverPage.goto(url(path));
       assert.equal(response.status(), path.startsWith("/missing") ? 404 : 200);
-      assert.equal(await serverPage.locator(".docs-shell").count(), 1, `${path}: documentation and 404s retain their shell`);
-      assert.equal(await serverPage.locator("#main").count(), 1);
+      const elements = serverElements(await response.text());
+      assert.equal(elements.filter(docsShell).length, 1, `${path}: documentation and 404s retain their shell`);
+      assert.equal(elements.filter(el => el.attribs.id === "main").length, 1);
     }
   } catch (error) {
     console.error("Server layout failure:", { browser: browser.browserType().name(), path: serverPath, pageClosed: serverPage.isClosed(), browserConnected: browser.isConnected() });
