@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "retrieved": "2026-11-03",
+  "reportStart": "2025-11-01",
+  "reportEndExclusive": "2026-11-01",
+  "months": [
+    "2025-11",
+    "2025-12",
+    "2026-01",
+    "2026-02",
+    "2026-03",
+    "2026-04",
+    "2026-05",
+    "2026-06",
+    "2026-07",
+    "2026-08",
+    "2026-09",
+    "2026-10"
+  ],
+  "matchRadiusMetres": 30,
+  "ambiguityMetres": 3,
+  "countsSha256": "968f9e894a74565d836520d6bec924ce9f8d843519085839dd19141983ed5413",
+  "geometrySha256": "e00ea01f983a0456a343ee96b8657609385910744a0642d788abe98c42660e17",
+  "sources": [
+    {
+      "key": "lights",
+      "url": "https://api.data.amsterdam.nl/v1/storingsmeldingen_ovl_en_klokken/openbare_verlichting",
+      "documentation": "https://api.data.amsterdam.nl/v1/docs/datasets/storingsmeldingen_ovl_en_klokken.html",
+      "query": {},
+      "retrieved": "2026-11-03",
+      "total": 139978,
+      "pages": 70,
+      "matched": 117343,
+      "unmatched": 7546,
+      "ambiguous": 15066,
+      "invalid": 0,
+      "excluded": 23,
+      "types": {
+        "Gevel Armaturen": 1399,
+        "LSD Objecten": 121341,
+        "Grachtmast": 10335,
+        "Overspanning": 6770,
+        "Schijnwerpers": 110,
+        "Laadzuilen": 23
+      },
+      "minDate": null,
+      "maxDate": null,
+      "sha256": "06dce5c15f1dc7877646b18a2c29ca1df1ceba6440fbb356e0d9ec0bd0a4212f"
+    },
+    {
+      "key": "reports",
+      "url": "https://api.data.amsterdam.nl/v1/meldingen/meldingen",
+      "documentation": "https://api.data.amsterdam.nl/v1/docs/datasets/meldingen.html",
+      "query": {
+        "datumMelding[gte]": "2025-11-01",
+        "datumMelding[lt]": "2026-11-01"
+      },
+      "retrieved": "2026-11-03",
+      "total": 575883,
+      "pages": 58,
+      "matched": 521398,
+      "unmatched": 21710,
+      "ambiguous": 32772,
+      "invalid": 3,
+      "excluded": 0,
+      "types": {},
+      "minDate": "2025-11-01",
+      "maxDate": "2026-10-31",
+      "sha256": "6c402ec4330d6cac70e3299e53edae2f8443649b9bb5bf8964b92df666fc8cfd"
+    },
+    {
+      "key": "trees",
+      "url": "https://api.data.amsterdam.nl/v1/bomen/stamgegevens",
+      "documentation": "https://api.data.amsterdam.nl/v1/docs/datasets/bomen.html",
+      "query": {},
+      "retrieved": "2026-11-03",
+      "total": 326538,
+      "pages": 33,
+      "matched": 233458,
+      "unmatched": 70730,
+      "ambiguous": 22326,
+      "invalid": 24,
+      "excluded": 0,
+      "types": {},
+      "minDate": null,
+      "maxDate": null,
+      "sha256": "44c5e3b95c7c4795b46d2aed3d1767d8062a05cc08a9cfd7d10818f35d47b431"
+    }
+  ],
+  "heatSha256": "d965380884c16c67dd77ec547b6991db01840905c7bef6b2c1dc27558475d621"
+}

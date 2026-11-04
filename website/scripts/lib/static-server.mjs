@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { readFileSync, statSync } from "node:fs";
 import { extname, resolve, sep } from "node:path";
 
-const mime = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".txt": "text/plain", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".ico": "image/x-icon" };
+const mime = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".geojson": "application/geo+json", ".txt": "text/plain", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".ico": "image/x-icon" };
 
 /** A plain static host: no SPA fallback, rewrites or application server required. */
 export function createStaticServer({ directory, basePath = "" }) {

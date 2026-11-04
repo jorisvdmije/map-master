@@ -39,7 +39,14 @@ export async function checkFeaturePreviews({ browser, origin, basePath = "/map-m
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     assert.equal(await card.count(), 0, "Dismissed preview stays closed while hovering the same pin");
     await page.mouse.move(20, 20); await hoverPin();
-    await card.hover(); assert.equal(await card.isVisible(), true, "The preview remains readable when moving into it");
+    const follow = await card.boundingBox();
+    assert.equal(await page.evaluate(p => document.elementFromPoint(p.x,p.y).tagName, {x:follow.x+10,y:follow.y+10}), "CANVAS", "Following properties never block the pointer");
+    const pinBox = await page.locator('.pg-map canvas').boundingBox();
+    await page.mouse.click(pinBox.x+pinBox.width/2+8,pinBox.y+pinBox.height/2-25);
+    await page.locator('.mm-property-overlay[data-pinned="true"]').waitFor();
+    await page.mouse.move(20,20); assert.equal(await card.isVisible(),true,"Click keeps properties open");
+    await page.getByRole('button',{name:'Sluit eigenschappen',exact:true}).click();
+    await card.waitFor({state:'detached'});
     assert.deepEqual((await downloadProject()).data, before.data, "Hover never changes saved geometry or properties");
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForFunction(() => document.querySelector(".pg-map").clientWidth === document.querySelector(".pg-map-frame").clientWidth);

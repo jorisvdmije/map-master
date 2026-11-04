@@ -43,7 +43,7 @@ try {
   // Core and adapter tests still use the checkout/build; the package consumer and
   // production/development workspace checks install this exact archive.
   run(process.execPath, [npm, 'run', 'check'], {
-    stdio: 'inherit', timeout: 15 * 60_000,
+    stdio: 'inherit', timeout: 30 * 60_000,
     env: { ...process.env, GEO_RELEASE_ARCHIVE: archive, GEO_BETA_REPORT_DIR: output },
   });
   const budgets = JSON.parse(readFileSync(join(output, 'beta-budgets.json'), 'utf8'));

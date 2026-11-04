@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync, rmSync } from "node:fs";
 import { resolve, dirname, relative, basename } from "node:path";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { createMarkdownCompiler, escape } from "./lib/markdown.mjs";
 import { demoHints } from "../src/content/demo-hints.ts";
@@ -9,10 +10,22 @@ const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repo = resolve(site, "..");
 const output = resolve(site, ".generated");
 const publicDir = resolve(site, "public");
+
 // Compile everything before publishing, so failed/concurrent builds never erase
 // the content being read by an active Next.js development server.
 const pending = new Map();
 const queueFile = (file, content) => pending.set(file, content);
+const streetGeometry = readFileSync(resolve(site, "src/features/streets/roads.json"));
+const observations = readFileSync(resolve(site, "src/features/streets/observations.json"));
+const observationMeta = JSON.parse(readFileSync(resolve(site, "src/features/streets/observations-meta.json"), "utf8"));
+if (createHash("sha256").update(streetGeometry).digest("hex") !== observationMeta.geometrySha256) throw new Error("Rebuild street observations after changing the road snapshot.");
+if (createHash("sha256").update(JSON.stringify(JSON.parse(observations).roads)).digest("hex") !== observationMeta.countsSha256) throw new Error("Street observation count fingerprint mismatch.");
+queueFile(resolve(publicDir, "data/amsterdam-roads.geojson"), streetGeometry);
+queueFile(resolve(publicDir, "data/amsterdam-street-observations.json"), observations);
+queueFile(resolve(publicDir, "data/amsterdam-street-sources.json"), JSON.stringify(observationMeta));
+const heatData = readFileSync(resolve(site, "src/features/streets/heat.json"));
+if (createHash("sha256").update(heatData).digest("hex") !== observationMeta.heatSha256) throw new Error("Heat snapshot fingerprint mismatch.");
+queueFile(resolve(publicDir, "data/amsterdam-street-heat.json"), heatData);
 const github = "https://github.com/jorisvdmije/map-master";
 const { version } = JSON.parse(readFileSync(resolve(repo, "package.json"), "utf8"));
 const pages = [
@@ -27,11 +40,20 @@ if (new Set([...pages.map(page => page.slug), "all-guides"]).size !== pages.leng
 const compiler = await createMarkdownCompiler({ repo, github, pathToSlug: new Map(pages.map(p => [p.path, p.slug])) });
 const guides = [];
 const search = [{
+  title: "Straatmonitor Amsterdam", href: "/analysis/streets/", description: "Echte Amsterdamse registraties: bomen, lichtobjecten, storingen en MORA-meldingen, met heatmaps, straatindicatoren, correlaties, clusters en bronverantwoording.",
+  text: "straten wegvakken straatkwaliteit verlichting veiligheid correlatie clustering k-means wijken onderhoud groen Amsterdam analyse heatmap heatmaps concentraties bronvakken dichtheid radius",
+}, {
   title: "Overview", href: "/", description: "Map Master, an open-source geometry editor for MapLibre and Mapbox.",
   text: "drawing polygons lines markers TypeScript GeoJSON snapping undo MapLibre Mapbox",
 }, {
   title: "Geodata playground", href: "/playground/", description: "Import and edit your own GeoJSON, manage layers and attributes, style features and export projects.",
   text: "playground workspace import export GeoJSON data layers attribute table project save local browser editor",
+}, {
+  title: "Geodata analysis", href: "/analysis/", description: "Draw analysis areas, explore GeoJSON and CSV, filter charts and calculate area statistics.",
+  text: "analysis spatial statistics dashboard chart histogram category measure sum average CSV area filter export",
+}, {
+  title: "B&B-vergunningen · voorbeeldanalyse", href: "/analysis/bnb/", description: "110 echte vergunningswijken met fictieve B&B-vergunningen, vrije ruimte en lopende aanvragen.",
+  text: "B&B bed breakfast permit vergunning vergunningen wijken wijkgrenzen hover muis properties polygon beschikbaar vrije ruimte quotum locaties aanvragen behandeling scenario demo",
 }];
 try {
   for (const page of pages) {
@@ -83,6 +105,10 @@ queueFile(resolve(publicDir, "licenses.txt"), [
   ["React DOM", resolve(site, "node_modules/react-dom/LICENSE")],
   ["Next.js", resolve(site, "node_modules/next/license.md")],
   ["TanStack Query", resolve(site, "node_modules/@tanstack/react-query/LICENSE")],
+  ...readdirSync(resolve(site, "node_modules/@turf")).map(name => [`Turf ${name}`, resolve(site, "node_modules/@turf", name, "LICENSE")]),
+  ["Papa Parse", resolve(site, "node_modules/papaparse/LICENSE")],
+  ["point-in-polygon-hao", resolve(site, "node_modules/point-in-polygon-hao/LICENSE")],
+  ["tinyqueue", resolve(site, "node_modules/tinyqueue/LICENSE")],
   ["html-react-parser", resolve(site, "node_modules/html-react-parser/LICENSE")],
   ["Base UI", resolve(site, "node_modules/@base-ui/react/LICENSE")],
   ["Lucide icons", resolve(site, "node_modules/lucide-react/LICENSE")],

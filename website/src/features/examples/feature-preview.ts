@@ -1,75 +1,54 @@
-import { Popup, type Map, type MapMouseEvent } from "maplibre-gl";
+import type { Map, MapMouseEvent } from "maplibre-gl";
 import type { GeometryEditor, GeometryFeature } from "@jorisvdmije/map-master";
 import { featurePreview, type FeaturePreviewOptions } from "@jorisvdmije/map-master";
+import { PropertyCard, propertyContent } from "./property-card";
 
-/** One safe, bounded property card shared by the documentation and playground. */
+/** Safe property cards shared by documentation and playground. */
 export function attachFeaturePreview(map: Map, editor: GeometryEditor, options: (feature: GeometryFeature) => FeaturePreviewOptions = () => ({})): { destroy: () => void; refresh: () => void } {
-  const popup = new Popup({ closeButton: false, closeOnClick: false, focusAfterOpen: false, offset: 16, maxWidth: "min(300px, calc(100% - 24px))", className: "mm-feature-preview-popup" });
+  const card = new PropertyCard(map, "mm-feature-preview-popup", "Feature properties"); card.addControl();
   const canvas = map.getCanvas();
-  let pending: number | null = null;
-  let latest: { x: number; y: number } | null = null;
-  let current: string | null = null;
-  let dismissed: string | null = null;
-  const key = (feature: GeometryFeature) => JSON.stringify(feature.id);
-  const clear = () => { popup.remove(); current = null; latest = null; if (pending !== null) cancelAnimationFrame(pending); pending = null; };
-  const show = (feature: GeometryFeature, point: { x: number; y: number }) => {
-    const id = key(feature);
-    if (id === dismissed || id === current) return;
-    const content = featurePreview(feature, options(feature));
-    if (!content) { clear(); return; }
-    dismissed = null; current = id;
-    const doc = canvas.ownerDocument; const card = doc.createElement("section");
-    card.className = "mm-feature-preview"; card.setAttribute("aria-label", "Feature properties"); card.tabIndex = 0;
-    card.style.maxHeight = `${Math.max(56, Math.min(280, Math.max(point.y, canvas.clientHeight - point.y) - 40))}px`;
-    const title = doc.createElement("h3"); title.textContent = content.title; card.append(title);
-    const meta = doc.createElement("p"); meta.textContent = `${feature.geometry.type} · ID ${String(feature.id).slice(0, 120)}`; card.append(meta);
-    const list = doc.createElement("dl");
-    for (const { label, value } of content.rows) {
-      const dt = doc.createElement("dt"); dt.textContent = label;
-      const dd = doc.createElement("dd"); dd.textContent = value; list.append(dt, dd);
-    }
-    card.append(list);
-    const hint = doc.createElement("small"); hint.textContent = content.omittedFields ? `${content.omittedFields} more ${content.omittedFields === 1 ? "property" : "properties"} · Select to inspect all` : "Esc to dismiss · Select to inspect or edit";
-    card.append(hint);
-    popup.setLngLat(map.unproject([point.x, point.y])).setDOMContent(card).addTo(map);
-    popup.getElement().addEventListener("mouseleave", clear, { once: true });
+  let pending: number | null = null, latest: { x: number; y: number } | null = null;
+  const clear = () => { card.clear(); latest = null; if (pending !== null) cancelAnimationFrame(pending); pending = null; };
+  const show = (feature: GeometryFeature, point: { x: number; y: number }, pin = false) => {
+    if (!pin && card.pinned) return;
+    const config = options(feature);
+    if (config.enabled === false) { card.clear(); return; }
+    const build = () => {
+      const content = featurePreview(feature, config)!;
+      return propertyContent(content.title, content.rows, `${feature.geometry.type} · ID ${String(feature.id).slice(0, 120)}`, content.omittedFields ? `${content.omittedFields} more ${content.omittedFields === 1 ? "property" : "properties"} · Click to pin in the center` : "Click to pin in the center · Esc to dismiss");
+    };
+    if (pin) card.pin(JSON.stringify(feature.id), build); else card.hover(JSON.stringify(feature.id), point, build);
   };
   const move = (event: MapMouseEvent) => {
-    latest = event.point;
+    if (editor.getState().mode !== "idle" || map.isMoving() || event.originalEvent.buttons || window.matchMedia("(hover: none)").matches) { card.hide(); return; }
+    latest = { x: event.point.x, y: event.point.y };
     pending ??= requestAnimationFrame(() => {
-      pending = null;
-      if (!latest) return;
+      pending = null; if (!latest) return;
       const feature = editor.queryFeatures(latest)[0];
-      if (!feature) { clear(); dismissed = null; return; }
-      show(feature, latest);
+      if (feature) show(feature, latest); else card.leave();
     });
   };
-  const leave = (event: MapMouseEvent) => {
-    const target = event.originalEvent.relatedTarget;
-    if (target instanceof Node && popup.getElement()?.contains(target)) return;
-    clear(); dismissed = null;
-  };
-  const escape = (event: KeyboardEvent) => {
-    if (event.key !== "Escape" || !popup.isOpen()) return;
-    event.preventDefault(); event.stopPropagation(); dismissed = current; clear();
+  const click = (event: MapMouseEvent) => {
+    if (editor.getState().mode !== "idle") return;
+    const feature = editor.queryFeatures(event.point)[0];
+    if (feature) show(feature, event.point, true); else clear();
   };
   const inspectSelection = () => {
     const state = editor.getState();
-    // Keyboard selection exposes the same information without hover.
     if (canvas.ownerDocument.activeElement !== canvas || state.mode !== "idle" || state.selectedFeatureIds.length !== 1) return;
-    const feature = editor.getSelected();
-    if (feature?.geometry.type === "Point") show(feature, map.project(feature.geometry.coordinates));
+    const feature = editor.getSelected(); if (feature && !card.isDismissed(JSON.stringify(feature.id))) show(feature, { x: 0, y: 0 }, true);
   };
+  let revision = editor.getState().dataRevision, layers = editor.getState().dataLayerRevision, selection = JSON.stringify(editor.getState().selectedFeatureIds);
   const changed = editor.onChange(() => {
-    clear(); dismissed = null; inspectSelection();
+    if (editor.getState().mode !== "idle") { clear(); return; }
+    const state = editor.getState();
+    if (state.dataRevision !== revision || state.dataLayerRevision !== layers) clear();
+    revision = state.dataRevision; layers = state.dataLayerRevision;
+    card.hide();
+    const nextSelection = JSON.stringify(state.selectedFeatureIds);
+    if (selection !== nextSelection) { selection = nextSelection; inspectSelection(); }
   });
   canvas.addEventListener("focus", inspectSelection);
-  map.on("mousemove", move); map.on("mouseout", leave); map.on("movestart", clear);
-  canvas.ownerDocument.addEventListener("keydown", escape, true);
-  const destroy = () => {
-    changed(); clear(); map.off("mousemove", move); map.off("mouseout", leave); map.off("movestart", clear);
-    canvas.removeEventListener("focus", inspectSelection);
-    canvas.ownerDocument.removeEventListener("keydown", escape, true);
-  };
-  return { destroy, refresh: () => { clear(); dismissed = null; } };
+  map.on("mousemove", move); map.on("click", click);
+  return { destroy: () => { changed(); clear(); card.destroy(); map.off("mousemove", move); map.off("click", click); canvas.removeEventListener("focus", inspectSelection); }, refresh: clear };
 }

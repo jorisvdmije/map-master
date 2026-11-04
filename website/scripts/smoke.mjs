@@ -29,6 +29,9 @@ import { checkFeaturePreviews } from "./feature-preview-check.mjs";
 import { checkDifference } from "./difference-check.mjs";
 import { checkMapOverlays } from "./map-overlay-check.mjs";
 import { checkHoverSettings } from "./hover-settings-check.mjs";
+import { checkAnalysis } from "./analysis-check.mjs";
+import { checkBnb } from "./bnb-check.mjs";
+import { checkLayoutHydration } from "./layout-hydration-check.mjs";
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repo = resolve(site, "..");
@@ -38,7 +41,7 @@ mkdirSync(evidence, { recursive: true });
 const { guides } = JSON.parse(readFileSync(resolve(site, ".generated/manifest.json"), "utf8"));
 const { basePath } = JSON.parse(readFileSync(resolve(dist, ".build-info.json"), "utf8"));
 assert.equal(basePath, "/map-master", "Run npm run check to test the deployment base path");
-const htmlFiles = [resolve(dist, "index.html"), resolve(dist, "playground", "index.html"), ...guides.map(g => resolve(dist, "guides", g.slug, "index.html"))];
+const htmlFiles = [resolve(dist, "index.html"), resolve(dist, "playground", "index.html"), resolve(dist, "analysis", "index.html"), resolve(dist, "analysis", "bnb", "index.html"), resolve(dist, "analysis", "streets", "index.html"), ...guides.map(g => resolve(dist, "guides", g.slug, "index.html"))];
 // Verify real exported pages, public assets and fragments under the deployment base path.
 for (const file of htmlFiles) {
   for (const match of readFileSync(file, "utf8").replace(/<link\b[^>]*rel="(?:preconnect|dns-prefetch)"[^>]*>/g, "").matchAll(/(?:href|src)="([^"\s]+)"/g)) {
@@ -211,6 +214,9 @@ try {
   await checkControlLayout({ context, origin, evidence });
   await checkMapOverlays({ browser, origin, evidence });
   await checkPlayground({ context, origin, evidence });
+  await checkAnalysis({ context, origin, evidence });
+  await checkBnb({ context, origin, evidence });
+  await checkLayoutHydration({ browser, context, origin });
   await checkPlaygroundStorage({ browser, origin });
   await checkPlaygroundIntegrity({ browser, origin, evidence });
   await checkPlaygroundAttributeDrafts({ browser, origin, evidence });
@@ -674,6 +680,7 @@ try {
     await new Promise(resolve => setTimeout(resolve, 250));
   }
   allowedOrigins.add(new URL(devOrigin).origin);
+  await checkLayoutHydration({ browser, context, origin: new URL(devOrigin).origin, basePath: "" });
   await page.setViewportSize({ width: 1440, height: 1050 });
   for (const path of ["", "guides/draw/"]) {
     await page.goto(new URL(path, devOrigin).href, { waitUntil: "networkidle" });
@@ -719,6 +726,9 @@ try {
           "mobile-focus-and-no-javascript-navigation",
           "embedded-map-toolbar-and-action-panel-containment",
           "playground-import-edit-style-project-recovery-and-export",
+          "analysis-spatial-chart-filters-csv-statistics-area-history-and-export",
+          "bnb-district-choropleth-permit-markers-quotas-queue-and-forecast",
+          "workspace-server-client-layout-hydration-in-development-and-static-export",
         ],
         errorCount: errors.length,
       },
