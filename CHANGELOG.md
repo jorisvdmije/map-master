@@ -30,6 +30,8 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Fixed
 
+- Clear stale hover dismissal after a map resize while keeping clicked property
+  cards pinned, so WebKit can show the same object's properties at its new place.
 - Keep documentation map overlays, including the Command/Ctrl-scroll zoom hint,
   below the fixed header and mobile navigation. Fit long gesture hints to narrow
   maps without blocking map controls.

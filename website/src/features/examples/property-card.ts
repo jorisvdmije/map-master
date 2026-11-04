@@ -19,6 +19,9 @@ export class PropertyCard {
     map.getContainer().addEventListener("mouseleave", this.leave);
     map.getContainer().ownerDocument.addEventListener("keydown", this.escape, true);
     map.on("movestart", this.hide);
+    // After a resize, the old screen hit no longer describes what is under the
+    // pointer. Allow a dismissed hover to be discovered again at its new place.
+    map.on("resize", this.leave);
   }
   isDismissed(key: string) { return this.dismissed === key; }
   setMode(mode: PropertyMode) { if (this.mode !== mode) { this.mode = mode; this.clear(); } }
@@ -74,7 +77,7 @@ export class PropertyCard {
     this.control = { onAdd: () => root, onRemove: () => root.remove() }; this.map.addControl(this.control, "top-right");
   }
   destroy() {
-    this.observer.disconnect(); this.map.off("movestart", this.hide); this.map.getContainer().removeEventListener("mouseleave", this.leave);
+    this.observer.disconnect(); this.map.off("movestart", this.hide); this.map.off("resize", this.leave); this.map.getContainer().removeEventListener("mouseleave", this.leave);
     this.element.ownerDocument.removeEventListener("keydown", this.escape, true); this.element.remove();
     if (this.control) this.map.removeControl(this.control);
   }
