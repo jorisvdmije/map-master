@@ -16,35 +16,33 @@ function serverElements(html) {
 const docsShell = element => (element.attribs.class ?? "").split(/\s+/u).includes("docs-shell");
 
 /** Prove that full-page workspaces have the same shell before and after hydration. */
-export async function checkLayoutHydration({ browser, context, origin, basePath = "/map-master" }) {
+export async function checkLayoutHydration({ context, origin, basePath = "/map-master" }) {
   const url = path => `${origin}${basePath}${path}`;
-  const serverContext = await browser.newContext({ javaScriptEnabled: false });
-  const serverPage = await serverContext.newPage();
   let serverPath = "";
   try {
     for (const [path, workspace] of [["/analysis/streets/", "data-streets"], ["/analysis/bnb/", "data-bnb"], ["/analysis/", "data-analysis"], ["/playground/", "data-playground"]]) {
       serverPath = path;
-      const response = await serverPage.goto(url(path));
-      assert.equal(response.status(), 200);
-      // Read the navigation response directly: locator queries inject JavaScript
-      // even on a no-JS page, which is unreliable in Linux WebKit. Parsing the
-      // response proves the shell was sent by the server before hydration.
+      // Server rendering is an HTTP contract. Node fetch cannot execute page
+      // scripts, and avoids Linux WebKit's disabled-JavaScript protocol failures.
+      // The browser navigation and hydration contract is exercised below.
+      const response = await fetch(url(path), { signal: AbortSignal.timeout(30_000) });
+      assert.equal(response.status, 200);
       const elements = serverElements(await response.text());
       assert.equal(elements.filter(el => Object.hasOwn(el.attribs, workspace)).length, 1, `${path}: the server renders the workspace`);
       assert.equal(elements.filter(docsShell).length, 0, `${path}: no documentation wrapper in server HTML`);
     }
     for (const path of ["/", "/guides/draw/", "/missing-layout-test/"]) {
       serverPath = path;
-      const response = await serverPage.goto(url(path));
-      assert.equal(response.status(), path.startsWith("/missing") ? 404 : 200);
+      const response = await fetch(url(path), { signal: AbortSignal.timeout(30_000) });
+      assert.equal(response.status, path.startsWith("/missing") ? 404 : 200);
       const elements = serverElements(await response.text());
       assert.equal(elements.filter(docsShell).length, 1, `${path}: documentation and 404s retain their shell`);
       assert.equal(elements.filter(el => el.attribs.id === "main").length, 1);
     }
   } catch (error) {
-    console.error("Server layout failure:", { browser: browser.browserType().name(), path: serverPath, pageClosed: serverPage.isClosed(), browserConnected: browser.isConnected() });
+    console.error("Server HTML failure:", { path: serverPath });
     throw error;
-  } finally { await serverContext.close(); }
+  }
 
   const page = await context.newPage(), errors = [];
   page.on("pageerror", error => errors.push(error.message));

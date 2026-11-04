@@ -263,3 +263,7 @@ for Firefox and WebKit. Browser scripts also accept `GEO_COMPAT_HEADED=1`
 for interactive debugging. This setting does not change the core Chromium
 performance-budget browser configuration. Failures retain the analysis,
 properties, street and heatmap screenshots alongside documentation evidence.
+
+Server-shell assertions parse direct HTTP responses, so client JavaScript cannot
+insert a missing shell and make the server check pass. Browser suites separately
+exercise hydration, navigation, reloads and map readiness in each engine.
