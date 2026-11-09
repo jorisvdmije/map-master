@@ -7,6 +7,7 @@ export const workspaces = [
   { href: "/analysis/bnb/", en: "B&B permits", nl: "B&B-vergunningen" },
   { href: "/analysis/streets/", en: "Street quality", nl: "Straatkwaliteit" },
   { href: "/analysis/housing/", en: "Housing", nl: "Wonen" },
+  { href: "/analysis/reachability/", en: "Reachability", nl: "Bereikbaarheid" },
 ] as const;
 
 /** Native disclosure keeps the complete workspace list usable without JavaScript. */

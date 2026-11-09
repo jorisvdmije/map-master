@@ -256,6 +256,7 @@ See [compatibility and limits](docs/compatibility.md) for the exact scope and pe
 
 - [Documentation site](https://jorisvdmije.github.io/map-master/) with a quickstart and live examples
 - [Amsterdam open data](docs/open-data-amsterdam.md): official sources and methodology for the housing example at `/analysis/housing/`, with CBS neighborhood statistics, on-demand BAG homes, correlations and provenance-preserving GeoJSON exports.
+- [Reachability contours](docs/reachability.md): provider-independent travel-time polygons, a Valhalla adapter, non-overlapping display bands and the `/analysis/reachability/` example. Line measurements optionally follow the line with an upright halo label.
 - [GeometryEditor API reference](docs/geometry-editor.md)
 - [All guides](docs/README.md): markers, multipart geometry, snapping, tracing, locks, styling and every geometry tool
 - [Migration guide](docs/migration.md) and [changelog](CHANGELOG.md)

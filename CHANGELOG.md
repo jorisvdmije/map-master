@@ -20,6 +20,9 @@ follows [semantic versioning](https://semver.org/); see the
   browser, with save status, navigation warnings on storage failure and
   downloadable corrupt-copy recovery.
 
+- Add provider-independent network reachability with a Valhalla adapter, explicit
+  origin/mode/time/direction, abort support, validated cumulative contours and
+  non-overlapping display bands. Include an interactive reachability workspace.
 - Add opt-in `measurements.lineStyle: 'along-line'` for upright, white-halo line
   lengths that follow the camera, including a saved Playground setting.
 - Add the Amsterdam housing example with BAG/CBS joins and per-home municipal
@@ -47,8 +50,12 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Fixed
 
+- Reject non-cumulative reachability responses, including small outside slivers,
+  holes and missing islands, before publishing contours or display bands.
 - Search page descriptions and current housing topics, including taxes, new
   construction, leasehold, education and holiday rentals.
+- Keep coordinate input drafts editable, validate before moving the origin or
+  calculating, and use the default for empty or invalid URL coordinate pairs.
 - Pin development-only Minimatch 10.x consumers to 11.0.1 in both dependency
   trees for GHSA-g3hv-75wg-m249; add scheduled full and production npm audits.
 - Install all three website browser engines in development and release setup
