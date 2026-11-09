@@ -49,6 +49,9 @@ if (new Set([...pages.map(page => page.slug), "all-guides"]).size !== pages.leng
 const compiler = await createMarkdownCompiler({ repo, github, pathToSlug: new Map(pages.map(p => [p.path, p.slug])) });
 const guides = [];
 const search = [{
+  title: "Bereikbaarheidscontouren", href: "/analysis/reachability/", description: "Reistijd over het wegennet voor lopen, fietsen, e-bike en auto, met transparante contouren, tellingen en lijnmetingen.",
+  text: "bereikbaarheid contouren isochrone isochrones reistijd interval lopen fiets ebike auto afstand lijn meten",
+}, {
   title: "Wonen in Amsterdam", href: "/analysis/housing/", description: "25 CBS-kaartlagen: WOZ-ontwikkeling, nieuwbouw, opleiding, energie en voorzieningen. Filters, BAG-adressen, erfpachtcontext en belastingen.",
   text: "woning woningen BAG adres adressen WOZ woningwaarde huisprijzen waardestijging nieuwbouw opleiding opleidingsniveau belasting belastingen OZB erfpacht vakantieverhuur verhuur B&B buurt buurten koopwoning energielabel open data bronnen correlatie",
 }, {

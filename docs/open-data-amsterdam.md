@@ -158,6 +158,9 @@ wettelijke toets. Zie de [toelichting van Atlas Leefomgeving](https://www.atlasl
 De boomtelling omvat alleen geregistreerde gemeentelijke bomen, geen particuliere
 bomen of oppervlakte boomkroon. De afstand is geodesisch en hemelsbreed.
 
+Via **Bereikbaarheid vanaf dit adres** start de nieuwe
+[netwerkreistijdanalyse](/analysis/reachability/) met dat adres als vertrekpunt.
+
 ### Verdere onderzoeksvragen
 
 - Onderzoek verbanden tussen **buurtgemiddelde** WOZ en eigendom, woningmix,

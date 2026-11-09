@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { download } from "@/features/playground/project";
@@ -153,6 +154,13 @@ export function HomeEnvironment({
           </li>
         ))}
       </ul>
+      <Link
+        className="an-button"
+        href={`/analysis/reachability/?lng=${home.geometry.coordinates[0]}&lat=${home.geometry.coordinates[1]}`}
+        prefetch={false}
+      >
+        Bereikbaarheid vanaf dit adres →
+      </Link>
       <button
         className="an-button"
         disabled={trees.isPending || noise.isPending || energy.isPending}
