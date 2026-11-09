@@ -142,3 +142,7 @@
 @media(max-width:800px) { .bb-workbench { top:58px; } .bb-header .an-brand small { display:none; } .bb-header { gap:10px; } .bb-header .an-brand { gap:6px; } .bb-header nav { gap:0; } .bb-header nav a { padding:0 7px; font-size:9px; } .bb-titlebar .an-eyebrow { font-size:7px; letter-spacing:.8px; flex-wrap:wrap; gap:5px; } .bb-titlebar .an-eyebrow > span { font-size:6px; } .bb-titlebar h1 { font-size:17px; } .bb-titlebar .an-heading-row { gap:4px; } .bb-export > summary { padding:9px; } .bb-export > summary > span { display:none; } .bb-table-heading h2 { font-size:10px; } .bb-table-heading .an-search { width:125px; } .bb-table-heading > div { width:100%; margin:0; } .bb-table-heading .an-search { margin-left:auto; width:150px; } }
 
 .bb-hover-card.mm-property-overlay { padding:0; width:300px; }
+
+.bb-title-actions { display: flex; align-items: center; gap: .4rem; flex-shrink: 0; }
+.bb-title-actions .research-share { padding: 0; }
+@media (max-width: 800px) { .bb-title-actions { flex-direction: column; } .bb-title-actions .research-share { max-width: 7rem; flex-wrap: wrap; } .bb-title-actions .research-share .an-button { font-size: 9px; padding: 7px; } }

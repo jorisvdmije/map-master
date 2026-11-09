@@ -17,6 +17,10 @@ export async function checkAnalysis({ context, origin, evidence, basePath = "/ma
   const clearNotice = async () => { const button = page.getByRole("button", { name: "Dismiss message" }); if (await button.count()) await button.click(); };
   try {
     await page.setViewportSize({ width: 1440, height: 1000 });
+    // This suite starts from a fresh analysis; recovery has its own navigation,
+    // reload and failure scenarios. Other suites may have saved data on this origin.
+    await page.goto(`${origin}${basePath}/`);
+    await page.evaluate(() => localStorage.removeItem("map-master-analysis-recovery-v1"));
     await page.goto(`${origin}${basePath}/analysis/`);
     await page.locator('[data-analysis][data-ready="true"]').waitFor();
     await matches(144);

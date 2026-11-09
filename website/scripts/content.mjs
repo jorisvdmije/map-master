@@ -1,3 +1,4 @@
+import { gzipSync, brotliCompressSync, constants } from "node:zlib";
 import { readFileSync, readdirSync, rmSync } from "node:fs";
 import { resolve, dirname, relative, basename } from "node:path";
 import { createHash } from "node:crypto";
@@ -20,12 +21,16 @@ const observations = readFileSync(resolve(site, "src/features/streets/observatio
 const observationMeta = JSON.parse(readFileSync(resolve(site, "src/features/streets/observations-meta.json"), "utf8"));
 if (createHash("sha256").update(streetGeometry).digest("hex") !== observationMeta.geometrySha256) throw new Error("Rebuild street observations after changing the road snapshot.");
 if (createHash("sha256").update(JSON.stringify(JSON.parse(observations).roads)).digest("hex") !== observationMeta.countsSha256) throw new Error("Street observation count fingerprint mismatch.");
+if (createHash("sha256").update(observations).digest("hex") !== observationMeta.observationsSha256) throw new Error("Street observations asset fingerprint mismatch.");
 queueFile(resolve(publicDir, "data/amsterdam-roads.geojson"), streetGeometry);
+queueFile(resolve(publicDir, `data/amsterdam-roads.${observationMeta.geometrySha256.slice(0,16)}.geojson`), streetGeometry);
 queueFile(resolve(publicDir, "data/amsterdam-street-observations.json"), observations);
+queueFile(resolve(publicDir, `data/amsterdam-street-observations.${observationMeta.observationsSha256.slice(0,16)}.json`), observations);
 queueFile(resolve(publicDir, "data/amsterdam-street-sources.json"), JSON.stringify(observationMeta));
 const heatData = readFileSync(resolve(site, "src/features/streets/heat.json"));
 if (createHash("sha256").update(heatData).digest("hex") !== observationMeta.heatSha256) throw new Error("Heat snapshot fingerprint mismatch.");
 queueFile(resolve(publicDir, "data/amsterdam-street-heat.json"), heatData);
+queueFile(resolve(publicDir, `data/amsterdam-street-heat.${observationMeta.heatSha256.slice(0,16)}.json`), heatData);
 const github = "https://github.com/jorisvdmije/map-master";
 const { version } = JSON.parse(readFileSync(resolve(repo, "package.json"), "utf8"));
 const pages = [
@@ -120,6 +125,14 @@ queueFile(resolve(publicDir, "licenses.txt"), [
   ["Manrope font", resolve(site, "node_modules/@fontsource-variable/manrope/LICENSE")],
   ["DM Sans font", resolve(site, "node_modules/@fontsource-variable/dm-sans/LICENSE")],
 ].map(([label, file]) => `${label}\n${readFileSync(file, "utf8")}`).join("\n\n"));
+const cacheHeaders = [];
+for (const [file, content] of [...pending]) {
+  if (!/\.[a-f0-9]{16}(?:-\d{4}-\d{2}-\d{2})?\.(json|geojson)$/.test(file)) continue;
+  pending.set(`${file}.gz`, gzipSync(content));
+  pending.set(`${file}.br`, brotliCompressSync(content, { params: { [constants.BROTLI_PARAM_QUALITY]: 4 } }));
+  cacheHeaders.push(`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/data/${basename(file)}\n  Cache-Control: public, max-age=31536000, immutable`);
+}
+queueFile(resolve(publicDir, "_headers"), cacheHeaders.join("\n\n") + "\n");
 for (const [file, content] of pending) writeFileAtomically(file, content);
 // Publish the manifest last, after all files it references are in place.
 writeFileAtomically(resolve(output, "manifest.json"), JSON.stringify({ version, guides }));

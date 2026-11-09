@@ -1,5 +1,5 @@
 import type { DataLayer, FeatureId, FeatureStyle, GeometryFeature, GeometryFeatureCollection, JsonValue } from "@jorisvdmije/map-master";
-import { resolveFeaturePreview, type FeaturePreviewOptions } from "@jorisvdmije/map-master";
+import { assertGeometryComplexity, resolveFeaturePreview, type FeaturePreviewOptions } from "@jorisvdmije/map-master";
 
 export type LayerFeaturePreview = { layerId: string; options: FeaturePreviewOptions };
 
@@ -9,7 +9,7 @@ export const maxFileBytes = 10 * 1024 * 1024;
 const maxProjectBytes = 50 * 1024 * 1024;
 export const maxFeatures = 20_000;
 export const palette = ["#23836d", "#c77837", "#5278bd", "#9861a9", "#be626d", "#789443"];
-export type Settings = { basemap: "streets" | "blank"; snapping: boolean; guides: boolean; measurements: boolean; scaleBorders: boolean; toolbarColumns: 1 | 2 };
+export type Settings = { basemap: "streets" | "blank"; snapping: boolean; guides: boolean; measurements: boolean; lineLabelStyle?: "badge" | "along-line"; scaleBorders: boolean; toolbarColumns: 1 | 2 };
 export interface Project {
   format: typeof projectFormat;
   version: 1;
@@ -49,12 +49,8 @@ export const editableField = (key: string) => !reserved.has(key);
 export function displayValue(value: JsonValue | undefined): string {
   return value === undefined ? "—" : typeof value === "string" ? value : JSON.stringify(value);
 }
-export function download(content: string, filename: string, type = "application/json") {
-  const url = URL.createObjectURL(new Blob([content], { type }));
-  const anchor = document.createElement("a");
-  anchor.href = url; anchor.download = filename; anchor.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+export { download } from "@/lib/download";
+
 export const filename = (name: string) => name.trim().replace(/[^\p{L}\p{N}._-]+/gu, "-").slice(0, 100) || "map-project";
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -90,6 +86,7 @@ export function parseProject(value: unknown): Project {
   if (!record(value) || value.format !== projectFormat || value.version !== 1) throw new Error("This is not a supported Map Master project (version 1).");
   if (typeof value.name !== "string" || !value.name.trim() || value.name.length > 150) throw new Error("The project needs a name of 1–150 characters.");
   if (!record(value.data) || value.data.type !== "FeatureCollection" || !Array.isArray(value.data.features) || value.data.features.length > maxFeatures) throw new Error(`A project needs a FeatureCollection with at most ${maxFeatures.toLocaleString()} features.`);
+  assertGeometryComplexity(value.data);
   if (!Array.isArray(value.layers) || value.layers.length === 0 || value.layers.length > 200) throw new Error("A project needs 1–200 layers.");
   const ids = new Set<string>();
   for (const layer of value.layers as unknown[]) {
@@ -125,6 +122,7 @@ export function parseProject(value: unknown): Project {
   project.hoverPreviews ??= [];
   // Projects saved before the layout option use the new default.
   project.settings.toolbarColumns ??= 2;
+  if (project.settings.lineLabelStyle !== undefined && !["badge", "along-line"].includes(project.settings.lineLabelStyle)) throw new Error("Invalid line label style.");
   return project;
 }
 

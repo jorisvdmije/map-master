@@ -16,7 +16,7 @@
     "check:frameworks": "node scripts/frameworks.mjs",
     "check:browser": "node scripts/smoke.mjs",
     "check:playground": "node scripts/playground-browsers.mjs",
-    "test:analysis": "tsx --test scripts/analysis-model.test.mjs scripts/bnb-model.test.mjs scripts/streets-model.test.mjs",
+    "test:analysis": "tsx --test scripts/analysis-model.test.mjs scripts/analysis-session.test.mjs scripts/bnb-model.test.mjs scripts/streets-model.test.mjs scripts/search.test.mjs scripts/view-state.test.mjs",
     "check:analysis": "node scripts/analysis-browsers.mjs",
     "check:bnb": "node scripts/analysis-browsers.mjs --bnb",
     "check": "node scripts/check.mjs",
@@ -25,7 +25,9 @@
     "data:streets": "node scripts/fetch-streets.mjs",
     "data:street-observations": "tsx scripts/fetch-street-observations.mjs",
     "check:heatmaps": "node scripts/heatmap-browsers.mjs",
-    "check:properties": "node scripts/property-cards-browsers.mjs"
+    "check:properties": "node scripts/property-cards-browsers.mjs",
+    "format": "prettier --write \"src/features/{housing,reachability,bnb,streets,catalog,area-report}/*.{ts,tsx}\" \"src/components/workspaces/*.{ts,tsx,css}\"",
+    "format:check": "prettier --check \"src/features/{housing,reachability,bnb,streets,catalog,area-report}/*.{ts,tsx}\" \"src/components/workspaces/*.{ts,tsx,css}\""
   },
   "overrides": {
     "eslint@10.13.0": {

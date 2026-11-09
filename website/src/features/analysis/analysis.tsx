@@ -2,15 +2,17 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { WorkspaceNavigation } from "@/components/workspaces/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowDownToLine, ArrowUpRight, BarChart3, Check, ChevronLeft, ChevronRight, CircleHelp, Database, FileJson2, Filter, Focus, Info, Layers2, MapPinned, MousePointer2, Pentagon, Plus, Redo2, Search, SlidersHorizontal, Square, Table2, Trash2, Undo2, Upload, X } from "lucide-react";
+import { ArrowDownToLine, ArrowUpRight, BarChart3, Check, ChevronLeft, ChevronRight, CircleHelp, Database, FileJson2, Filter, Focus, Info, MapPinned, MousePointer2, Pentagon, Plus, Redo2, Search, SlidersHorizontal, Square, Table2, Trash2, Undo2, Upload, X } from "lucide-react";
 import type { EditorState } from "@jorisvdmije/map-master";
 import { assetPath } from "@/lib/paths";
 import { download, filename } from "@/features/playground/project";
 import { areaKm2, categories, csvDataset, defaultFields, demoArea, demoDataset, emptyFilters, exportCSV, fileLimit, filterRows, histogram, parseCSV, parseGeoJSON, savedFileLimit, schema, spatialRows, summarize, valueLabel, type AnalysisArea, type CsvInput, type Dataset, type Fields, type Filters } from "./model";
 import type { AnalysisRuntime } from "./runtime";
 import { AnalysisIntro, needsIntroduction, rememberIntroduction } from "./intro";
+import { openAnalysisRecovery, parseAnalysis, type AnalysisDocument, type AnalysisRecovery } from "./session";
 import { Modal } from "./modal";
 import "./analysis.css";
 
@@ -23,6 +25,7 @@ export function Analysis() {
   const pickRef = useRef<(index: number) => void>(() => {});
   const client = useQueryClient();
   const [runtime, setRuntime] = useState<AnalysisRuntime | null>(null);
+  const [recovery, setRecovery] = useState<AnalysisRecovery | null>(null);
   const [failure, setFailure] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -32,8 +35,14 @@ export function Analysis() {
     void import("./runtime").then(async ({ mountAnalysis }) => {
       const runtime = await mountAnalysis(container.current!, lifetime.signal, client, i => pickRef.current(i), text => notify(text));
       if (runtime && !lifetime.signal.aborted) {
-        runtime.replaceAreas([demoArea]);
-        setRuntime(runtime);
+        const recovery = openAnalysisRecovery();
+        try { runtime.replaceAreas(recovery.initial?.areas ?? [demoArea], !!recovery.initial); }
+        catch (error) {
+          if (!recovery.initial) throw error;
+          recovery.rejectRestore(); runtime.replaceAreas([demoArea]);
+        }
+        if (recovery.initial?.activeArea != null) runtime.editor.select(runtime.areas()[recovery.initial.activeArea].id!);
+        setRecovery(recovery); setRuntime(runtime);
       }
     }).catch(error => { if (!lifetime.signal.aborted) { setFailure(error instanceof Error ? error.message : "WebGL is unavailable."); lifetime.abort(); } });
     return () => lifetime.abort();
@@ -42,7 +51,7 @@ export function Analysis() {
   return <main className="an-root" data-analysis data-ready={runtime ? "true" : undefined}>
     <a href="#analysis-map" className="skip-link">Skip to map</a>
     <Header />
-    {runtime ? <Workbench runtime={runtime} pickRef={pickRef} notify={notify} /> : <div className="an-loading"><MapPinned size={32} /><h1>{failure ? "The map could not start" : "A fresh perspective on your data."}</h1><p>{failure || "Preparing your analysis workspace…"}</p>{failure && <button className="an-button" onClick={() => { setFailure(""); setAttempt(v => v + 1); }}>Try again</button>}<noscript>This workspace needs JavaScript and WebGL.</noscript></div>}
+    {runtime && recovery ? <Workbench runtime={runtime} recovery={recovery} pickRef={pickRef} notify={notify} /> : <div className="an-loading"><MapPinned size={32} /><h1>{failure ? "The map could not start" : "A fresh perspective on your data."}</h1><p>{failure || "Preparing your analysis workspace…"}</p>{failure && <button className="an-button" onClick={() => { setFailure(""); setAttempt(v => v + 1); }}>Try again</button>}<noscript>This workspace needs JavaScript and WebGL.</noscript></div>}
     <div className="an-map-host" ref={container} id="analysis-map" role="region" aria-label="Analysis map" tabIndex={-1} />
     {notice && <div className={`an-notice${notice.error ? " an-error" : ""}`} role={notice.error ? "alert" : "status"}><span>{notice.text}</span><button aria-label="Dismiss message" onClick={() => setNotice(null)}><X size={16} /></button></div>}
   </main>;
@@ -50,24 +59,26 @@ export function Analysis() {
 
 function Header() {
   return <header className="an-header"><Link className="an-brand" href="/" prefetch={false}><Image src={assetPath("/logo.svg")} width={31} height={31} alt="" priority /><span>Map Master<small>YOUR DATA, IN PERSPECTIVE</small></span></Link>
-    <nav aria-label="Workspaces"><Link href="/playground/" prefetch={false}><Layers2 size={15} />Playground</Link><Link href="/analysis/" aria-current="page" prefetch={false}><BarChart3 size={15} />Analysis</Link></nav>
+    <WorkspaceNavigation current="/analysis/" language="en" />
     <Link className="an-docs" href="/" prefetch={false}>Documentation <ArrowUpRight size={14} /></Link>
   </header>;
 }
 
-function Workbench({ runtime, pickRef, notify }: { runtime: AnalysisRuntime; pickRef: React.RefObject<(index: number) => void>; notify: (text: string, error?: boolean) => void }) {
+function Workbench({ runtime, recovery, pickRef, notify }: { runtime: AnalysisRuntime; recovery: AnalysisRecovery; pickRef: React.RefObject<(index: number) => void>; notify: (text: string, error?: boolean) => void }) {
   const { editor } = runtime;
-  const [dataset, setDataset] = useState(demoDataset);
-  const [fields, setFields] = useState<Fields>(() => defaultFields(dataset));
-  const [filters, setFilters] = useState<Filters>(emptyFilters);
+  const [dataset, setDataset] = useState(() => recovery.initial?.dataset ?? demoDataset());
+  const [fields, setFields] = useState<Fields>(() => recovery.initial?.fields ?? defaultFields(dataset));
+  const [filters, setFilters] = useState<Filters>(() => recovery.initial?.filters ?? emptyFilters);
   const [state, setState] = useState<EditorState>(() => editor.getState());
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(() => recovery.initial?.activeArea != null ? String(runtime.areas()[recovery.initial.activeArea]?.id) : null);
   const [focused, setFocused] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [csv, setCsv] = useState<{ input: CsvInput; name: string } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
-  const [showIntro, setShowIntro] = useState(needsIntroduction);
+  const [showIntro, setShowIntro] = useState(() => !recovery.initial && !recovery.blocked && needsIntroduction());
+  const savedLocally = useSyncExternalStore(recovery.subscribe, recovery.getSnapshot, recovery.getSnapshot);
+  const [recoveryBlocked, setRecoveryBlocked] = useState(recovery.blocked);
   const input = useRef<HTMLInputElement>(null);
   const areaInput = useRef<HTMLInputElement>(null);
   const mapFrame = useRef<HTMLDivElement>(null);
@@ -121,6 +132,34 @@ function Workbench({ runtime, pickRef, notify }: { runtime: AnalysisRuntime; pic
     return () => { cancelAnimationFrame(pending); observer.disconnect(); window.removeEventListener("resize", schedule); };
   }, [runtime]);
 
+  const document = useMemo<AnalysisDocument>(() => ({ format: "map-master-analysis", version: 1, name: dataset.name, dataset: dataset.data, areas: { type: "FeatureCollection", features: areas }, fields, filters: { category: filters.category, query: filters.query, range: filters.range, rangeExclusive: filters.rangeExclusive === true }, activeArea: selected ? areas.indexOf(selected) : null }), [dataset, areas, fields, filters, selected]);
+  const hasDraft = state.mode !== "idle" || busy;
+  const saveStatus = recoveryBlocked ? "Recovery copy needs attention" : hasDraft ? "Unfinished changes · finish or cancel to save" : savedLocally ? "Saved in this browser" : "Recovery unavailable · download to keep your work";
+  useLayoutEffect(() => { recovery.write(document); }, [recovery, document, recoveryBlocked]);
+  useEffect(() => {
+    const needsWarning = () => hasDraft || !savedLocally || recoveryBlocked;
+    const beforeUnload = (event: BeforeUnloadEvent) => { if (needsWarning()) { event.preventDefault(); event.returnValue = ""; } };
+    // Internal links do not trigger beforeunload. Confirm explicitly when recovery
+    // is unavailable or a draft cannot be serialized as committed geometry.
+    const navigate = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || !needsWarning()) return;
+      const target = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!target || target.download || target.target === "_blank") return;
+      const url = new URL(target.href);
+      if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+      if (!window.confirm("This analysis has changes that are not saved for recovery. Use Save analysis to download your committed work. Leave anyway?")) { event.preventDefault(); event.stopPropagation(); }
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    window.document.addEventListener("click", navigate, true);
+    return () => { window.removeEventListener("beforeunload", beforeUnload); window.document.removeEventListener("click", navigate, true); };
+  }, [savedLocally, recoveryBlocked, hasDraft]);
+  const restoreDocument = (input: unknown) => {
+    const restored = parseAnalysis(input);
+    runtime.replaceAreas(restored.areas, true);
+    editor.select(restored.activeArea === null ? null : runtime.areas()[restored.activeArea].id!);
+    setDataset(restored.dataset); setFields(restored.fields); setFilters(restored.filters); setFocused(null);
+    setActiveId(restored.activeArea === null ? null : String(runtime.areas()[restored.activeArea]?.id));
+  };
   const changeDataset = (next: Dataset) => {
     runtime.replaceAreas([]);
     setDataset(next); setFields(defaultFields(next)); setFilters(emptyFilters); setFocused(null); setActiveId(null);
@@ -136,24 +175,7 @@ function Workbench({ runtime, pickRef, notify }: { runtime: AnalysisRuntime; pic
       if (/\.csv$/iu.test(file.name) && !asAreas) { setCsv({ input: parseCSV(text), name: file.name }); return; }
       const value: unknown = JSON.parse(text);
       if (!asAreas && value && typeof value === "object" && "format" in value && value.format === "map-master-analysis") {
-        if (!("version" in value) || value.version !== 1 || !("dataset" in value) || !("areas" in value)) throw new Error("This analysis file is not supported.");
-        const saved = value as { dataset: unknown; areas: unknown; fields?: unknown; name?: unknown; filters?: unknown; activeArea?: unknown };
-        const next = parseGeoJSON(saved.dataset, typeof saved.name === "string" ? saved.name : file.name);
-        const nextAreas = parseGeoJSON(saved.areas, "Areas").data.features;
-        if (nextAreas.length > 200 || nextAreas.some(f => f.geometry.type !== "Polygon" && f.geometry.type !== "MultiPolygon")) throw new Error("An analysis supports up to 200 polygon areas.");
-        runtime.replaceAreas(nextAreas as AnalysisArea[]);
-        setDataset(next); setFilters(emptyFilters); setFocused(null); setActiveId(null);
-        const defaults = defaultFields(next), available = schema(next);
-        if (saved.fields && typeof saved.fields === "object") {
-          const f = saved.fields as Partial<Fields>;
-          setFields({ category: typeof f.category === "string" && available.fields.includes(f.category) ? f.category : defaults.category, metric: typeof f.metric === "string" && available.numeric.includes(f.metric) ? f.metric : defaults.metric, size: f.size === true });
-        } else setFields(defaults);
-        if (saved.filters && typeof saved.filters === "object") {
-          const f = saved.filters as Partial<Filters>;
-          const range = Array.isArray(f.range) && f.range.length === 2 && f.range.every(n => typeof n === "number" && Number.isFinite(n)) && f.range[0] <= f.range[1] ? f.range as [number, number] : null;
-          setFilters({ category: typeof f.category === "string" ? f.category : null, query: typeof f.query === "string" ? f.query : "", range, rangeExclusive: f.rangeExclusive === true });
-        }
-        if (typeof saved.activeArea === "number" && Number.isInteger(saved.activeArea) && saved.activeArea >= 0 && saved.activeArea < nextAreas.length) setActiveId(`area-${saved.activeArea + 1}`);
+        restoreDocument(value);
         notify("Analysis opened with data, areas and filters.");
       } else {
         const next = parseGeoJSON(value, file.name.replace(/\.(geojson|json)$/iu, ""));
@@ -170,7 +192,7 @@ function Workbench({ runtime, pickRef, notify }: { runtime: AnalysisRuntime; pic
     } catch (error) { notify(error instanceof Error ? error.message : "This file could not be imported.", true); }
     finally { setBusy(false); }
   };
-  const save = () => download(JSON.stringify({ format: "map-master-analysis", version: 1, name: dataset.name, dataset: dataset.data, areas: { type: "FeatureCollection", features: areas }, fields, filters, activeArea: selected ? areas.indexOf(selected) : null }), `${filename(dataset.name)}.analysis.json`);
+  const save = () => download(JSON.stringify(document), `${filename(dataset.name)}.analysis.json`);
   const exportResults = (type: "geojson" | "csv" | "summary") => {
     const stem = `${filename(dataset.name)}-results`;
     if (type === "geojson") download(JSON.stringify({ type: "FeatureCollection", features }), `${stem}.geojson`, "application/geo+json");
@@ -193,7 +215,8 @@ function Workbench({ runtime, pickRef, notify }: { runtime: AnalysisRuntime; pic
   };
 
   return <div className={`an-workbench${showSettings ? " an-show-settings" : ""}${showInsights ? " an-show-insights" : ""}`} data-mode={state.mode} data-matches={rows.length}>
-    <div className="an-titlebar"><div><div className="an-eyebrow">SPATIAL EXPLORER <span>BETA</span></div><div className="an-heading-row"><h1>Find the story in your area.</h1><button className="an-info-button" aria-label="How Analysis works" title="How Analysis works" aria-haspopup="dialog" aria-expanded={showIntro} onClick={event => { event.currentTarget.focus(); setShowIntro(true); }}><Info size={16} /></button></div></div><div className="an-top-actions"><button className="an-button" disabled={!idle} onClick={save}><ArrowDownToLine size={15} /><span>Save analysis</span></button><details className="an-export"><summary className="an-button an-primary" aria-label="Export results"><ArrowUpRight size={15} />Export results</summary><div>{(["geojson", "csv", "summary"] as const).map(type => <button key={type} onClick={event => { exportResults(type); event.currentTarget.closest("details")!.open = false; }}>{type === "geojson" ? "Matching GeoJSON" : type === "csv" ? "Matching CSV" : "Summary & statistics"}</button>)}</div></details></div></div>
+    <div className="an-titlebar"><div><div className="an-eyebrow">SPATIAL EXPLORER <span>BETA</span></div><div className="an-heading-row"><h1>Find the story in your area.</h1><button className="an-info-button" aria-label="How Analysis works" title="How Analysis works" aria-haspopup="dialog" aria-expanded={showIntro} onClick={event => { event.currentTarget.focus(); setShowIntro(true); }}><Info size={16} /></button></div></div><div className="an-top-actions"><span className="an-recovery-status" role="status" data-analysis-save={savedLocally && !hasDraft && !recoveryBlocked ? "saved" : "unsaved"}>{saveStatus}</span><button className="an-button" disabled={!idle} onClick={save}><ArrowDownToLine size={15} /><span>Save analysis</span></button><details className="an-export"><summary className="an-button an-primary" aria-label="Export results"><ArrowUpRight size={15} />Export results</summary><div>{(["geojson", "csv", "summary"] as const).map(type => <button key={type} onClick={event => { exportResults(type); event.currentTarget.closest("details")!.open = false; }}>{type === "geojson" ? "Matching GeoJSON" : type === "csv" ? "Matching CSV" : "Summary & statistics"}</button>)}</div></details></div></div>
+    {recoveryBlocked && <div className="an-recovery-warning" role="alert"><strong>The previous analysis could not be restored.</strong><p>Your saved copy has been preserved. Download it before starting again. Automatic recovery stays paused until you discard that copy.</p><button className="an-button" onClick={() => download(recovery.raw ?? "", "analysis-recovery.json")}>Download recovery copy</button><button className="an-button" onClick={() => run(() => { recovery.discardCorruptCopy(); setRecoveryBlocked(false); })}>Discard recovery copy</button></div>}
     <div className="an-mobile-tabs"><button onClick={() => { setShowSettings(!showSettings); setShowInsights(false); }} aria-expanded={showSettings}><SlidersHorizontal size={15} />Configure</button><button onClick={() => { setShowInsights(!showInsights); setShowSettings(false); }} aria-expanded={showInsights}><BarChart3 size={15} />Insights</button></div>
     <aside className="an-sidebar" aria-label="Analysis configuration">
       <div className="an-panel-title"><h2><SlidersHorizontal size={16} />Configure analysis</h2><button className="an-mobile-close" aria-label="Close configuration" onClick={() => setShowSettings(false)}><X size={16} /></button></div>
@@ -235,7 +258,7 @@ function Workbench({ runtime, pickRef, notify }: { runtime: AnalysisRuntime; pic
     </aside>
 
     <DataTable dataset={dataset} rows={rows} fields={columns.fields} focused={focused} focus={focusRow} filters={filters} setFilters={setFilters} activeFilters={activeFilters} />
-    <footer className="an-status"><span><span className="an-live-dot" />{busy ? "Reading file…" : "Browser-local analysis"}</span><span>{dataset.name === "Amsterdam · service requests" ? "Fictitious demo data · Amsterdam" : dataset.name}</span><span>{areas.length} areas · {format(rows.length, 0)} results</span></footer>
+    <footer className="an-status"><span><span className="an-live-dot" />{busy ? "Reading file…" : saveStatus}</span><span>{dataset.name === "Amsterdam · service requests" ? "Fictitious demo data · Amsterdam" : dataset.name}</span><span>{areas.length} areas · {format(rows.length, 0)} results</span></footer>
     <input ref={input} className="sr-only" type="file" tabIndex={-1} accept=".csv,.json,.geojson" aria-label="Import analysis data" onChange={event => { void read(event.target.files?.[0]); event.target.value = ""; }} />
     <input ref={areaInput} className="sr-only" type="file" tabIndex={-1} accept=".json,.geojson" aria-label="Import analysis areas" onChange={event => { void read(event.target.files?.[0], true); event.target.value = ""; }} />
     {showIntro && <AnalysisIntro close={closeIntro} trySample={trySampleArea} canTrySample={idle && !!sampleArea} isSample={isSample} />}

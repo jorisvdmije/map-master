@@ -27,9 +27,9 @@ try {
     try {
       await page.setViewportSize({ width: 1536, height: 1100 });
       // A failed local snapshot is recoverable without leaking another map.
-      await page.route('**/data/amsterdam-roads.geojson', route => route.fulfill({ status: 503, body: 'unavailable' }));
+      await page.route('**/data/amsterdam-roads*.geojson', route => route.fulfill({ status: 503, body: 'unavailable' }));
       await page.goto(url); await page.getByText('Laden lukt nog niet', { exact: true }).waitFor();
-      await page.unroute('**/data/amsterdam-roads.geojson');
+      await page.unroute('**/data/amsterdam-roads*.geojson');
       errors.length = 0; // The intentionally injected HTTP 503 was expected.
       await page.getByRole('button', { name: 'Opnieuw proberen', exact: true }).click();
       await ready(); await idle();
