@@ -6,6 +6,7 @@ export const workspaces = [
   { href: "/analysis/", en: "Free analysis", nl: "Vrije analyse" },
   { href: "/analysis/bnb/", en: "B&B permits", nl: "B&B-vergunningen" },
   { href: "/analysis/streets/", en: "Street quality", nl: "Straatkwaliteit" },
+  { href: "/analysis/housing/", en: "Housing", nl: "Wonen" },
 ] as const;
 
 /** Native disclosure keeps the complete workspace list usable without JavaScript. */

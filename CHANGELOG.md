@@ -8,6 +8,8 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Added
 
+- Shared workspace navigation, versioned public research-view links with history,
+  housing task jumps, three-neighborhood comparison and CSV metadata downloads.
 - Named local Playground copies with timestamps, open and duplicate actions.
 - Import complexity preflight budgets and serialized incremental MapLibre source
   uploads with a Mapbox fallback. Cache versioned street assets and ship compressed
@@ -20,6 +22,8 @@ follows [semantic versioning](https://semver.org/); see the
 
 - Add opt-in `measurements.lineStyle: 'along-line'` for upright, white-halo line
   lengths that follow the camera, including a saved Playground setting.
+- Add the Amsterdam housing example with BAG/CBS joins and per-home municipal
+  trees, modeled RIVM noise and dated energy-label context, plus source-aware exports.
 
 - Add a spatial analysis workspace, an explicitly simulated B&B permit example
   on real Amsterdam boundaries, and a Street Lab using local NWB and municipal
@@ -43,11 +47,16 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Fixed
 
+- Search page descriptions and current housing topics, including taxes, new
+  construction, leasehold, education and holiday rentals.
 - Pin development-only Minimatch 10.x consumers to 11.0.1 in both dependency
   trees for GHSA-g3hv-75wg-m249; add scheduled full and production npm audits.
 - Install all three website browser engines in development and release setup
   instructions, with Linux system-library and virtual-display commands.
 
+- Interpret Dutch grouped filter amounts such as `500.000` and `500.000,00`
+  without silently reducing their magnitude; use the same convention for tax
+  WOZ input and explain it beside the fields.
 - Reject invalid polygon topology in analysis/reachability source imports before
   changing the dataset, including self-crossings, invalid holes and overlapping parts.
 

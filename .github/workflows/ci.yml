@@ -71,6 +71,7 @@ jobs:
             artifacts/streets/
             artifacts/heatmaps/
             artifacts/properties/
+            artifacts/housing/
           if-no-files-found: ignore
           retention-days: 14
 
