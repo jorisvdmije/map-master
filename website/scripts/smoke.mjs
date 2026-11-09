@@ -41,7 +41,10 @@ mkdirSync(evidence, { recursive: true });
 const { guides } = JSON.parse(readFileSync(resolve(site, ".generated/manifest.json"), "utf8"));
 const { basePath } = JSON.parse(readFileSync(resolve(dist, ".build-info.json"), "utf8"));
 assert.equal(basePath, "/map-master", "Run npm run check to test the deployment base path");
-const htmlFiles = [resolve(dist, "index.html"), resolve(dist, "playground", "index.html"), resolve(dist, "analysis", "index.html"), resolve(dist, "analysis", "bnb", "index.html"), resolve(dist, "analysis", "streets", "index.html"), ...guides.map(g => resolve(dist, "guides", g.slug, "index.html"))];
+// The export is the route inventory, including future applications and aliases.
+const htmlFiles = readdirSync(dist, { recursive: true })
+  .filter(file => file.endsWith(".html"))
+  .map(file => resolve(dist, file));
 // Verify real exported pages, public assets and fragments under the deployment base path.
 for (const file of htmlFiles) {
   for (const match of readFileSync(file, "utf8").replace(/<link\b[^>]*rel="(?:preconnect|dns-prefetch)"[^>]*>/g, "").matchAll(/(?:href|src)="([^"\s]+)"/g)) {

@@ -99,7 +99,7 @@ test('Citywide profiles use log-scaled independent metrics and exclude very shor
   assert.deepEqual(result, clusterStreets(input, 2)); assert.equal(clusterStreets([], 4).clusters.length, 0);
 });
 test('Overview retains all 45,870 segments; Van Baerlestraat is one trace; exports retain original geometry', () => {
-  const streets = streetScope(roads, null); assert.equal(streets.length, 5752);
+  const streets = streetScope(roads, null); assert.equal(streets.length, 5783);
   assert.equal(streets.flatMap(s => s.roads).length, roads.length);
   assert.ok(streets.every(s => s.geometry.coordinates.length > 0));
   const s = streets.find(s => s.name === 'Van Baerlestraat'); assert.equal(s.count, 72); assert.equal(s.geometry.coordinates.length, 1);
@@ -228,5 +228,15 @@ test('Radar ranking directions, subjects, CSV and real snapshot calculations sta
     assert.ok(analysis.eligible.length>10);
     assert.ok(analysis.rows.every(r=>[r.expected,r.excess,r.relative].every(v=>v===null||Number.isFinite(v))));
     const before=JSON.stringify(analysis.rows[0]);rankShifts(analysis.rows,{...defaultShift,kind});assert.equal(JSON.stringify(analysis.rows[0]),before);
+  }
+});
+
+test('Kerkstraat and Herengracht in Weesp have separate identities from Amsterdam', () => {
+  const groups = streetScope(roads, null);
+  for (const name of ['Kerkstraat', 'Herengracht']) {
+    const city = groups.find(row => row.name === name), weesp = groups.find(row => row.name === `${name} · Weesp`);
+    assert.ok(city); assert.ok(weesp); assert.notEqual(city.id, weesp.id);
+    assert.equal(weesp.roads.length, name === 'Kerkstraat' ? 3 : 7);
+    assert.ok(!city.roads.some(road => weesp.roads.some(other => other.id === road.id)));
   }
 });

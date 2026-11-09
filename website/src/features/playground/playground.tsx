@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { WorkspaceNavigation } from "@/components/workspaces/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, Check, ChevronRight, Columns2, Download, FileJson2, FolderOpen, Layers, LocateFixed, MapPinned, MousePointer2, Plus, Redo2, SlidersHorizontal, Undo2, Upload, X } from "lucide-react";
@@ -9,6 +10,7 @@ import { assetPath } from "@/lib/paths";
 import { AttributeTable, Dialog, Inspector, LayersPanel, PropertyDialog, type EditField, type Run } from "./panels";
 import { download, emptyProject, filename, layerId, maxFeatures, parseProject, projectFormat, readFile, sampleProject, type Project } from "./project";
 import type { PlaygroundRuntime } from "./runtime";
+import { LocalProjects } from "./local-projects";
 import type { ProjectStorage } from "./storage";
 import "./playground.css";
 
@@ -74,7 +76,7 @@ export function Playground({ version }: { version: string }) {
     <a href="#playground-map" className="skip-link">Skip to map</a>
     <div ref={container} id="playground-map" className="pg-map" tabIndex={-1} role="region" aria-label="Playground map" />
     {session ? <Workbench session={session} version={version} message={message} notify={notify} dismiss={() => setMessage(null)} /> : <>
-      <header className="pg-header"><Brand /><span className="pg-loading-label">Your workspace is opening…</span><Link href="/" prefetch={false}>Documentation <ArrowUpRight size={14} /></Link></header>
+      <header className="pg-header"><Brand /><WorkspaceNavigation current="/playground/" language="en" /><span className="pg-loading-label">Your workspace is opening…</span><Link href="/" prefetch={false}>Documentation <ArrowUpRight size={14} /></Link></header>
       <div className="pg-loading-card"><MapPinned size={34} /><h1>{failure ? "The map could not start" : "Making room for your data."}</h1><p>{failure || "Loading the editor and restoring your local project…"}</p>
         {failure && <button className="pg-button pg-primary" onClick={() => { setFailure(""); setAttempt(value => value + 1); }}>Try again</button>}
         <noscript>This playground needs JavaScript and WebGL. Your files are processed locally.</noscript>
@@ -223,18 +225,18 @@ function Workbench({ session, version, message, notify, dismiss }: { session: Se
   const status = !storage ? "Download to keep your work" : session.blocked ? "Local save paused" : savedRevision === snapshot.revision ? "Saved locally" : "Saving locally…";
 
   return <div className={`pg-workbench${drawer ? ` pg-show-${drawer}` : ""}${dragging ? " pg-dragging" : ""}`} data-busy={busy ? "true" : undefined} data-feature-count={state.featureCount} data-layer-count={project.layers.length} data-mode={state.mode} aria-busy={busy}>
-    <header className="pg-header"><Brand /><span className="pg-header-divider" />
+    <header className="pg-header"><Brand /><WorkspaceNavigation current="/playground/" language="en" /><span className="pg-header-divider" />
       <div className="pg-project-heading"><input key={project.name} aria-label="Project name" defaultValue={project.name} maxLength={150} onBlur={event => runtime.rename(event.target.value)} onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); }} disabled={busy} />
         <span className={`pg-save-state${session.blocked || !storage ? " pg-save-warning" : ""}`} role="status">{savedRevision === snapshot.revision && !session.blocked ? <Check size={11} /> : <span className="pg-status-dot" />}{status}</span></div>
-      <div className="pg-project-actions"><button className="pg-icon-button pg-new" title="New project" aria-label="New project" disabled={!idle || recovery !== null} onClick={() => requestReplace(emptyProject())}><Plus size={18} /></button>
+      <div className="pg-project-actions">    {storage && <LocalProjects storage={storage} capture={() => runtime.capture()} open={requestReplace} disabled={!idle || recovery !== null} />}<button className="pg-icon-button pg-new" title="New project" aria-label="New project" disabled={!idle || recovery !== null} onClick={() => requestReplace(emptyProject())}><Plus size={18} /></button>
         <details className="pg-mobile-project-menu"><summary aria-label="Project actions"><FolderOpen size={17} /></summary><div><button disabled={!idle || recovery !== null} onClick={event => { requestReplace(emptyProject()); event.currentTarget.closest("details")!.open = false; }}><Plus size={14} />New project</button><button disabled={!idle || recovery !== null} onClick={event => { projectInput.current?.click(); event.currentTarget.closest("details")!.open = false; }}><FolderOpen size={14} />Open project</button><Link href="/analysis/" prefetch={false}>Analysis <ArrowUpRight size={13} /></Link><Link href="/" prefetch={false}>Documentation <ArrowUpRight size={13} /></Link></div></details>
         <button className="pg-button pg-open-project" aria-label="Open project" disabled={!idle || recovery !== null} onClick={() => projectInput.current?.click()}><FolderOpen size={15} /><span>Open project</span></button>
         <button className="pg-button" aria-label="Save project" disabled={!idle} onClick={saveProject}><Download size={15} /><span>Save project</span></button>
         <button className="pg-button pg-primary" aria-label="Export GeoJSON" disabled={!idle || !state.featureCount} onClick={() => setExporting(true)}><ArrowUpRight size={16} /><span>Export GeoJSON</span></button>
-        <Link className="pg-docs-link" href="/analysis/" prefetch={false}>Analysis <ArrowUpRight size={14} /></Link>
-        <Link className="pg-docs-link" href="/" prefetch={false}>Docs <ArrowUpRight size={14} /></Link></div>
+</div>
     </header>
     <div className="pg-ribbon" role="toolbar" aria-label="Workspace actions">
+
       <button className="pg-button pg-import-button" disabled={!idle || recovery !== null} onClick={() => fileInput.current?.click()}><Upload size={15} />Import data</button>
       <span className="pg-ribbon-divider" /><button className="pg-icon-button" disabled={!state.canUndo || busy} aria-label="Undo" title="Undo" onClick={() => run(() => { runtime.editor.undo(); })}><Undo2 size={17} /></button>
       <button className="pg-icon-button" disabled={!state.canRedo || busy} aria-label="Redo" title="Redo" onClick={() => run(() => { runtime.editor.redo(); })}><Redo2 size={17} /></button>
@@ -257,7 +259,7 @@ function Workbench({ session, version, message, notify, dismiss }: { session: Se
         <button className="pg-link-button" disabled={!idle} onClick={() => run(() => { runtime.replaceProject(sampleProject()); setFocused(null); runtime.editor.zoomToFeatures(undefined, { padding: 75, maxZoom: 14.5, duration: 0 }); }, "Opened the sample project.")}>Or explore the sample project <ArrowUpRight size={13} /></button><small>GeoJSON · WGS84 · up to 10 MB per file</small></div>}
       {recovery !== null && <div className="pg-empty-card pg-recovery"><FileJson2 size={30} /><h1>Keep your saved copy.</h1><p>The previous project could not be restored. Download it for recovery before starting again.</p><button className="pg-button pg-wide" onClick={() => download(JSON.stringify(recovery, null, 2), "playground-recovery.json")}>Download saved copy</button><button className="pg-button pg-danger pg-wide" onClick={() => setReplacement(emptyProject())}>Start a new project</button></div>}
       </div>
-      <div className="pg-map-options"><label><input type="checkbox" checked={project.settings.measurements} onChange={event => run(() => runtime.setSetting("measurements", event.target.checked))} />Measurements</label><label><input type="checkbox" checked={project.settings.scaleBorders} onChange={event => run(() => runtime.setSetting("scaleBorders", event.target.checked))} />Scale borders with zoom</label></div>
+      <div className="pg-map-options"><label><input type="checkbox" checked={project.settings.measurements} onChange={event => run(() => runtime.setSetting("measurements", event.target.checked))} />Measurements</label><label>Line labels <select aria-label="Line label style" disabled={!project.settings.measurements} value={project.settings.lineLabelStyle ?? "badge"} onChange={event => run(() => runtime.setSetting("lineLabelStyle", event.target.value as "badge" | "along-line"))}><option value="badge">Horizontal badge</option><option value="along-line">Along the line</option></select></label><label><input type="checkbox" checked={project.settings.scaleBorders} onChange={event => run(() => runtime.setSetting("scaleBorders", event.target.checked))} />Scale borders with zoom</label></div>
       <div className="pg-mode-indicator"><MousePointer2 size={13} /><span>{mode}</span>{state.validationError && <strong>{state.validationError.replaceAll("-", " ")}</strong>}</div>
     </div>
     <Inspector snapshot={snapshot} runtime={runtime} layer={layer} run={run} edit={edit} close={() => setDrawer(null)} />

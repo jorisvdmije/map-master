@@ -100,3 +100,14 @@ test("Median and interpolated quartiles describe skew without treating missing v
   assert.equal(stats.median, 15); assert.equal(stats.q1, 7.5); assert.equal(stats.q3, 265); assert.equal(stats.average, 257.5);
   assert.equal(summarize([], "cost").median, null);
 });
+
+test('analysis rejects invalid polygon topology before publishing any rows',()=>{
+  const bowtie=[[0,0],[2,2],[0,2],[2,0],[0,0]];
+  const outside=[[20,20],[21,20],[21,21],[20,21],[20,20]];
+  const touching=[[0,2],[2,2],[2,4],[0,4],[0,2]];
+  for(const geometry of [polygon([bowtie]),polygon([ring,outside]),polygon([ring,touching]),{type:'Feature',properties:{},geometry:{type:'MultiPolygon',coordinates:[[ring],[ring]]}}])assert.throws(()=>parseGeoJSON(collection([point(1,1),geometry]),'invalid'),/Feature 2.*topology/);
+  const threeD=polygon([ring.map(([x,y])=>[x,y,25]),hole.map(([x,y])=>[x,y,20])]);
+  assert.equal(parseGeoJSON(threeD,'valid').data.features[0].geometry.coordinates[0][0].length,3,'Analysis preserves extra ordinates but validates topology in 2D');
+  const multipoint={type:'Feature',properties:{},geometry:{type:'MultiPoint',coordinates:[[1,2,3],[2,3,4]]}};
+  assert.deepEqual(parseGeoJSON(multipoint,'points').data.features[0].geometry,multipoint.geometry);
+});

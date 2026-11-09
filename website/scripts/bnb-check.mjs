@@ -116,6 +116,7 @@ export async function checkBnb({ context, origin, evidence, basePath = "/map-mas
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     }
     await page.evaluate(() => { localStorage.setItem("map-master-analysis-intro-v1", "seen"); window.__bnbOldGL = document.querySelector(".bb-map-canvas canvas").getContext("webgl2"); });
+    await page.locator(".workspace-switcher summary").click();
     await page.getByRole("link", { name: "Vrije analyse", exact: true }).click(); await page.locator('[data-analysis][data-ready="true"]').waitFor();
     await page.waitForFunction(() => window.__bnbOldGL.isContextLost());
     await page.getByRole("link", { name: /B&B permit dashboard/ }).click(); await ready();

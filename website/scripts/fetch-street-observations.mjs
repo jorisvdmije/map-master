@@ -106,5 +106,6 @@ renameSync(new URL('../src/features/streets/heat.json.tmp', import.meta.url), ne
 writeFileSync(new URL('../src/features/streets/observations.json.tmp', import.meta.url), JSON.stringify(result));
 renameSync(new URL('../src/features/streets/observations.json.tmp', import.meta.url), output);
 const { roads: ignored, ...manifest } = result; void ignored;
+manifest.observationsSha256 = createHash('sha256').update(JSON.stringify(result)).digest('hex');
 writeFileSync(new URL('../src/features/streets/observations-meta.json', import.meta.url), JSON.stringify(manifest, null, 2) + '\n');
 console.log(JSON.stringify({ ...manifest, heatCells: heat.cells.length, heatBytes: heatText.length }, null, 2));

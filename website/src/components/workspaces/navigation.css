@@ -1,0 +1,85 @@
+.workspace-switcher {
+  position: relative;
+  flex: 0 0 auto;
+  font: inherit;
+}
+.workspace-switcher summary {
+  cursor: pointer;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #cbd5d1;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #203e36;
+  font-size: 0.8rem;
+}
+.workspace-switcher > nav {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 80;
+  display: grid !important;
+  gap: 0.2rem;
+  width: 15rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.6rem;
+  background: #fff;
+  color: #203e36;
+  border: 1px solid #cbd5d1;
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 25px #15352a24;
+}
+.workspace-switcher > nav a {
+  padding: 0.55rem;
+  display: block;
+  font-size: 0.85rem;
+  text-decoration: none;
+  color: inherit;
+}
+.workspace-switcher > nav a[aria-current] {
+  background: #e8f1ef;
+  font-weight: 700;
+}
+.workspace-switcher :focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+.an-header:has(.workspace-switcher) {
+  z-index: 50;
+}
+.research-share {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 1rem;
+  font-size: 0.75rem;
+}
+@media (max-width: 650px) {
+  .pg-header > .workspace-switcher summary {
+    font-size: 0;
+    width: 31px;
+    height: 32px;
+    padding: 7px;
+    text-align: center;
+  }
+  .pg-header > .workspace-switcher summary::after {
+    content: "☰";
+    font-size: 15px;
+  }
+  .pg-header .pg-brand > span {
+    display: none;
+  }
+  .pg-header .pg-project-heading {
+    min-width: 60px;
+  }
+  .pg-header {
+    gap: 7px;
+  }
+  .pg-local-projects summary {
+    font-size: 0;
+    padding: 7px;
+  }
+  .pg-local-projects summary::after {
+    content: "Projects";
+    font-size: 10px;
+  }
+}

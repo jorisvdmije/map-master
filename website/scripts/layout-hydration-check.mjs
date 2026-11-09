@@ -58,6 +58,7 @@ export async function checkLayoutHydration({ context, origin, basePath = "/map-m
     await page.locator(".docs-shell .topbar").waitFor();
     await page.locator(".sidebar").getByRole("link", { name: "B&B permit dashboard ↗", exact: true }).click(); await bnbReady();
     assert.equal(await page.locator(".docs-shell").count(), 0);
+    await page.locator(".workspace-switcher summary").click();
     await page.getByRole("link", { name: "Vrije analyse", exact: true }).click();
     await page.locator('[data-analysis][data-ready="true"]').waitFor();
     assert.equal(await page.locator(".docs-shell").count(), 0);

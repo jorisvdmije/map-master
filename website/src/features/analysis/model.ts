@@ -1,3 +1,4 @@
+import { validateGeoJSON } from "@jorisvdmije/map-master";
 import { booleanIntersects } from "@turf/boolean-intersects";
 import { area } from "@turf/area";
 import { bbox } from "@turf/bbox";
@@ -42,6 +43,14 @@ export function parseGeoJSON(input: unknown, name: string): Dataset {
       : type === "Polygon" ? polygon(coordinates)
       : type === "MultiPolygon" ? Array.isArray(coordinates) && coordinates.length > 0 && coordinates.every(polygon) : false;
     if (!valid) throw fail();
+    if (type === "Polygon" || type === "MultiPolygon") {
+      // Analysis preserves extra ordinates and arbitrary source properties. Only
+      // its 2D polygon topology uses the shared strict editor contract.
+      const xy = (rings: Position[][]) => rings.map(ring => ring.map(p => p.slice(0, 2)));
+      try {
+        validateGeoJSON({ type: "Feature", properties: null, geometry: { type, coordinates: type === "Polygon" ? xy(coordinates as Position[][]) : (coordinates as Position[][][]).map(xy) } });
+      } catch (error) { throw new Error(`Feature ${index + 1} has invalid polygon topology: ${error instanceof Error ? error.message : "invalid rings"}`); }
+    }
     if (feature.id !== undefined && typeof feature.id !== "string" && !(typeof feature.id === "number" && Number.isFinite(feature.id))) throw fail();
     return { type: "Feature", ...(feature.id === undefined ? {} : { id: feature.id as string | number }), geometry: feature.geometry as unknown as DataGeometry, properties: { ...feature.properties as Record<string, unknown> | null } };
   });
