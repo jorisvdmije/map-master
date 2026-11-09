@@ -1,0 +1,280 @@
+import assert from 'node:assert/strict';
+import { mkdirSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { chromium, firefox, webkit } from 'playwright';
+import { createStaticServer } from './lib/static-server.mjs';
+import { booleanIntersects } from '@turf/boolean-intersects';
+import { bbox } from '@turf/bbox';
+const site=resolve(import.meta.dirname,'..');
+const {basePath}=JSON.parse(readFileSync(resolve(site,'dist/.build-info.json')));
+const server=createStaticServer({directory:resolve(site,'dist'),basePath});
+await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+const origin=`http://127.0.0.1:${server.address().port}`;
+const snapshot=JSON.parse(readFileSync(resolve(site,'src/features/housing/snapshot.json')));
+const target=snapshot.data.features.find(f=>f.properties.name==='Concertgebouwbuurt');
+const [west,south,east,north]=bbox(target);
+const candidates=Array.from({length:81},(_,i)=>[west+(east-west)*(i%9+1)/10,south+(north-south)*(Math.floor(i/9)+1)/10]);
+const coordinates=candidates.find(c=>booleanIntersects({type:'Point',coordinates:c},target));
+assert.ok(coordinates);
+const city=snapshot.data.features.filter(f=>(f.properties.homes??0)>=100);
+const countWith=(ranges)=>city.filter(f=>ranges.every(([metric,min,max])=>typeof f.properties[metric]==='number'&&(min===null||f.properties[metric]>=min)&&(max===null||f.properties[metric]<=max))).length;
+const cbsPage=(table,rows)=>({_embedded:{[table]:rows},page:{totalElements:rows.length},_links:{}});
+// Interior point with an actual BAG-shaped response; no external test dependency.
+const home={type:'Feature',geometry:{type:'Point',coordinates},properties:{identificatie:'0363010000000001',bronhouder_identificatie:'0363',gebruiksdoel:'woonfunctie',status:'Verblijfsobject in gebruik',oppervlakte:72,openbare_ruimte_naam:'Voorbeeldstraat',huisnummer:12,postcode:'1071AA','pand.href':['https://api.pdok.nl/kadaster/bag/ogc/v2/collections/pand/items/test']}};
+try {
+  for(const name of process.argv.slice(2).length?process.argv.slice(2):['chromium','firefox','webkit']) {
+    const browser=await {chromium,firefox,webkit}[name].launch({headless:(process.env.GEO_DOCS_HEADED??process.env.GEO_COMPAT_HEADED)!=='1',...(name==='chromium'?{args:['--enable-unsafe-swiftshader']}: {})});
+    try {
+      const context=await browser.newContext({viewport:{width:1440,height:1000},acceptDownloads:true});
+      await context.route('https://tiles.openfreemap.org/**',r=>r.fulfill({json:{version:8,sources:{},layers:[]}}));
+      await context.route('https://api.data.amsterdam.nl/v1/bomen/**',r=>r.fulfill({json:{_embedded:{stamgegevens:[{id:1,geometrie:{type:'Point',coordinates}}]},page:{totalElements:1},_links:{}}}));
+      await context.route('https://api.data.amsterdam.nl/v1/duurzaamheid/**',r=>r.fulfill({json:{_embedded:{energielabel:[{bagVerblijfsobjectId:home.properties.identificatie,energieklasse:'A',registratiedatum:'2026-01-01',metingGeldigTot:'2036-01-01'}]},page:{totalElements:1},_links:{}}}));
+      await context.route('https://data.rivm.nl/geo/alo/wms*',r=>r.fulfill({json:{type:'FeatureCollection',features:[{type:'Feature',geometry:null,properties:{GRAY_INDEX:64}}]}}));
+      let addressMode='matched',leaseholdCalls=0,bnbCalls=0;
+      await context.route('https://api.data.amsterdam.nl/v1/benkagg/brkkaartlaagerfpachtuitgevers/**',r=>{
+        leaseholdCalls++;
+        if(addressMode==='failed')return r.fulfill({status:503,body:'Unavailable'});
+        return r.fulfill({json:cbsPage('brkkaartlaagerfpachtuitgevers',addressMode==='missing'?[]:[{id:1,kadastraalobjectId:'NL.IMKAD.KadastraalObject.1.2',erfpachtUitgegevenDoor:'Amsterdam',geometrieVlak:target.geometry}])});
+      });
+      await context.route('https://api.data.amsterdam.nl/v1/vergunningen/bedandbreakfast/**',r=>{
+        bnbCalls++;
+        if(addressMode==='failed')return r.fulfill({status:503,body:'Unavailable'});
+        return r.fulfill({json:cbsPage('bedandbreakfast',addressMode==='missing'?[]:[{id:1,wijkNaam:'Voorbeeldwijk',categorieKleur:'green',geometrie:target.geometry}])});
+      });
+      let failBag=false,bagCalls=0,bagMode='normal',releaseBagPage,secondBagPageRequested;
+      const nextBagPage='https://api.pdok.nl/kadaster/bag/ogc/v2/collections/verblijfsobject/items?cursor=paused-test-page';
+      let blockedBagPage=Promise.resolve();
+      await context.route('https://api.pdok.nl/kadaster/bag/**',async r=>{
+        if(r.request().url().includes('/pand/'))return r.fulfill({json:{type:'Feature',properties:{bouwjaar:1912}}});
+        bagCalls++;
+        if(bagMode==='paused'){
+          if(r.request().url()===nextBagPage){
+            secondBagPageRequested();await blockedBagPage;
+            try{return await r.fulfill({json:{type:'FeatureCollection',features:[],links:[]}});}catch{return;}
+          }
+          return r.fulfill({json:{type:'FeatureCollection',features:[home],links:[{rel:'next',href:nextBagPage}]}});
+        }
+        if(bagMode==='network-error')return r.abort('failed');
+        return failBag?r.fulfill({status:503,body:'Unavailable'}):r.fulfill({json:{type:'FeatureCollection',features:[home],links:[]}});
+      });
+      const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+      await page.goto(`${origin}${basePath}/analysis/housing/`);await page.locator('[data-housing][data-ready=true]').waitFor();await page.locator('.hs-map[data-idle=true]').waitFor();
+      assert.equal(bagCalls,0,'No national address download on startup');
+      const cityCount=Number(await page.locator('[data-stat=neighborhoods]').textContent());assert.ok(cityCount>350);
+      assert.equal(cityCount,city.length);
+      assert.equal(await page.getByLabel('Kaartlaag wonen',{exact:true}).locator('option').count(),25);
+      assert.equal(await page.locator('.hs-themes button').count(),5);
+      const expectCount=async count=>{await page.waitForFunction(expected=>Number(document.querySelector('[data-stat=neighborhoods]')?.textContent)===expected,count);};
+      const mapCamera=await page.locator('.hs-map').getAttribute('data-camera');
+      await page.getByRole('button',{name:'WOZ onder stadsmediaan',exact:true}).click();
+      await page.getByLabel('Filter 1 maximum',{exact:true}).fill('500.000');await expectCount(countWith([['woz',null,500000]]));
+      await page.getByLabel('Filter 1 maximum',{exact:true}).fill('500.000,00');await expectCount(countWith([['woz',null,500000]]));
+      await page.getByLabel('Filter 1 kenmerk',{exact:true}).selectOption('supermarket');
+      await page.getByLabel('Filter 1 maximum',{exact:true}).fill('0,5');await expectCount(countWith([['supermarket',null,.5]]));
+      await page.getByRole('button',{name:'Alle filters wissen',exact:true}).click();await expectCount(cityCount);
+
+      await page.getByRole('button',{name:'Veel recente bouw',exact:true}).click();
+      await expectCount(countWith([['newBuild',50,null]]));
+      assert.equal(await page.getByLabel('Filter 1 minimum',{exact:true}).inputValue(),'50');
+      await page.getByRole('button',{name:'Voorzieningen dichtbij',exact:true}).click();
+      await expectCount(countWith([['supermarket',null,.5],['school',null,.5],['gp',null,1]]));
+      assert.equal(await page.locator('.hs-range').count(),3,'Amenities preset combines three conditions');
+      const [filteredDownload]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'GeoJSON',exact:true}).click()]);
+      const filteredExport=JSON.parse(readFileSync(await filteredDownload.path()));
+      assert.equal(filteredExport.features.length,countWith([['supermarket',null,.5],['school',null,.5],['gp',null,1]]));
+      assert.equal(filteredExport.provenance.filters.ranges.length,3);
+      assert.equal(filteredExport.provenance.indicators.education.year,2024);
+      await page.getByLabel('Filter 1 minimum',{exact:true}).fill('geen getal');await expectCount(0);
+      assert.equal(await page.getByLabel('Filter 1 minimum',{exact:true}).getAttribute('aria-invalid'),'true');
+      assert.match(await page.locator('.hs-filter-error').textContent(),/geldig getal/);
+      await page.getByLabel('Filter 1 minimum',{exact:true}).fill('2');await expectCount(0);
+      assert.match(await page.locator('.hs-filter-error').textContent(),/minimum is groter/);
+      await page.getByRole('button',{name:'Alle filters wissen',exact:true}).click();await expectCount(cityCount);
+      await page.getByLabel('Kaartlaag wonen',{exact:true}).selectOption('wozChange');
+      await page.locator('.hs-map[data-idle=true]').waitFor();
+      assert.equal(await page.locator('.hs-map').getAttribute('data-camera'),mapCamera,'Changing layers and filters preserves camera');
+      assert.equal(await page.locator('.hs-legend').getAttribute('data-diverging'),'true');
+      assert.match(await page.locator('.hs-legend').textContent(),/-\d/,'WOZ legend includes decreases');
+      await page.getByRole('button',{name:'WOZ onder stadsmediaan',exact:true}).click();
+      await page.getByLabel('Filter 1 kenmerk',{exact:true}).selectOption('wozChange');
+      await page.getByLabel('Filter 1 maximum',{exact:true}).fill('0');
+      await expectCount(countWith([['wozChange',null,0]]));
+      assert.ok(countWith([['wozChange',null,0]])>0,'Negative WOZ development must remain available');
+      await page.getByRole('button',{name:'Alle filters wissen',exact:true}).click();await expectCount(cityCount);
+      await page.getByLabel('Kaartlaag wonen',{exact:true}).selectOption('education');
+      assert.match(await page.locator('.hs-layer-context').textContent(),/CBS 2024/);
+      await page.getByLabel('Sorteervolgorde buurten',{exact:true}).selectOption('asc');
+      const educationRows=[...city].sort((a,b)=>{
+        const av=a.properties.education,bv=b.properties.education;
+        return av===null||bv===null?av===bv?a.properties.name.localeCompare(b.properties.name,'nl'):av===null?1:-1:av-bv||a.properties.name.localeCompare(b.properties.name,'nl');
+      });
+      await page.locator('.hs-table tbody tr').first().getByRole('button',{name:educationRows[0].properties.name,exact:true}).waitFor();
+      const [sortedDownload]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'GeoJSON',exact:true}).click()]);
+      const sortedExport=JSON.parse(readFileSync(await sortedDownload.path()));
+      assert.deepEqual(sortedExport.features.map(f=>f.properties.code),educationRows.map(f=>f.properties.code),'Ascending sort keeps missing values last');
+      assert.equal(sortedExport.provenance.filters.ascending,true);
+      const [csvDownload]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'CSV',exact:true}).click()]);
+      const csv=readFileSync(await csvDownload.path(),'utf8');
+      assert.match(csv.split('\r\n')[0],/Hbo- \/ wo-opgeleid \(%; CBS 2024\)/);assert.match(csv,/CBS 2025/);
+      await page.getByLabel('Sorteervolgorde buurten',{exact:true}).selectOption('desc');
+      await page.getByLabel('Kaartlaag wonen',{exact:true}).selectOption('woz');
+      assert.match(await page.locator('.hs-correlation').textContent(),/complete buurtparen/);
+      await page.getByLabel('Vergelijk woningwaarde met',{exact:true}).selectOption('supermarket');assert.match(await page.locator('.hs-scatter svg').getAttribute('aria-label'),/Afstand supermarkt/);
+      await page.getByLabel('Zoek buurt',{exact:true}).fill(target.properties.name);assert.equal(await page.locator('[data-stat=neighborhoods]').textContent(),'1');assert.match(await page.locator('.hs-correlation').textContent(),/Pearson r: —/);
+      const before=await page.locator('.hs-map').getAttribute('data-camera');
+      const selectedProfileVisible=async()=>{
+        await page.locator(`[data-housing][data-selected="${target.properties.code}"]`).waitFor();
+        await page.waitForFunction(()=>{
+          const heading=document.getElementById('housing-selected-title'),bounds=heading?.getBoundingClientRect();
+          return document.activeElement===heading&&bounds.top>=0&&bounds.bottom<=innerHeight;
+        });
+        assert.equal(await page.locator('.hs-map').getAttribute('data-camera'),before,'Opening the profile scrolls the page, preserving the geographic camera');
+      };
+      await page.getByRole('button',{name:`Bekijk buurt ${target.properties.name}`,exact:true}).click();
+      await selectedProfileVisible();
+      await page.getByRole('button',{name:'Buurtselectie wissen',exact:true}).click();
+      await page.getByLabel('Zoek buurt',{exact:true}).press('Enter');await selectedProfileVisible();
+      await page.getByRole('button',{name:'Buurtselectie wissen',exact:true}).click();
+      await page.getByRole('button',{name:target.properties.name,exact:true}).click();await selectedProfileVisible();
+      await page.locator('.hs-history').waitFor();assert.match(await page.locator('.hs-history').textContent(),/2023.*2024.*2025/s);
+      const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'GeoJSON',exact:true}).click()]);
+      const exported=JSON.parse(readFileSync(await download.path()));assert.equal(exported.features.length,1);assert.equal(exported.provenance.wozValuationDate,'2024-01-01');
+      await page.getByRole('button',{name:'Zoom naar buurt',exact:true}).click();await page.locator('.hs-map[data-idle=true]').waitFor();
+      // Non-WOZ property cards must use the indicator's year, not the geometry year.
+      await page.getByLabel('Kaartlaag wonen',{exact:true}).selectOption('education');
+      await page.getByLabel('Informatie bij aanwijzen',{exact:true}).selectOption('click');
+      await page.locator('.hs-map canvas').scrollIntoViewIfNeeded();await page.locator('.hs-map[data-idle=true]').waitFor();
+      const areaCamera=JSON.parse(await page.locator('.hs-map').getAttribute('data-camera')),areaBounds=await page.locator('.hs-map canvas').boundingBox();
+      const projectArea=([lng,lat])=>[(lng+180)/360,(1-Math.log(Math.tan(Math.PI/4+lat*Math.PI/360))/Math.PI)/2];
+      const areaPixel=projectArea(coordinates),areaCenter=projectArea(areaCamera),areaScale=512*2**areaCamera[2];
+      await page.mouse.click(areaBounds.x+areaBounds.width/2+(areaPixel[0]-areaCenter[0])*areaScale,areaBounds.y+areaBounds.height/2+(areaPixel[1]-areaCenter[1])*areaScale);
+      await page.locator('.mm-property-overlay[data-pinned=true]').waitFor();
+      assert.match(await page.locator('.mm-property-overlay').textContent(),/CBS 2024/);
+      assert.ok(!(await page.locator('.mm-property-overlay').textContent()).includes('WOZ-peildatum'));
+      await page.keyboard.press('Escape');
+      await page.getByLabel('Kaartlaag wonen',{exact:true}).selectOption('woz');
+      await page.getByLabel('Informatie bij aanwijzen',{exact:true}).selectOption('follow');
+      // A completed first page is progress, never a partial successful result.
+      const bagBeforeCancellation=bagCalls;
+      bagMode='paused';blockedBagPage=new Promise(resolve=>{releaseBagPage=resolve;});
+      const secondBagPage=new Promise(resolve=>{secondBagPageRequested=resolve;});
+      await page.getByRole('button',{name:'Laad BAG-woningen',exact:true}).click();await secondBagPage;
+      await page.locator('.hs-bag-progress').waitFor();
+      assert.match(await page.locator('.hs-bag-progress').textContent(),/1/);
+      assert.equal(await page.locator('[data-homes-count]').count(),0,'No first-page homes shown before pagination completes');
+      await page.getByRole('button',{name:'Ophalen annuleren',exact:true}).click();
+      await page.getByRole('button',{name:'Laad BAG-woningen',exact:true}).waitFor();
+      assert.equal(await page.locator('[data-homes-count]').count(),0,'Cancellation cannot publish a partial response');
+      bagMode='normal';releaseBagPage();
+      await page.getByRole('button',{name:'Laad BAG-woningen',exact:true}).click();await page.locator('[data-homes-count="1"]').waitFor();assert.equal(bagCalls,bagBeforeCancellation+3);
+      await page.getByLabel('Zoek BAG-adres',{exact:true}).fill('Voorbeeldstraat 12');
+      assert.equal(await page.getByLabel('BAG-woning kiezen',{exact:true}).locator('option').count(),2);
+      await page.getByLabel('Zoek BAG-adres',{exact:true}).fill('bestaatniet');
+      assert.equal(await page.getByLabel('BAG-woning kiezen',{exact:true}).locator('option').count(),1);
+      assert.match(await page.locator('.hs-inspector').textContent(),/0 van 1 adressen/);
+      await page.getByLabel('Zoek BAG-adres',{exact:true}).fill('');
+      await page.getByLabel('BAG-woning kiezen',{exact:true}).selectOption('0363010000000001');await page.getByLabel('Geselecteerde woning',{exact:true}).getByText('1912',{exact:true}).waitFor();
+      assert.match(await page.getByLabel('Geselecteerde woning',{exact:true}).textContent(),/72 m²/);
+      await page.locator('[data-environment=trees]').getByText('1',{exact:true}).waitFor();
+      await page.locator('[data-environment=noise]').getByText('circa 64 dB Lden',{exact:true}).waitFor();
+      await page.locator('[data-environment=energy]').getByText('A',{exact:true}).waitFor();
+      // A failed refresh keeps the dated successful value in both UI and export.
+      const failEnvironment = r => r.fulfill({ status: 503, body: 'Unavailable' });
+      await context.route('https://api.data.amsterdam.nl/v1/{bomen,duurzaamheid}/**', failEnvironment);
+      await context.route('https://data.rivm.nl/geo/alo/wms*', failEnvironment);
+      await page.getByRole('button',{name:'Bronnen vernieuwen',exact:true}).click();
+      await page.getByText(/Verversen van een of meer bronnen is mislukt/).waitFor();
+      assert.equal(await page.locator('[data-environment=trees]').textContent(),'1');
+      assert.equal(await page.locator('[data-environment=noise]').textContent(),'circa 64 dB Lden');
+      const [staleDownload] = await Promise.all([page.waitForEvent('download'), page.getByRole('button',{name:'Exporteer woning met context',exact:true}).click()]);
+      const stale = JSON.parse(readFileSync(await staleDownload.path()));
+      assert.deepEqual(stale.provenance.refreshStatus,{trees:'stale-after-error',noise:'stale-after-error',energy:'stale-after-error'});
+      assert.equal(stale.features[0].properties.municipalTrees,1);
+      assert.ok(stale.provenance.trees.retrievedAt);
+      await context.unroute('https://api.data.amsterdam.nl/v1/{bomen,duurzaamheid}/**', failEnvironment);
+      await context.unroute('https://data.rivm.nl/geo/alo/wms*', failEnvironment);
+      await page.getByRole('button',{name:'Bronnen opnieuw proberen',exact:true}).click();
+      await page.getByRole('button',{name:'Bronnen vernieuwen',exact:true}).waitFor();
+      assert.equal(leaseholdCalls,0,'Erfpacht is requested only after opening its section');
+      assert.equal(bnbCalls,0,'B&B is requested only after opening its section');
+      await page.locator('.hs-address-context>summary').click();
+      await page.locator('[data-address-context=leasehold]').getByText('Gemeente Amsterdam',{exact:true}).waitFor();
+      await page.locator('[data-address-context=bnb]').getByText('Beschikbaar',{exact:true}).waitFor();
+      assert.equal(leaseholdCalls,1);assert.equal(bnbCalls,1);
+      assert.match(await page.locator('.hs-address-context').textContent(),/vakantieverhuurvergunning op dit adres.*niet gekoppeld/s);
+      const [addressDownload]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Exporteer erfpacht- en verhuurcontext',exact:true}).click()]);
+      const addressExport=JSON.parse(readFileSync(await addressDownload.path()));
+      assert.equal(addressExport.leasehold.status,'matched');assert.equal(addressExport.leasehold.parcels[0].issuer,'Gemeente Amsterdam');assert.equal(addressExport.leasehold.parcels[0].rawIssuer,'Amsterdam');assert.equal(addressExport.bnb.wards[0].category,'green');
+      await page.locator('.hs-taxes>summary').click();
+      assert.equal(await page.getByLabel('Eigen WOZ-waarde 2026',{exact:true}).inputValue(),'','Neighborhood WOZ never seeds an individual tax calculation');
+      assert.equal(await page.locator('[data-tax-annual]').count(),0);
+      await page.getByLabel('Eigen WOZ-waarde 2026',{exact:true}).fill('-1');
+      assert.equal(await page.getByLabel('Eigen WOZ-waarde 2026',{exact:true}).getAttribute('aria-invalid'),'true');assert.equal(await page.locator('[data-tax-annual]').count(),0);
+      await page.getByLabel('Eigen WOZ-waarde 2026',{exact:true}).fill('500000');
+      await page.locator('[data-tax-annual]').getByText(/807,54/).waitFor();
+      for(const woz of ['500.000','500.000,00']) {
+        await page.getByLabel('Eigen WOZ-waarde 2026',{exact:true}).fill(woz);
+        await page.locator('[data-tax-annual]').getByText(/807,54/).waitFor();
+        assert.notEqual(await page.getByLabel('Eigen WOZ-waarde 2026',{exact:true}).getAttribute('aria-invalid'),'true');
+      }
+      await page.getByLabel('Eigen WOZ-waarde 2026',{exact:true}).fill('500.000,50');
+      assert.equal(await page.getByLabel('Eigen WOZ-waarde 2026',{exact:true}).getAttribute('aria-invalid'),'true');assert.equal(await page.locator('[data-tax-annual]').count(),0);
+      await page.getByLabel('Belastingen woonsituatie',{exact:true}).selectOption('tenant');
+      await page.getByLabel('Belastingen huishouden',{exact:true}).selectOption('multiple');
+      await page.locator('[data-tax-annual]').getByText(/469,00/).waitFor();
+      const [homesDownload]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Exporteer woningen',exact:true}).click()]);
+      const homes=JSON.parse(readFileSync(await homesDownload.path()));assert.equal(homes.features.length,1);assert.equal(Object.hasOwn(homes.features[0].properties,'woz'),false);
+      // Screen-space projection from the exposed camera observation, not a map API backdoor.
+      await page.getByLabel('Informatie bij aanwijzen',{exact:true}).selectOption('click');
+      await page.locator('.hs-map[data-idle=true]').waitFor();const camera=JSON.parse(await page.locator('.hs-map').getAttribute('data-camera')),bounds=await page.locator('.hs-map canvas').boundingBox();
+      const world=([lng,lat])=>[(lng+180)/360,(1-Math.log(Math.tan(Math.PI/4+lat*Math.PI/360))/Math.PI)/2];
+      const [px,py]=world(home.geometry.coordinates),[cx,cy]=world(camera),scale=512*2**camera[2];
+      const point={x:bounds.x+bounds.width/2+(px-cx)*scale,y:bounds.y+bounds.height/2+(py-cy)*scale};
+      await page.mouse.click(point.x,point.y);await page.locator('.mm-property-overlay[data-pinned=true]').waitFor();
+      const card=await page.locator('.mm-property-overlay').boundingBox();assert.ok(Math.abs(card.x+card.width/2-bounds.x-bounds.width/2)<2);assert.ok(Math.abs(card.y+card.height/2-bounds.y-bounds.height/2)<2);
+      assert.match(await page.locator('.mm-feature-preview h3').textContent(),/Voorbeeldstraat/);await page.keyboard.press('Escape');await page.locator('.mm-property-overlay').waitFor({state:'hidden'});await page.getByRole('button',{name:'Hele stad vergelijken',exact:true}).click();assert.equal(Number(await page.locator('[data-stat=neighborhoods]').textContent()),cityCount);
+      const evidence=resolve(site,`../artifacts/housing/${name}`);mkdirSync(evidence,{recursive:true});await page.screenshot({path:resolve(evidence,'desktop.png'),fullPage:true});
+      failBag=true;await page.getByRole('button',{name:'BAG vernieuwen',exact:true}).click();await page.getByRole('alert').getByText(/503/).waitFor();
+      await page.setViewportSize({width:390,height:844});await page.locator('.hs-map[data-idle=true]').waitFor();
+      await page.getByRole('button',{name:'Voorzieningen dichtbij',exact:true}).click();
+      await expectCount(countWith([['supermarket',null,.5],['school',null,.5],['gp',null,1]]));
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'No mobile horizontal overflow');
+      await page.screenshot({path:resolve(evidence,'mobile.png'),fullPage:true});
+      await page.getByRole('button',{name:'Alle filters wissen',exact:true}).click();await expectCount(cityCount);
+      const mobileCamera=await page.locator('.hs-map').getAttribute('data-camera');
+      await page.getByLabel('Zoek buurt',{exact:true}).fill(target.properties.name);
+      await page.getByRole('button',{name:`Bekijk buurt ${target.properties.name}`,exact:true}).click();
+      await page.waitForFunction(()=>{
+        const heading=document.getElementById('housing-selected-title'),bounds=heading?.getBoundingClientRect();
+        return document.activeElement===heading&&bounds.top>=0&&bounds.bottom<=innerHeight;
+      });
+      assert.equal(await page.locator('.hs-map').getAttribute('data-camera'),mobileCamera,'Mobile search opens the visible profile without moving the map');
+      await page.getByRole('button',{name:'Bronnen & methode',exact:true}).click();await page.getByRole('dialog').waitFor();assert.match(await page.getByRole('dialog').textContent(),/waardepeildatum 1 januari 2024/);await page.keyboard.press('Escape');
+      assert.deepEqual(errors,[]);
+      // A fresh page has no query cache, exercising unavailable sources and explicit retries.
+      failBag=false;addressMode='failed';
+      await page.reload();await page.locator('[data-housing][data-ready=true]').waitFor();
+      await page.getByLabel('Zoek buurt',{exact:true}).fill(target.properties.name);
+      await page.getByRole('button',{name:target.properties.name,exact:true}).click();
+      await page.getByRole('button',{name:'Laad BAG-woningen',exact:true}).click();await page.locator('[data-homes-count="1"]').waitFor();
+      await page.getByLabel('BAG-woning kiezen',{exact:true}).selectOption('0363010000000001');
+      await page.locator('.hs-address-context>summary').click();
+      await page.getByRole('button',{name:'Erfpacht opnieuw proberen',exact:true}).waitFor();
+      await page.getByRole('button',{name:'B&B opnieuw proberen',exact:true}).waitFor();
+      addressMode='missing';
+      await page.getByRole('button',{name:'Erfpacht opnieuw proberen',exact:true}).click();
+      await page.getByRole('button',{name:'B&B opnieuw proberen',exact:true}).click();
+      await page.locator('[data-address-context=leasehold]').getByText(/blijft onbekend/).waitFor();
+      await page.locator('[data-address-context=bnb]').getByText(/beschikbaarheid onbekend/).waitFor();
+      bagMode='network-error';
+      await page.getByRole('button',{name:'BAG vernieuwen',exact:true}).click();
+      await page.locator('.hs-inspector [role=alert]').getByText(/databron is niet bereikbaar/).waitFor();
+      assert.ok(!(await page.locator('.hs-inspector [role=alert]').textContent()).includes('Failed to fetch'),'Browser network failures are translated for users');
+      assert.deepEqual(errors,[]);
+      await page.goto(`${origin}${basePath}/guides/open-data-amsterdam/`);await page.getByRole('heading',{name:'Open data Amsterdam',exact:true}).waitFor();
+      assert.ok(await page.locator('table tbody tr').count()>=16);
+      console.log(`✓ ${name}: 25 layers, combined/invalid filters, signed WOZ history, source years, sorting and exports, same-camera visible/focused profiles, local address search, BAG progress/cancellation and source failures, erfpacht issuer normalization, address context/retry, taxes, centered properties and mobile`);
+      await context.close();
+    }finally{await browser.close();}
+  }
+}finally{await new Promise(resolve=>server.close(resolve));}

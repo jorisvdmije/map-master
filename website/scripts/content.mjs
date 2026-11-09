@@ -32,6 +32,10 @@ if (createHash("sha256").update(heatData).digest("hex") !== observationMeta.heat
 queueFile(resolve(publicDir, "data/amsterdam-street-heat.json"), heatData);
 queueFile(resolve(publicDir, `data/amsterdam-street-heat.${observationMeta.heatSha256.slice(0,16)}.json`), heatData);
 const github = "https://github.com/jorisvdmije/map-master";
+const housing = JSON.parse(readFileSync(resolve(site, "src/features/housing/snapshot.json"), "utf8"));
+if (createHash("sha256").update(JSON.stringify(housing.data)).digest("hex") !== housing.meta.sha256) throw new Error("Housing snapshot fingerprint mismatch.");
+queueFile(resolve(publicDir, "data/amsterdam-housing.json"), JSON.stringify(housing));
+
 const { version } = JSON.parse(readFileSync(resolve(repo, "package.json"), "utf8"));
 const pages = [
   ...readdirSync(resolve(site, "content")).filter(f => f.endsWith(".md"))
@@ -45,6 +49,9 @@ if (new Set([...pages.map(page => page.slug), "all-guides"]).size !== pages.leng
 const compiler = await createMarkdownCompiler({ repo, github, pathToSlug: new Map(pages.map(p => [p.path, p.slug])) });
 const guides = [];
 const search = [{
+  title: "Wonen in Amsterdam", href: "/analysis/housing/", description: "25 CBS-kaartlagen: WOZ-ontwikkeling, nieuwbouw, opleiding, energie en voorzieningen. Filters, BAG-adressen, erfpachtcontext en belastingen.",
+  text: "woning woningen BAG adres adressen WOZ woningwaarde huisprijzen waardestijging nieuwbouw opleiding opleidingsniveau belasting belastingen OZB erfpacht vakantieverhuur verhuur B&B buurt buurten koopwoning energielabel open data bronnen correlatie",
+}, {
   title: "Straatmonitor Amsterdam", href: "/analysis/streets/", description: "Echte Amsterdamse registraties: bomen, lichtobjecten, storingen en MORA-meldingen, met heatmaps, straatindicatoren, correlaties, clusters en bronverantwoording.",
   text: "straten wegvakken straatkwaliteit verlichting veiligheid correlatie clustering k-means wijken onderhoud groen Amsterdam analyse heatmap heatmaps concentraties bronvakken dichtheid radius",
 }, {
