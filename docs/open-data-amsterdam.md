@@ -1,5 +1,9 @@
 # Open data Amsterdam
 
+[Open de doorzoekbare databank](/data/) voor themafilters, bronprofielen,
+favorieten en beschikbare downloads. De databank vermeldt apart welke bronnen
+al in de kaarten zijn gekoppeld en welke je bij de aanbieder raadpleegt.
+
 Een praktische selectie van officiële openbare databronnen voor Amsterdam,
 gecontroleerd op 4 november 2026. Landelijke bronnen zijn op Amsterdam te filteren.
 Dit is geen uitputtende inventaris. Controleer per bestand de licentie, actualiteit,

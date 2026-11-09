@@ -16,3 +16,7 @@ export const getGuide = cache(async (slug: string): Promise<Guide | undefined> =
   if (!guides.some(guide => guide.slug === slug)) return undefined;
   return JSON.parse(await readFile(resolve(directory, "guides", `${slug}.json`), "utf8"));
 });
+
+export const getCatalog = cache(async (): Promise<import("@/features/catalog/types").Catalog> =>
+  JSON.parse(await readFile(resolve(directory, "data-catalog.json"), "utf8")),
+);
