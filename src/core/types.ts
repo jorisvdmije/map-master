@@ -185,6 +185,8 @@ export interface MeasurementOptions {
   units: MeasurementUnits;
   /** BCP 47 locale for number formatting, such as `nl` for `1,5 km`; default `en`. */
   locale: string;
+  /** Optional line-label presentation. `along-line` rotates an unboxed halo label with the line. */
+  lineStyle?: 'badge' | 'along-line';
 }
 
 /** Options for `new GeometryEditor(map, options)`. Every option is optional. */

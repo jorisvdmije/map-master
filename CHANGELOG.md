@@ -8,6 +8,8 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Added
 
+- Add pure `validateGeoJSON` for import-contract validation before creating an editor.
+
 - Add a spatial analysis workspace, an explicitly simulated B&B permit example
   on real Amsterdam boundaries, and a Street Lab using local NWB and municipal
   lighting, tree and MORA snapshots. Include pooled street indicators, monthly

@@ -156,3 +156,19 @@ describe('atomic GeoJSON import', () => {
     expect(editor.state).toMatchObject({ mode: 'edit-line', featureCount: 1, dataRevision: 1 });
   });
 });
+
+it('validates GeoJSON without editor state or modifying anonymous inputs', async () => {
+  const { validateGeoJSON } = await import('../src/index.js');
+  const feature = { type: 'Feature', properties: { nested: { original: true } }, geometry: { type: 'Polygon', coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]] } };
+  const before = JSON.stringify(feature);
+  expect(validateGeoJSON(feature)).toBeUndefined();
+  expect(JSON.stringify(feature)).toBe(before);
+  expect(() => validateGeoJSON({ ...feature, geometry: { type: 'Polygon', coordinates: [[[0,0],[1,1],[0,1],[1,0],[0,0]]] } })).toThrow();
+});
+
+
+it('standalone validation does not reject anonymous features when temporary IDs collide with explicit IDs', async () => {
+  const { validateGeoJSON } = await import('../src/index.js');
+  const point = { type: 'Feature', properties: null, geometry: { type: 'Point', coordinates: [0, 0] } };
+  expect(() => validateGeoJSON({ type: 'FeatureCollection', features: [point, ...Array.from({ length: 150 }, (_, i) => ({ ...point, id: `validation-${i + 1}` }))] })).not.toThrow();
+});
