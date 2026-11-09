@@ -64,3 +64,20 @@ complex polygons, very large rings or deeply nested multipart geometry. The
 - Self-crossing lines are allowed.
 - Feature IDs are strings or finite numbers; `7` and `"7"` are different IDs.
 - Properties must be JSON values. They are copied, never interpreted.
+
+## Import complexity budgets
+
+Imports and transaction candidate validation reject more than 200,000 coordinate
+positions per batch, more than 2,000 positions per polygon ring (including its
+closing point), or more than 4,000 positions across a Polygon/MultiPolygon.
+`geometryLimits`, `assertGeometryComplexity` and `GeometryComplexityError` expose
+this contract. Preflight runs before topology validation and does not simplify or
+repair user data. Split or simplify complex datasets before importing them.
+Drawing and overlay algorithms are still synchronous; these import budgets are
+not a responsiveness guarantee for every operation.
+
+See [accessible tasks and research](accessibility-research.md) for the non-map
+property-editing journey and the pending real screenreader/user protocols.
+Physical phones, tablets and pen devices, actual Safari and authenticated Mapbox
+rendering remain unqualified. Desktop emulation and Playwright engines do not
+close those qualification gaps.

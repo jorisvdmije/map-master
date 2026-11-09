@@ -115,7 +115,29 @@ export function measurementOptions(update: Partial<MeasurementOptions> = {}, pre
   if (typeof next.enabled !== 'boolean') throw new TypeError('measurements.enabled must be a boolean.');
   if (next.units !== 'metric' && next.units !== 'imperial') throw new TypeError("measurements.units must be 'metric' or 'imperial'.");
   if (typeof next.locale !== 'string' || !next.locale) throw new TypeError('measurements.locale must be a locale string.');
+  if (next.lineStyle !== undefined && next.lineStyle !== 'badge' && next.lineStyle !== 'along-line') throw new TypeError("measurements.lineStyle must be 'badge' or 'along-line'.");
   // Throws a RangeError for malformed language tags.
   new Intl.NumberFormat(next.locale);
-  return { enabled: next.enabled, units: next.units, locale: next.locale };
+  return { enabled: next.enabled, units: next.units, locale: next.locale, ...(next.lineStyle === undefined ? {} : { lineStyle: next.lineStyle }) };
+}
+
+/** A half-length anchor and local tangent for a readable label on a line. */
+export function lineMeasurementAnchor(points: readonly Coordinate[]): { coordinate: Coordinate; direction: [Coordinate, Coordinate] } | null {
+  let remaining = pathLength(points) / 2;
+  if (remaining <= 0) return null;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1]!, b = points[i]!, length = distance(a, b);
+    if (length >= remaining && length > 0) {
+      const t = remaining / length;
+      let delta = b[0] - a[0];
+      if (delta > 180) delta -= 360;
+      if (delta < -180) delta += 360;
+      let lng = a[0] + delta * t;
+      if (lng > 180) lng -= 360;
+      if (lng < -180) lng += 360;
+      return { coordinate: [lng, a[1] + (b[1] - a[1]) * t], direction: [[...a], [...b]] };
+    }
+    remaining -= length;
+  }
+  return null;
 }
