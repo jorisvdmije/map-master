@@ -30,6 +30,11 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Fixed
 
+- Pin development-only Minimatch 10.x consumers to 11.0.1 in both dependency
+  trees for GHSA-g3hv-75wg-m249; add scheduled full and production npm audits.
+- Install all three website browser engines in development and release setup
+  instructions, with Linux system-library and virtual-display commands.
+
 - Clear stale hover dismissal after a map resize while keeping clicked property
   cards pinned, so WebKit can show the same object's properties at its new place.
 - Keep documentation map overlays, including the Command/Ctrl-scroll zoom hint,

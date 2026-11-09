@@ -1,0 +1,54 @@
+name: Dependency audit
+
+on:
+  schedule:
+    - cron: '35 7 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - package.json
+      - package-lock.json
+      - website/package.json
+      - website/package-lock.json
+      - .github/workflows/dependency-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            website/package-lock.json
+      - run: npm ci --ignore-scripts --no-audit
+      - run: npm ci --prefix website --ignore-scripts --no-audit
+      - run: mkdir -p artifacts/dependency-audit
+      - name: Audit library tooling and runtime dependencies
+        run: npm audit --json > artifacts/dependency-audit/library.json
+      - name: Audit website tooling and runtime dependencies
+        if: ${{ !cancelled() }}
+        run: npm audit --prefix website --json > artifacts/dependency-audit/website.json
+      - name: Audit library production dependencies
+        if: ${{ !cancelled() }}
+        run: npm audit --omit=dev --json > artifacts/dependency-audit/library-production.json
+      - name: Audit website production dependencies
+        if: ${{ !cancelled() }}
+        run: npm audit --prefix website --omit=dev --json > artifacts/dependency-audit/website-production.json
+      - name: Retain advisory reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: dependency-audit
+          path: artifacts/dependency-audit/
+          if-no-files-found: ignore
+          retention-days: 30

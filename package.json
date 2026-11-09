@@ -95,6 +95,17 @@
     "vite": "8.3.5",
     "vitest": "5.0.5"
   },
+  "overrides": {
+    "eslint@10.13.0": {
+      "minimatch": "11.0.1"
+    },
+    "@eslint/config-array@0.23.5": {
+      "minimatch": "11.0.1"
+    },
+    "@typescript-eslint/typescript-estree@8.72.0": {
+      "minimatch": "11.0.1"
+    }
+  },
   "peerDependencies": {
     "mapbox-gl": "^3.34.1",
     "maplibre-gl": "^6.15.0"

@@ -27,6 +27,17 @@
     "check:heatmaps": "node scripts/heatmap-browsers.mjs",
     "check:properties": "node scripts/property-cards-browsers.mjs"
   },
+  "overrides": {
+    "eslint@10.13.0": {
+      "minimatch": "11.0.1"
+    },
+    "@eslint/config-array@0.23.5": {
+      "minimatch": "11.0.1"
+    },
+    "@typescript-eslint/typescript-estree@8.72.1": {
+      "minimatch": "11.0.1"
+    }
+  },
   "dependencies": {
     "@base-ui/react": "1.9.0",
     "@tanstack/react-query": "5.105.1",
@@ -61,6 +72,7 @@
     "eslint-config-next": "16.4.3",
     "marked": "18.1.2",
     "playwright": "1.64.1",
+    "prettier": "3.6.2",
     "rxjs": "7.8.2",
     "shiki": "4.5.0",
     "svelte": "5.57.3",
