@@ -20,7 +20,7 @@ export async function checkLayoutHydration({ context, origin, basePath = "/map-m
   const url = path => `${origin}${basePath}${path}`;
   let serverPath = "";
   try {
-    for (const [path, workspace] of [["/analysis/streets/", "data-streets"], ["/analysis/bnb/", "data-bnb"], ["/analysis/housing/", "data-housing"], ["/analysis/", "data-analysis"], ["/playground/", "data-playground"]]) {
+    for (const [path, workspace] of [["/analysis/streets/", "data-streets"], ["/analysis/bnb/", "data-bnb"], ["/analysis/housing/", "data-housing"], ["/analysis/reachability/", "data-reachability"], ["/analysis/", "data-analysis"], ["/playground/", "data-playground"]]) {
       serverPath = path;
       // Server rendering is an HTTP contract. Node fetch cannot execute page
       // scripts, and avoids Linux WebKit's disabled-JavaScript protocol failures.
