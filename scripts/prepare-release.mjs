@@ -1,3 +1,4 @@
+import { captureSource, verifySourceManifest } from './source-candidate.mjs';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -29,8 +30,14 @@ const report = {
 };
 
 try {
-  report.commit = run('git', ['rev-parse', 'HEAD']).trim();
-  report.dirty = run('git', ['status', '--porcelain']).trim().length > 0;
+  const source = process.env.GEO_SOURCE_MANIFEST
+    ? { manifest: verifySourceManifest(root, JSON.parse(readFileSync(process.env.GEO_SOURCE_MANIFEST, 'utf8'))) }
+    : captureSource(root, output);
+  report.commit = source.manifest.checkoutCommit;
+  report.dirty = source.manifest.checkoutDirty;
+  report.source = { archive: source.archive, sha256: source.sha256, files: source.manifest.files.length, verifiedFromManifest: true };
+  report.sourceManifest = source.manifest;
+
   report.npm = run(process.execPath, [npm, '--version']).trim();
   const packed = JSON.parse(run(process.execPath, [
     npm, 'pack', '--json', '--pack-destination', output,
@@ -52,6 +59,7 @@ try {
     || budgets.environment.archiveSha256 !== report.archive.sha256) {
     throw new Error('Missing passing budget evidence for this archive.');
   }
+  verifySourceManifest(root, report.sourceManifest);
   report.checksPassed = true;
 } catch (error) {
   report.error = error.message;

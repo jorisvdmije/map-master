@@ -1,7 +1,8 @@
 # Testing
 
-Map Master is tested at four levels. `npm run check` runs all of them except the
-cross-browser and published-release checks, which run in separate CI jobs.
+Map Master is tested at four levels. `npm run check` runs all of them, including
+the website's Chromium, Firefox and WebKit scenarios. The separately qualified
+installed-application cross-browser and published-release checks run in other CI jobs.
 
 | Level | Command | What it covers |
 | --- | --- | --- |
@@ -15,8 +16,17 @@ Set up once after cloning:
 ```sh
 npm ci
 npm ci --prefix website
-npx playwright install chromium   # on Linux: npx playwright install --with-deps chromium
+npx playwright install chromium firefox webkit
 ```
+
+On Linux, replace the last command with
+`npx playwright install --with-deps chromium firefox webkit` to install browser
+system libraries as well (administrator privileges may be needed).
+The full library suite, installed-application acceptance and performance budgets
+use Chromium. The normal website check starts all three engines; installing only
+Chromium is insufficient for `npm run check` or `npm run release:prepare`.
+Re-run installation after changing the pinned Playwright version. See
+[Playwright browser installation](https://playwright.dev/docs/browsers).
 
 ## Published framework examples
 
@@ -78,6 +88,17 @@ checksum.
 npx playwright install firefox webkit
 npm run test:compatibility -- firefox webkit
 ```
+
+For the same windowed WebGL mode as Ubuntu CI, install `xvfb` through the system
+package manager, then run:
+
+```sh
+xvfb-run -a env GEO_DOCS_HEADED=1 npm run check
+xvfb-run -a env GEO_COMPAT_HEADED=1 npm run test:compatibility -- firefox webkit
+```
+
+`--with-deps` above installs the browser libraries. `xvfb-run` provides a virtual
+display when using the optional headed mode on a Linux machine without a desktop.
 
 This runs the desktop workspace scenarios against a freshly packed archive in the
 selected engines (all three by default). The Chromium-only touch scenario and memory

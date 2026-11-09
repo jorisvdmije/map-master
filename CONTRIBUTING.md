@@ -15,9 +15,17 @@ git clone https://github.com/jorisvdmije/map-master.git
 cd map-master
 npm ci
 npm ci --prefix website
-npx playwright install chromium   # on Linux: npx playwright install --with-deps chromium
+npx playwright install chromium firefox webkit
 npm run check
 ```
+
+On Linux, install the required browser system libraries with
+`npx playwright install --with-deps chromium firefox webkit` instead of the plain
+install command (the system-package step may need administrator privileges).
+The library suite, installed application and performance budgets use Chromium;
+the normal website checks also launch Firefox and WebKit. Re-run browser
+installation after updating Playwright. CI additionally uses windowed WebGL under
+`xvfb-run`; see [testing](docs/testing.md#cross-browser-checks) for the Linux command.
 
 ## Commands
 
@@ -113,6 +121,34 @@ TypeScript and typescript-eslint together. MapLibre is a pinned development
 dependency for testing and an optional peer for consumers. Mapbox GL JS is also
 pinned for adapter tests and is an optional peer. The host installs its chosen
 renderer. Shared GL code imports neither renderer.
+
+Both root and website manifests temporarily override only Minimatch 10.x to
+11.0.1 for [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249).
+The current ESLint and typescript-eslint releases still request the affected
+major; their used matching APIs are checked by both real lint configurations and
+the full compiler/consumer checks. Minimatch 3.x used by older website plugins is
+outside this override. Remove the override once upstream dependencies adopt a
+fixed version, and review both lockfiles together. This is a development-tooling
+override; the library's runtime dependencies do not use Minimatch.
+The override keys name the current ESLint, `@eslint/config-array` and
+`@typescript-eslint/typescript-estree` versions, so an upstream version update
+requires reviewing the override rather than silently pinning future consumers.
+
+The **Dependency audit** workflow checks both complete dependency trees and their
+production subsets weekly, on dependency pull requests, and on manual dispatch.
+It retains JSON reports for review and fails on reported vulnerabilities. To run
+the same checks locally:
+
+```sh
+npm audit
+npm audit --prefix website
+npm audit --omit=dev
+npm audit --prefix website --omit=dev
+```
+
+Review each advisory's scope and a compatible fix before changing versions;
+avoid automatic forced tooling downgrades. Dependency updates must pass
+`npm run check`, including lint, framework compilation and installed consumers.
 
 Runtime dependencies are deliberately few. `@types/geojson` supplies the shared
 map boundary declarations without requiring either renderer's types:
