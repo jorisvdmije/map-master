@@ -18,7 +18,8 @@ test('catalog has distinct real source profiles and keeps external discovery sep
     assert.equal(row.availability === 'local', row.downloads.length > 0);
     if (row.availability === 'connected') assert.ok(row.usedIn.length);
   }
-  assert.equal(entries.filter(row => row.availability === 'local').length, 4);
+  assert.equal(entries.filter(row => row.availability === 'local').length, 5);
+  assert.ok(find('WOZ groei').some(row => row.id === 'bbga'));
   assert.ok(find('luchtkwaliteit fijnstof').some(row => row.id === 'luchtmeetnet'));
   assert.ok(find('laadpaal').some(row => row.id === 'laadpunten'));
   assert.ok(find('WOZ').some(row => row.id === 'cbs-buurten'));

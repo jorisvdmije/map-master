@@ -473,25 +473,38 @@ export const registry = [
   },
   {
     id: "bbga",
-    title: "Basisbestand Gebieden Amsterdam",
+    title: "Buurtontwikkeling en Amsterdamse gebiedscijfers",
     summary:
-      "Aanvullende gebiedscijfers voor het onderzoeken van Amsterdamse buurten en wijken.",
+      "WOZ- en woningvoorraadreeksen voor 2012–2026 uit de Statistiekhub, met bijpassende buurtgrenzen en brondefinities.",
     theme: "mensen",
     publisher: "Onderzoek en Statistiek Amsterdam",
     coverage: "amsterdam",
     level: "Buurt / wijk / gebied",
-    time: "Per indicator en verslagjaar",
-    formats: ["JSON", "Tabellen"],
-    availability: "source",
+    time: "2012–2026; gebiedsindeling 24 maart 2022",
+    formats: ["JSON", "GeoJSON"],
+    availability: "local",
     source: {
       label: "Onderzoek en Statistiek Amsterdam",
-      url: "https://api.data.amsterdam.nl/v1/docs/datasets/bbga.html",
+      url: "https://api.data.amsterdam.nl/v1/docs/datasets/statistieken@v2.html",
     },
     access:
-      "Raadpleeg de bron voor de beschikbare downloads, licentie en eventuele toegangsvoorwaarden.",
+      "Vastgelegde reeksen en historische buurtgrenzen zijn beschikbaar als download; de interactieve vergelijking laadt deze pas bij openen.",
     caveat:
-      "Definities, grenzen en jaren verschillen per indicator; koppel op officiële gebiedscodes.",
-    tags: ["inwoners", "sociaal", "demografie", "BBGA"],
+      "WOZ per woning; woningmix beïnvloedt het gemiddelde. Ontbrekende waarden blijven onbekend; rond 2022–2023 zijn stads- en Driemondreeksen onderbroken.",
+    tags: [
+      "WOZ",
+      "woningwaarde",
+      "groei",
+      "nieuwbouw",
+      "woningvoorraad",
+      "tijdlijn",
+      "BBGA",
+      "Statistiekhub",
+    ],
+    usedIn: [
+      { label: "Open buurtontwikkeling", href: "/analysis/development/" },
+    ],
+    localKey: "development",
   },
   {
     id: "cbs-voorzieningen",

@@ -5,7 +5,7 @@ import { areasCsv } from "../../src/features/housing/model.ts";
 const sha = content => createHash("sha256").update(content).digest("hex");
 
 /** Publish metadata only to the app bundle; full files remain explicit downloads. */
-export function createCatalog({ housing, geometry, observations, heat, observationMeta, queue }) {
+export function createCatalog({ housing, development, developmentGeometry, geometry, observations, heat, observationMeta, queue }) {
   const artifacts = new Map();
   const publish = (path, content) => { artifacts.set(path, content); queue(path, content); return content; };
   const downloads = new Map();
@@ -18,10 +18,13 @@ export function createCatalog({ housing, geometry, observations, heat, observati
   const csvFile = file("housing", "Buurtcijfers als tabel", "CSV", "/data/catalog/cbs-buurten.csv", areasCsv(housing.data.features, housing.meta.indicators), true);
   const metadata = JSON.stringify({ version: 1, source: housing.meta, files: [housingFile, csvFile], selection: "Alle buurtvlakken in de vastgelegde Amsterdam-snapshot; geen minimumwoningfilter", csv: { delimiter: ";", decimal: ".", encoding: "UTF-8 with BOM", missing: "empty cell" } }, null, 2);
   file("housing", "Herkomst, definities en bestandscontroles", "JSON", "/data/catalog/cbs-buurten.metadata.json", metadata, true);
+  file("development", "WOZ- en woningvoorraadreeksen met bronmetadata", "JSON", "/data/amsterdam-development.json", JSON.stringify(development));
+  file("development", "Buurtgrenzen bij gebiedsindeling 2022", "GeoJSON", "/data/amsterdam-development-geometry.json", JSON.stringify(developmentGeometry));
   file("roads", "Originele wegvakken", "GeoJSON", `/data/amsterdam-roads.${observationMeta.geometrySha256.slice(0, 16)}.geojson`, geometry);
   file("observations", "Tellingen per wegvak", "JSON", `/data/amsterdam-street-observations.${observationMeta.observationsSha256.slice(0, 16)}.json`, observations);
   file("heat", "Geaggregeerde bronvakken", "JSON", `/data/amsterdam-street-heat.${observationMeta.heatSha256.slice(0, 16)}.json`, heat);
   const snapshots = {
+    development: { retrievedAt: development.meta.retrievedAt, count: development.areas.length, unit: "buurten", sha256: development.meta.sha256 },
     housing: { retrievedAt: housing.meta.retrievedAt, count: housing.data.features.length, unit: "buurtvlakken", sha256: housing.meta.sha256 },
     roads: { retrievedAt: observationMeta.retrieved, count: JSON.parse(geometry).features.length, unit: "wegvakken", sha256: sha(geometry) },
     observations: { retrievedAt: observationMeta.retrieved, count: Object.keys(JSON.parse(observations).roads).length, unit: "wegvakken met tellingen", sha256: sha(observations) },

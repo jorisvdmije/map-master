@@ -36,7 +36,13 @@ const github = "https://github.com/jorisvdmije/map-master";
 const housing = JSON.parse(readFileSync(resolve(site, "src/features/housing/snapshot.json"), "utf8"));
 if (createHash("sha256").update(JSON.stringify(housing.data)).digest("hex") !== housing.meta.sha256) throw new Error("Housing snapshot fingerprint mismatch.");
 queueFile(resolve(publicDir, "data/amsterdam-housing.json"), JSON.stringify(housing));
-const { catalog } = createCatalog({ housing, geometry: streetGeometry, observations, heat: heatData, observationMeta,
+const development = JSON.parse(readFileSync(resolve(site, "src/features/development/snapshot.json"), "utf8"));
+const developmentGeometry = JSON.parse(readFileSync(resolve(site, "src/features/development/geometry.json"), "utf8"));
+if (createHash("sha256").update(JSON.stringify({ areas: development.areas, city: development.city })).digest("hex") !== development.meta.sha256) throw new Error("Development snapshot fingerprint mismatch.");
+if (createHash("sha256").update(JSON.stringify(developmentGeometry)).digest("hex") !== development.meta.geometrySha256) throw new Error("Development geometry fingerprint mismatch.");
+queueFile(resolve(publicDir, "data/amsterdam-development.json"), JSON.stringify(development));
+queueFile(resolve(publicDir, "data/amsterdam-development-geometry.json"), JSON.stringify(developmentGeometry));
+const { catalog } = createCatalog({ housing, development, developmentGeometry, geometry: streetGeometry, observations, heat: heatData, observationMeta,
   queue: (path, content) => queueFile(resolve(publicDir, path.slice(1)), content),
 });
 queueFile(resolve(output, "data-catalog.json"), JSON.stringify(catalog));
@@ -54,6 +60,9 @@ if (new Set([...pages.map(page => page.slug), "all-guides"]).size !== pages.leng
 const compiler = await createMarkdownCompiler({ repo, github, pathToSlug: new Map(pages.map(p => [p.path, p.slug])) });
 const guides = [];
 const search = [{ title: "Gebiedsrapport Amsterdam", href: "/area-report/", description: "Kies een buurt of adres en bekijk wonen, groen, geluid, voorzieningen en bereikbaarheid met bronjaren.", text: "gebiedsrapport buurtrapport adres buurt cijfers bomen geluid voorzieningen bereikbaarheid PDF JSON CSV bronjaar" }, { title: "Databank", href: "/data/", description: "Vind datasets over wonen, groen, klimaat, verkeer en voorzieningen. Bronprofielen, favorieten en beschikbare downloads.", text: "data databank database catalogus bronnen datasets bronjaar GeoJSON CSV downloaden favorieten" }, ...catalog.datasets.map(entry => ({ title: entry.title, href: `/data/${entry.id}/`, description: entry.summary, text: [entry.publisher, entry.caveat, ...entry.tags].join(" ") })), {
+  title: "Buurtontwikkeling Amsterdam", href: "/analysis/development/", description: "Vergelijk WOZ-ontwikkeling van 2012 tot en met 2026, met tijdlijn, kaart, groeiranglijst en woningvoorraadfilter.",
+  text: "buurtontwikkeling buurt buurten WOZ groei stijging woningwaarde nieuwbouw woningvoorraad tijdlijn jaren Statistiekhub BBGA",
+}, {
   title: "Bereikbaarheidscontouren", href: "/analysis/reachability/", description: "Reistijd over het wegennet voor lopen, fietsen, e-bike en auto, met transparante contouren, tellingen en lijnmetingen.",
   text: "bereikbaarheid contouren isochrone isochrones reistijd interval lopen fiets ebike auto afstand lijn meten",
 }, {
