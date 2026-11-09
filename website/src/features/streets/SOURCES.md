@@ -319,3 +319,15 @@ remains; empty clusters are omitted. The UI reports convergence and
 This measures compactness, increases with cluster count, and does not establish
 cluster validity. Centers remain back-transformed log-space averages. Ward
 filters retain the whole-city profile even when displaying only local parts.
+
+## Local street identities
+
+The application splits equal names between Amsterdam and Weesp using the
+published CBS ward name (`Weesp` versus the remaining Amsterdam wards). Weesp
+street labels include the locality. This yields 5,783 displayed groups in this
+snapshot, versus 5,752 exact-name groups. Kerkstraat and Herengracht are separate
+selectable streets in each place. Unnamed segments keep individual IDs. An
+unknown ward is labelled as an unknown location rather than silently assigned.
+This is a locality proxy, not an official public-space identifier; disconnected
+parts with the same name within one locality still form one group. Preserve the
+original NWB IDs and geometry in exports.

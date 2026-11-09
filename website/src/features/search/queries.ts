@@ -26,6 +26,6 @@ function isSearchPage(value: unknown): value is SearchPage {
 export function searchPages(pages: SearchPage[], query: string) {
   const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   return pages.map(page => ({ page, score: terms.reduce((sum, term) => sum + (page.title.toLowerCase().includes(term) ? 10 : 0), 0) }))
-    .filter(({ page }) => terms.every(term => `${page.title} ${page.text}`.toLowerCase().includes(term)))
+    .filter(({ page }) => terms.every(term => `${page.title} ${page.description} ${page.text}`.toLowerCase().includes(term)))
     .sort((a, b) => b.score - a.score).slice(0, 9).map(({ page }) => page);
 }

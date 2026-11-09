@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium, firefox, webkit } from "playwright";
 import { createStaticServer } from "./lib/static-server.mjs";
+import { checkAnalysisRecovery } from "./analysis-recovery-check.mjs";
 import { checkAnalysis } from "./analysis-check.mjs";
 import { checkBnb } from "./bnb-check.mjs";
 import { checkLayoutHydration } from "./layout-hydration-check.mjs";
@@ -31,6 +32,7 @@ try {
     });
     // Keep the disabled-JavaScript context and route-hydration checks independent
     // of the native WebGL/GPU resources exercised by the map interaction suites.
+    if (!bnbOnly) await isolated(checkAnalysisRecovery);
     await isolated(checkLayoutHydration);
   }
 } finally { await new Promise(resolve => server.close(resolve)); }

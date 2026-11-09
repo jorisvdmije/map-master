@@ -46,7 +46,8 @@ export async function checkLayoutHydration({ context, origin, basePath = "/map-m
 
   const page = await context.newPage(), errors = [];
   page.on("pageerror", error => errors.push(error.message));
-  page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
+  // Firefox logs its own automation worker being aborted by a navigation; that is not a page error.
+  page.on("console", message => { if (message.type() === "error" && !message.text().includes("chrome://juggler/")) errors.push(message.text()); });
   await page.addInitScript(() => localStorage.setItem("map-master-analysis-intro-v1", "seen"));
   await page.route("https://tiles.openfreemap.org/**", route => route.fulfill({ json: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#eef0e8" } }] } }));
   const bnbReady = () => page.locator('[data-bnb][data-ready="true"]').waitFor();
@@ -58,6 +59,7 @@ export async function checkLayoutHydration({ context, origin, basePath = "/map-m
     await page.locator(".docs-shell .topbar").waitFor();
     await page.locator(".sidebar").getByRole("link", { name: "B&B permit dashboard ↗", exact: true }).click(); await bnbReady();
     assert.equal(await page.locator(".docs-shell").count(), 0);
+    await page.locator(".workspace-switcher summary").click();
     await page.getByRole("link", { name: "Vrije analyse", exact: true }).click();
     await page.locator('[data-analysis][data-ready="true"]').waitFor();
     assert.equal(await page.locator(".docs-shell").count(), 0);

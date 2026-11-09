@@ -8,7 +8,18 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Added
 
+- Named local Playground copies with timestamps, open and duplicate actions.
+- Import complexity preflight budgets and serialized incremental MapLibre source
+  uploads with a Mapbox fallback. Cache versioned street assets and ship compressed
+  sidecars. Keep human screenreader and physical-device qualification explicit.
+
 - Add pure `validateGeoJSON` for import-contract validation before creating an editor.
+- Recover free-analysis data, areas, fields, filters and active area in the
+  browser, with save status, navigation warnings on storage failure and
+  downloadable corrupt-copy recovery.
+
+- Add opt-in `measurements.lineStyle: 'along-line'` for upright, white-halo line
+  lengths that follow the camera, including a saved Playground setting.
 
 - Add a spatial analysis workspace, an explicitly simulated B&B permit example
   on real Amsterdam boundaries, and a Street Lab using local NWB and municipal
@@ -36,6 +47,9 @@ follows [semantic versioning](https://semver.org/); see the
   trees for GHSA-g3hv-75wg-m249; add scheduled full and production npm audits.
 - Install all three website browser engines in development and release setup
   instructions, with Linux system-library and virtual-display commands.
+
+- Reject invalid polygon topology in analysis/reachability source imports before
+  changing the dataset, including self-crossings, invalid holes and overlapping parts.
 
 - Clear stale hover dismissal after a map resize while keeping clicked property
   cards pinned, so WebKit can show the same object's properties at its new place.

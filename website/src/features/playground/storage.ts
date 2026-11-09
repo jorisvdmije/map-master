@@ -55,5 +55,33 @@ export class ProjectStorage {
     });
   }
 
+  async listCopies(): Promise<{ key: string; name: string; modifiedAt: string }[]> {
+    const transaction = this.database.transaction("projects", "readonly");
+    const request = transaction.objectStore("projects").getAll();
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result.filter(row => typeof row.key === "string" && row.key.startsWith("copy:")).map(row => ({ key: row.key, name: typeof row.project?.name === "string" ? row.project.name : "Unreadable project", modifiedAt: row.modifiedAt ?? "" })).sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt)));
+      request.onerror = () => reject(new Error("The project list could not be read."));
+    });
+  }
+
+  async readCopy(key: string): Promise<unknown> {
+    if (!key.startsWith("copy:")) throw new Error("Invalid saved project.");
+    const request = this.database.transaction("projects", "readonly").objectStore("projects").get(key);
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => request.result ? resolve(request.result.project) : reject(new Error("Saved project no longer exists."));
+      request.onerror = () => reject(new Error("Saved project could not be read."));
+    });
+  }
+
+  async saveCopy(project: Project): Promise<void> {
+    const transaction = this.database.transaction("projects", "readwrite"), store = transaction.objectStore("projects");
+    // Copies are immutable snapshots. No current-project revision is changed.
+    store.put({ key: `copy:${crypto.randomUUID()}`, project, modifiedAt: new Date().toISOString() });
+    return new Promise((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = transaction.onabort = () => reject(new Error("The named copy could not be saved. Download your project to keep your work."));
+    });
+  }
+
   close() { this.database.close(); }
 }
