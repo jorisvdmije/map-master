@@ -1,0 +1,125 @@
+.db-root { --db-ink: #203f35; --db-muted: #64796e; --db-line: #dce5df; min-height: 100dvh; background: #f7f9f5; color: var(--db-ink); font-family: "DM Sans Variable", sans-serif; }
+.db-report-callout { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 24px; margin: 0 4vw 28px; border: 1px solid #d5e1ca; background: #eaf1e1; border-radius: 9px; }.db-report-callout strong { font-size: 15px; }.db-report-callout p { font-size: 12px; line-height: 1.8; margin: 7px 0 0; color: #5d7455; }.db-report-callout > a { flex-shrink: 0; }@media(max-width:700px) { .db-report-callout { align-items: start; flex-direction: column; margin-inline: 20px; } }
+.db-root * { box-sizing: border-box; }
+.db-root a { color: inherit; }
+.db-root button, .db-root input, .db-root select { font: inherit; }
+.db-root button, .db-root summary { cursor: pointer; }
+.db-root button:disabled { cursor: default; opacity: .5; }
+.db-root :focus-visible { outline: 3px solid #448874; outline-offset: 3px; }
+.db-root svg { flex-shrink: 0; }
+.db-header { min-height: 78px; display: flex; align-items: center; gap: 48px; padding: 14px 4vw; border-bottom: 1px solid var(--db-line); background: #fffef9; position: relative; z-index: 30; }
+.db-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-shrink: 0; font: 750 16px "Manrope Variable", sans-serif; }
+.db-brand small { display: block; margin-top: 3px; color: var(--db-muted); font: 600 8px "DM Sans Variable", sans-serif; letter-spacing: 1.4px; }
+.db-header > nav { display: flex; align-items: center; gap: 28px; font-size: 12px; }
+.db-header > nav a { text-decoration: none; }
+.db-header > nav a:first-child { font-weight: 700; }
+.db-header > .workspace-switcher { margin-left: auto; }
+.db-hero { display: flex; justify-content: space-between; align-items: end; gap: 48px; padding: 62px 4vw 42px; max-width: 1510px; margin: auto; }
+.db-eyebrow { display: flex; align-items: center; gap: 7px; color: #527466; font-size: 9px; font-weight: 700; letter-spacing: 1.7px; }
+.db-hero h1 { font: 650 clamp(32px,4vw,53px)/1.13 "Manrope Variable", sans-serif; letter-spacing: -2.4px; margin: 20px 0; }
+.db-hero h1 em { font-style: normal; color: #5b8569; }
+.db-hero > div:first-child > p { max-width: 590px; font-size: 14px; line-height: 1.85; color: var(--db-muted); }
+.db-hero-note { border-left: 1px solid #cedccc; padding: 2px 0 5px 26px; min-width: 265px; }
+.db-hero-note > span { color: #708274; font-size: 8px; letter-spacing: 1.5px; }
+.db-hero-note strong { display: block; font: 650 27px "Manrope Variable", sans-serif; letter-spacing: -1px; margin-top: 12px; }
+.db-hero-note p { font-size: 11px; line-height: 1.7; color: #526d5d; }
+.db-hero-note small { color: #6d7d70; font-size: 10px; line-height: 1.8; }
+.db-start { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; max-width: 1510px; margin: auto; padding: 0 4vw 34px; }
+.db-start > button { border: 1px solid var(--db-line); border-radius: 9px; padding: 17px 14px; background: #fffefa; display: flex; align-items: center; gap: 12px; color: #4e7059; text-align: left; }
+.db-start > button[aria-pressed=true] { border-color: #5b8f76; background: #edf4e9; }
+.db-start > button > svg:last-child { margin-left: auto; }
+.db-start strong { font-size: 11px; color: var(--db-ink); }
+.db-start small { display: block; font-size: 9px; color: #6e8173; margin-top: 5px; line-height: 1.5; }
+.db-layout { max-width: 1510px; margin: auto; padding: 0 4vw 64px; display: grid; grid-template-columns: 230px minmax(0,1fr); gap: 35px; align-items: start; }
+.db-sidebar { min-width: 0; border-top: 1px solid var(--db-line); padding-top: 20px; }
+.db-sidebar h2 { font-size: 12px; display: flex; align-items: center; gap: 8px; margin: 0 0 23px; }
+.db-filter-grid { display: grid; gap: 20px; }
+.db-filter-grid label { display: grid; gap: 8px; font-size: 10px; color: #58725f; }
+.db-filter-grid select { width: 100%; min-width: 0; border: 1px solid #d6e1d5; border-radius: 6px; padding: 11px 8px; background: white; color: #294d3a; font-size: 11px; }
+.db-saved-filter { margin-top: 24px; display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 8px; background: transparent; border: 0; border-block: 1px solid var(--db-line); font-size: 10px !important; color: #45684e; text-align: left; }
+.db-saved-filter > span { margin-left: auto; background: #e2ebdf; padding: 3px 6px; border-radius: 4px; }
+.db-saved-filter[aria-pressed=true] { background: #e7f0e1; }
+.db-reset { display: flex; align-items: center; gap: 5px; color: #6c7561; border: 0; background: none; padding: 12px 0; font-size: 10px !important; }
+.db-help { padding: 20px 0; color: #5b705f; font-size: 10px; line-height: 1.8; }
+.db-help summary { font-weight: 600; }
+.db-help dt { font-weight: 650; margin-top: 13px; }
+.db-help dd { margin: 4px 0 0; }
+.db-own { padding: 18px; border: 1px solid #dee6d5; border-radius: 8px; background: #f0f3e8; color: #64735a; font-size: 10px; line-height: 1.8; }
+.db-own h3 { color: #3a583e; font-size: 12px; }
+.db-own a { display: inline-flex; align-items: center; gap: 5px; font-weight: 650; text-decoration: none; }
+.db-results { min-width: 0; scroll-margin-top: 20px; }
+.db-search { display: flex; align-items: center; gap: 12px; padding: 16px 18px; background: white; border: 1px solid #d3dfd1; border-radius: 9px; color: #68866a; }
+.db-search:focus-within { outline: 2px solid #7ca486; outline-offset: 2px; }
+.db-search input { width: 100%; min-width: 0; background: none; border: 0; outline: none; color: var(--db-ink); font-size: 12px; }
+.db-search input::placeholder { color: #748577; }
+.db-search button { display: flex; padding: 0; background: none; border: 0; color: #5e7461; }
+.db-results-bar { min-height: 75px; display: flex; align-items: center; gap: 16px; }
+.db-results-bar > div:first-child { display: grid; gap: 4px; font-size: 11px; margin-right: auto; }
+.db-results-bar > div:first-child > span { font-size: 9px; color: #72806d; }
+.db-view { display: flex; border: 1px solid var(--db-line); border-radius: 5px; overflow: hidden; }
+.db-view button { display: flex; border: 0; padding: 7px; background: transparent; color: #85947c; }
+.db-view button[aria-pressed=true] { background: #e7eedf; color: #3b613f; }
+.db-export { position: relative; font-size: 10px; }
+.db-export summary { display: flex; align-items: center; gap: 6px; padding: 9px 10px; border: 1px solid var(--db-line); border-radius: 5px; background: #fffefa; }
+.db-export > div { position: absolute; top: 100%; right: 0; min-width: 180px; display: grid; z-index: 20; padding: 6px; border: 1px solid var(--db-line); background: white; border-radius: 6px; box-shadow: 0 8px 20px #193e2820; }
+.db-export button { text-align: left; padding: 12px; border: 0; background: white; color: #35563b; font-size: 11px; }
+.db-export button:hover { background: #edf3e7; }
+.db-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 15px; }
+.db-card { border: 1px solid #dbe4d8; border-radius: 10px; background: #fffefa; padding: 17px; display: flex; flex-direction: column; min-width: 0; }
+.db-card:hover { border-color: #9eb698; }
+.db-card-top { display: flex; align-items: center; justify-content: space-between; gap: 5px; }
+.db-theme { font-size: 8px; color: #567858; background: #edf3e7; padding: 5px 7px; border-radius: 4px; line-height: 1.5; }
+.db-card[data-theme=klimaat] .db-theme { color: #5e6b8c; background: #eef0f8; }
+.db-card[data-theme=mobiliteit] .db-theme { color: #736a47; background: #f4efdf; }
+.db-card[data-theme=wonen] .db-theme { color: #786343; background: #f5efe2; }
+.db-bookmark { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; background: none; color: #607f58; border-radius: 5px; flex-shrink: 0; }
+.db-bookmark:hover { background: #edf3e7; }
+.db-card-title { text-decoration: none; }
+.db-card h2 { font: 650 15px/1.5 "Manrope Variable", sans-serif; letter-spacing: -.3px; margin: 15px 0 7px; }
+.db-card > p { color: #64765f; font-size: 11px; line-height: 1.85; margin: 0 0 18px; }
+.db-card-meta { display: grid; gap: 6px; color: #72806a; font-size: 9px; line-height: 1.7; margin-top: auto; }
+.db-card-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 15px; padding-top: 13px; border-top: 1px solid #e7ece2; }
+.db-availability { display: inline-flex; align-items: center; gap: 4px; font-size: 8px; line-height: 1.5; font-weight: 650; color: #6c765c; }
+.db-availability[data-availability=local] { color: #386e53; }
+.db-availability[data-availability=connected] { color: #5b708d; }
+.db-card-bottom > a { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; font-size: 9px; color: #416a45; }
+.db-publisher { display: block; color: #7b856e; font-size: 8px; margin-top: 11px; }
+.db-footnote { color: #71816d; font-size: 10px; line-height: 1.8; margin-top: 22px; }
+.db-notice { display: flex; align-items: start; gap: 7px; background: #ebf2e5; border: 1px solid #d8e5ce; border-radius: 6px; padding: 11px; font-size: 11px; line-height: 1.7; }
+.db-empty { text-align: center; border: 1px dashed #cfdbc8; border-radius: 10px; padding: 50px 20px; font-size: 12px; color: #697e61; }
+.db-empty svg { margin: auto; }.db-empty h2 { font-size: 19px; color: #36583c; }
+.db-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 12px 16px; border: 1px solid #c8d7c3; background: #fffef9; border-radius: 6px; color: #365c3b !important; font-size: 11px; font-weight: 600; text-decoration: none; }
+.db-table { overflow: auto; max-width: 100%; border: 1px solid var(--db-line); border-radius: 8px; background: #fffefa; }
+.db-table table { width: 100%; border-collapse: collapse; text-align: left; font-size: 11px; }
+.db-table caption { padding: 12px; color: #74846a; font-size: 10px; text-align: left; }
+.db-table th,.db-table td { padding: 14px 12px; border-bottom: 1px solid #e3eadd; line-height: 1.7; min-width: 100px; }
+.db-table th:first-child,.db-table td:first-child { min-width: 45px; padding: 8px; }.db-table thead { background: #eef3e8; font-size: 10px; }
+.db-table small { display: block; font-weight: 400; font-size: 9px; color: #73836c; }.db-table a { text-decoration: none; }
+.db-footer { border-top: 1px solid var(--db-line); display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 24px 4vw; font-size: 10px; color: #71826c; }
+.db-footer a { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+.db-detail { max-width: 1200px; margin: auto; padding: 35px 4vw 70px; }
+.db-back { display: inline-flex; gap: 7px; align-items: center; font-size: 11px; text-decoration: none; color: #71816b !important; }
+.db-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 35px; padding: 38px 0 30px; border-bottom: 1px solid var(--db-line); }
+.db-detail-heading h1 { font: 650 clamp(28px,4vw,42px)/1.3 "Manrope Variable",sans-serif; letter-spacing: -1.4px; margin: 15px 0; }
+.db-detail-heading p { max-width: 650px; color: #647b60; font-size: 14px; line-height: 1.8; }.db-detail-heading > .db-availability { font-size: 11px; flex-shrink: 0; }
+.db-detail-grid { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(280px,1fr); gap: 55px; margin-top: 32px; }
+.db-detail-grid h2 { font: 650 18px "Manrope Variable",sans-serif; letter-spacing: -.5px; }.db-detail-grid section > p { color: #65795e; line-height: 1.9; font-size: 12px; }
+.db-profile { margin-block: 25px; font-size: 12px; line-height: 1.9; }.db-profile > div { display: grid; grid-template-columns: 135px minmax(0,1fr); gap: 15px; padding: 13px 0; border-bottom: 1px solid var(--db-line); }
+.db-profile dt { color: #71816b; }.db-profile dd { margin: 0; overflow-wrap: anywhere; }
+.db-meaning { display: flex; gap: 14px; padding: 20px; border: 1px solid #d8e1d1; border-radius: 8px; background: #eef3e7; margin: 30px 0; }.db-meaning h3 { margin: 0; font-size: 13px; }.db-meaning p { font-size: 12px; line-height: 1.9; color: #64775d; margin-bottom: 0; }
+.db-action-panel { padding: 25px; border: 1px solid var(--db-line); border-radius: 10px; background: #fffefa; }.db-action-panel > p { font-size: 12px; line-height: 1.9; color: #64775d; }.db-action-panel > .db-button { width: 100%; margin-top: 15px; }
+.db-snapshot strong { display: block; color: #36543b; font-size: 15px; }.db-snapshot span { font-size: 10px; }
+.db-downloads { margin: 20px 0; padding: 0; list-style: none; }.db-downloads li { padding: 12px 0; border-bottom: 1px solid var(--db-line); }.db-downloads a { display: flex; gap: 10px; align-items: center; font-size: 12px; color: #3d6a43; text-decoration: none; }.db-downloads small { display: block; color: #6d8166; font-size: 10px; margin-top: 5px; }.db-downloads details { color: #72806b; font-size: 9px; margin: 8px 0 0 27px; }.db-downloads code { display: block; overflow-wrap: anywhere; white-space: normal; margin-top: 8px; font-size: 9px; }
+.db-import-tip { margin-top: 25px; padding-top: 15px; border-top: 1px solid var(--db-line); font-size: 11px; line-height: 1.9; color: #687c60; }.db-import-tip h3 { font-size: 12px; color: #36543b; }.db-import-tip a,.db-text-link { display: inline-flex; gap: 5px; align-items: center; font-size: 11px; }
+@media (min-width: 1600px) { .db-layout,.db-start,.db-hero { padding-inline: 35px; } }
+@media (max-width: 1150px) { .db-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.db-layout { grid-template-columns: 205px minmax(0,1fr); gap: 22px; }.db-start { gap: 8px; }.db-start > button { padding: 13px 10px; gap: 7px; }.db-start > button > svg:last-child { display: none; } }
+@media (max-width: 800px) { .db-header { gap: 20px; }.db-header > nav { gap: 16px; font-size: 10px; }.db-hero { gap: 25px; padding-top: 35px; }.db-hero-note { min-width: 200px; }.db-hero h1 { letter-spacing: -1.5px; }.db-start { grid-template-columns: repeat(2,minmax(0,1fr)); }.db-layout { grid-template-columns: minmax(0,1fr); }.db-sidebar h2 { margin-bottom: 15px; }.db-filter-grid { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }.db-saved-filter { width: auto; margin-top: 15px; border: 1px solid var(--db-line); border-radius: 5px; display: inline-flex; }.db-sidebar > .db-help { display: inline-block; padding: 12px; }.db-own { display: none; }.db-detail-grid { grid-template-columns: minmax(0,1fr); gap: 20px; }.db-detail-actions { grid-row: 1; } }
+@media (max-width: 540px) { .db-header { padding: 14px 18px; min-height: 68px; gap: 15px; }.db-brand { font-size: 14px; }.db-brand small { font-size: 7px; }.db-header > nav { display: none; }.db-hero { display: block; padding: 30px 20px 20px; }.db-hero h1 { font-size: 36px; }.db-hero > div:first-child > p { font-size: 12px; }.db-hero-note { border-left: 0; border-top: 1px solid var(--db-line); margin-top: 22px; padding: 15px 0 0; }.db-hero-note strong { font-size: 21px; margin-top: 7px; }.db-hero-note small { display: none; }.db-start { padding: 0 20px 25px; gap: 8px; }.db-start > button { gap: 8px; padding: 11px; }.db-start strong { font-size: 10px; }.db-start small { font-size: 8px; }.db-layout { padding: 0 20px 35px; gap: 16px; }.db-filter-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.db-grid { grid-template-columns: minmax(0,1fr); }.db-card { padding: 18px; }.db-card h2 { font-size: 17px; }.db-card > p { font-size: 12px; }.db-card-meta { font-size: 10px; }.db-results-bar { gap: 9px; }.db-export summary { font-size: 9px; padding: 9px 7px; }.db-results-bar > div:first-child > span { display: none; }.db-view button { padding: 6px; }.db-search { padding: 13px; gap: 8px; }.db-footer { padding: 22px 20px; flex-wrap: wrap; }.db-detail { padding: 25px 20px 40px; }.db-detail-heading { display: block; padding: 25px 0; }.db-detail-heading > .db-availability { margin-top: 5px; }.db-profile > div { grid-template-columns: minmax(0,1fr); gap: 3px; }.db-action-panel { padding: 20px; } }
+.db-card h2 { font-size: 17px; }
+.db-card > p { font-size: 13px; }
+.db-card-meta { font-size: 11px; }
+.db-theme,.db-publisher,.db-availability { font-size: 10px; }
+.db-card-bottom > a,.db-help,.db-own,.db-reset { font-size: 11px !important; }
+.db-filter-grid label,.db-filter-grid select { font-size: 12px; }
+.db-search input { font-size: 14px; }
+@media(max-width:540px) { .db-bookmark { width: 40px; height: 40px; }.db-card > p { font-size: 13px; }.db-filter-grid label,.db-filter-grid select { font-size: 11px; }.db-availability { font-size: 10px; } }

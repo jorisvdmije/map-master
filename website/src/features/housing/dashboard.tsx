@@ -616,6 +616,13 @@ export function HousingDashboard() {
                 {area.properties.name}
               </h2>
               <small>{area.properties.code}</small>
+              <Link
+                className="an-button"
+                href={`/area-report/?buurt=${encodeURIComponent(area.properties.code)}`}
+                prefetch={false}
+              >
+                Gebiedsrapport van deze buurt →
+              </Link>
               {!rows.some((f) => f.properties.code === selected) && (
                 <p className="hs-note">
                   Deze buurt valt buiten je huidige filters.

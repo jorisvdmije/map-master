@@ -8,9 +8,17 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Added
 
+- Add a searchable data catalog with 32 curated source profiles, topic/provider/
+  coverage filters, local favorites and shareable filtered URLs. Distinguish local
+  downloads, sources used by existing maps and external discovery. Publish actual
+  CBS GeoJSON/CSV downloads with provenance and file fingerprints, and discover
+  exported page counts from the output instead of a hand-maintained offset.
+
 - Shared workspace navigation, versioned public research-view links with history,
   housing task jumps, three-neighborhood comparison and CSV metadata downloads.
 - Named local Playground copies with timestamps, open and duplicate actions.
+- Source review registry and scheduled reviews, nonvisual task and user-study
+  protocols, explicit stale-refetch provenance, and Amsterdam/Weesp street identity.
 - Import complexity preflight budgets and serialized incremental MapLibre source
   uploads with a Mapbox fallback. Cache versioned street assets and ship compressed
   sidecars. Keep human screenreader and physical-device qualification explicit.
