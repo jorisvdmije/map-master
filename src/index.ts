@@ -35,5 +35,7 @@ export type {
   // Committed changes and history.
   DataChangeEvent, DataChangeSource, FeatureChange, FeatureTransaction, TransactionEvent, HistoryAction, HistoryEvent,
 } from './core/types.js';
-export { GeoJSONImportError } from './core/geojson-import.js';
+export { GeoJSONImportError, validateGeoJSON } from './core/geojson-import.js';
 export type { ImportErrorCode } from './core/geojson-import.js';
+
+export { assertGeometryComplexity, geometryLimits, GeometryComplexityError } from './core/geometry-complexity.js';

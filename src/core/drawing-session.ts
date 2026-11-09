@@ -1,3 +1,4 @@
+import { RotationReview } from './rotation-review.js';
 import { defaultShapeTemplates, prepareShapeTemplates, placeTemplate, templatePlacement, type ShapeTemplate, type PreparedTemplate, type TemplateDraft, type TemplatePlacement } from './shape-templates.js';
 import { isTextMarker, textMarkerOptions, type TextMarkerOptions } from './text-marker.js';
 import { lassoOptions } from './lasso.js';
@@ -11,7 +12,7 @@ import { bufferFeatures, validateBufferDistance } from './buffer.js';
 import { simplifyFeatures, validateSimplificationTolerance } from './simplification.js';
 import { scaleFeatures, validateScaleFactor } from './scaling.js';
 import { transformPivot, validateTransformPivot } from './mercator-transform.js';
-import { normalizeRotationAngle, rotateFeatures, rotationPivot, validateRotationPivot } from './rotation.js';
+import { normalizeRotationAngle, rotationPivot, validateRotationPivot } from './rotation.js';
 import { prepareSharedBoundary, updateSharedBoundary, type SharedBoundary } from './shared-boundary.js';
 import { traceBoundary, traceSource } from './trace-boundary.js';
 import { geometryParts, mapGeometry, replacePart, withGeometry, type Geometry, type GeometryPart } from './geometry.js';
@@ -28,7 +29,7 @@ import { EditHistory, type HistoryEntry } from './history.js';
 import { GeoJSONImportError, copyProperties, prepareImport } from './geojson-import.js';
 import { closePolygon, openRing, samePosition, validatePolygonRings, validateMultiPolygon } from './polygon.js';
 import type {
-  Coordinate, CutFeedback, VertexUpdate, LassoOptions, OffsetError, BufferError, SimplificationError, ScaleError, RotationError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
+  Coordinate, CutFeedback, VertexUpdate, LassoOptions, OffsetError, BufferError, SimplificationError, ScaleError, SharedBoundaryPreview, SharedBoundaryError, TraceTarget, TraceSide, ReshapePreview, ReshapeError, ReshapeSide, IntersectionPreview, IntersectionError, DifferencePreview, DifferenceError, UnionPreview, UnionError, SplitPreview, SplitError, FeatureTransaction, TransactionEvent, FeatureChange, HistoryAction, FeatureId, EditorState, HistoryEvent, GeometryFeatureCollection, GeometryFeature, DrawGeometryType, ValidationError,
 } from './types.js';
 
 function copyFeature(feature: GeometryFeature): GeometryFeature {
@@ -56,7 +57,7 @@ export class DrawingSession {
   private buffering: { originals: GeometryFeature[]; distance: number; preview: GeometryFeature[] | null; error: BufferError | null } | null = null;
   private simplification: { originals: GeometryFeature[]; tolerance: number; preview: GeometryFeature[] | null; error: SimplificationError | null } | null = null;
   private scaling: { originals: GeometryFeature[]; pivot: Coordinate; factorX: number; factorY: number; preview: GeometryFeature[] | null; error: ScaleError | null } | null = null;
-  private rotation: { originals: GeometryFeature[]; pivot: Coordinate; angle: number; preview: GeometryFeature[] | null; error: RotationError | null } | null = null;
+  private rotation: RotationReview | null = null;
   private sharedBoundary: SharedBoundary | null = null;
   private sharedBoundaryPreview: SharedBoundaryPreview | null = null;
   private sharedBoundaryError: SharedBoundaryError | null = null;
@@ -1200,7 +1201,7 @@ export class DrawingSession {
     const originals = this.getSelection();
     const center = rotationPivot(originals);
     if (!center) return false;
-    this.rotation = { originals, pivot: [...(pivot ?? center)], angle: 0, preview: originals, error: null };
+    this.rotation = new RotationReview(originals, [...(pivot ?? center)]);
     this.kind = 'LineString';
     return true;
   }
@@ -1222,22 +1223,7 @@ export class DrawingSession {
   }
 
   private updateRotation(angle: number, pivot: Coordinate): boolean {
-    const rotation = this.rotation!;
-    let preview: GeometryFeature[] | null = null;
-    let error: RotationError | null = null;
-    try {
-      const candidates = rotateFeatures(rotation.originals, angle, pivot);
-      if (!rotationPivot(candidates)) throw new RangeError('Rotation creates an unsupported world-spanning selection.');
-      // Use the same validation/normalization as commit; previews contain exact commit geometry.
-      const changes = prepareTransaction({ update: candidates }, this.features);
-      const updated = new Map(changes.map((change) => [change.after!.id, change.after!]));
-      preview = candidates.map((feature) => updated.get(feature.id) ?? this.features.get(feature.id)!);
-    } catch (cause) {
-      if (cause instanceof GeoJSONImportError) error = 'rotation-invalid-result';
-      else if (cause instanceof RangeError) error = 'rotation-out-of-bounds';
-      else throw cause;
-    }
-    rotation.pivot = [...pivot]; rotation.angle = angle; rotation.preview = preview; rotation.error = error;
+    this.rotation!.update(angle, pivot, this.features);
     return true;
   }
 

@@ -17,9 +17,20 @@ editor.setMeasurements({ enabled: false });
 | `enabled` | `false` | Show the labels. |
 | `units` | `'metric'` | `'metric'` uses m, km, m², ha and km². `'imperial'` uses ft, mi, ft², ac and mi². |
 | `locale` | `'en'` | Language tag for number formatting, such as `'de'` or `'nl'`. |
+| `lineStyle` | `'badge'` | Optional `'along-line'` places an unboxed, white-halo length label on the selected line and follows its direction. Labels stay upright when the camera rotates. |
 
 `getMeasurements()` returns the current options. Invalid values throw a `TypeError`;
 a malformed locale throws a `RangeError`.
+
+```ts
+editor.setMeasurements({ enabled: true, locale: 'nl', lineStyle: 'along-line' });
+```
+
+The midpoint follows half the geodesic length of the longest component, rather
+than the centre of its bounding box. Multipart labels still report the total
+length of all components. Drawing-segment labels can use the same line style.
+Polygon measurements retain their horizontal badges. The Playground exposes this
+setting as **Line labels → Along the line**, and saves it in the project file.
 
 ## What is shown
 

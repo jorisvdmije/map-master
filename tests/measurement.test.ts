@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { distance, formatArea, formatDistance, measure, measurementOptions, pathLength, ringArea, ringPerimeter } from '../src/core/measurement.js';
+import { distance, formatArea, formatDistance, lineMeasurementAnchor, measure, measurementOptions, pathLength, ringArea, ringPerimeter } from '../src/core/measurement.js';
 import type { Coordinate } from '../src/index.js';
 
 // One degree of latitude on the 6,371,008.8 m sphere.
@@ -60,6 +60,8 @@ describe('formatting', () => {
   });
 
   it('validates and merges options', () => {
+    expect(measurementOptions({ lineStyle: 'along-line' }).lineStyle).toBe('along-line');
+    expect(() => measurementOptions({ lineStyle: 'unknown' as never })).toThrow(TypeError);
     expect(measurementOptions()).toEqual({ enabled: false, units: 'metric', locale: 'en' });
     const enabled = measurementOptions({ enabled: true });
     expect(measurementOptions({ units: 'imperial' }, enabled)).toEqual({ enabled: true, units: 'imperial', locale: 'en' });
@@ -68,5 +70,10 @@ describe('formatting', () => {
     expect(() => measurementOptions({ locale: '' })).toThrow(TypeError);
     expect(() => measurementOptions({ locale: 'not a locale!' })).toThrow(RangeError);
     expect(() => measurementOptions(null as never)).toThrow(TypeError);
+  });
+  it('anchors a curved path by distance, with a local tangent and no zero-length result', () => {
+    expect(lineMeasurementAnchor([[0, 0], [3, 0], [3, 1]])).toMatchObject({ coordinate: [2, 0], direction: [[0, 0], [3, 0]] });
+    expect(lineMeasurementAnchor([[0, 0], [0, 0]])).toBeNull();
+    expect(Math.abs(lineMeasurementAnchor([[179.5, 0], [-179.5, 0]])!.coordinate[0])).toBe(180);
   });
 });

@@ -17,7 +17,7 @@ import { copyAppearance, resolveAppearance, type EditorAppearance, type EditorAp
 import type { FitBoundsOptions, EditorMap as MapLibreMap, MapMouseEvent } from '../gl/map.js';
 import type { DrawShape } from '../core/shapes.js';
 import { circleRadius } from '../core/shapes.js';
-import { formatArea, formatDistance, measure, measurementOptions, pathLength, ringArea, ringPerimeter } from '../core/measurement.js';
+import { formatArea, formatDistance, measure, lineMeasurementAnchor, measurementOptions, pathLength, ringArea, ringPerimeter } from '../core/measurement.js';
 import { geometryParts } from '../core/geometry.js';
 import { insideRing } from '../core/polygon.js';
 import { MeasurementOverlay, type MeasurementLabel } from './measurement-overlay.js';
@@ -2279,13 +2279,17 @@ export class GeometryEditor {
         const a = path[index - 1]!; const b = path[index]!;
         const from = this.map.project(a); const to = this.map.project(b);
         if (Math.hypot(to.x - from.x, to.y - from.y) < minimumLabelSpacing) continue;
-        labels.push({ kind: 'segment', coordinate: this.map.unproject([(from.x + to.x) / 2, (from.y + to.y) / 2]).toArray(), text: distance(pathLength([a, b])) });
+        labels.push({ kind: 'segment', coordinate: this.map.unproject([(from.x + to.x) / 2, (from.y + to.y) / 2]).toArray(), text: distance(pathLength([a, b])), ...(this.measurements.lineStyle === 'along-line' ? { direction: [a, b] as [Coordinate, Coordinate], appearance: 'along-line' as const } : {}) });
       }
     };
     const total = (geometry: GeometryFeature['geometry']): void => {
       const size = measure(geometry);
       if (size.area > 0) labels.push({ kind: 'total', coordinate: labelPoint(geometry), text: area(size.area), detail: distance(size.perimeter) });
-      else if (size.length > 0) labels.push({ kind: 'total', coordinate: labelPoint(geometry), text: distance(size.length) });
+      else if (size.length > 0) {
+        const line = geometryParts(geometry).flatMap(p => p.type === 'LineString' ? [p.coordinates] : []).sort((a, b) => pathLength(b) - pathLength(a))[0];
+        const anchor = this.measurements.lineStyle === 'along-line' && line ? lineMeasurementAnchor(line) : null;
+        labels.push({ kind: 'total', coordinate: anchor?.coordinate ?? labelPoint(geometry), text: distance(size.length), ...(anchor ? { direction: anchor.direction, appearance: 'along-line' as const } : {}) });
+      }
     };
     if (mode === 'draw-rectangle' || mode === 'draw-circle' || mode === 'draw-ellipse') {
       const anchor = this.session.getShapeAnchor() ?? this.session.getDraft()[0];
