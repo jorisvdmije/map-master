@@ -44,10 +44,10 @@ try {
       await page.getByRole('button', { name: 'Wis alle filters', exact: true }).click();
       assert.equal(await page.locator('.db-table tbody tr').count(), catalog.datasets.length);
       await page.getByLabel('Beschikbaarheid', { exact: true }).selectOption('local');
-      assert.equal(await page.locator('.db-table tbody tr').count(), 4);
+      assert.equal(await page.locator('.db-table tbody tr').count(), 5);
       await page.getByLabel('Thema', { exact: true }).selectOption('wonen');
       assert.equal(await page.locator('.db-table tbody tr').count(), 1);
-      await page.goBack(); await page.waitForFunction(() => document.querySelectorAll('.db-table tbody tr').length === 4);
+      await page.goBack(); await page.waitForFunction(() => document.querySelectorAll('.db-table tbody tr').length === 5);
       await page.getByRole('link', { name: 'Wonen en buurtcijfers', exact: true }).click();
       await page.locator('[data-dataset-detail=cbs-buurten]').waitFor();
       const [geojson] = await Promise.all([page.waitForEvent('download'), page.getByRole('link', { name: /Buurtvlakken met alle kenmerken/ }).click()]);

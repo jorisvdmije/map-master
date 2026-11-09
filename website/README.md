@@ -300,8 +300,8 @@ finish or cancel them before leaving. A tab detects a changed saved copy before
 writing and pauses recovery rather than silently replacing another tab’s newer analysis. Download the current work
 and reload to resume after a conflict.
 
-The six workspaces share a native application chooser. Housing, streets, B&B and
-reachability can share version-1 public view settings through “Deel weergave”;
+The workspaces share a native application chooser. Housing, streets, B&B and
+reachability and neighborhood development can share version-1 public view settings through “Deel weergave”;
 Back/Forward restores those settings. Imported files and private address context
 are excluded. Free analysis has browser recovery and portable analysis files;
 Playground has automatic current-project recovery plus immutable named copies.
@@ -330,3 +330,26 @@ laadt volledige gegevens pas na een expliciete download of in de bestaande kaart
 `npm run check:catalog` controleert navigatie, favorieten, geschiedenis, export en
 mobiele bediening in Chromium, Firefox en WebKit. Beide zitten in `npm run check`.
 Nieuwe bronprofielen krijgen automatisch een statische route en een zoekingang.
+
+## Buurtontwikkeling
+
+`/analysis/development/` vergelijkt de jaarlijkse gemiddelde WOZ per woning en
+de BAG-woningvoorraad van 2012–2026. De O&S Statistiekhub vervangt de oude
+BBGA-API. De momentopname en exacte historische buurtgrenzen worden alleen
+opgehaald bij het openen van deze toepassing of een download in de databank.
+
+De standaardvergelijking gebruikt tien jaar, minimaal 100 woningen in begin- en
+eindjaar en maximaal 20% voorraadverandering ten opzichte van het beginjaar in
+elk tussenjaar. Het voorraadfilter signaleert woningmixveranderingen; het
+corrigeert geen marktprijsindex. De kaart en ranglijst delen dezelfde selectie.
+De officiële stadsreeks blijft onafhankelijk van buurtfilters. Tijdlijnen
+onderbreken ontbrekende jaren; indexreeksen en groeipercentages over
+onzekere Weesp-/Driemondbreuken in 2022–2023 blijven leeg.
+
+`npm run data:development` ververst bronnen met definitie-, paginerings-,
+gebiedsidentificatie- en bronhashcontroles. De contentbuild controleert de
+gegevens- en geometriefingerprints. `npm run test:development` controleert de
+broncontracten, rekenregels, ontbrekende waarden, exports en annulering.
+`npm run check:development` test periodekeuze, filters, kaart, tijdlijn, delen,
+exports en foutafhandeling in Chromium, Firefox en WebKit. Beide controles
+zitten in `npm run check`. Zie [de bronverantwoording](src/features/development/SOURCES.md).

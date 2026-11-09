@@ -30,7 +30,7 @@ export type RegistryEntry = {
   caveat: string;
   tags: string[];
   usedIn?: { label: string; href: string }[];
-  localKey?: "housing" | "roads" | "observations" | "heat";
+  localKey?: "housing" | "development" | "roads" | "observations" | "heat";
 };
 export type Download = {
   label: string;
