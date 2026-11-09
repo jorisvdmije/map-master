@@ -29,13 +29,16 @@
     "data:housing": "node scripts/fetch-housing.mjs",
     "check:housing": "node scripts/housing-browsers.mjs",
     "check:reachability": "node scripts/reachability-browsers.mjs",
-    "format": "prettier --write \"src/features/{housing,reachability,bnb,streets,catalog,area-report}/*.{ts,tsx}\" \"src/components/workspaces/*.{ts,tsx,css}\"",
-    "format:check": "prettier --check \"src/features/{housing,reachability,bnb,streets,catalog,area-report}/*.{ts,tsx}\" \"src/components/workspaces/*.{ts,tsx,css}\"",
+    "format": "prettier --write \"src/features/{housing,reachability,bnb,streets,catalog,area-report,development}/*.{ts,tsx}\" \"src/components/workspaces/*.{ts,tsx,css}\"",
+    "format:check": "prettier --check \"src/features/{housing,reachability,bnb,streets,catalog,area-report,development}/*.{ts,tsx}\" \"src/components/workspaces/*.{ts,tsx,css}\"",
     "check:feedback": "node scripts/feedback-browsers.mjs",
     "test:area-report": "tsx --test scripts/area-report-model.test.mjs",
     "check:area-report": "node scripts/area-report-browsers.mjs",
     "test:catalog": "npm run content && tsx --test scripts/catalog-model.test.mjs",
-    "check:catalog": "node scripts/catalog-browsers.mjs"
+    "check:catalog": "node scripts/catalog-browsers.mjs",
+    "data:development": "node scripts/fetch-development.mjs",
+    "test:development": "node --test scripts/bbga.test.mjs && tsx --test scripts/development-model.test.mjs",
+    "check:development": "node scripts/development-browsers.mjs"
   },
   "overrides": {
     "eslint@10.13.0": {

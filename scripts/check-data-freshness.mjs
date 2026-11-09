@@ -9,9 +9,13 @@ const taxes = readFileSync(new URL('../website/src/features/housing/taxes.ts', i
 const tax = sources.find(source => source.name === 'Amsterdam housing tax rates');
 if (Number(taxes.match(/year:\s*(\d{4})/)[1]) !== tax.dataYear || taxes.match(/checkedAt:\s*"([^"]+)"/)[1] !== tax.checkedAt) throw new Error('Update the tax maintenance registry with the source contract.');
 const housing = json('../website/src/features/housing/snapshot.json');
-if (housing.meta.statisticsYear !== sources[0].dataYear || housing.meta.retrievedAt.slice(0, 10) !== sources[0].checkedAt) throw new Error('Update the housing maintenance registry with the snapshot.');
+const housingPolicy = sources.find(source => source.name === 'CBS housing');
+if (housing.meta.statisticsYear !== housingPolicy.dataYear || housing.meta.retrievedAt.slice(0, 10) !== housingPolicy.checkedAt) throw new Error('Update the housing maintenance registry with the snapshot.');
 const streets = json('../website/src/features/streets/observations-meta.json');
-if (streets.retrieved.slice(0, 10) !== sources[1].checkedAt) throw new Error('Update the street maintenance registry with the snapshot.');
+if (streets.retrieved.slice(0, 10) !== sources.find(source => source.name === 'NWB roads and municipal observations').checkedAt) throw new Error('Update the street maintenance registry with the snapshot.');
+const development = json('../website/src/features/development/snapshot.json');
+const developmentPolicy = sources.find(source => source.name === 'O&S neighborhood development');
+if (Math.max(...development.meta.years) !== developmentPolicy.dataYear || development.meta.retrievedAt.slice(0, 10) !== developmentPolicy.checkedAt) throw new Error('Update the development maintenance registry with the snapshot.');
 const report = { reviewedAt: today, sources: sources.map(source => ({ ...source, status: today >= source.reviewDue ? 'review-due' : 'within-review-window' })) };
 const output = new URL('../artifacts/data-maintenance/', import.meta.url); mkdirSync(output, { recursive: true });
 writeFileSync(new URL('review.json', output), JSON.stringify(report, null, 2) + '\n');
