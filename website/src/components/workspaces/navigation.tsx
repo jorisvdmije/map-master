@@ -2,6 +2,8 @@ import Link from "next/link";
 import "./navigation.css";
 
 export const workspaces = [
+  { href: "/data/", en: "Data catalog", nl: "Databank" },
+  { href: "/area-report/", en: "Area report", nl: "Gebiedsrapport" },
   { href: "/playground/", en: "Playground", nl: "Playground" },
   { href: "/analysis/", en: "Free analysis", nl: "Vrije analyse" },
   { href: "/analysis/bnb/", en: "B&B permits", nl: "B&B-vergunningen" },

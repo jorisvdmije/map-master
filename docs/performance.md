@@ -1034,3 +1034,28 @@ The 10,000-feature scene does not maintain interactive frame rates under this
 software-rendering workload, despite bounded guide queries. Index construction
 and MapLibre's scene/rendering costs remain separate from the bounded lookup;
 these timings do not promise smooth interaction for arbitrary datasets.
+
+## Committed source uploads and static snapshots
+
+MapLibre committed-source updates for documents of at least 1,000 features use typed promoted IDs to send removed and
+changed/added render features instead of a complete collection. Uploads are
+serialized, no-op collections are skipped, errors force a full upload next time,
+and source recreation creates a fresh baseline. The existing revision/worker/tile
+visibility gate remains in place. Smaller documents retain the synchronous full-upload path. After enabling diffs, a source stays serialized even when deletions reduce its size. Mapbox has a different `updateData` API and
+retains the full `setData` path. Styling callbacks and diff preparation still visit
+the collection; this is a worker-transfer reduction, not O(1) document editing.
+
+The Street Lab uses body-hashed geometry, observations and optional heat assets.
+React Query retains parsed snapshots for 30 minutes after their last observer;
+returning by internal navigation reuses them. A document reload can use the HTTP
+cache but still parses JSON again. Builds include `.br` and `.gz` sidecars and
+immutable-cache declarations in `_headers`. The local static server negotiates
+them. A production host must be configured to honor compression and cache
+headers; verify `Content-Encoding` and `Cache-Control` on that actual deployment.
+GitHub Pages does not consume a Netlify-style `_headers` file.
+
+`npm run benchmark -- source-upload` measures preparation and transfer payloads
+for a one-object change in 20,000 features. The feedback browser suite records a
+390px Chromium run with 4x CPU slowdown, a 20-second initial-load regression budget and zero data requests on internal return. This is
+emulation on the verification machine, not a measurement on a physical modest
+phone. Physical-device timing remains a qualification action.

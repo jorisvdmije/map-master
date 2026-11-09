@@ -1,3 +1,4 @@
+import { createCatalog } from "./lib/catalog.mjs";
 import { gzipSync, brotliCompressSync, constants } from "node:zlib";
 import { readFileSync, readdirSync, rmSync } from "node:fs";
 import { resolve, dirname, relative, basename } from "node:path";
@@ -35,6 +36,10 @@ const github = "https://github.com/jorisvdmije/map-master";
 const housing = JSON.parse(readFileSync(resolve(site, "src/features/housing/snapshot.json"), "utf8"));
 if (createHash("sha256").update(JSON.stringify(housing.data)).digest("hex") !== housing.meta.sha256) throw new Error("Housing snapshot fingerprint mismatch.");
 queueFile(resolve(publicDir, "data/amsterdam-housing.json"), JSON.stringify(housing));
+const { catalog } = createCatalog({ housing, geometry: streetGeometry, observations, heat: heatData, observationMeta,
+  queue: (path, content) => queueFile(resolve(publicDir, path.slice(1)), content),
+});
+queueFile(resolve(output, "data-catalog.json"), JSON.stringify(catalog));
 
 const { version } = JSON.parse(readFileSync(resolve(repo, "package.json"), "utf8"));
 const pages = [
@@ -48,7 +53,7 @@ const pages = [
 if (new Set([...pages.map(page => page.slug), "all-guides"]).size !== pages.length + 1) throw new Error("Duplicate or reserved documentation slug.");
 const compiler = await createMarkdownCompiler({ repo, github, pathToSlug: new Map(pages.map(p => [p.path, p.slug])) });
 const guides = [];
-const search = [{
+const search = [{ title: "Gebiedsrapport Amsterdam", href: "/area-report/", description: "Kies een buurt of adres en bekijk wonen, groen, geluid, voorzieningen en bereikbaarheid met bronjaren.", text: "gebiedsrapport buurtrapport adres buurt cijfers bomen geluid voorzieningen bereikbaarheid PDF JSON CSV bronjaar" }, { title: "Databank", href: "/data/", description: "Vind datasets over wonen, groen, klimaat, verkeer en voorzieningen. Bronprofielen, favorieten en beschikbare downloads.", text: "data databank database catalogus bronnen datasets bronjaar GeoJSON CSV downloaden favorieten" }, ...catalog.datasets.map(entry => ({ title: entry.title, href: `/data/${entry.id}/`, description: entry.summary, text: [entry.publisher, entry.caveat, ...entry.tags].join(" ") })), {
   title: "Bereikbaarheidscontouren", href: "/analysis/reachability/", description: "Reistijd over het wegennet voor lopen, fietsen, e-bike en auto, met transparante contouren, tellingen en lijnmetingen.",
   text: "bereikbaarheid contouren isochrone isochrones reistijd interval lopen fiets ebike auto afstand lijn meten",
 }, {
