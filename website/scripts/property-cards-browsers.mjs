@@ -376,13 +376,20 @@ try {
       // An unnamed source retains its actual fields without an implicit ID title.
       await page.getByLabel("Import analysis data", { exact: true }).setInputFiles({
         ...upload,
+        name: "unnamed-properties.geojson",
         buffer: Buffer.from(JSON.stringify({ ...polygon, properties: { status: "Open", id: "actual ID field" } })),
       });
+      // The old source also has one feature and an idle map. Wait for the
+      // replacement's actual content before its render effects and map work.
+      await page.locator(".an-table-scroll").getByRole("cell", { name: "actual ID field", exact: true }).waitFor();
+      await repaint(page);
       await page.locator('.an-map-host[data-feature-count="1"][aria-busy="false"]').waitFor();
-      await page.mouse.click(free.x + free.width / 2 - 85, free.y + free.height / 2 + 35);
-      await card.waitFor();
-      assert.equal(await card.locator("h3,p,small").count(), 0);
-      assert.ok((await card.locator("dd").allTextContents()).includes("actual ID field"), "An ID stored as an actual property remains visible");
+      const replacementMap = await page.locator(".an-map-host canvas").boundingBox();
+      await page.mouse.click(replacementMap.x + replacementMap.width / 2 - 85, replacementMap.y + replacementMap.height / 2 + 35);
+      const replacementCard = page.locator('.mm-property-overlay[data-pinned="true"] .mm-feature-preview');
+      await replacementCard.locator("dd").filter({ hasText: /^actual ID field$/ }).waitFor();
+      assert.equal(await replacementCard.locator("h3,p,small").count(), 0);
+      assert.ok((await replacementCard.locator("dd").allTextContents()).includes("actual ID field"), "An ID stored as an actual property remains visible");
       await page.keyboard.press("Escape");
       await card.waitFor({ state: "detached" });
       assert.deepEqual(errors, []);
