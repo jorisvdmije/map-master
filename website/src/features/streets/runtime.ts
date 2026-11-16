@@ -1,5 +1,5 @@
 import { Map as GLMap, NavigationControl, ScaleControl, setWorkerUrl, type GeoJSONSource, type MapMouseEvent, type StyleSpecification, type ExpressionSpecification } from "maplibre-gl";
-import type { FeatureCollection } from "geojson";
+import type { FeatureCollection, Geometry } from "geojson";
 import type { QueryClient } from "@tanstack/react-query";
 import { bbox } from "@turf/bbox";
 import { assetPath } from "@/lib/paths";
@@ -64,7 +64,7 @@ export class StreetRuntime {
       else if (this.mode === "wards") { const hit = map.queryRenderedFeatures(e.point, { layers: ["st-areas"] })[0]; if (hit?.properties?.code) handlers.ward(String(hit.properties.code)); }
       else if (this.showSegments && this.map.queryRenderedFeatures(e.point, { layers: ["st-segments"] })[0]?.properties?.id) { handlers.segment(String(this.map.queryRenderedFeatures(e.point, { layers: ["st-segments"] })[0]!.properties.id)); }
       else { const hit = this.hit(e); if (hit?.properties?.id) handlers.road(String(hit.properties.id)); }
-      if (this.mode !== "heat") { if (properties) this.card.pin(properties.key, properties.build); else this.card.clear(); }
+      if (this.mode !== "heat") { if (properties) this.card.pin(properties.key, properties.build, properties.geometry); else this.card.clear(); }
     });
     this.observer = new ResizeObserver(() => { cancelAnimationFrame(this.frame); this.frame = requestAnimationFrame(() => map.resize()); }); this.observer.observe(map.getContainer());
     map.on("idle", this.idle);
@@ -116,8 +116,8 @@ export class StreetRuntime {
     this.hide(); this.filterIds = visible.map(r => r.id); this.metric = metric; this.mode = mode; this.selected = selected;
     const stats = new Map(areas.map(a => [a.id, a]));
     if (this.card.pinned && this.card.key?.startsWith("ward:")) {
-      const id = this.card.key.slice(5), row = stats.get(id);
-      if (row) this.card.pin(`ward:${id}`, () => propertyContent(row.name, metrics.map(m => ({ label: labels[m], value: `${formatValue(row[m], m)} ${units[m]}` })), `${row.count} gefilterde wegvakken`, "Gemeentelijke brondata · nabijheidskoppeling · Esc sluit")); else this.card.clear();
+      const id = this.card.key.slice(5), row = stats.get(id), area = wards.find(w => w.properties.code === id);
+      if (row && area) this.card.pin(`ward:${id}`, () => propertyContent(row.name, metrics.map(m => ({ label: labels[m], value: `${formatValue(row[m], m)} ${units[m]}` })), `${row.count} gefilterde wegvakken`, "Gemeentelijke brondata · nabijheidskoppeling · Esc sluit"), area.geometry); else this.card.clear();
     }
     this.areas = { type: "FeatureCollection", features: wards.filter(w => (!ward || w.properties.code === ward) && stats.has(w.properties.code)).map(w => ({ ...w, properties: { ...w.properties, color: scoreColor(stats.get(w.properties.code)?.[metric] ?? null, metric), score: stats.get(w.properties.code)?.[metric], count: stats.get(w.properties.code)?.count } })) };
     (this.map.getSource("st-area-data") as GeoJSONSource | undefined)?.setData(this.areas);
@@ -204,23 +204,25 @@ export class StreetRuntime {
     const properties = this.describe(e); this.map.getCanvas().style.cursor = properties ? "pointer" : "";
     if (properties) this.card.hover(properties.key, e.point, properties.build); else this.card.leave();
   };
-  private describe(e: MapMouseEvent): { key: string; build: () => Node } | null {
+  private describe(e: MapMouseEvent): { key: string; geometry: Geometry; build: () => Node } | null {
     if (this.mode === "heat") {
       const hit = this.heatHit(e); if (!hit) return null;
       const cell = this.heatLookup.get(String(hit.properties.id)); if (!cell) return null;
-      return { key: `cell:${cell.properties.id}`, build: () => propertyContent(heatLabels[this.heatSettings.kind], [{ label: "Registraties", value: cell.properties.count.toLocaleString("nl-NL") }, { label: "Vak", value: this.heatSettings.shape === "hex" ? `Hexagon · ${this.heatSettings.radius} m breed` : "Bronvak · 25 × 25 m" }, { label: "Straatnamen", value: cell.properties.names.join(" / ") }], "Bronlocaties · concentratie, geen risico") };
+      return { key: `cell:${cell.properties.id}`, geometry: cell.geometry, build: () => propertyContent(heatLabels[this.heatSettings.kind], [{ label: "Registraties", value: cell.properties.count.toLocaleString("nl-NL") }, { label: "Vak", value: this.heatSettings.shape === "hex" ? `Hexagon · ${this.heatSettings.radius} m breed` : "Bronvak · 25 × 25 m" }, { label: "Straatnamen", value: cell.properties.names.join(" / ") }], "Bronlocaties · concentratie, geen risico") };
     }
-    const area = this.mode === "wards" ? this.map.queryRenderedFeatures(e.point, { layers: ["st-areas"] })[0] : null;
+    const areaHit = this.mode === "wards" ? this.map.queryRenderedFeatures(e.point, { layers: ["st-areas"] })[0] : null;
+    const area = this.areas.features.find(feature => feature.properties?.code === areaHit?.properties?.code);
     const segment = this.showSegments && this.mode !== "wards" ? this.segmentLookup.get(String(this.map.queryRenderedFeatures(e.point, { layers: ["st-segments"] })[0]?.properties?.id)) : undefined;
     const road = this.mode !== "wards" ? this.lookup.get(String(this.hit(e)?.properties?.id)) : null;
     if (!area && !road && !segment) return null;
     const row = segment ?? road;
-    const key = segment ? `segment:${segment.id}` : road ? `street:${road.id}` : `ward:${area!.properties.code}`;
-    return { key, build: () => {
-      const rows = row ? metrics.map(m => ({ label: labels[m], value: `${formatValue(row[m], m)} ${units[m]}` })) : [{ label: labels[this.metric], value: `${formatValue(typeof area!.properties.score === "number" ? area!.properties.score : null, this.metric)} ${units[this.metric]}` }];
+    const areaProperties = area?.properties ?? {};
+    const key = segment ? `segment:${segment.id}` : road ? `street:${road.id}` : `ward:${areaProperties.code}`;
+    return { key, geometry: row?.geometry ?? area!.geometry, build: () => {
+      const rows = row ? metrics.map(m => ({ label: labels[m], value: `${formatValue(row[m], m)} ${units[m]}` })) : [{ label: labels[this.metric], value: `${formatValue(typeof areaProperties.score === "number" ? areaProperties.score : null, this.metric)} ${units[this.metric]}` }];
       if (row) rows.push({ label: "Brontellingen", value: `${row.raw.lights} lichtobjecten · ${row.raw.trees} bomen` });
-      const meta = segment ? `${segment.length} m NWB · wegvak ${segment.id}` : road ? `${road.count} wegvakken · samengevoegde registraties` : `${area!.properties.count} gefilterde wegvakken`;
-      return propertyContent(row?.name ?? String(area!.properties.name), rows, meta, "Gemeentelijke brondata · nabijheidskoppeling · klik om vast te zetten · Esc sluit");
+      const meta = segment ? `${segment.length} m NWB · wegvak ${segment.id}` : road ? `${road.count} wegvakken · samengevoegde registraties` : `${areaProperties.count} gefilterde wegvakken`;
+      return propertyContent(row?.name ?? String(areaProperties.name), rows, meta, "Gemeentelijke brondata · nabijheidskoppeling · klik om vast te zetten · Esc sluit");
     } };
   }
   destroy() { this.observer.disconnect(); cancelAnimationFrame(this.frame); this.card.destroy(); this.map.getCanvasContainer().removeEventListener("mouseleave", this.hide); this.map.getCanvas().removeEventListener("keydown", this.key); this.map.remove(); }

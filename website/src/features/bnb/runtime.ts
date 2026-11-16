@@ -115,7 +115,7 @@ export class BnbRuntime {
       rows.push({ label: this.mode === "current" ? "Nu vrij" : "Vrij na aanvragen", value: String(available(info.stats, this.mode)) }, { label: "Verleend", value: String(info.stats.granted) }, { label: "Aanvragen in behandeling", value: String(info.stats.pending) }, { label: "Demoquotum", value: String(info.stats.quota) });
       return propertyContent(permit?.id ?? info.ward.properties.name, rows, permit ? `Fictieve locatie · ${info.ward.properties.name}` : "Vergunningswijk · voorbeeldcijfers", "Fictieve vergunningcijfers · klik om vast te zetten · Esc sluit", permit ? "mm-feature-preview bb-popup" : "mm-feature-preview");
     };
-    if (pin) this.card.pin(key, build); else this.card.hover(key, point, build);
+    if (pin) this.card.pin(key, build, permit ? { type: "Point", coordinates: permit.coordinates } : info.ward.geometry); else this.card.hover(key, point, build);
   }
   fit(model: Model, code: string | null) {
     const feature = code === null ? model.wards : model.wards.features.find(d => d.properties.code === code);

@@ -66,7 +66,7 @@ test("CSV and GeoJSON keep the filtered records, ward identifier and explicit de
 test("Following properties flip at edges, remain within the map, and can be pinned", () => {
   for (const [width, height, cardWidth, cardHeight] of [[900, 600, 244, 220], [360, 240, 244, 220], [180, 140, 160, 120]]) {
     for (const [x, y] of [[0, 0], [width - 1, 0], [0, height - 1], [width - 1, height - 1], [width / 2, height / 2]]) {
-      for (const mode of ["follow", "fixed"]) {
+      for (const mode of ["follow", "fixed", "click"]) {
         const position = hoverPosition({ x, y }, { width: cardWidth, height: cardHeight }, { width, height }, mode);
         assert.ok(position.left >= 8 && position.top >= 8);
         assert.ok(position.left + cardWidth <= width - 8 && position.top + cardHeight <= height - 8);
@@ -75,7 +75,8 @@ test("Following properties flip at edges, remain within the map, and can be pinn
   }
   const card = { width: 244, height: 200 }, viewport = { width: 900, height: 600 };
   assert.deepEqual(hoverPosition({x: 1, y:1},card,viewport,"fixed"),{left:328,top:200});
-  assert.deepEqual(hoverPosition({x: 800,y:500},card,viewport,"click"),{left:328,top:200});
+  assert.deepEqual(hoverPosition({x: 500,y:300},card,viewport,"click"),{left:378,top:200});
+  assert.deepEqual(hoverPosition({x: 800,y:500},card,viewport,"click"),{left:648,top:392});
   assert.notDeepEqual(hoverPosition({ x: 100, y: 100 }, card, viewport, "follow"), hoverPosition({ x: 150, y: 120 }, card, viewport, "follow"));
   assert.deepEqual(hoverPosition({ x: 100, y: 100 }, card, viewport, "fixed"), hoverPosition({ x: 150, y: 120 }, card, viewport, "fixed"));
 });

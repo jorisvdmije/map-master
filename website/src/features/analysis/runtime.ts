@@ -74,8 +74,8 @@ export class AnalysisRuntime {
   };
   private showProperties(index: number, point: { x: number; y: number }, pin = false) {
     const feature = this.source?.data.features[index]; if (!feature) return;
-    const build = () => propertyContent(valueLabel(feature.properties.name ?? feature.id ?? `Feature ${index + 1}`), Object.entries(feature.properties).map(([label, value]) => ({ label, value: valueLabel(value) })), feature.geometry.type, "Click to pin in the center · Esc to dismiss");
-    if (pin) this.card.pin(String(index), build); else this.card.hover(String(index), point, build);
+    const build = () => propertyContent(feature.properties.name == null || feature.properties.name === "" ? "" : valueLabel(feature.properties.name), Object.entries(feature.properties).map(([label, value]) => ({ label, value: valueLabel(value) })), "", "");
+    if (pin) this.card.pin(String(index), build, feature.geometry); else this.card.hover(String(index), point, build);
   }
   render(dataset: Dataset, rows: number[], fields: Fields, focused: number | null) {
     if (this.source !== dataset) this.card.clear(); this.source = dataset;

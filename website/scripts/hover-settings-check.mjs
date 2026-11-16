@@ -87,7 +87,35 @@ export async function checkHoverSettings({ browser, origin, basePath = "/map-mas
     const legacy = structuredClone(before); delete legacy.hoverPreviews;
     await page.getByLabel("Open project file", { exact: true }).setInputFiles({ name: "legacy.mapmaster.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(legacy)) });
     await page.getByRole("dialog").getByRole("button", { name: "Open project", exact: true }).click();
-    assert.deepEqual((await project()).hoverPreviews, []); assert.deepEqual(errors, []);
+    assert.deepEqual((await project()).hoverPreviews, []);
+    // UI titles intentionally differ from the public helper's feature-ID fallback.
+    // Use saved-project imports so these checks also cover existing configurations.
+    const titleCases = [
+      { properties: { status: "Open" }, options: {}, title: null },
+      { properties: { name: "", status: "Open" }, options: {}, title: null },
+      { properties: { name: "Station", status: "Open" }, options: { titleProperty: null }, title: null },
+      { properties: { name: "Station", status: "Open" }, options: { titleProperty: "missing" }, title: null },
+      { properties: { name: "Station", status: "Open", nested: { safe: "<img>" } }, options: { titleProperty: "nested" }, title: null },
+      { properties: { name: "Station", status: "Open" }, options: { titleProperty: "status" }, title: "Open" },
+      { properties: { status: "Open", capacity: 0 }, options: { titleProperty: "capacity" }, title: "0" },
+      { properties: { status: "Open", active: false }, options: { titleProperty: "active" }, title: "false" },
+    ];
+    for (const { properties, options, title } of titleCases) {
+      const fixture = structuredClone(before);
+      fixture.data.features[0].properties = { ...properties, mapMasterLayer: fixture.layers.at(-1).id };
+      fixture.hoverPreviews = [{ layerId: fixture.layers.at(-1).id, options }];
+      await page.getByLabel("Open project file", { exact: true }).setInputFiles({ name: "title.mapmaster.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(fixture)) });
+      await page.getByRole("dialog").getByRole("button", { name: "Open project", exact: true }).click();
+      await hover();
+      assert.deepEqual(await card.locator("h3").allTextContents(), title === null ? [] : [title]);
+      assert.equal(await card.locator("p").count(), 0, "No geometry/ID caption");
+      assert.equal(await card.locator("small").count(), 0, "No instructional footer when all fields fit");
+      assert.ok((await card.textContent()).includes("Open"), "Actual property values remain visible in the heading or rows");
+      await openSettings();
+      assert.deepEqual(await page.locator(".pg-hover-example > strong").allTextContents(), title === null ? [] : [title], "Settings sample uses the same title rule");
+      if (options.titleProperty === null) assert.equal(await page.getByLabel("Hover title field", { exact: true }).locator("option:checked").textContent(), "No title");
+    }
+    assert.deepEqual(errors, []);
   } finally { await context.close(); }
   console.log("✓ Hover settings: per-layer title/fields/labels/order/formats, default coordinates, row budget, disabling/reset, exact data, autosave/restore, invalid and legacy projects");
 }

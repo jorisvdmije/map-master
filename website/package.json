@@ -16,7 +16,7 @@
     "check:frameworks": "node scripts/frameworks.mjs",
     "check:browser": "node scripts/smoke.mjs",
     "check:playground": "node scripts/playground-browsers.mjs",
-    "test:analysis": "tsx --test scripts/analysis-model.test.mjs scripts/bnb-model.test.mjs scripts/streets-model.test.mjs",
+    "test:analysis": "tsx --test scripts/analysis-model.test.mjs scripts/bnb-model.test.mjs scripts/streets-model.test.mjs scripts/property-anchor.test.mjs",
     "check:analysis": "node scripts/analysis-browsers.mjs",
     "check:bnb": "node scripts/analysis-browsers.mjs --bnb",
     "check": "node scripts/check.mjs",

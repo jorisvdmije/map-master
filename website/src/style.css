@@ -1372,13 +1372,18 @@ kbd {
   font-size: 13px;
 }
 
-/* Property cards use screen coordinates, rather than a geographic popup anchor. */
-.mm-property-overlay { position:absolute; z-index:8; width:300px; max-width:calc(100% - 16px); box-sizing:border-box; overflow:auto; overscroll-behavior:contain; border:1px solid #cbd9cb; border-radius:9px; background:#fffffcfa; box-shadow:0 6px 28px #173e2b26; pointer-events:none; }
+/* Hover cards follow the pointer; pinned cards track the source object's center. */
+.mm-property-overlay { position:absolute; z-index:8; width:244px; max-width:calc(100% - 16px); box-sizing:border-box; overflow:auto; overscroll-behavior:contain; border:1px solid #cbd9cb; border-radius:7px; background:#fffffcd6; box-shadow:0 4px 18px #173e2b20; pointer-events:none; }
 .mm-property-overlay[hidden] { display:none; }
 .mm-property-overlay[data-pinned=true] { pointer-events:auto; }
 .mm-property-overlay[data-pinned=true] h3,.mm-property-overlay[data-pinned=true] > strong { padding-right:24px; }
 .mm-property-close { position:absolute; top:5px; right:5px; z-index:1; width:27px; height:27px; display:grid; place-content:center; border:1px solid #dce4d8; border-radius:5px; background:#fffffc; color:#446751; font:22px/1 sans-serif; cursor:pointer; }
-.mm-property-overlay .mm-feature-preview { max-height:none; overflow:visible; }
+.mm-property-overlay .mm-feature-preview { padding:9px; max-height:none; overflow:visible; font-size:11px; line-height:1.4; }
+.mm-property-overlay .mm-feature-preview h3 { margin:0 0 3px; font-size:12px; }
+.mm-property-overlay .mm-feature-preview p { margin:0 0 6px; font-size:10px; }
+.mm-property-overlay .mm-feature-preview dl { grid-template-columns:minmax(54px,.9fr) minmax(0,1.1fr); gap:3px 8px; }
+.mm-property-overlay[data-pinned=true] .mm-feature-preview > dl:first-child > dd:first-of-type { padding-right:24px; min-height:23px; }
+.mm-property-overlay .mm-feature-preview small { margin-top:6px; padding-top:5px; font-size:9px; }
 .mm-property-mode { max-width:calc(100% - 20px); }
 .mm-property-mode select { display:block; width:100%; max-width:220px; border:1px solid #d4dfd2; border-radius:5px; padding:8px; background:#fffffcf5; color:#49684f; font:10px/1.4 sans-serif; box-shadow:0 2px 10px #25452c10; }
 .mm-property-mode select:focus-visible,.mm-property-close:focus-visible { outline:2px solid #72ab80; outline-offset:2px; }

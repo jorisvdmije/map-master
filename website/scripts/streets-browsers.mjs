@@ -3,7 +3,9 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium, firefox, webkit } from 'playwright';
 import Papa from 'papaparse';
+import { tsImport } from 'tsx/esm/api';
 import { createStaticServer } from './lib/static-server.mjs';
+const { overviewGeometry } = await tsImport('../src/features/streets/geometry.ts', import.meta.url);
 const site = resolve(import.meta.dirname, '..');
 const { basePath } = JSON.parse(readFileSync(resolve(site, 'dist/.build-info.json')));
 const server = createStaticServer({ directory: resolve(site, 'dist'), basePath });
@@ -89,7 +91,44 @@ try {
       await page.mouse.click(found.x, found.y); await page.getByLabel('Geselecteerde straat', { exact: true }).waitFor(); await idle();
       assert.equal(await page.locator('.st-map').getAttribute('data-camera'), clickCamera, 'Map click preserves center and zoom');
       await page.locator('.st-tooltip[data-pinned="true"]').waitFor();
-      const pinned = await tooltip.boundingBox();assert.ok(Math.abs(pinned.x+pinned.width/2-box.x-box.width/2)<2 && Math.abs(pinned.y+pinned.height/2-box.y-box.height/2)<2,'Clicked properties are centered');
+      // A canvas hit may select a neighboring street. Correlate the actual card
+      // label with the complete original street overview, never the hit position
+      // or the vector-tile fragment returned by a rendered-feature query.
+      const clickedName = await tooltip.locator('h3').textContent();
+      assert.equal(clickedName, await page.locator('.st-detail h2').textContent(), 'Pinned properties describe the selected street');
+      const clickedRoads = sourceGeometry.features.filter(feature => feature.properties.name === clickedName);
+      assert.ok(clickedRoads.length > 0, `The clicked street ${clickedName} has original source geometry`);
+      const clickedGeometry = overviewGeometry(clickedRoads.map(feature => ({ ...feature.properties, geometry: feature.geometry })));
+      const positions = clickedGeometry.coordinates.flat();
+      assert.ok(positions.length > 0, 'The complete street overview has source positions');
+      const sourceCenter = [
+        (Math.min(...positions.map(point => point[0])) + Math.max(...positions.map(point => point[0]))) / 2,
+        (Math.min(...positions.map(point => point[1])) + Math.max(...positions.map(point => point[1]))) / 2,
+      ];
+      const assertPinnedPosition = async () => {
+        const mapBox = await page.locator('.st-map').boundingBox();
+        const pinned = await tooltip.boundingBox();
+        const [cameraLng, cameraLat, cameraZoom] = JSON.parse(await page.locator('.st-map').getAttribute('data-camera'));
+        const scale = 512 * 2 ** cameraZoom;
+        const project = ([x, y]) => [(x + 180) / 360 * scale, (1 - Math.log(Math.tan(Math.PI / 4 + y * Math.PI / 360)) / Math.PI) / 2 * scale];
+        const cameraCenter = project([cameraLng, cameraLat]), anchor = project(sourceCenter);
+        const x = anchor[0] - cameraCenter[0] + mapBox.width / 2;
+        const y = anchor[1] - cameraCenter[1] + mapBox.height / 2;
+        const expectedLeft = mapBox.x + Math.max(8, Math.min(x - pinned.width / 2, mapBox.width - pinned.width - 8));
+        const expectedTop = mapBox.y + Math.max(8, Math.min(y - pinned.height / 2, mapBox.height - pinned.height - 8));
+        assert.ok(Math.abs(pinned.x - expectedLeft) < 2 && Math.abs(pinned.y - expectedTop) < 2,
+          `Clicked properties center on the projected complete source geometry of ${clickedName}, clamped inside the map`);
+        return { pinned, mapBox };
+      };
+      await assertPinnedPosition();
+      // Move the camera explicitly to distinguish source anchoring from the old
+      // viewport-center behavior, even when fitting the street centered it first.
+      await page.locator('.st-map canvas').focus(); await page.keyboard.press('ArrowRight');
+      await page.waitForFunction(camera => document.querySelector('.st-map').dataset.camera !== camera, clickCamera);
+      await idle();
+      const panned = await assertPinnedPosition();
+      assert.ok(Math.abs(panned.pinned.x + panned.pinned.width / 2 - panned.mapBox.x - panned.mapBox.width / 2) > 20 || Math.abs(panned.pinned.y + panned.pinned.height / 2 - panned.mapBox.y - panned.mapBox.height / 2) > 20,
+        'A pinned source anchor follows explicit panning instead of staying at the viewport center');
       await page.mouse.move(20,20);assert.equal(await tooltip.isVisible(),true);
       await page.getByRole('button',{name:'Sluit eigenschappen',exact:true}).click();assert.equal(await tooltip.isVisible(),false);
       await page.getByLabel('Informatie bij aanwijzen', { exact: true }).selectOption('off'); await page.mouse.move(found.x + 1, found.y + 1); assert.equal(await tooltip.isVisible(), false);
