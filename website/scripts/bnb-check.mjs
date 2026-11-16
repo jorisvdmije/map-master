@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import Papa from "papaparse";
+import { bbox } from "@turf/bbox";
 
 const wards = JSON.parse(readFileSync(new URL("../src/features/bnb/wards.json", import.meta.url), "utf8")).features;
 const ward = name => wards.find(w => w.properties.name === name);
@@ -57,6 +58,12 @@ export async function checkBnb({ context, origin, evidence, basePath = "/map-mas
     const stillFixed = await card.boundingBox(); assert.equal(stillFixed.x, fixed.x); assert.equal(stillFixed.y, fixed.y);
     await infoMode.selectOption("click"); await page.mouse.move(point.x,point.y); assert.equal(await card.isVisible(),false,"Click-only mode suppresses hover");
     await page.mouse.click(point.x,point.y); await page.locator('.bb-hover-card[data-pinned="true"]').waitFor();await sameCamera(overviewCamera);
+    const [west,south,east,north]=bbox(ward("Waterland"));
+    const anchor=await pointOnMap([(west+east)/2,(south+north)/2]),pinned=await card.boundingBox();
+    const expected={x:Math.max(mapBox.x+8,Math.min(anchor.x-pinned.width/2,mapBox.x+mapBox.width-pinned.width-8)),y:Math.max(mapBox.y+8,Math.min(anchor.y-pinned.height/2,mapBox.y+mapBox.height-pinned.height-8))};
+    assert.ok(Math.abs(pinned.x-expected.x)<2&&Math.abs(pinned.y-expected.y)<2,"Clicked ward properties center on the original complete ward geometry");
+    assert.ok(pinned.width<=244&&pinned.height<=320,"B&B properties use the compact card");
+    assert.equal(await card.evaluate(el=>getComputedStyle(el).overflowY),"auto","Long pinned properties remain scrollable");
     await page.mouse.move(20,20);assert.equal(await card.isVisible(),true,"Clicked properties stay open after leaving the object");
     await page.getByRole('button',{name:'Sluit eigenschappen',exact:true}).click();assert.equal(await card.isVisible(),false);
     await infoMode.selectOption("off"); await page.mouse.move(point.x, point.y);

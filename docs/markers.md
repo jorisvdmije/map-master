@@ -103,10 +103,17 @@ also appears for a keyboard-selected feature when the map canvas has focus.
 Use **Property display** on the map to choose **follow cursor**, **center on
 hover**, **center on click**, or **hidden**. Following tracks every pointer move,
 including movement within the same polygon; hovering never captures pointer
-input. Click or tap an object to keep its properties in the center of the map,
-where you can select text and scroll. The map camera stays in place. Close with
+input. Click or tap an object to center its properties on the object's full
+geographic bounds, where you can select text and scroll. Cards use a compact,
+lightly transparent background. The map camera stays in place. Close with
 the × button or Escape. Hover-only cards disappear on pointer exit or navigation;
-clicked cards stay centered while navigating or resizing the map.
+clicked cards track the object's center while navigating or resizing the map,
+with their position kept inside the map's edges.
+
+Cards show a heading only when the feature has a name or a valid configured
+title property; unnamed features have no feature-ID heading. There is no separate
+geometry-type/ID caption or click/Escape instruction footer. When the row budget
+leaves out custom fields, a count of those omitted properties remains visible.
 
 Values render as plain text. The default preview has up to five rows: custom
 fields followed by geometry information. Points show latitude then longitude
@@ -121,7 +128,7 @@ is a documentation/playground feature, not a library-owned popup API.
 ### Configure hover cards per layer
 
 In the playground, open **Properties → Hover card settings** for the layer (or a
-selected feature's layer). Choose a title property or Feature ID, enable **Choose
+selected feature's layer). Choose a title property or **No title**, enable **Choose
 custom fields**, then add/remove properties, edit their display labels and move
 them up/down. Number fields accept a maximum decimal count; Date uses UTC; JSON
 keeps nested values. Choose geometry rows, metric/imperial units, English/Dutch
@@ -135,7 +142,7 @@ use defaults. Hover configuration does not change feature data or geometry Undo.
 
 ### Developer configuration
 
-`featurePreview(feature, options)` builds the same plain-text content for your own
+`featurePreview(feature, options)` builds plain-text property content for your own
 popup on either renderer. `resolveFeaturePreview(options)` validates and copies
 serializable configuration. Neither function creates a map popup or modifies
 features/history:
@@ -166,7 +173,11 @@ title property. Keys match exactly (including spaces); missing fields are skippe
 Null, false and zero remain visible. Geometry rows reserve room within `maxRows`,
 so large property sets cannot hide coordinates/measurements. `omittedFields`
 counts custom fields cut off by that budget. Disable individual geometry rows
-with false. The title defaults to `name`, with a feature-ID fallback.
+with false. The public helper's title defaults to `name`, with a feature-ID
+fallback; `titleProperty: null` explicitly uses the feature ID. The
+documentation/playground UI suppresses that fallback heading and treats the
+**No title** choice as a blank heading, without changing the public API or feature
+data.
 
 Formats are `auto`, `number`, `date` and `json`. Number formats only numeric
 values, with 0–8 maximum decimals. Date accepts ISO dates or timestamps with an

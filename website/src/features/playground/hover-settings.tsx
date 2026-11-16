@@ -21,13 +21,17 @@ export function HoverSettings({ options, features, disabled, apply }: { options:
     const next = [...fields]; [next[index], next[index + direction]] = [next[index + direction], next[index]]; patch({ fields: next });
   };
   const content = features[0] ? featurePreview(features[0], draft) : null;
+  const titleKey = draft.titleProperty === undefined ? "name" : draft.titleProperty;
+  const properties = features[0]?.properties;
+  const titleValue = titleKey !== null && properties && Object.hasOwn(properties, titleKey) ? properties[titleKey] : undefined;
+  const hasPropertyTitle = typeof titleValue === "number" || typeof titleValue === "boolean" || typeof titleValue === "string" && titleValue !== "";
   return <details className="pg-hover-settings"><summary>Hover card settings</summary>
     <p className="pg-muted">For this layer. Choose what appears without selecting a feature.</p>
     <form onSubmit={event => { event.preventDefault(); apply(draft); }}>
       <fieldset disabled={disabled}>
         <label className="pg-check"><input type="checkbox" checked={draft.enabled !== false} onChange={event => patch({ enabled: event.target.checked })} />Show hover card</label>
         <label className="pg-field">Title field<select aria-label="Hover title field" value={JSON.stringify(draft.titleProperty === undefined ? "name" : draft.titleProperty)} onChange={event => patch({ titleProperty: JSON.parse(event.target.value) })}>
-          <option value="null">Feature ID</option>{[...keys].map(key => <option key={key} value={JSON.stringify(key)}>{key || "(empty property name)"}</option>)}
+          <option value="null">No title</option>{[...keys].map(key => <option key={key} value={JSON.stringify(key)}>{key || "(empty property name)"}</option>)}
         </select></label>
         <label className="pg-check"><input type="checkbox" checked={draft.fields != null} onChange={event => patch({ fields: event.target.checked ? [...keys].filter(key => key !== (draft.titleProperty ?? "name")).slice(0, 3).map(key => ({ key })) : null })} />Choose custom fields</label>
         {draft.fields != null && <>
@@ -48,7 +52,7 @@ export function HoverSettings({ options, features, disabled, apply }: { options:
         <label className="pg-field">Maximum rows<input aria-label="Hover maximum rows" type="number" min={2} max={10} value={draft.maxRows ?? 5} onChange={event => { if (event.target.value !== "") patch({ maxRows: Math.max(2, Math.min(10, Math.round(Number(event.target.value)))) }); }} /></label>
         <label className="pg-field">Units<select aria-label="Hover units" value={draft.units ?? "metric"} onChange={event => patch({ units: event.target.value as "metric" | "imperial" })}><option value="metric">Metric</option><option value="imperial">Imperial</option></select></label>
         <label className="pg-field">Number and date language<select aria-label="Hover locale" value={draft.locale ?? "en"} onChange={event => patch({ locale: event.target.value })}><option value="en">English</option><option value="nl">Nederlands</option>{draft.locale && !["en", "nl"].includes(draft.locale) && <option value={draft.locale}>{draft.locale}</option>}</select></label>
-        <div className="pg-hover-example" aria-label="Hover card example">{content ? <><strong>{content.title}</strong><dl>{content.rows.map((row, i) => <div key={i}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>{content.omittedFields > 0 && <small>{content.omittedFields} more {content.omittedFields === 1 ? "property" : "properties"}</small>}</> : draft.enabled === false ? "Hover cards are hidden for this layer." : "Import or draw a feature to preview this layer."}</div>
+        <div className="pg-hover-example" aria-label="Hover card example">{content ? <>{hasPropertyTitle && <strong>{content.title}</strong>}<dl>{content.rows.map((row, i) => <div key={i}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>{content.omittedFields > 0 && <small>{content.omittedFields} more {content.omittedFields === 1 ? "property" : "properties"}</small>}</> : draft.enabled === false ? "Hover cards are hidden for this layer." : "Import or draw a feature to preview this layer."}</div>
         <button className="pg-button pg-wide" type="submit">Apply hover settings</button>
         <button className="pg-link-button pg-wide" type="button" onClick={() => { setDraft({}); apply(null); }}>Reset hover settings</button>
       </fieldset>

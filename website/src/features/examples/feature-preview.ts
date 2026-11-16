@@ -15,9 +15,13 @@ export function attachFeaturePreview(map: Map, editor: GeometryEditor, options: 
     if (config.enabled === false) { card.clear(); return; }
     const build = () => {
       const content = featurePreview(feature, config)!;
-      return propertyContent(content.title, content.rows, `${feature.geometry.type} · ID ${String(feature.id).slice(0, 120)}`, content.omittedFields ? `${content.omittedFields} more ${content.omittedFields === 1 ? "property" : "properties"} · Click to pin in the center` : "Click to pin in the center · Esc to dismiss");
+      const titleKey = config.titleProperty === undefined ? "name" : config.titleProperty;
+      const properties = feature.properties;
+      const titleValue = titleKey !== null && properties && Object.hasOwn(properties, titleKey) ? properties[titleKey] : undefined;
+      const hasPropertyTitle = typeof titleValue === "number" || typeof titleValue === "boolean" || typeof titleValue === "string" && titleValue !== "";
+      return propertyContent(hasPropertyTitle ? content.title : "", content.rows, "", content.omittedFields ? `${content.omittedFields} more ${content.omittedFields === 1 ? "property" : "properties"}` : "");
     };
-    if (pin) card.pin(JSON.stringify(feature.id), build); else card.hover(JSON.stringify(feature.id), point, build);
+    if (pin) card.pin(JSON.stringify(feature.id), build, feature.geometry); else card.hover(JSON.stringify(feature.id), point, build);
   };
   const move = (event: MapMouseEvent) => {
     if (editor.getState().mode !== "idle" || map.isMoving() || event.originalEvent.buttons || window.matchMedia("(hover: none)").matches) { card.hide(); return; }
