@@ -1,0 +1,311 @@
+.plot-empty {
+  min-height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: #7e8393;
+  text-align: center;
+  padding: 32px;
+  gap: 8px;
+  font-size: 13px;
+}
+.plot-empty p {
+  margin: 0;
+  max-width: 320px;
+  line-height: 1.7;
+}
+.plot-empty-mark {
+  display: grid;
+  place-items: center;
+  background: #f2f1fb;
+  color: #8380be;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  font-size: 22px;
+}
+.plot-chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.plot-grid {
+  stroke: #ebedf3;
+  stroke-width: 1;
+}
+.plot-tick {
+  fill: #8d91a2;
+  font-size: 11px;
+  font-family: inherit;
+}
+.plot-time,
+.plot-regression {
+  position: relative;
+  min-width: 0;
+  padding-top: 4px;
+}
+.plot-year-target {
+  cursor: crosshair;
+}
+.plot-year-target:focus-visible {
+  outline: none;
+  fill: #6366f116;
+  stroke: #6366f1;
+  stroke-width: 1;
+}
+.plot-series-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  padding: 0 16px 12px 18px;
+  font-size: 11px;
+  color: #7b8092;
+}
+.plot-series-legend > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  min-width: 0;
+}
+.plot-series-legend > span > span {
+  max-width: 165px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.plot-series-legend i {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.plot-series-legend b {
+  font-weight: 550;
+  color: #565c73;
+  white-space: nowrap;
+}
+.plot-year-caption {
+  position: absolute;
+  right: 16px;
+  top: 0;
+  padding: 4px 8px;
+  background: #ffffffec;
+  border: 1px solid #ecebf7;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #77758f;
+}
+.plot-map {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #eef4f6;
+  min-width: 0;
+}
+.plot-map-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-height: 350px;
+}
+.plot-map-area {
+  cursor: pointer;
+  transition:
+    fill 0.2s,
+    opacity 0.2s;
+}
+.plot-map-area:hover,
+.plot-map-area:focus-visible {
+  stroke: #272353;
+  stroke-width: 1.8;
+  outline: none;
+  opacity: 1;
+  filter: brightness(1.08);
+}
+.plot-map-labels {
+  fill: #444d67;
+  paint-order: stroke;
+  stroke: #ffffffbb;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  font-family: inherit;
+}
+.plot-map-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border: 1px solid #dfe5ec;
+  box-shadow: 0 2px 6px #25324a08;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.plot-map-controls button {
+  appearance: none;
+  border: none;
+  border-bottom: 1px solid #edf0f4;
+  color: #465269;
+  background: white;
+  width: 29px;
+  height: 28px;
+  font-size: 18px;
+  font-family: inherit;
+  cursor: pointer;
+  line-height: 1;
+}
+.plot-map-controls button:last-child {
+  border: none;
+}
+.plot-map-controls button:hover {
+  background: #f4f4ff;
+}
+.plot-map-controls button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.plot-map-tooltip,
+.plot-scatter-tooltip {
+  position: absolute;
+  left: 14px;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 12px;
+  background: #fffffff5;
+  border: 1px solid #e5e5ed;
+  box-shadow: 0 4px 15px #25324a0b;
+  border-radius: 8px;
+  pointer-events: none;
+  font-size: 11px;
+  color: #4b5266;
+  max-width: calc(100% - 75px);
+}
+.plot-map-tooltip strong,
+.plot-scatter-tooltip strong {
+  font-weight: 600;
+  color: #363d56;
+}
+.plot-map-tooltip span,
+.plot-scatter-tooltip span {
+  font-size: 11px;
+  color: #777f91;
+}
+.plot-map-legend {
+  position: absolute;
+  bottom: 31px;
+  left: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fffffff2;
+  padding: 7px 9px;
+  border-radius: 6px;
+  font-size: 10px;
+  color: #566178;
+  box-shadow: 0 2px 8px #25324a05;
+}
+.plot-map-legend > i {
+  width: 72px;
+  height: 5px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #dae4f7, #2d4b96);
+}
+.plot-missing-key {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 5px;
+}
+.plot-missing-key b {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: #d5dddf;
+}
+.plot-map-source {
+  position: absolute;
+  bottom: 10px;
+  left: 16px;
+  font-size: 8px;
+  color: #8999a3;
+}
+.plot-scatter-point {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.plot-scatter-point:hover,
+.plot-scatter-point:focus-visible {
+  outline: none;
+  opacity: 1;
+  fill: #eb9d47;
+  stroke: #81551d;
+  stroke-width: 1.5;
+}
+.plot-scatter-legend {
+  display: flex;
+  gap: 20px;
+  padding: 0 18px 12px;
+  font-size: 11px;
+  color: #85899a;
+}
+.plot-scatter-legend span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.plot-scatter-legend i {
+  width: 6px;
+  height: 6px;
+  background: #7272d5;
+  border-radius: 50%;
+}
+.plot-scatter-legend b {
+  width: 16px;
+  border-top: 2px dashed #1d9b93;
+}
+.plot-scatter-tooltip {
+  left: auto;
+  right: 14px;
+}
+.plot-fit-line {
+  pointer-events: none;
+}
+@media (max-width: 650px) {
+  .plot-series-legend {
+    gap: 6px 12px;
+    padding-left: 12px;
+  }
+  .plot-series-legend > span > span {
+    max-width: 120px;
+  }
+  .plot-map-legend {
+    font-size: 8px;
+    gap: 5px;
+    left: 10px;
+  }
+  .plot-map-legend > i {
+    width: 45px;
+  }
+  .plot-missing-key {
+    margin-left: 1px;
+  }
+  .plot-map-source {
+    font-size: 7px;
+    left: 10px;
+  }
+  .plot-tick {
+    font-size: 11px;
+  }
+  .plot-scatter-legend {
+    gap: 14px;
+    padding-left: 12px;
+    font-size: 10px;
+  }
+}

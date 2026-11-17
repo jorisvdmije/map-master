@@ -26,6 +26,21 @@
 
 ---
 
+## Atlas: geographic time-series insights
+
+[Atlas](insights/README.md) is a separate application in `insights/`, with its own
+React/Vite build and hosting output. Explore Amsterdam with draggable variables,
+linked maps, time series, regressions and configurable analysis blocks. It ships
+real neighborhood WOZ and housing data and accepts custom neighborhood/year CSVs.
+
+```sh
+npm ci --prefix insights
+npm run dev:insights
+```
+
+Open http://127.0.0.1:5190. Documentation and existing analysis routes remain in
+`website/`; the library remains in `src/`.
+
 ## Features
 
 - **Renderers**: use MapLibre or [Mapbox GL JS](docs/mapbox.md) with the same editing API.

@@ -1,0 +1,38 @@
+{
+  "name": "@map-master/atlas-insights",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare:data": "node scripts/prepare-data.mjs",
+    "dev": "vite --host 127.0.0.1 --port 5190",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5190",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test scripts/*.test.ts",
+    "test:browser": "node scripts/browser.mjs",
+    "test:catalog:browser": "node scripts/catalog-browsers.mjs",
+    "test:market:browser": "node scripts/market-browsers.mjs",
+    "check:browser": "npm run test:browser && npm run test:catalog:browser && npm run test:market:browser",
+    "data:catalog": "node scripts/fetch-catalog.mjs",
+    "data:market": "node scripts/fetch-market.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "0.468.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@types/geojson": "7946.0.16",
+    "@types/node": "22.20.5",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "playwright": "1.64.1",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vite": "6.4.6"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}
