@@ -1,0 +1,168 @@
+.workspace-header {
+  position: relative;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: var(--mm-header-height);
+  padding: 0 var(--mm-gutter);
+  border-bottom: 1px solid var(--mm-line);
+  background: var(--mm-paper);
+  color: var(--mm-ink);
+}
+.workspace-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-right: 6px;
+  color: var(--mm-ink);
+  text-decoration: none;
+  font:
+    750 15px/1.15 "Manrope Variable",
+    sans-serif;
+  letter-spacing: -0.4px;
+}
+.workspace-brand img {
+  width: 30px;
+  height: 30px;
+}
+.workspace-brand small {
+  display: block;
+  margin-top: 3px;
+  color: var(--mm-muted);
+  font:
+    500 var(--mm-text-xs) / 1.2 "DM Sans Variable",
+    sans-serif;
+  letter-spacing: 0;
+}
+.workspace-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-left: auto;
+}
+.workspace-header-actions > nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-right: 6px;
+  font-size: var(--mm-text-sm);
+}
+.workspace-header-actions > nav a {
+  color: var(--mm-text);
+  text-decoration: none;
+}
+.workspace-header-actions > nav a:hover {
+  color: var(--mm-accent);
+}
+
+/* One control style for header buttons and links, including the switcher. */
+.workspace-action,
+.workspace-switcher summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--mm-line-strong);
+  border-radius: 8px;
+  background: var(--mm-surface);
+  color: var(--mm-ink);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+/* Workspace roots reset button fonts; these controls keep the shared size. */
+:is(.workspace-header, .research-share) .workspace-action,
+.workspace-switcher summary {
+  font:
+    500 var(--mm-text-sm) / 1 "DM Sans Variable",
+    sans-serif;
+}
+.workspace-action:hover,
+.workspace-switcher summary:hover {
+  background: var(--mm-wash);
+}
+.workspace-action-plain {
+  border-color: transparent;
+  background: transparent;
+  color: var(--mm-accent);
+}
+.workspace-action:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* The copied-link confirmation appears under the share button. */
+.research-share {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.research-share [role="status"]:empty {
+  display: none;
+}
+.workspace-header .research-share {
+  flex-wrap: nowrap;
+}
+.workspace-header .research-share [role="status"] {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  width: max-content;
+  max-width: min(320px, 80vw);
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: var(--mm-ink);
+  color: #fff;
+  font-size: var(--mm-text-xs);
+  line-height: 1.4;
+  white-space: normal;
+}
+
+/* Source date and caveat, directly under the header. */
+.workspace-source-age {
+  margin: 0;
+  padding: 7px var(--mm-gutter);
+  border-bottom: 1px solid var(--mm-line);
+  background: var(--mm-wash);
+  color: var(--mm-muted);
+  font-size: var(--mm-text-xs);
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .workspace-header {
+    gap: 8px;
+  }
+  .workspace-brand {
+    margin-right: 0;
+  }
+  .workspace-brand small,
+  .workspace-header .workspace-optional {
+    display: none;
+  }
+  .workspace-action,
+  .workspace-switcher summary {
+    padding: 0 10px;
+  }
+  /* Icon buttons keep their accessible name when the label is hidden. */
+  .workspace-action:has(svg) .workspace-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+@media (max-width: 360px) {
+  .workspace-brand > span {
+    display: none;
+  }
+}

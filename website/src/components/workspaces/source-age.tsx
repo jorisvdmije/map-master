@@ -12,17 +12,19 @@ export function SourceAge({
   retrievedAt,
   sourceYear,
   reviewDays = 90,
+  className = "hs-note",
 }: {
   retrievedAt: string;
   sourceYear?: number;
   reviewDays?: number;
+  className?: string;
 }) {
   const today = useBrowserDate();
   const overdue =
     !!today &&
     Date.parse(today) - Date.parse(retrievedAt) > reviewDays * 86_400_000;
   return (
-    <p className="hs-note" role={overdue ? "status" : undefined}>
+    <p className={className} role={overdue ? "status" : undefined}>
       {sourceYear && <>Bronjaar {sourceYear} · </>}Snapshot opgehaald:{" "}
       {new Date(retrievedAt).toLocaleDateString("nl-NL", { timeZone: "UTC" })}.
       {overdue

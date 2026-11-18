@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { SourceAge } from "@/components/workspaces/source-age";
 import Link from "next/link";
 import {
@@ -10,7 +9,7 @@ import {
   bounded,
   oneOf,
 } from "@/components/workspaces/view-state";
-import { WorkspaceNavigation } from "@/components/workspaces/navigation";
+import { WorkspaceHeader } from "@/components/workspaces/header";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -317,84 +316,85 @@ export function HousingDashboard() {
       <a className="skip-link" href="#housing-map">
         Naar de kaart
       </a>
-      <header className="an-header">
-        <Link className="an-brand" href="/" prefetch={false}>
-          <Image
-            src={assetPath("/logo.svg")}
-            alt=""
-            width={31}
-            height={31}
-            priority
+      <WorkspaceHeader
+        current="/analysis/housing/"
+        tagline="Wonen in context"
+        className="an-header"
+        brandClassName="an-brand"
+      >
+        <div className="workspace-header-actions">
+          <ShareView
+            app="housing"
+            data={{
+              selected,
+              query,
+              minimum,
+              metric,
+              axis,
+              ranges,
+              knownOnly,
+              ascending,
+              mode,
+            }}
+            defaults={{
+              selected: "",
+              query: "",
+              minimum: 100,
+              metric: "woz",
+              axis: "owner",
+              ranges: [],
+              knownOnly: false,
+              ascending: false,
+              mode: "follow",
+            }}
+            rules={{
+              selected: text,
+              query: text,
+              minimum: bounded(0, 1000000),
+              metric: oneOf(metrics),
+              axis: oneOf(metrics),
+              ranges: (value) =>
+                Array.isArray(value) &&
+                value.length <= 25 &&
+                value.every(
+                  (row) =>
+                    row &&
+                    oneOf(metrics)(row.metric) &&
+                    text(row.min) &&
+                    text(row.max) &&
+                    !rangeError(row),
+                ),
+              knownOnly: flag,
+              ascending: flag,
+              mode: oneOf(["follow", "fixed", "click", "off"]),
+            }}
+            apply={(v) => {
+              setSelected(v.selected as string);
+              setQuery(v.query as string);
+              setMinimum(v.minimum as number);
+              setMetric(v.metric as Metric);
+              setAxis(v.axis as Metric);
+              setRanges(v.ranges as RangeFilter[]);
+              setKnownOnly(v.knownOnly as boolean);
+              setAscending(v.ascending as boolean);
+              setMode(v.mode as PropertyMode);
+              setHome(null);
+              setLoaded("");
+            }}
           />
-          <span>
-            Map Master<small>WONEN IN CONTEXT</small>
-          </span>
-        </Link>
-        <WorkspaceNavigation current="/analysis/housing/" />
-        <button className="an-button" onClick={() => setHelp(true)}>
-          <Info size={15} />
-          Bronnen & methode
-        </button>
-      </header>
-      <ShareView
-        app="housing"
-        data={{
-          selected,
-          query,
-          minimum,
-          metric,
-          axis,
-          ranges,
-          knownOnly,
-          ascending,
-          mode,
-        }}
-        defaults={{
-          selected: "",
-          query: "",
-          minimum: 100,
-          metric: "woz",
-          axis: "owner",
-          ranges: [],
-          knownOnly: false,
-          ascending: false,
-          mode: "follow",
-        }}
-        rules={{
-          selected: text,
-          query: text,
-          minimum: bounded(0, 1000000),
-          metric: oneOf(metrics),
-          axis: oneOf(metrics),
-          ranges: (value) =>
-            Array.isArray(value) &&
-            value.length <= 25 &&
-            value.every(
-              (row) =>
-                row &&
-                oneOf(metrics)(row.metric) &&
-                text(row.min) &&
-                text(row.max) &&
-                !rangeError(row),
-            ),
-          knownOnly: flag,
-          ascending: flag,
-          mode: oneOf(["follow", "fixed", "click", "off"]),
-        }}
-        apply={(v) => {
-          setSelected(v.selected as string);
-          setQuery(v.query as string);
-          setMinimum(v.minimum as number);
-          setMetric(v.metric as Metric);
-          setAxis(v.axis as Metric);
-          setRanges(v.ranges as RangeFilter[]);
-          setKnownOnly(v.knownOnly as boolean);
-          setAscending(v.ascending as boolean);
-          setMode(v.mode as PropertyMode);
-          setHome(null);
-          setLoaded("");
-        }}
-      />
+          <button className="workspace-action" onClick={() => setHelp(true)}>
+            <Info size={15} aria-hidden="true" />
+            <span className="workspace-label">Bronnen & methode</span>
+          </button>
+        </div>
+      </WorkspaceHeader>
+      {snapshot.data && (
+        <SourceAge
+          retrievedAt={snapshot.data.meta.retrievedAt}
+          sourceYear={snapshot.data.meta.statisticsYear}
+          className="workspace-source-age"
+        />
+      )}
       <section className="hs-intro">
         <div>
           <span className="hs-eyebrow">AMSTERDAM · OPEN DATA</span>
@@ -414,12 +414,6 @@ export function HousingDashboard() {
           Databronnen bekijken <ArrowUpRight size={14} />
         </Link>
       </section>
-      {snapshot.data && (
-        <SourceAge
-          retrievedAt={snapshot.data.meta.retrievedAt}
-          sourceYear={snapshot.data.meta.statisticsYear}
-        />
-      )}
       <section className="hs-stats" aria-label="Gefilterde buurten">
         <div>
           <span>Buurten in selectie</span>

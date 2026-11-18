@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { SourceAge } from "@/components/workspaces/source-age";
 import { requestSignal } from "@/features/data/source-contract";
 import {
@@ -10,8 +9,8 @@ import {
   recordOf,
   bounded,
 } from "@/components/workspaces/view-state";
-import { WorkspaceNavigation } from "@/components/workspaces/navigation";
-import Image from "next/image";
+import { WorkspaceHeader } from "@/components/workspaces/header";
+import { dataSwatch } from "@/components/workspaces/data-swatch";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -620,115 +619,112 @@ export function StreetsDashboard() {
       <a href="#street-map" className="skip-link">
         Direct naar de kaart
       </a>
-      <header className="an-header st-header">
-        <Link className="an-brand" href="/" prefetch={false}>
-          <Image
-            src={assetPath("/logo.svg")}
-            alt=""
-            width={31}
-            height={31}
-            priority
+      <WorkspaceHeader
+        current="/analysis/streets/"
+        tagline="Van straat naar inzicht"
+        className="an-header st-header"
+        brandClassName="an-brand"
+      >
+        <div className="workspace-header-actions">
+          <ShareView
+            app="streets"
+            data={{
+              metric,
+              months,
+              selected,
+              filters,
+              mapMode,
+              x,
+              y,
+              method,
+              level,
+              k,
+              heat,
+              shiftSettings,
+              panel,
+              minimumLength,
+            }}
+            defaults={{
+              metric: "treeDensity",
+              months: 12,
+              selected: null,
+              filters: emptyFilters,
+              mapMode: "streets",
+              x: "treeDensity",
+              y: "reports",
+              method: "spearman",
+              level: "street",
+              k: 4,
+              heat: defaultHeat,
+              shiftSettings: defaultShift,
+              panel: "correlations",
+              minimumLength: 100,
+            }}
+            rules={{
+              metric: oneOf(metrics),
+              months: oneOf([1, 3, 6, 12]),
+              selected: (v) => v === null || text(v),
+              filters: (v) =>
+                !!v &&
+                typeof v === "object" &&
+                "query" in v &&
+                text(v.query) &&
+                "ward" in v &&
+                (v.ward === null ||
+                  wards.some((w) => w.properties.code === v.ward)) &&
+                "status" in v &&
+                oneOf(["all", "poor", "medium", "good", "missing"])(v.status) &&
+                "cluster" in v &&
+                (v.cluster === null || oneOf([0, 1, 2, 3, 4, 5])(v.cluster)) &&
+                "doubleDeficit" in v &&
+                flag(v.doubleDeficit),
+              mapMode: oneOf(["streets", "wards", "clusters", "heat"]),
+              x: oneOf(metrics),
+              y: oneOf(metrics),
+              method: oneOf(["pearson", "spearman"]),
+              level: oneOf(["street", "ward"]),
+              k: oneOf([2, 3, 4, 5, 6]),
+              heat: recordOf({
+                kind: oneOf(heatKinds),
+                radius: oneOf([100, 250, 500]),
+                contrast: bounded(0.5, 1.8),
+                shape: oneOf(["smooth", "hex"]),
+              }),
+              shiftSettings: recordOf({
+                kind: oneOf(["reports", "nuisance", "maintenance"]),
+                minimum: bounded(0, 10000),
+                direction: oneOf(["up", "down", "all"]),
+                sort: oneOf(["count", "relative"]),
+              }),
+              panel: oneOf(["correlations", "profiles", "areas", "shifts"]),
+              minimumLength: bounded(0, 10000),
+            }}
+            apply={(v) => {
+              setMetric(v.metric as Metric);
+              setMonths(v.months as number);
+              setSelected(v.selected as string | null);
+              setFilters(v.filters as Filters);
+              setMapMode(v.mapMode as MapMode);
+              setX(v.x as Metric);
+              setY(v.y as Metric);
+              setMethod(v.method as "pearson" | "spearman");
+              setLevel(v.level as "street" | "ward");
+              setK(v.k as number);
+              setHeat(v.heat as HeatSettings);
+              setShiftSettings(v.shiftSettings as typeof defaultShift);
+              setPanel(v.panel as Panel);
+              setMinimumLength(v.minimumLength as number);
+            }}
           />
-          <span>
-            Map Master<small>VAN STRAAT NAAR INZICHT</small>
-          </span>
-        </Link>
-        <WorkspaceNavigation current="/analysis/streets/" />
-        <button className="an-button" onClick={() => setHelp(true)}>
-          <Info size={14} />
-          Bronnen & methode
-        </button>
-      </header>
-      <SourceAge retrievedAt={observationMeta.retrieved} />
-      <ShareView
-        app="streets"
-        data={{
-          metric,
-          months,
-          selected,
-          filters,
-          mapMode,
-          x,
-          y,
-          method,
-          level,
-          k,
-          heat,
-          shiftSettings,
-          panel,
-          minimumLength,
-        }}
-        defaults={{
-          metric: "treeDensity",
-          months: 12,
-          selected: null,
-          filters: emptyFilters,
-          mapMode: "streets",
-          x: "treeDensity",
-          y: "reports",
-          method: "spearman",
-          level: "street",
-          k: 4,
-          heat: defaultHeat,
-          shiftSettings: defaultShift,
-          panel: "correlations",
-          minimumLength: 100,
-        }}
-        rules={{
-          metric: oneOf(metrics),
-          months: oneOf([1, 3, 6, 12]),
-          selected: (v) => v === null || text(v),
-          filters: (v) =>
-            !!v &&
-            typeof v === "object" &&
-            "query" in v &&
-            text(v.query) &&
-            "ward" in v &&
-            (v.ward === null ||
-              wards.some((w) => w.properties.code === v.ward)) &&
-            "status" in v &&
-            oneOf(["all", "poor", "medium", "good", "missing"])(v.status) &&
-            "cluster" in v &&
-            (v.cluster === null || oneOf([0, 1, 2, 3, 4, 5])(v.cluster)) &&
-            "doubleDeficit" in v &&
-            flag(v.doubleDeficit),
-          mapMode: oneOf(["streets", "wards", "clusters", "heat"]),
-          x: oneOf(metrics),
-          y: oneOf(metrics),
-          method: oneOf(["pearson", "spearman"]),
-          level: oneOf(["street", "ward"]),
-          k: oneOf([2, 3, 4, 5, 6]),
-          heat: recordOf({
-            kind: oneOf(heatKinds),
-            radius: oneOf([100, 250, 500]),
-            contrast: bounded(0.5, 1.8),
-            shape: oneOf(["smooth", "hex"]),
-          }),
-          shiftSettings: recordOf({
-            kind: oneOf(["reports", "nuisance", "maintenance"]),
-            minimum: bounded(0, 10000),
-            direction: oneOf(["up", "down", "all"]),
-            sort: oneOf(["count", "relative"]),
-          }),
-          panel: oneOf(["correlations", "profiles", "areas", "shifts"]),
-          minimumLength: bounded(0, 10000),
-        }}
-        apply={(v) => {
-          setMetric(v.metric as Metric);
-          setMonths(v.months as number);
-          setSelected(v.selected as string | null);
-          setFilters(v.filters as Filters);
-          setMapMode(v.mapMode as MapMode);
-          setX(v.x as Metric);
-          setY(v.y as Metric);
-          setMethod(v.method as "pearson" | "spearman");
-          setLevel(v.level as "street" | "ward");
-          setK(v.k as number);
-          setHeat(v.heat as HeatSettings);
-          setShiftSettings(v.shiftSettings as typeof defaultShift);
-          setPanel(v.panel as Panel);
-          setMinimumLength(v.minimumLength as number);
-        }}
+          <button className="workspace-action" onClick={() => setHelp(true)}>
+            <Info size={15} aria-hidden="true" />
+            <span className="workspace-label">Bronnen & methode</span>
+          </button>
+        </div>
+      </WorkspaceHeader>
+      <SourceAge
+        retrievedAt={observationMeta.retrieved}
+        className="workspace-source-age"
       />
       <section className="st-hero">
         <div>
@@ -1005,7 +1001,8 @@ export function StreetsDashboard() {
                 <div>
                   <span>{labels[metric]}</span>
                   <strong
-                    style={{ color: scoreColor(stats.average, metric) }}
+                    data-swatch
+                    style={dataSwatch(scoreColor(stats.average, metric))}
                     data-st-stat="average"
                   >
                     {formatValue(stats.average, metric)}
@@ -1791,7 +1788,10 @@ export function StreetsDashboard() {
                     >
                       <span>
                         <strong>{a.name}</strong>
-                        <b style={{ color: scoreColor(a[metric], metric) }}>
+                        <b
+                          data-swatch
+                          style={dataSwatch(scoreColor(a[metric], metric))}
+                        >
                           {formatValue(a[metric], metric)}
                         </b>
                       </span>
@@ -2043,7 +2043,7 @@ function StreetDetail({
         {metrics.map((m) => (
           <div key={m}>
             <span>{labels[m]}</span>
-            <b style={{ color: scoreColor(street[m], m) }}>
+            <b data-swatch style={dataSwatch(scoreColor(street[m], m))}>
               {formatValue(street[m], m)}
             </b>
             <small>{units[m]}</small>
@@ -2145,7 +2145,10 @@ function StreetDetail({
                       </button>
                     </td>
                     <td>{r.kind}</td>
-                    <td style={{ color: scoreColor(r[metric], metric) }}>
+                    <td
+                      data-swatch
+                      style={dataSwatch(scoreColor(r[metric], metric))}
+                    >
                       {formatValue(r[metric], metric)}
                     </td>
                     <td>{r.length} m</td>
@@ -2192,7 +2195,10 @@ function StreetDetail({
                 {metrics.map((m) => (
                   <span key={m}>
                     {labels[m]}{" "}
-                    <b style={{ color: scoreColor(selectedRoad[m], m) }}>
+                    <b
+                      data-swatch
+                      style={dataSwatch(scoreColor(selectedRoad[m], m))}
+                    >
                       {formatValue(selectedRoad[m], m)} {units[m]}
                     </b>
                   </span>
@@ -2350,10 +2356,7 @@ function StreetTable({
                 </td>
                 {metrics.map((m) => (
                   <td key={m}>
-                    <span
-                      className="st-score-pill"
-                      style={{ color: scoreColor(s[m], m) }}
-                    >
+                    <span className="st-score-pill">
                       <i style={{ background: scoreColor(s[m], m) }} />
                       {formatValue(s[m], m)}
                     </span>

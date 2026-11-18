@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { Share2 } from "lucide-react";
 
 export type ViewData = Record<string, unknown>;
 export type ViewRule = (value: unknown) => boolean;
@@ -105,8 +106,9 @@ export function ShareView({
   };
   return (
     <div className="research-share">
-      <button className="an-button" onClick={() => void share()}>
-        Deel weergave
+      <button className="workspace-action" onClick={() => void share()}>
+        <Share2 size={15} aria-hidden="true" />
+        <span className="workspace-label">Deel weergave</span>
       </button>
       <span role="status">{status}</span>
     </div>

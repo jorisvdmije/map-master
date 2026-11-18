@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { ShareView, text, oneOf } from "@/components/workspaces/view-state";
-import { WorkspaceNavigation } from "@/components/workspaces/navigation";
-import Image from "next/image";
+import { WorkspaceHeader } from "@/components/workspaces/header";
+import { dataSwatch } from "@/components/workspaces/data-swatch";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -27,7 +27,6 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { assetPath } from "@/lib/paths";
 import { download } from "@/features/playground/project";
 import { Modal } from "@/features/analysis/modal";
 import {
@@ -212,24 +211,22 @@ export function BnbDashboard() {
       <a href="#bnb-map" className="skip-link">
         Direct naar de kaart
       </a>
-      <header className="an-header bb-header">
-        <Link className="an-brand" href="/" prefetch={false}>
-          <Image
-            src={assetPath("/logo.svg")}
-            alt=""
-            width={31}
-            height={31}
-            priority
-          />
-          <span>
-            Map Master<small>VAN GEBIED NAAR INZICHT</small>
-          </span>
-        </Link>
-        <WorkspaceNavigation current="/analysis/bnb/" />
-        <Link className="an-docs" href="/playground/" prefetch={false}>
-          Playground <ArrowUpRight size={14} />
-        </Link>
-      </header>
+      <WorkspaceHeader
+        current="/analysis/bnb/"
+        tagline="Van gebied naar inzicht"
+        className="an-header bb-header"
+        brandClassName="an-brand"
+      >
+        <div className="workspace-header-actions">
+          <Link
+            className="workspace-action workspace-action-plain workspace-optional"
+            href="/playground/"
+            prefetch={false}
+          >
+            Playground <ArrowUpRight size={14} />
+          </Link>
+        </div>
+      </WorkspaceHeader>
 
       <div className={`bb-workbench${drawer ? ` bb-show-${drawer}` : ""}`}>
         <div className="bb-titlebar">
@@ -392,7 +389,7 @@ export function BnbDashboard() {
                       {s.granted} verleend · {s.pending} in behandeling
                     </small>
                   </span>
-                  <b style={{ color: availabilityColor(count) }}>
+                  <b>
                     {count}
                     <small>vrij</small>
                   </b>
@@ -537,7 +534,8 @@ export function BnbDashboard() {
               </span>
               <strong
                 data-bnb-stat="free"
-                style={{ color: availabilityColor(free) }}
+                data-swatch
+                style={dataSwatch(availabilityColor(free))}
               >
                 {number(free)}
               </strong>

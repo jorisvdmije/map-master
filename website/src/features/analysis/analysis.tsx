@@ -1,13 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { WorkspaceNavigation } from "@/components/workspaces/navigation";
+import { WorkspaceHeader } from "@/components/workspaces/header";
 import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowDownToLine, ArrowUpRight, BarChart3, Check, ChevronLeft, ChevronRight, CircleHelp, Database, FileJson2, Filter, Focus, Info, MapPinned, MousePointer2, Pentagon, Plus, Redo2, Search, SlidersHorizontal, Square, Table2, Trash2, Undo2, Upload, X } from "lucide-react";
 import type { EditorState } from "@jorisvdmije/map-master";
-import { assetPath } from "@/lib/paths";
 import { download, filename } from "@/features/playground/project";
 import { areaKm2, categories, csvDataset, defaultFields, demoArea, demoDataset, emptyFilters, exportCSV, fileLimit, filterRows, histogram, parseCSV, parseGeoJSON, savedFileLimit, schema, spatialRows, summarize, valueLabel, type AnalysisArea, type CsvInput, type Dataset, type Fields, type Filters } from "./model";
 import type { AnalysisRuntime } from "./runtime";
@@ -58,10 +56,7 @@ export function Analysis() {
 }
 
 function Header() {
-  return <header className="an-header"><Link className="an-brand" href="/" prefetch={false}><Image src={assetPath("/logo.svg")} width={31} height={31} alt="" priority /><span>Map Master<small>YOUR DATA, IN PERSPECTIVE</small></span></Link>
-    <WorkspaceNavigation current="/analysis/" language="en" />
-    <Link className="an-docs" href="/" prefetch={false}>Documentation <ArrowUpRight size={14} /></Link>
-  </header>;
+  return <WorkspaceHeader current="/analysis/" language="en" tagline="Your data, in perspective" className="an-header" brandClassName="an-brand"><div className="workspace-header-actions"><Link className="workspace-action workspace-action-plain workspace-optional" href="/" prefetch={false}>Documentation <ArrowUpRight size={14} /></Link></div></WorkspaceHeader>;
 }
 
 function Workbench({ runtime, recovery, pickRef, notify }: { runtime: AnalysisRuntime; recovery: AnalysisRecovery; pickRef: React.RefObject<(index: number) => void>; notify: (text: string, error?: boolean) => void }) {

@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 import { ReachabilityResult } from "./result";
 import Link from "next/link";
 import {
@@ -8,11 +7,12 @@ import {
   bounded,
   oneOf,
 } from "@/components/workspaces/view-state";
-import { WorkspaceNavigation } from "@/components/workspaces/navigation";
+import { WorkspaceHeader } from "@/components/workspaces/header";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Info,
   Bike,
   Car,
   Footprints,
@@ -37,7 +37,6 @@ import {
   type AnalysisArea,
   type Dataset,
 } from "@/features/analysis/model";
-import { assetPath } from "@/lib/paths";
 import type { MeasureState, ReachabilityRuntime } from "./runtime";
 import {
   coordinateInput,
@@ -213,52 +212,53 @@ export function ReachabilityDashboard() {
       data-reachability
       data-ready={runtime ? "true" : undefined}
     >
-      <header className="an-header">
-        <Link className="an-brand" href="/" prefetch={false}>
-          <Image src={assetPath("/logo.svg")} width={31} height={31} alt="" />
-          <span>
-            Map Master<small>AFSTAND IS NIET ALTIJD BEREIK</small>
-          </span>
-        </Link>
-        <WorkspaceNavigation current="/analysis/reachability/" />
-        <Link
-          className="an-button"
-          href="/guides/reachability/"
-          prefetch={false}
-        >
-          Bronnen & methode
-        </Link>
-      </header>
-      <ShareView
-        app="reachability"
-        data={{ origin, profile, minutes, intervals, direction }}
-        defaults={{
-          origin,
-          profile: "cycling",
-          minutes: 15,
-          intervals: true,
-          direction: "from",
-        }}
-        rules={{
-          origin: (value) =>
-            Array.isArray(value) &&
-            value.length === 2 &&
-            bounded(-180, 180)(value[0]) &&
-            bounded(-85, 85)(value[1]),
-          profile: oneOf(profiles.map((p) => p.id)),
-          minutes: oneOf([5, 10, 15, 30, 45, 60]),
-          intervals: flag,
-          direction: oneOf(["from", "to"]),
-        }}
-        apply={(v) => {
-          const point = v.origin as Coordinate;
-          setLocation({ point, input: coordinateInput(point) });
-          setProfile(v.profile as TravelProfile);
-          setMinutes(v.minutes as number);
-          setIntervals(v.intervals as boolean);
-          setDirection(v.direction as "from" | "to");
-        }}
-      />
+      <WorkspaceHeader
+        current="/analysis/reachability/"
+        tagline="Afstand is niet altijd bereik"
+        className="an-header"
+        brandClassName="an-brand"
+      >
+        <div className="workspace-header-actions">
+          <ShareView
+            app="reachability"
+            data={{ origin, profile, minutes, intervals, direction }}
+            defaults={{
+              origin,
+              profile: "cycling",
+              minutes: 15,
+              intervals: true,
+              direction: "from",
+            }}
+            rules={{
+              origin: (value) =>
+                Array.isArray(value) &&
+                value.length === 2 &&
+                bounded(-180, 180)(value[0]) &&
+                bounded(-85, 85)(value[1]),
+              profile: oneOf(profiles.map((p) => p.id)),
+              minutes: oneOf([5, 10, 15, 30, 45, 60]),
+              intervals: flag,
+              direction: oneOf(["from", "to"]),
+            }}
+            apply={(v) => {
+              const point = v.origin as Coordinate;
+              setLocation({ point, input: coordinateInput(point) });
+              setProfile(v.profile as TravelProfile);
+              setMinutes(v.minutes as number);
+              setIntervals(v.intervals as boolean);
+              setDirection(v.direction as "from" | "to");
+            }}
+          />
+          <Link
+            className="workspace-action"
+            href="/guides/reachability/"
+            prefetch={false}
+          >
+            <Info size={15} aria-hidden="true" />
+            <span className="workspace-label">Bronnen & methode</span>
+          </Link>
+        </div>
+      </WorkspaceHeader>
       <section className="hs-intro">
         <div>
           <span className="hs-eyebrow">VAN VERTREKPUNT NAAR REISGEBIED</span>

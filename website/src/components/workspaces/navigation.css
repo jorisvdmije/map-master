@@ -1,68 +1,90 @@
+/* The control itself shares its look with header actions (header.css). */
 .workspace-switcher {
   position: relative;
   flex: 0 0 auto;
   font: inherit;
 }
 .workspace-switcher summary {
-  cursor: pointer;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid #cbd5d1;
-  border-radius: 0.5rem;
-  background: #fff;
-  color: #203e36;
-  font-size: 0.8rem;
+  list-style: none;
+}
+.workspace-switcher summary::-webkit-details-marker {
+  display: none;
+}
+.workspace-switcher summary::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin: -3px 1px 0 2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+.workspace-switcher[open] summary::after {
+  margin-top: 3px;
+  transform: rotate(225deg);
 }
 .workspace-switcher > nav {
   position: absolute;
-  top: 100%;
-  right: 0;
+  top: calc(100% + 6px);
+  left: 0;
   z-index: 80;
   display: grid !important;
   gap: 0.2rem;
   width: 15rem;
   max-width: calc(100vw - 2rem);
   padding: 0.6rem;
-  background: #fff;
-  color: #203e36;
-  border: 1px solid #cbd5d1;
+  background: var(--mm-surface);
+  color: var(--mm-ink);
+  border: 1px solid var(--mm-line-strong);
   border-radius: 0.5rem;
   box-shadow: 0 8px 25px #15352a24;
 }
 .workspace-switcher > nav a {
   padding: 0.55rem;
   display: block;
-  font-size: 0.85rem;
+  border-radius: 0.35rem;
+  font-size: var(--mm-text-sm);
   text-decoration: none;
   color: inherit;
 }
+.workspace-switcher > nav a:hover {
+  background: var(--mm-wash);
+}
 .workspace-switcher > nav a[aria-current] {
-  background: #e8f1ef;
+  background: var(--mm-tint);
   font-weight: 700;
 }
 .workspace-switcher :focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
 }
-.an-header:has(.workspace-switcher) {
-  z-index: 50;
-}
-.research-share {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 1rem;
-  font-size: 0.75rem;
+@media (max-width: 760px) {
+  /* The list spans the header, so it never leaves a narrow screen. */
+  .workspace-header > .workspace-switcher {
+    position: static;
+  }
+  .workspace-header > .workspace-switcher > nav {
+    top: 100%;
+    left: var(--mm-gutter);
+    right: var(--mm-gutter);
+    width: auto;
+    max-width: none;
+  }
 }
 @media (max-width: 650px) {
   .pg-header > .workspace-switcher summary {
     font-size: 0;
-    width: 31px;
-    height: 32px;
-    padding: 7px;
-    text-align: center;
+    width: 36px;
+    padding: 0;
+    justify-content: center;
   }
   .pg-header > .workspace-switcher summary::after {
     content: "☰";
+    width: auto;
+    height: auto;
+    margin: 0;
+    border: 0;
+    transform: none;
     font-size: 15px;
   }
   .pg-header .pg-brand > span {
@@ -80,6 +102,6 @@
   }
   .pg-local-projects summary::after {
     content: "Projects";
-    font-size: 10px;
+    font-size: var(--mm-text-xs);
   }
 }
