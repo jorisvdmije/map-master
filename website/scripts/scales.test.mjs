@@ -48,7 +48,7 @@ test('legend values pick their own short unit', () => {
 });
 
 test('quantile classes split skewed WOZ values into five readable groups', () => {
-  const { data } = JSON.parse(readFileSync(new URL('../public/data/amsterdam-housing.json', import.meta.url)));
+  const { data } = JSON.parse(readFileSync(new URL('../src/features/housing/snapshot.json', import.meta.url)));
   const values = data.features.map((f) => f.properties.woz);
   const scale = classScale(values);
   assert.equal(scale.colors.length, 5);
