@@ -55,7 +55,7 @@ export function DevelopmentControls({
           </select>
         </label>
         <div className="bd-presets" aria-label="Snelle periodekeuze">
-          {[1, 5, 10].map((length) => (
+          {[1, 3, 5, 10].map((length) => (
             <button
               key={length}
               aria-pressed={

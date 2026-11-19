@@ -28,8 +28,13 @@ export type Exclusion =
   | "missing-stock"
   | "changed-stock";
 
+/**
+ * The default period is the longest recent one with a comparable city series:
+ * Weesp joined Amsterdam in 2022, so the city series breaks in 2022 and 2023
+ * and any period across those years has no city reference.
+ */
 export const defaults: Filters = {
-  start: 2016,
+  start: 2023,
   end: 2026,
   minimum: 100,
   stockFilter: true,
