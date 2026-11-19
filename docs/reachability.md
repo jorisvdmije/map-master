@@ -79,6 +79,12 @@ value is public. There is no continuous recalculation while dragging or changing
 controls. The UI records which parameters produced the displayed result, supports
 cancellation, and labels changed inputs as not yet calculated.
 
+The origin can also be found by address. Only after an explicit search does the
+example send the typed text to the [PDOK Locatieserver](https://www.pdok.nl/pdok-locatieserver)
+(Dutch addresses only). Every result is validated, and choosing one sets the
+origin without starting a calculation. The map pans only when the address lies
+outside the current view.
+
 Coordinate fields retain incomplete text while editing and accept a decimal dot
 or comma. Only a valid longitude/latitude pair updates the map origin; calculation
 is disabled until both fields are valid. Empty, missing or invalid URL coordinate

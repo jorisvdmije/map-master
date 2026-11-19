@@ -5,6 +5,17 @@
 .ra-profiles{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:22px}
 .ra-profiles button{display:grid;gap:6px;place-items:center;padding:12px 3px;border:1px solid var(--mm-line);border-radius:9px;background:transparent;color:var(--mm-muted);font-size:var(--mm-text-xs)}
 .ra-profiles [aria-pressed=true]{background:var(--mm-tint);border-color:#659b7e;color:var(--mm-accent)}
+.ra-address{display:grid;gap:6px;font-size:var(--mm-text-xs);color:var(--mm-text)}
+.ra-address>div{display:flex;gap:6px}
+.ra-address input{flex:1;min-width:0;font-size:var(--mm-text-sm)}
+.ra-address .an-button{flex:none}
+.ra-address-results{display:grid;gap:6px;margin-top:10px}
+.ra-address-results button{display:flex;align-items:flex-start;gap:7px;text-align:left;border:1px solid var(--mm-line);background:var(--mm-wash);color:var(--mm-text);padding:10px;border-radius:6px;font-size:var(--mm-text-xs);line-height:1.5}
+.ra-address-results button:hover{background:var(--mm-tint);border-color:var(--mm-line-strong)}
+.ra-address-results button svg{flex:none;margin-top:2px;color:var(--mm-accent)}
+.ra-address-results p{font-size:var(--mm-text-xs);line-height:1.6;color:var(--mm-text);margin:0}
+.ra-origin{font-size:var(--mm-text-xs);color:var(--mm-text);margin:10px 0 0}
+.ra-origin strong{color:var(--mm-ink)}
 .ra-coordinates{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:15px 0}
 .ra-coordinates input{width:100%;font-size:var(--mm-text-xs)}
 .ra-coordinates input[aria-invalid=true]{border-color:#ab543a}

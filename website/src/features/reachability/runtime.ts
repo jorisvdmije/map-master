@@ -208,6 +208,11 @@ export class ReachabilityRuntime {
       coordinates: origin,
     });
   }
+  /** Pans to an explicitly chosen origin, only when it is outside the view. */
+  reveal(origin: Coordinate) {
+    if (!this.map.getBounds().contains(origin))
+      this.map.easeTo({ center: origin, duration: 0 });
+  }
   pickOrigin(enabled: boolean) {
     this.editor.cancel();
     this.picking = enabled;
