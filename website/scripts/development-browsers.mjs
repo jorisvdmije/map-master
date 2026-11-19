@@ -15,7 +15,7 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 const root = `${origin}${basePath}`;
 const names = process.argv.slice(2).length ? process.argv.slice(2) : ["chromium", "firefox", "webkit"];
 const results = [];
-const defaults = { start: 2016, end: 2026, minimum: 100, stockFilter: true, maxStockChange: 20, query: "" };
+const defaults = { start: 2023, end: 2026, minimum: 100, stockFilter: true, maxStockChange: 20, query: "" };
 const fmtPercent = (value) => `${value > 0 ? "+" : ""}${value.toLocaleString("nl-NL", { maximumFractionDigits: 1 })}%`;
 // Independent expectations from the official snapshot; no browser-model import.
 function expected(filters) {
@@ -78,22 +78,26 @@ try {
       await page.locator("[data-development][data-ready=true]").waitFor();
       const initialCount = await expectCount();
       assert.ok(initialCount > 200);
-      assert.equal(await page.locator('[data-stat="city-growth"]').textContent(), "—", "The city comparison must not cross the Weesp boundary break");
+      const defaultCityGrowth = 100 * (snapshot.city.woz[defaults.end] / snapshot.city.woz[defaults.start] - 1);
+      assert.equal(await page.locator('[data-stat="city-growth"]').textContent(), fmtPercent(defaultCityGrowth), "The default period has a comparable city series");
+      assert.equal(await page.getByRole("button", { name: "3 jaar", exact: true }).getAttribute("aria-pressed"), "true", "The default period is one of the quick choices");
       assert.ok(requests.some((url) => url.endsWith("/data/amsterdam-development.json")));
       assert.ok(requests.some((url) => url.endsWith("/data/amsterdam-development-geometry.json")));
       assert.ok(!requests.some((url) => new URL(url).origin !== origin), "Opening this analysis uses local official snapshots without external API requests");
 
-      for (const length of [1, 5, 10, "all"]) {
+      for (const length of [1, 3, 5, 10, "all"]) {
         await choosePeriod(length);
         if (length === 1) {
           const cityGrowth = 100 * (snapshot.city.woz[filters.end] / snapshot.city.woz[filters.start] - 1);
           assert.equal(await page.locator('[data-stat="city-growth"]').textContent(), fmtPercent(cityGrowth));
         }
+        if (length === 10) assert.equal(await page.locator('[data-stat="city-growth"]').textContent(), "—", "The city comparison must not cross the Weesp boundary break");
       }
       await choosePeriod(10);
+      const tenYearCount = await expectCount();
       await page.getByLabel("Beperk nieuwbouweffect", { exact: true }).uncheck();
       filters.stockFilter = false;
-      assert.ok(await expectCount() > initialCount, "Disabling the stock filter reveals areas with major stock changes");
+      assert.ok(await expectCount() > tenYearCount, "Disabling the stock filter reveals areas with major stock changes");
       assert.equal(await page.getByLabel("Maximale voorraadverandering", { exact: true }).isDisabled(), true);
       await page.getByLabel("Beperk nieuwbouweffect", { exact: true }).check();
       filters.stockFilter = true;
