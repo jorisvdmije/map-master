@@ -1264,3 +1264,23 @@ Existing editing sessions accept touch and pen tips on corners and midpoints,
 including existing vertex groups, snapping and one saved Undo. See the
 [touch/pen contract](touch-pen-vertices.md) for target sizes, contact-offset movement,
 map gesture ownership, interruption rollback and the bounded compatibility scope.
+
+## Validate GeoJSON before creating an editor
+
+`validateGeoJSON(input: unknown): void` applies the same standalone 2D geometry,
+JSON-property and batch-identifier validation used for imports. It returns nothing
+on success and throws `GeoJSONImportError` with a `code` and input `path` on failure.
+It does not modify the input, allocate persistent IDs or require a map/DOM.
+
+```ts
+import { validateGeoJSON, GeoJSONImportError } from '@jorisvdmije/map-master';
+try {
+  validateGeoJSON(parsedFile);
+} catch (error) {
+  if (error instanceof GeoJSONImportError) console.error(error.path, error.code);
+}
+```
+
+This validates the input batch, not its compatibility with a particular editor's
+existing IDs, locks, layer definitions, feature limit, pin groups or geofencing.
+The editor still checks these policies atomically when importing or committing.

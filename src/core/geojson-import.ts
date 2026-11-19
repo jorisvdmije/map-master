@@ -1,3 +1,4 @@
+import { assertGeometryComplexity } from './geometry-complexity.js';
 import { textMarkerOptions } from './text-marker.js';
 import { readVertexPins } from './vertex-pins.js';
 import { featureDataLayerId } from './data-layers.js';
@@ -113,6 +114,7 @@ function geometry(value: unknown, path: string): GeometryFeature['geometry'] {
 
 /** Validate and copy the whole batch before the caller commits any feature. */
 export function prepareImport(input: unknown, hasId: (id: FeatureId) => boolean, createId: () => FeatureId): GeometryFeature[] {
+  assertGeometryComplexity(input);
   if (!record(input)) return fail('invalid-geojson', '$', 'Expected a parsed Feature or FeatureCollection.');
   if ('crs' in input) fail('unsupported-crs', '$.crs', 'Legacy CRS declarations are not supported.');
   const collection = input.type === 'FeatureCollection';
@@ -153,5 +155,20 @@ export function prepareImport(input: unknown, hasId: (id: FeatureId) => boolean,
     }
     if (id === undefined) return fail('duplicate-id', '$', 'Could not allocate a unique feature ID.');
     return withGeometry({ id, properties: feature.properties }, feature.geometry);
+  });
+}
+
+/** Validate a GeoJSON batch without mutating input or attaching it to an editor.
+ * Uses the same 2D geometry, property and identifier contract as editor imports.
+ * Anonymous features receive temporary internal IDs only during validation.
+ */
+export function validateGeoJSON(input: unknown): void {
+  let next = 0;
+  const values = record(input) && input.type === 'FeatureCollection' && Array.isArray(input.features) ? input.features : [input];
+  const explicit = new Set(values.flatMap((value: unknown) => record(value) ? [value.id] : []));
+  prepareImport(input, () => false, () => {
+    let candidate: string;
+    do { candidate = `validation-${++next}`; } while (explicit.has(candidate));
+    return candidate;
   });
 }

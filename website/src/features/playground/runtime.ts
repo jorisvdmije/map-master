@@ -73,7 +73,7 @@ export class PlaygroundRuntime {
   }
   private settings(): Settings {
     return { basemap: this.basemap, snapping: this.editor.getSnapping().enabled, guides: this.editor.getAlignmentGuides().enabled,
-      measurements: this.editor.getMeasurements().enabled, scaleBorders: this.editor.getAppearance().polygonOutline.scaleWithZoom, toolbarColumns: this.toolbarColumns };
+      measurements: this.editor.getMeasurements().enabled, lineLabelStyle: this.editor.getMeasurements().lineStyle ?? "badge", scaleBorders: this.editor.getAppearance().polygonOutline.scaleWithZoom, toolbarColumns: this.toolbarColumns };
   }
   private refresh(force = false) {
     if (this.suspended || this.disposed) return;
@@ -167,7 +167,7 @@ export class PlaygroundRuntime {
       this.hoverPreviews = structuredClone(project.hoverPreviews); this.preview.refresh();
       this.editor.setSnapping({ enabled: project.settings.snapping });
       this.editor.setAlignmentGuides({ enabled: project.settings.guides });
-      this.editor.setMeasurements({ enabled: project.settings.measurements });
+      this.editor.setMeasurements({ enabled: project.settings.measurements, lineStyle: project.settings.lineLabelStyle ?? "badge" });
       this.editor.setAppearance({ polygonOutline: { scaleWithZoom: project.settings.scaleBorders } });
       this.toolbarColumns = project.settings.toolbarColumns;
       this.applyToolbarColumns();
@@ -234,6 +234,7 @@ export class PlaygroundRuntime {
     else if (key === "basemap") { this.basemap = value as Settings["basemap"]; this.refresh(); void this.applyBasemap(); }
     else if (key === "snapping") this.editor.setSnapping({ enabled: Boolean(value) });
     else if (key === "guides") this.editor.setAlignmentGuides({ enabled: Boolean(value) });
+    else if (key === "lineLabelStyle") this.editor.setMeasurements({ lineStyle: value as "badge" | "along-line" });
     else if (key === "measurements") this.editor.setMeasurements({ enabled: Boolean(value) });
     else this.editor.setAppearance({ polygonOutline: { scaleWithZoom: Boolean(value) } });
   }

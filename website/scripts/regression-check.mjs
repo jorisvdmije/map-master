@@ -30,6 +30,12 @@ export async function checkRegressions({ context, browser, origin, site }) {
     await search.getByRole("button", { name: "Try again", exact: true }).click();
     await search.locator(".search-result").first().waitFor();
     const input = search.getByRole("combobox");
+    for (const term of ["belasting", "nieuwbouw", "erfpacht", "opleiding", "vakantieverhuur"]) {
+      await input.fill(term);
+      await search.locator('.search-result[href="/map-master/analysis/housing/"]').waitFor();
+    }
+    await input.fill("");
+    await search.locator(".search-result").nth(8).waitFor();
     await input.press("ArrowUp");
     assert.equal(await search.locator('.search-result[aria-selected="true"]').getAttribute("id"), await input.getAttribute("aria-activedescendant"));
     assert.equal(await search.locator('.search-result[aria-selected="true"]').getAttribute("id"), `search-result-${await search.locator(".search-result").count() - 1}`);

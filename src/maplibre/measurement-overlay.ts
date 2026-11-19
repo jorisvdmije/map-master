@@ -10,6 +10,8 @@ export interface MeasurementLabel {
   detail?: string;
   /** Segment labels are smaller than the totals of a shape. */
   kind: 'segment' | 'total';
+  direction?: [Coordinate, Coordinate];
+  appearance?: 'along-line';
 }
 
 const styles = `
@@ -24,6 +26,7 @@ const styles = `
 }
 .mm-measurement[data-kind="segment"] { padding: 1px 5px; font-size: 11px; font-weight: 500; }
 .mm-measurement span { display: block; font-size: 11px; font-weight: 400; color: var(--mm-measurement-muted, #4b5563); }
+.mm-measurement[data-appearance="along-line"] { background: transparent; box-shadow: none; padding: 0 3px; font-weight: 750; font-size: 13px; text-shadow: -2px -2px 0 #fff, 0 -2px 0 #fff, 2px -2px 0 #fff, -2px 0 0 #fff, 2px 0 0 #fff, -2px 2px 0 #fff, 0 2px 0 #fff, 2px 2px 0 #fff; }
 `;
 
 /** HTML labels above the map canvas. They need no map glyphs and follow the camera. */
@@ -55,6 +58,7 @@ export class MeasurementOverlay {
       let element = this.container.children[index] as HTMLDivElement | undefined;
       if (!element) { element = document.createElement('div'); element.className = 'mm-measurement'; this.container.append(element); }
       element.dataset.kind = label.kind;
+      if (label.appearance) element.dataset.appearance = label.appearance; else delete element.dataset.appearance;
       element.textContent = label.text;
       if (label.detail) {
         const detail = document.createElement('span');
@@ -77,7 +81,14 @@ export class MeasurementOverlay {
       const element = this.container.children[index] as HTMLElement | undefined;
       if (!element) return;
       const { x, y } = this.map.project(label.coordinate);
-      element.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, -50%)`;
+      let angle = 0;
+      if (label.direction) {
+        const a = this.map.project(label.direction[0]), b = this.map.project(label.direction[1]);
+        angle = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+        if (angle > 90) angle -= 180;
+        if (angle < -90) angle += 180;
+      }
+      element.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, -50%) rotate(${angle}deg)`;
     });
   };
 }

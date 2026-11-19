@@ -33,9 +33,15 @@ CI runs this for every commit; run it locally to rehearse:
 
 ```sh
 npm ci && npm ci --prefix website
-npx playwright install chromium
+npx playwright install chromium firefox webkit
 npm run release:prepare
 ```
+
+On Linux, use `npx playwright install --with-deps chromium firefox webkit` to
+include system libraries. Release preparation includes the Chromium library and
+installed-application suites plus website checks in Chromium, Firefox and WebKit.
+To match Ubuntu CI's windowed WebGL mode, install `xvfb` and run
+`xvfb-run -a env GEO_DOCS_HEADED=1 npm run release:prepare`.
 
 The command packs the library once into a new `artifacts/releases/candidate-*`
 directory and runs `npm run check` against that archive: the package consumer test
@@ -80,3 +86,25 @@ Afterwards:
 `GEO_RELEASE_ARCHIVE` makes `npm test` and `npm run test:workspace` install an existing
 archive instead of packing a new one, and `GEO_BETA_REPORT_DIR` changes where the
 budget report is written. `release:prepare` sets both itself.
+
+## Complete local source candidates
+
+`release:prepare` captures every tracked and nonignored untracked regular source
+file, records its SHA-256 in `candidate-source.json`, and writes `source.tgz`
+next to the package archive. It verifies the source manifest before and after the
+checks. Thus a dirty checkout is explicit and its additional source is recoverable;
+the baseline commit alone is not used as proof of the tested source.
+
+For a clean install, extract `source.tgz` to an empty directory, run `npm ci` and
+`npm ci --prefix website`, install the documented browsers, then run:
+
+```sh
+GEO_SOURCE_MANIFEST="$PWD/candidate-source.json" npm run release:prepare
+```
+
+This verifies the extracted files without needing a `.git` directory. The report
+keeps the original baseline commit and dirty flag instead of inventing a source
+commit. Archive hashes identify the candidate. Do not publish the existing
+`0.2.0` version as a new release: the source remains Unreleased until maintainers
+choose the next version/tag and complete the public release checklist. Source
+archives and package archives are local evidence, not publication approval.

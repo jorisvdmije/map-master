@@ -98,10 +98,10 @@ export class AnalysisRuntime {
     const bounds = bbox(target);
     this.map.fitBounds([[bounds[0]!, bounds[1]!], [bounds[2]!, bounds[3]!]], { padding: 65, maxZoom: row === undefined ? 15 : 17, duration: 0 });
   }
-  replaceAreas(areas: AnalysisArea[]) {
+  replaceAreas(areas: AnalysisArea[], preserveIds = false) {
     if (this.editor.getState().mode !== "idle") throw new Error("Finish or cancel your current area first.");
     const current = this.editor.exportGeoJSON();
-    const incoming = areas.map((f, i) => ({ ...f, id: `area-${i + 1}`, properties: { name: typeof f.properties?.name === "string" ? f.properties.name : `Area ${i + 1}` } })) as unknown as GeometryFeatureCollection["features"];
+    const incoming = areas.map((f, i) => ({ ...f, id: preserveIds && f.id !== undefined ? f.id : `area-${i + 1}`, properties: preserveIds ? f.properties : { name: typeof f.properties?.name === "string" ? f.properties.name : `Area ${i + 1}` } })) as unknown as GeometryFeatureCollection["features"];
     const previous = new Set(current.features.map(f => f.id));
     const next = new Set(incoming.map(f => f.id));
     this.editor.applyTransaction({ update: incoming.filter(f => previous.has(f.id)), create: incoming.filter(f => !previous.has(f.id)), delete: current.features.filter(f => !next.has(f.id)).map(f => f.id) });

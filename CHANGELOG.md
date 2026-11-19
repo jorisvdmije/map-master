@@ -8,6 +8,34 @@ follows [semantic versioning](https://semver.org/); see the
 
 ### Added
 
+- Add a searchable data catalog with 32 curated source profiles, topic/provider/
+  coverage filters, local favorites and shareable filtered URLs. Distinguish local
+  downloads, sources used by existing maps and external discovery. Publish actual
+  CBS GeoJSON/CSV downloads with provenance and file fingerprints, and discover
+  exported page counts from the output instead of a hand-maintained offset.
+
+- Shared workspace navigation, versioned public research-view links with history,
+  housing task jumps, three-neighborhood comparison and CSV metadata downloads.
+- Named local Playground copies with timestamps, open and duplicate actions.
+- Source review registry and scheduled reviews, nonvisual task and user-study
+  protocols, explicit stale-refetch provenance, and Amsterdam/Weesp street identity.
+- Import complexity preflight budgets and serialized incremental MapLibre source
+  uploads with a Mapbox fallback. Cache versioned street assets and ship compressed
+  sidecars. Keep human screenreader and physical-device qualification explicit.
+
+- Add pure `validateGeoJSON` for import-contract validation before creating an editor.
+- Recover free-analysis data, areas, fields, filters and active area in the
+  browser, with save status, navigation warnings on storage failure and
+  downloadable corrupt-copy recovery.
+
+- Add provider-independent network reachability with a Valhalla adapter, explicit
+  origin/mode/time/direction, abort support, validated cumulative contours and
+  non-overlapping display bands. Include an interactive reachability workspace.
+- Add opt-in `measurements.lineStyle: 'along-line'` for upright, white-halo line
+  lengths that follow the camera, including a saved Playground setting.
+- Add the Amsterdam housing example with BAG/CBS joins and per-home municipal
+  trees, modeled RIVM noise and dated energy-label context, plus source-aware exports.
+
 - Add a spatial analysis workspace, an explicitly simulated B&B permit example
   on real Amsterdam boundaries, and a Street Lab using local NWB and municipal
   lighting, tree and MORA snapshots. Include pooled street indicators, monthly
@@ -29,6 +57,23 @@ follows [semantic versioning](https://semver.org/); see the
   playground, with keyboard point-selection access and Escape dismissal.
 
 ### Fixed
+
+- Reject non-cumulative reachability responses, including small outside slivers,
+  holes and missing islands, before publishing contours or display bands.
+- Search page descriptions and current housing topics, including taxes, new
+  construction, leasehold, education and holiday rentals.
+- Keep coordinate input drafts editable, validate before moving the origin or
+  calculating, and use the default for empty or invalid URL coordinate pairs.
+- Pin development-only Minimatch 10.x consumers to 11.0.1 in both dependency
+  trees for GHSA-g3hv-75wg-m249; add scheduled full and production npm audits.
+- Install all three website browser engines in development and release setup
+  instructions, with Linux system-library and virtual-display commands.
+
+- Interpret Dutch grouped filter amounts such as `500.000` and `500.000,00`
+  without silently reducing their magnitude; use the same convention for tax
+  WOZ input and explain it beside the fields.
+- Reject invalid polygon topology in analysis/reachability source imports before
+  changing the dataset, including self-crossings, invalid holes and overlapping parts.
 
 - Clear stale hover dismissal after a map resize while keeping clicked property
   cards pinned, so WebKit can show the same object's properties at its new place.

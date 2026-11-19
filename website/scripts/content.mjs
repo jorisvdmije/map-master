@@ -1,3 +1,5 @@
+import { createCatalog } from "./lib/catalog.mjs";
+import { gzipSync, brotliCompressSync, constants } from "node:zlib";
 import { readFileSync, readdirSync, rmSync } from "node:fs";
 import { resolve, dirname, relative, basename } from "node:path";
 import { createHash } from "node:crypto";
@@ -20,13 +22,31 @@ const observations = readFileSync(resolve(site, "src/features/streets/observatio
 const observationMeta = JSON.parse(readFileSync(resolve(site, "src/features/streets/observations-meta.json"), "utf8"));
 if (createHash("sha256").update(streetGeometry).digest("hex") !== observationMeta.geometrySha256) throw new Error("Rebuild street observations after changing the road snapshot.");
 if (createHash("sha256").update(JSON.stringify(JSON.parse(observations).roads)).digest("hex") !== observationMeta.countsSha256) throw new Error("Street observation count fingerprint mismatch.");
+if (createHash("sha256").update(observations).digest("hex") !== observationMeta.observationsSha256) throw new Error("Street observations asset fingerprint mismatch.");
 queueFile(resolve(publicDir, "data/amsterdam-roads.geojson"), streetGeometry);
+queueFile(resolve(publicDir, `data/amsterdam-roads.${observationMeta.geometrySha256.slice(0,16)}.geojson`), streetGeometry);
 queueFile(resolve(publicDir, "data/amsterdam-street-observations.json"), observations);
+queueFile(resolve(publicDir, `data/amsterdam-street-observations.${observationMeta.observationsSha256.slice(0,16)}.json`), observations);
 queueFile(resolve(publicDir, "data/amsterdam-street-sources.json"), JSON.stringify(observationMeta));
 const heatData = readFileSync(resolve(site, "src/features/streets/heat.json"));
 if (createHash("sha256").update(heatData).digest("hex") !== observationMeta.heatSha256) throw new Error("Heat snapshot fingerprint mismatch.");
 queueFile(resolve(publicDir, "data/amsterdam-street-heat.json"), heatData);
+queueFile(resolve(publicDir, `data/amsterdam-street-heat.${observationMeta.heatSha256.slice(0,16)}.json`), heatData);
 const github = "https://github.com/jorisvdmije/map-master";
+const housing = JSON.parse(readFileSync(resolve(site, "src/features/housing/snapshot.json"), "utf8"));
+if (createHash("sha256").update(JSON.stringify(housing.data)).digest("hex") !== housing.meta.sha256) throw new Error("Housing snapshot fingerprint mismatch.");
+queueFile(resolve(publicDir, "data/amsterdam-housing.json"), JSON.stringify(housing));
+const development = JSON.parse(readFileSync(resolve(site, "src/features/development/snapshot.json"), "utf8"));
+const developmentGeometry = JSON.parse(readFileSync(resolve(site, "src/features/development/geometry.json"), "utf8"));
+if (createHash("sha256").update(JSON.stringify({ areas: development.areas, city: development.city })).digest("hex") !== development.meta.sha256) throw new Error("Development snapshot fingerprint mismatch.");
+if (createHash("sha256").update(JSON.stringify(developmentGeometry)).digest("hex") !== development.meta.geometrySha256) throw new Error("Development geometry fingerprint mismatch.");
+queueFile(resolve(publicDir, "data/amsterdam-development.json"), JSON.stringify(development));
+queueFile(resolve(publicDir, "data/amsterdam-development-geometry.json"), JSON.stringify(developmentGeometry));
+const { catalog } = createCatalog({ housing, development, developmentGeometry, geometry: streetGeometry, observations, heat: heatData, observationMeta,
+  queue: (path, content) => queueFile(resolve(publicDir, path.slice(1)), content),
+});
+queueFile(resolve(output, "data-catalog.json"), JSON.stringify(catalog));
+
 const { version } = JSON.parse(readFileSync(resolve(repo, "package.json"), "utf8"));
 const pages = [
   ...readdirSync(resolve(site, "content")).filter(f => f.endsWith(".md"))
@@ -39,7 +59,16 @@ const pages = [
 if (new Set([...pages.map(page => page.slug), "all-guides"]).size !== pages.length + 1) throw new Error("Duplicate or reserved documentation slug.");
 const compiler = await createMarkdownCompiler({ repo, github, pathToSlug: new Map(pages.map(p => [p.path, p.slug])) });
 const guides = [];
-const search = [{
+const search = [{ title: "Gebiedsrapport Amsterdam", href: "/area-report/", description: "Kies een buurt of adres en bekijk wonen, groen, geluid, voorzieningen en bereikbaarheid met bronjaren.", text: "gebiedsrapport buurtrapport adres buurt cijfers bomen geluid voorzieningen bereikbaarheid PDF JSON CSV bronjaar" }, { title: "Databank", href: "/data/", description: "Vind datasets over wonen, groen, klimaat, verkeer en voorzieningen. Bronprofielen, favorieten en beschikbare downloads.", text: "data databank database catalogus bronnen datasets bronjaar GeoJSON CSV downloaden favorieten" }, ...catalog.datasets.map(entry => ({ title: entry.title, href: `/data/${entry.id}/`, description: entry.summary, text: [entry.publisher, entry.caveat, ...entry.tags].join(" ") })), {
+  title: "Buurtontwikkeling Amsterdam", href: "/analysis/development/", description: "Vergelijk WOZ-ontwikkeling van 2012 tot en met 2026, met tijdlijn, kaart, groeiranglijst en woningvoorraadfilter.",
+  text: "buurtontwikkeling buurt buurten WOZ groei stijging woningwaarde nieuwbouw woningvoorraad tijdlijn jaren Statistiekhub BBGA",
+}, {
+  title: "Bereikbaarheidscontouren", href: "/analysis/reachability/", description: "Reistijd over het wegennet voor lopen, fietsen, e-bike en auto, met transparante contouren, tellingen en lijnmetingen.",
+  text: "bereikbaarheid contouren isochrone isochrones reistijd interval lopen fiets ebike auto afstand lijn meten",
+}, {
+  title: "Wonen in Amsterdam", href: "/analysis/housing/", description: "25 CBS-kaartlagen: WOZ-ontwikkeling, nieuwbouw, opleiding, energie en voorzieningen. Filters, BAG-adressen, erfpachtcontext en belastingen.",
+  text: "woning woningen BAG adres adressen WOZ woningwaarde huisprijzen waardestijging nieuwbouw opleiding opleidingsniveau belasting belastingen OZB erfpacht vakantieverhuur verhuur B&B buurt buurten koopwoning energielabel open data bronnen correlatie",
+}, {
   title: "Straatmonitor Amsterdam", href: "/analysis/streets/", description: "Echte Amsterdamse registraties: bomen, lichtobjecten, storingen en MORA-meldingen, met heatmaps, straatindicatoren, correlaties, clusters en bronverantwoording.",
   text: "straten wegvakken straatkwaliteit verlichting veiligheid correlatie clustering k-means wijken onderhoud groen Amsterdam analyse heatmap heatmaps concentraties bronvakken dichtheid radius",
 }, {
@@ -120,6 +149,14 @@ queueFile(resolve(publicDir, "licenses.txt"), [
   ["Manrope font", resolve(site, "node_modules/@fontsource-variable/manrope/LICENSE")],
   ["DM Sans font", resolve(site, "node_modules/@fontsource-variable/dm-sans/LICENSE")],
 ].map(([label, file]) => `${label}\n${readFileSync(file, "utf8")}`).join("\n\n"));
+const cacheHeaders = [];
+for (const [file, content] of [...pending]) {
+  if (!/\.[a-f0-9]{16}(?:-\d{4}-\d{2}-\d{2})?\.(json|geojson)$/.test(file)) continue;
+  pending.set(`${file}.gz`, gzipSync(content));
+  pending.set(`${file}.br`, brotliCompressSync(content, { params: { [constants.BROTLI_PARAM_QUALITY]: 4 } }));
+  cacheHeaders.push(`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/data/${basename(file)}\n  Cache-Control: public, max-age=31536000, immutable`);
+}
+queueFile(resolve(publicDir, "_headers"), cacheHeaders.join("\n\n") + "\n");
 for (const [file, content] of pending) writeFileAtomically(file, content);
 // Publish the manifest last, after all files it references are in place.
 writeFileAtomically(resolve(output, "manifest.json"), JSON.stringify({ version, guides }));

@@ -170,3 +170,30 @@ protect existing features. History peeks before consuming a blocked entry, with
 per-entry policy caching. The adapter cancels gestures when policy changes and
 restores the committed view if an active mutation draft is revoked. Reference
 snapping/tracing and read-only subtraction inputs stay available.
+
+## Opt-in services and data applications
+
+`src/services/reachability.ts` defines provider-independent travel profiles,
+requests, cumulative contour validation and bands. Its `createValhallaProvider`
+implements the explicitly invoked network provider. This layer depends on pure
+geometry contracts and web platform APIs, never the editor, DOM, React or GL.
+The editor does not call it automatically.
+
+`website/src/features/data/` holds host-side joins and small network guards:
+trusted collection paths, page limits, total-count completeness, and cancellation
+with per-request timeouts. Source-specific units, years and missing-value meaning
+remain inside the housing and street adapters. No host data source or persistence
+policy belongs in the core library.
+
+The host applications own React Query caches, local recovery, named Playground
+copies, the versioned public research-view URL and exports. View URLs contain
+only explicitly whitelisted settings; files, imported datasets, BAG addresses and
+personal notes are excluded. A view link never replaces a portable project or
+analysis file.
+
+Rotation candidate preparation lives in `core/rotation-review.ts`; the drawing
+session retains the only authoritative commit/history boundary. The renderer's
+`CommittedSourceUpload` serializes worker writes and computes typed render-ID
+differences. It uses MapLibre's async diff contract, retains Mapbox's full upload
+path, resets after upload failure and preserves the transfer revision and visible
+tile gate. See [performance](performance.md) for limits and qualification.

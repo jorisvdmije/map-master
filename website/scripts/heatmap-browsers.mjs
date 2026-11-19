@@ -28,11 +28,11 @@ try {
       await page.goto(`http://127.0.0.1:${server.address().port}${basePath}/analysis/streets/`);
       await page.locator('[data-ready="true"]').waitFor({ timeout: 60000 }); await idle();
       // Failure of the optional concentration asset is recoverable and leaves streets usable.
-      await page.route('**/data/amsterdam-street-heat.json', route => route.fulfill({ status: 503, body: 'unavailable' }));
+      await page.route('**/data/amsterdam-street-heat*.json', route => route.fulfill({ status: 503, body: 'unavailable' }));
       await page.getByRole('button', { name: 'Concentraties', exact: true }).click();
       await page.getByText('Concentraties laden lukt nog niet', { exact: true }).waitFor();
       assert.equal(await page.getByRole('button', { name: 'Straten', exact: true }).isEnabled(), true);
-      await page.unroute('**/data/amsterdam-street-heat.json'); errors.length = 0;
+      await page.unroute('**/data/amsterdam-street-heat*.json'); errors.length = 0;
       await page.getByRole('button', { name: 'Probeer concentraties opnieuw', exact: true }).click();
       await page.locator('[data-heat-ready="true"]').waitFor({ timeout: 60000 }); await idle();
       assert.equal(await total(), sourceMeta.sources.find(s => s.key === 'reports').matched);

@@ -7,6 +7,12 @@ The library itself remains independent of the website's framework dependencies.
 
 ## Architecture
 
+- `src/features/area-report/`: Dutch area report at `/area-report/`, joining a
+  chosen neighborhood or PDOK address to the existing CBS snapshot. Optional
+  tree, noise and cycling-range sources retain per-source dates and errors.
+  Sharing, JSON/CSV downloads and print-to-PDF are included. See
+  [source semantics and checks](src/features/area-report/SOURCES.md).
+
 - `src/app/`: shared root layout/providers, metadata, errors and full-page
   workspaces. The `(docs)` route group owns the home page, generated guide routes
   and persistent documentation header/sidebar/search. Layout choice is structural,
@@ -267,3 +273,83 @@ properties, street and heatmap screenshots alongside documentation evidence.
 Server-shell assertions parse direct HTTP responses, so client JavaScript cannot
 insert a missing shell and make the server check pass. Browser suites separately
 exercise hydration, navigation, reloads and map readiness in each engine.
+
+### Analysis validation and recovery
+
+Housing filters and the tax WOZ input share Dutch number parsing: `500.000`
+and `500.000,00` mean 500,000, while `0,5` means one half. Tax WOZ values
+must be positive whole euros; malformed or fractional-euro values show a field error.
+
+The free-analysis and reachability dataset parser checks Polygon/MultiPolygon
+ring topology using the library's pure `validateGeoJSON` contract. Invalid rings,
+holes and multipart overlaps fail with a feature number before publishing a new
+dataset. Analysis datasets keep valid additional ordinates and MultiPoint records;
+polygon topology is checked in the first two ordinates. Editable analysis areas
+retain the editor's strict 2D contract.
+
+Free analysis automatically saves committed data, areas, field choices, filters
+and the active area in browser `localStorage`. Reloading or returning through
+client navigation restores them. The recovery copy also survives closing and
+reopening the browser when local storage is retained; **Save analysis** downloads a portable backup. Browser data
+can still be cleared by the user or browser.
+Storage restrictions or quota failures show a warning and protect outgoing links
+and document unloads with a confirmation. Client navigation also has an in-memory
+fallback. Corrupt recovery copies remain downloadable and are never overwritten
+until explicitly discarded. Unfinished drawing/editing drafts are not serialized;
+finish or cancel them before leaving. A tab detects a changed saved copy before
+writing and pauses recovery rather than silently replacing another tab’s newer analysis. Download the current work
+and reload to resume after a conflict.
+
+The workspaces share a native application chooser. Housing, streets, B&B and
+reachability and neighborhood development can share version-1 public view settings through “Deel weergave”;
+Back/Forward restores those settings. Imported files and private address context
+are excluded. Free analysis has browser recovery and portable analysis files;
+Playground has automatic current-project recovery plus immutable named copies.
+
+Source review dates and refresh policy live in `../data-maintenance.json`.
+`node ../scripts/check-data-freshness.mjs` records due reviews and fails when an
+owner action is due. The monthly GitHub workflow includes the annual tax review;
+it does not invent next-year figures or refresh sources without validation.
+
+Use `npm run format` and `npm run format:check` for the housing/reachability and
+shared workspace modules. Formatting is pinned and checked with the normal suite.
+
+## Databank
+
+`/data/` biedt een doorzoekbaar bronregister met thema’s, aanbieders, dekking,
+beschikbaarheid en browserfavorieten. `/data/[id]/` bevat server-gerenderde
+bronprofielen, bronperiode, toegang, betekenis en gecontroleerde downloadlinks.
+Het register bevat metadata, geen centrale kopie van alle externe datasets.
+
+Beheer bronnen in `src/features/catalog/registry.ts`. De contentbuild verrijkt
+lokale bestanden met recordaantallen, ophaaldatum, bestandsgrootte en SHA-256;
+GeoJSON/CSV van de volledige CBS-momentopname krijgen eigen metadata. De browser
+laadt volledige gegevens pas na een expliciete download of in de bestaande kaart.
+
+`npm run test:catalog` controleert filtering, bronstatus en echte bestanden;
+`npm run check:catalog` controleert navigatie, favorieten, geschiedenis, export en
+mobiele bediening in Chromium, Firefox en WebKit. Beide zitten in `npm run check`.
+Nieuwe bronprofielen krijgen automatisch een statische route en een zoekingang.
+
+## Buurtontwikkeling
+
+`/analysis/development/` vergelijkt de jaarlijkse gemiddelde WOZ per woning en
+de BAG-woningvoorraad van 2012–2026. De O&S Statistiekhub vervangt de oude
+BBGA-API. De momentopname en exacte historische buurtgrenzen worden alleen
+opgehaald bij het openen van deze toepassing of een download in de databank.
+
+De standaardvergelijking gebruikt tien jaar, minimaal 100 woningen in begin- en
+eindjaar en maximaal 20% voorraadverandering ten opzichte van het beginjaar in
+elk tussenjaar. Het voorraadfilter signaleert woningmixveranderingen; het
+corrigeert geen marktprijsindex. De kaart en ranglijst delen dezelfde selectie.
+De officiële stadsreeks blijft onafhankelijk van buurtfilters. Tijdlijnen
+onderbreken ontbrekende jaren; indexreeksen en groeipercentages over
+onzekere Weesp-/Driemondbreuken in 2022–2023 blijven leeg.
+
+`npm run data:development` ververst bronnen met definitie-, paginerings-,
+gebiedsidentificatie- en bronhashcontroles. De contentbuild controleert de
+gegevens- en geometriefingerprints. `npm run test:development` controleert de
+broncontracten, rekenregels, ontbrekende waarden, exports en annulering.
+`npm run check:development` test periodekeuze, filters, kaart, tijdlijn, delen,
+exports en foutafhandeling in Chromium, Firefox en WebKit. Beide controles
+zitten in `npm run check`. Zie [de bronverantwoording](src/features/development/SOURCES.md).

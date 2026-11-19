@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync, statSync, existsSync } from "node:fs";
 import { extname, resolve, sep } from "node:path";
 
 const mime = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".geojson": "application/geo+json", ".txt": "text/plain", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".ico": "image/x-icon" };
@@ -23,6 +23,12 @@ export function createStaticServer({ directory, basePath = "" }) {
         file = resolve(file, "index.html");
       }
       response.setHeader("Content-Type", mime[extname(file)] ?? "application/octet-stream");
+      const versioned = /\.[a-f0-9]{16}(?:-\d{4}-\d{2}-\d{2})?\.(json|geojson)$/.test(file);
+      response.setHeader("Cache-Control", versioned ? "public, max-age=31536000, immutable" : "no-cache");
+      response.setHeader("Vary", "Accept-Encoding");
+      const accepted = request.headers["accept-encoding"] ?? "";
+      if (/\bbr\b/.test(accepted) && existsSync(`${file}.br`)) { file += ".br"; response.setHeader("Content-Encoding", "br"); }
+      else if (/\bgzip\b/.test(accepted) && existsSync(`${file}.gz`)) { file += ".gz"; response.setHeader("Content-Encoding", "gzip"); }
       response.end(readFileSync(file));
     } catch {
       response.writeHead(404, { "Content-Type": "text/html" });

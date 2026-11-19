@@ -335,3 +335,16 @@
   .pg-start-card h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; margin: 0; }
   .pg-start-card .pg-link-button { display: flex; width: 100%; min-height: 26px; margin-top: 6px; font-size: 10px; }
 }
+
+.pg-local-projects { position: relative; flex-shrink: 0; z-index: 30; max-width: calc(100vw - 2rem); font-size: .8rem; }
+.pg-local-projects summary { cursor: pointer; background: #fff; border: 1px solid #dce5df; border-radius: .4rem; padding: .4rem .7rem; }
+.pg-local-projects > div { position: absolute; top: 100%; right: 0; width: 22rem; max-width: calc(100vw - 2rem); max-height: 60vh; overflow: auto; padding: 1rem; background: #fff; box-shadow: 0 5px 20px #15352a30; }
+.pg-local-projects li { display: flex; gap: .3rem; flex-wrap: wrap; padding-block: .5rem; }
+.pg-local-projects time { flex-basis: 100%; }
+.pg-local-projects > div { left: 0; right: auto; }
+.pg-header .workspace-switcher > nav { left: 0; right: auto; }
+
+.pg-header .pg-local-projects summary { font-size: 0; width: 31px; height: 32px; padding: 7px; text-align: center; }
+.pg-header .pg-local-projects summary::after { content: "▤"; font-size: 15px; }
+.pg-header .pg-local-projects > div { left: auto; right: 0; }
+@media (max-width: 1000px) { .pg-header .pg-local-projects > div { position: fixed; left: auto; right: 12px; top: 67px; } }

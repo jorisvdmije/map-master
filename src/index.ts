@@ -20,6 +20,8 @@ export type { DataLayerControlOptions, DataLayerControlLabels } from './maplibre
 export type { ToolbarButton, ToolbarLabelKey, ToolbarLabels, ToolbarOptions, ToolbarTool } from './maplibre/toolbar.js';
 export { measure, formatArea, formatDistance } from './core/measurement.js';
 export type { Measurement } from './core/measurement.js';
+export { calculateReachability, createValhallaProvider, validateReachabilityRequest, ReachabilityError } from './services/reachability.js';
+export type { ReachabilityRequest, ReachabilityResult, ReachabilityProvider, TravelProfile } from './services/reachability.js';
 export { featurePreview, resolveFeaturePreview } from './core/feature-preview.js';
 export type { FeaturePreviewField, FeaturePreviewOptions, FeaturePreviewContent } from './core/feature-preview.js';
 export type { DrawShape } from './core/shapes.js';
@@ -35,5 +37,7 @@ export type {
   // Committed changes and history.
   DataChangeEvent, DataChangeSource, FeatureChange, FeatureTransaction, TransactionEvent, HistoryAction, HistoryEvent,
 } from './core/types.js';
-export { GeoJSONImportError } from './core/geojson-import.js';
+export { GeoJSONImportError, validateGeoJSON } from './core/geojson-import.js';
 export type { ImportErrorCode } from './core/geojson-import.js';
+
+export { assertGeometryComplexity, geometryLimits, GeometryComplexityError } from './core/geometry-complexity.js';

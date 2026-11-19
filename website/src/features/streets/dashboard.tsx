@@ -1,251 +1,2658 @@
 "use client";
 import Link from "next/link";
+import { SourceAge } from "@/components/workspaces/source-age";
+import { requestSignal } from "@/features/data/source-contract";
+import {
+  ShareView,
+  text,
+  flag,
+  oneOf,
+  recordOf,
+  bounded,
+} from "@/components/workspaces/view-state";
+import { WorkspaceNavigation } from "@/components/workspaces/navigation";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowDownToLine, ArrowUpRight, BedDouble, Check, ChevronLeft, ChevronRight, Focus, GitBranch, Info, Layers2, Lightbulb, MapPinned, Route, Search, SlidersHorizontal, X } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowUpRight,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Focus,
+  GitBranch,
+  Info,
+  Lightbulb,
+  MapPinned,
+  Route,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import type { FeatureCollection, MultiLineString } from "geojson";
 import { assetPath } from "@/lib/paths";
 import { Modal } from "@/features/analysis/modal";
 import { download } from "@/features/playground/project";
 import type { HoverMode } from "@/features/bnb/model";
-import { buildHeat, hexagons, hexReference, hexGradient, validateHeat, heatReference, heatLabels, heatKinds, heatGradient, defaultHeat, type HeatData, type HeatSettings, type HeatView } from "./heat";
+import {
+  buildHeat,
+  hexagons,
+  hexReference,
+  hexGradient,
+  validateHeat,
+  heatReference,
+  heatLabels,
+  heatKinds,
+  heatGradient,
+  defaultHeat,
+  type HeatData,
+  type HeatSettings,
+  type HeatView,
+} from "./heat";
 import { ShiftExplorer, ShiftPanel } from "./shift-charts";
 import { defaultShift, shiftAnalysis, shiftMethod } from "./shifts";
 import { CorrelationPanel } from "./charts";
-import { aggregate, association, countAssociation, combineCounts, clusterStreets, createRoads, descriptions, filterStreets, streetScope, metricDetail, classify, labels, metrics, roadCSV, streetCSV, roadGeoJSON, scoreColor, snapshot, statusColors, statusLabels, summary, observationMeta, units, formatValue, legendLabels, highIsMore, clusterMetrics, windowTotal, attentionCount, wardNames, wards, type Filters, type Metric, type ObservationData, type RoadProperties, type Street, type Status } from "./model";
+import {
+  aggregate,
+  association,
+  countAssociation,
+  combineCounts,
+  clusterStreets,
+  createRoads,
+  descriptions,
+  filterStreets,
+  streetScope,
+  metricDetail,
+  classify,
+  labels,
+  metrics,
+  roadCSV,
+  streetCSV,
+  roadGeoJSON,
+  scoreColor,
+  snapshot,
+  statusColors,
+  statusLabels,
+  summary,
+  observationMeta,
+  units,
+  formatValue,
+  legendLabels,
+  highIsMore,
+  clusterMetrics,
+  windowTotal,
+  attentionCount,
+  wardNames,
+  wards,
+  type Filters,
+  type Metric,
+  type ObservationData,
+  type RoadProperties,
+  type Street,
+  type Status,
+} from "./model";
 import type { MapMode, StreetRuntime } from "./runtime";
 import "@/features/analysis/analysis.css";
 import "./dashboard.css";
 
-const number = (v: number | null, digits = 0) => v === null ? "—" : v.toLocaleString("nl-NL", { maximumFractionDigits: digits });
-const emptyFilters: Filters = { ward: null, query: "", status: "all", cluster: null, doubleDeficit: false };
+const number = (v: number | null, digits = 0) =>
+  v === null
+    ? "—"
+    : v.toLocaleString("nl-NL", { maximumFractionDigits: digits });
+const emptyFilters: Filters = {
+  ward: null,
+  query: "",
+  status: "all",
+  cluster: null,
+  doubleDeficit: false,
+};
 type Panel = "correlations" | "profiles" | "areas" | "shifts";
 
 export function StreetsDashboard() {
-  const [dataset, setDataset] = useState<{ geometry: FeatureCollection<MultiLineString, RoadProperties>; observed: ObservationData } | null>(null), [runtime, setRuntime] = useState<StreetRuntime | null>(null);
-  const [filters, setFilters] = useState<Filters>(emptyFilters), [metric, setMetric] = useState<Metric>("treeDensity");
-  const [mapMode, setMapMode] = useState<MapMode>("streets"), [hoverMode, setHoverMode] = useState<HoverMode>("follow");
-  const [panel, setPanel] = useState<Panel>("correlations"), [x, setX] = useState<Metric>("treeDensity"), [y, setY] = useState<Metric>("reports");
-  const [method, setMethod] = useState<"pearson" | "spearman">("spearman"), [level, setLevel] = useState<"street" | "ward">("street"), [k, setK] = useState(4);
-  const [selected, setSelected] = useState<string | null>(null), [help, setHelp] = useState(false), [drawer, setDrawer] = useState(false);
-  const [showSegments, setShowSegments] = useState(false), [selectedSegment, setSelectedSegment] = useState<string | null>(null);
-  const selectStreet = useCallback((id: string) => { setSelected(id); setSelectedSegment(null); setShowSegments(false); }, []);
-  const [failure, setFailure] = useState(""), [attempt, setAttempt] = useState(0), [notice, setNotice] = useState("");
-  const [heatData, setHeatData] = useState<HeatData | null>(null), [heatFailure, setHeatFailure] = useState(""), [heatAttempt, setHeatAttempt] = useState(0);
-  const [heat, setHeat] = useState<HeatSettings>(defaultHeat), [selectedHeatId, setSelectedHeatId] = useState<string | null>(null), [heatExpanded, setHeatExpanded] = useState(false);
-  const [months, setMonths] = useState(12), [minimumLength, setMinimumLength] = useState(100);
-  const roads = useMemo(() => dataset ? createRoads(dataset.geometry, dataset.observed, months) : null, [dataset, months]);
+  const [dataset, setDataset] = useState<{
+      geometry: FeatureCollection<MultiLineString, RoadProperties>;
+      observed: ObservationData;
+    } | null>(null),
+    [runtime, setRuntime] = useState<StreetRuntime | null>(null);
+  const [filters, setFilters] = useState<Filters>(emptyFilters),
+    [metric, setMetric] = useState<Metric>("treeDensity");
+  const [mapMode, setMapMode] = useState<MapMode>("streets"),
+    [hoverMode, setHoverMode] = useState<HoverMode>("follow");
+  const [panel, setPanel] = useState<Panel>("correlations"),
+    [x, setX] = useState<Metric>("treeDensity"),
+    [y, setY] = useState<Metric>("reports");
+  const [method, setMethod] = useState<"pearson" | "spearman">("spearman"),
+    [level, setLevel] = useState<"street" | "ward">("street"),
+    [k, setK] = useState(4);
+  const [selected, setSelected] = useState<string | null>(null),
+    [help, setHelp] = useState(false),
+    [drawer, setDrawer] = useState(false);
+  const [showSegments, setShowSegments] = useState(false),
+    [selectedSegment, setSelectedSegment] = useState<string | null>(null);
+  const selectStreet = useCallback((id: string) => {
+    setSelected(id);
+    setSelectedSegment(null);
+    setShowSegments(false);
+  }, []);
+  const [failure, setFailure] = useState(""),
+    [attempt, setAttempt] = useState(0),
+    [notice, setNotice] = useState("");
+  const [heatData, setHeatData] = useState<HeatData | null>(null),
+    [heatFailure, setHeatFailure] = useState(""),
+    [heatAttempt, setHeatAttempt] = useState(0);
+  const [heat, setHeat] = useState<HeatSettings>(defaultHeat),
+    [selectedHeatId, setSelectedHeatId] = useState<string | null>(null),
+    [heatExpanded, setHeatExpanded] = useState(false);
+  const [months, setMonths] = useState(12),
+    [minimumLength, setMinimumLength] = useState(100);
+  const roads = useMemo(
+    () =>
+      dataset ? createRoads(dataset.geometry, dataset.observed, months) : null,
+    [dataset, months],
+  );
   const [shiftSettings, setShiftSettings] = useState(defaultShift);
   const [wardSearch, setWardSearch] = useState("");
-  const container = useRef<HTMLDivElement>(null), sidebar = useRef<HTMLElement>(null), client = useQueryClient();
+  const container = useRef<HTMLDivElement>(null),
+    sidebar = useRef<HTMLElement>(null),
+    client = useQueryClient();
   useEffect(() => {
     if (!drawer) return;
     const previous = document.activeElement;
-    const controls = () => [...sidebar.current!.querySelectorAll<HTMLElement>('button:not(:disabled), input, select')].filter(el => el.getClientRects().length);
+    const controls = () =>
+      [
+        ...sidebar.current!.querySelectorAll<HTMLElement>(
+          "button:not(:disabled), input, select",
+        ),
+      ].filter((el) => el.getClientRects().length);
     controls()[0]?.focus();
     const keyboard = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { setDrawer(false); return; }
+      if (event.key === "Escape") {
+        setDrawer(false);
+        return;
+      }
       if (event.key !== "Tab") return;
-      const items = controls(), first = items[0], last = items.at(-1);
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      const items = controls(),
+        first = items[0],
+        last = items.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
     };
     document.addEventListener("keydown", keyboard);
-    return () => { document.removeEventListener("keydown", keyboard); if (previous instanceof HTMLElement && previous.isConnected) previous.focus(); };
+    return () => {
+      document.removeEventListener("keydown", keyboard);
+      if (previous instanceof HTMLElement && previous.isConnected)
+        previous.focus();
+    };
   }, [drawer]);
-  const chooseWard = useCallback((ward: string | null) => { setFilters(f => ({ ...f, ward })); setSelected(null); setDrawer(false); }, []);
+  const chooseWard = useCallback((ward: string | null) => {
+    setFilters((f) => ({ ...f, ward }));
+    setSelected(null);
+    setDrawer(false);
+  }, []);
   useEffect(() => {
     const lifetime = new AbortController();
-    void Promise.all((["/data/amsterdam-roads.geojson", "/data/amsterdam-street-observations.json"] as const).map(async path => {
-      const response = await fetch(assetPath(path), { signal: lifetime.signal, cache: "no-store" });
-      if (!response.ok) throw new Error(`Bronbestand niet beschikbaar (${response.status})`);
-      return response.json();
-    })).then(([geometry, observed]) => {
-      if (geometry.type !== "FeatureCollection" || geometry.features.length !== snapshot.count) throw new Error("Het straatbestand is onvolledig.");
-      createRoads(geometry, observed, 12); // Validate BEFORE publishing; never substitute synthetic/zero data.
-      if (!lifetime.signal.aborted) setDataset({ geometry, observed });
-    }).catch(error => { if (!lifetime.signal.aborted) setFailure(error instanceof Error ? error.message : "Laden mislukt"); });
-    void import("./runtime").then(async ({ mountStreets }) => {
-      const instance = await mountStreets(container.current!, lifetime.signal, client, { road: selectStreet, segment: setSelectedSegment, ward: chooseWard, notice: setNotice, cell: setSelectedHeatId });
-      if (instance && !lifetime.signal.aborted) setRuntime(instance);
-    }).catch(error => { if (!lifetime.signal.aborted) setFailure(error instanceof Error ? error.message : "Kaart kon niet starten"); });
+    void client
+      .fetchQuery({
+        queryKey: [
+          "street-snapshot",
+          observationMeta.geometrySha256,
+          observationMeta.countsSha256,
+          observationMeta.retrieved,
+        ],
+        staleTime: Infinity,
+        gcTime: 30 * 60_000,
+        retry: false,
+        queryFn: async ({ signal }) => {
+          const [geometry, observed] = await Promise.all(
+            (
+              [
+                `/data/amsterdam-roads.${observationMeta.geometrySha256.slice(0, 16)}.geojson`,
+                `/data/amsterdam-street-observations.${observationMeta.observationsSha256.slice(0, 16)}.json`,
+              ] as const
+            ).map(async (path) => {
+              const response = await fetch(assetPath(path), {
+                signal: requestSignal(signal, 60_000),
+              });
+              if (!response.ok)
+                throw new Error(
+                  `Bronbestand niet beschikbaar (${response.status})`,
+                );
+              return response.json();
+            }),
+          );
+          if (
+            geometry.type !== "FeatureCollection" ||
+            geometry.features.length !== snapshot.count
+          )
+            throw new Error("Het straatbestand is onvolledig.");
+          createRoads(geometry, observed, 12);
+          return { geometry, observed };
+        },
+      })
+      .then((data) => {
+        if (!lifetime.signal.aborted) setDataset(data);
+      })
+      .catch((error) => {
+        if (!lifetime.signal.aborted)
+          setFailure(error instanceof Error ? error.message : "Laden mislukt");
+      });
+    void import("./runtime")
+      .then(async ({ mountStreets }) => {
+        const instance = await mountStreets(
+          container.current!,
+          lifetime.signal,
+          client,
+          {
+            road: selectStreet,
+            segment: setSelectedSegment,
+            ward: chooseWard,
+            notice: setNotice,
+            cell: setSelectedHeatId,
+          },
+        );
+        if (instance && !lifetime.signal.aborted) setRuntime(instance);
+      })
+      .catch((error) => {
+        if (!lifetime.signal.aborted)
+          setFailure(
+            error instanceof Error ? error.message : "Kaart kon niet starten",
+          );
+      });
     return () => lifetime.abort();
   }, [attempt, client, chooseWard, selectStreet]);
   useEffect(() => {
     if (mapMode !== "heat" || heatData) return;
     const request = new AbortController();
-    void fetch(assetPath("/data/amsterdam-street-heat.json"), { signal: request.signal, cache: "no-store" }).then(async response => {
-      if (!response.ok) throw new Error(`Concentratiebestand niet beschikbaar (${response.status})`);
-      const data = validateHeat(await response.json() as HeatData);
-      if (!request.signal.aborted) setHeatData(data);
-    }).catch(error => { if (!request.signal.aborted) setHeatFailure(error instanceof Error ? error.message : "Concentraties laden mislukt"); });
+    void client
+      .fetchQuery({
+        queryKey: ["street-heat", observationMeta.heatSha256],
+        staleTime: Infinity,
+        gcTime: 30 * 60_000,
+        retry: false,
+        queryFn: async ({ signal }) => {
+          const response = await fetch(
+            assetPath(
+              `/data/amsterdam-street-heat.${observationMeta.heatSha256.slice(0, 16)}.json`,
+            ),
+            { signal: requestSignal(signal, 60_000) },
+          );
+          if (!response.ok)
+            throw new Error(
+              `Concentratiebestand niet beschikbaar (${response.status})`,
+            );
+          return validateHeat((await response.json()) as HeatData);
+        },
+      })
+      .then((data) => {
+        if (!request.signal.aborted) setHeatData(data);
+      })
+      .catch((error) => {
+        if (!request.signal.aborted)
+          setHeatFailure(
+            error instanceof Error
+              ? error.message
+              : "Concentraties laden mislukt",
+          );
+      });
     return () => request.abort();
-  }, [mapMode, heatData, heatAttempt]);
+  }, [mapMode, heatData, heatAttempt, client]);
   const globalStreets = useMemo(() => aggregate(roads ?? []), [roads]);
-  const clustering = useMemo(() => clusterStreets(globalStreets, k), [globalStreets, k]);
-  const scopedStreets = useMemo(() => streetScope(roads ?? [], filters.ward), [roads, filters.ward]);
-  const visibleStreets = useMemo(() => filterStreets(scopedStreets, filters, metric, clustering.assignments), [scopedStreets, filters, metric, clustering.assignments]);
-  const visible = useMemo(() => visibleStreets.flatMap(s => s.roads), [visibleStreets]);
-  const heatPoints = useMemo(() => heatData && mapMode === "heat" ? buildHeat(heatData, visible, heat.kind, months) : null, [heatData, mapMode, visible, heat.kind, months]);
-  const heatView = useMemo(() => heatPoints && heat.shape === "hex" ? hexagons(heatPoints, heat.radius) : heatPoints, [heatPoints, heat.shape, heat.radius]);
-  const heatScale = useMemo(() => heatData ? (heat.shape === "hex" ? hexReference : heatReference)(heatData, heat.kind, heat.radius) : 1, [heatData, heat.kind, heat.radius, heat.shape]);
-  const selectedCell = useMemo(() => heatView?.data.features.find(f => f.properties.id === selectedHeatId), [heatView, selectedHeatId]);
+  const clustering = useMemo(
+    () => clusterStreets(globalStreets, k),
+    [globalStreets, k],
+  );
+  const scopedStreets = useMemo(
+    () => streetScope(roads ?? [], filters.ward),
+    [roads, filters.ward],
+  );
+  const visibleStreets = useMemo(
+    () => filterStreets(scopedStreets, filters, metric, clustering.assignments),
+    [scopedStreets, filters, metric, clustering.assignments],
+  );
+  const visible = useMemo(
+    () => visibleStreets.flatMap((s) => s.roads),
+    [visibleStreets],
+  );
+  const heatPoints = useMemo(
+    () =>
+      heatData && mapMode === "heat"
+        ? buildHeat(heatData, visible, heat.kind, months)
+        : null,
+    [heatData, mapMode, visible, heat.kind, months],
+  );
+  const heatView = useMemo(
+    () =>
+      heatPoints && heat.shape === "hex"
+        ? hexagons(heatPoints, heat.radius)
+        : heatPoints,
+    [heatPoints, heat.shape, heat.radius],
+  );
+  const heatScale = useMemo(
+    () =>
+      heatData
+        ? (heat.shape === "hex" ? hexReference : heatReference)(
+            heatData,
+            heat.kind,
+            heat.radius,
+          )
+        : 1,
+    [heatData, heat.kind, heat.radius, heat.shape],
+  );
+  const selectedCell = useMemo(
+    () =>
+      heatView?.data.features.find((f) => f.properties.id === selectedHeatId),
+    [heatView, selectedHeatId],
+  );
   useEffect(() => {
     if (!selectedCell) return;
-    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setSelectedHeatId(null); };
-    document.addEventListener("keydown", close); return () => document.removeEventListener("keydown", close);
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedHeatId(null);
+    };
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
   }, [selectedCell]);
-  const streets = useMemo(() => visibleStreets.filter(s => s.named), [visibleStreets]), areas = useMemo(() => aggregate(visible, "ward"), [visible]);
-  const cityRaw = useMemo(() => combineCounts((roads ?? []).map(r => r.raw)), [roads]);
-  const shifts = useMemo(() => shiftAnalysis(streets, cityRaw, shiftSettings.kind, shiftSettings.minimum), [streets, cityRaw, shiftSettings.kind, shiftSettings.minimum]);
+  const streets = useMemo(
+      () => visibleStreets.filter((s) => s.named),
+      [visibleStreets],
+    ),
+    areas = useMemo(() => aggregate(visible, "ward"), [visible]);
+  const cityRaw = useMemo(
+    () => combineCounts((roads ?? []).map((r) => r.raw)),
+    [roads],
+  );
+  const shifts = useMemo(
+    () =>
+      shiftAnalysis(
+        streets,
+        cityRaw,
+        shiftSettings.kind,
+        shiftSettings.minimum,
+      ),
+    [streets, cityRaw, shiftSettings.kind, shiftSettings.minimum],
+  );
   const stats = useMemo(() => {
-    const base = summary(visible, metric), counts = { poor: 0, medium: 0, good: 0, missing: 0 };
+    const base = summary(visible, metric),
+      counts = { poor: 0, medium: 0, good: 0, missing: 0 };
     for (const s of visibleStreets) counts[classify(s[metric], metric)]++;
     return { ...base, counts };
   }, [visible, visibleStreets, metric]);
-  const selectedStreet = useMemo(() => visibleStreets.find(s => s.id === selected), [visibleStreets, selected]);
+  const selectedStreet = useMemo(
+    () => visibleStreets.find((s) => s.id === selected),
+    [visibleStreets, selected],
+  );
   const cityAreas = useMemo(() => aggregate(roads ?? [], "ward"), [roads]);
-  const areaCounts = useMemo(() => new Map(cityAreas.map(a => [a.id, a.count])), [cityAreas]);
-  const rankedAreas = useMemo(() => [...areas].sort((a, b) => {
-    if (a[metric] === null) return b[metric] === null ? a.name.localeCompare(b.name) : 1; if (b[metric] === null) return -1;
-    return highIsMore[metric] ? a[metric]! - b[metric]! : b[metric]! - a[metric]!;
-  }), [areas, metric]);
+  const areaCounts = useMemo(
+    () => new Map(cityAreas.map((a) => [a.id, a.count])),
+    [cityAreas],
+  );
+  const rankedAreas = useMemo(
+    () =>
+      [...areas].sort((a, b) => {
+        if (a[metric] === null)
+          return b[metric] === null ? a.name.localeCompare(b.name) : 1;
+        if (b[metric] === null) return -1;
+        return highIsMore[metric]
+          ? a[metric]! - b[metric]!
+          : b[metric]! - a[metric]!;
+      }),
+    [areas, metric],
+  );
   const allAnalysisRows = level === "street" ? streets : areas;
-  const analysisRows = useMemo(() => allAnalysisRows.filter(s => s.length >= minimumLength), [allAnalysisRows, minimumLength]);
-  useEffect(() => { if (runtime && roads) runtime.setData(scopedStreets, clustering.assignments, clustering.clusters.map(c => c.color)); }, [runtime, roads, scopedStreets, clustering]);
-  useEffect(() => { runtime?.render(visibleStreets, metric, mapMode, filters.ward, areas, selectedStreet?.id ?? null, hoverMode, showSegments, selectedSegment); }, [runtime, visibleStreets, metric, mapMode, filters.ward, areas, selectedStreet, hoverMode, showSegments, selectedSegment]);
-  useEffect(() => { runtime?.renderHeat(heatView, heat, heatScale, selectedCell?.properties.id ?? null); }, [runtime, heatView, heat, heatScale, selectedCell]);
-  useEffect(() => { runtime?.fit(null); }, [runtime]);
-  const reset = () => { setFilters(emptyFilters); setSelected(null); };
-  const update = (patch: Partial<Filters>) => { setFilters(f => ({ ...f, ...patch })); setSelected(null); };
-  const selectObservation = (id: string) => {
-    if (level === "ward") { chooseWard(id); runtime?.fit(id); }
-    else selectStreet(id);
+  const analysisRows = useMemo(
+    () => allAnalysisRows.filter((s) => s.length >= minimumLength),
+    [allAnalysisRows, minimumLength],
+  );
+  useEffect(() => {
+    if (runtime && roads)
+      runtime.setData(
+        scopedStreets,
+        clustering.assignments,
+        clustering.clusters.map((c) => c.color),
+      );
+  }, [runtime, roads, scopedStreets, clustering]);
+  useEffect(() => {
+    runtime?.render(
+      visibleStreets,
+      metric,
+      mapMode,
+      filters.ward,
+      areas,
+      selectedStreet?.id ?? null,
+      hoverMode,
+      showSegments,
+      selectedSegment,
+    );
+  }, [
+    runtime,
+    visibleStreets,
+    metric,
+    mapMode,
+    filters.ward,
+    areas,
+    selectedStreet,
+    hoverMode,
+    showSegments,
+    selectedSegment,
+  ]);
+  useEffect(() => {
+    runtime?.renderHeat(
+      heatView,
+      heat,
+      heatScale,
+      selectedCell?.properties.id ?? null,
+    );
+  }, [runtime, heatView, heat, heatScale, selectedCell]);
+  useEffect(() => {
+    runtime?.fit(null);
+  }, [runtime]);
+  const reset = () => {
+    setFilters(emptyFilters);
+    setSelected(null);
   };
-  const exportData = (kind: "streetcsv" | "csv" | "geojson" | "analysis" | "heat") => {
-    if (kind === "heat" && heatView) download(JSON.stringify({ ...(heatView.polygons ?? heatView.data), metadata: { shape: heat.shape, subject: heat.kind, total: heatView.total, cellMetres: heatView.hexWidth ?? 25, sourceCellMetres: 25, gridOrigin: [4.9, 52.37], metresPerDegree: [67900, 111200], coordinateMeaning: heat.shape === "hex" ? "Regular hexagon polygons aggregated from 25m source grid centres" : "25m source grid centres, not individual source points", radiusMetres: heat.shape === "smooth" ? heat.radius : null, hexWidthMetres: heat.shape === "hex" ? heat.radius : null, contrast: heat.contrast, reference: heatScale, normalization: "citywide 12-month p95 reference, fixed for filters and viewport", months, retrieved: observationMeta.retrieved, countsSha256: observationMeta.countsSha256, filters } }), "amsterdam-concentraties.geojson", "application/geo+json");
-    else if (kind === "streetcsv") download(streetCSV(visibleStreets, clustering.assignments), "amsterdam-straatindicatoren.csv", "text/csv;charset=utf-8");
-    else if (kind === "csv") download(roadCSV(visible, clustering.assignments), "amsterdam-wegvakregistraties.csv", "text/csv;charset=utf-8");
-    else if (kind === "geojson") download(JSON.stringify(roadGeoJSON(visible, clustering.assignments)), "amsterdam-wegvakregistraties.geojson", "application/geo+json");
+  const update = (patch: Partial<Filters>) => {
+    setFilters((f) => ({ ...f, ...patch }));
+    setSelected(null);
+  };
+  const selectObservation = (id: string) => {
+    if (level === "ward") {
+      chooseWard(id);
+      runtime?.fit(id);
+    } else selectStreet(id);
+  };
+  const exportData = (
+    kind: "streetcsv" | "csv" | "geojson" | "analysis" | "heat",
+  ) => {
+    if (kind === "heat" && heatView)
+      download(
+        JSON.stringify({
+          ...(heatView.polygons ?? heatView.data),
+          metadata: {
+            shape: heat.shape,
+            subject: heat.kind,
+            total: heatView.total,
+            cellMetres: heatView.hexWidth ?? 25,
+            sourceCellMetres: 25,
+            gridOrigin: [4.9, 52.37],
+            metresPerDegree: [67900, 111200],
+            coordinateMeaning:
+              heat.shape === "hex"
+                ? "Regular hexagon polygons aggregated from 25m source grid centres"
+                : "25m source grid centres, not individual source points",
+            radiusMetres: heat.shape === "smooth" ? heat.radius : null,
+            hexWidthMetres: heat.shape === "hex" ? heat.radius : null,
+            contrast: heat.contrast,
+            reference: heatScale,
+            normalization:
+              "citywide 12-month p95 reference, fixed for filters and viewport",
+            months,
+            retrieved: observationMeta.retrieved,
+            countsSha256: observationMeta.countsSha256,
+            filters,
+          },
+        }),
+        "amsterdam-concentraties.geojson",
+        "application/geo+json",
+      );
+    else if (kind === "streetcsv")
+      download(
+        streetCSV(visibleStreets, clustering.assignments),
+        "amsterdam-straatindicatoren.csv",
+        "text/csv;charset=utf-8",
+      );
+    else if (kind === "csv")
+      download(
+        roadCSV(visible, clustering.assignments),
+        "amsterdam-wegvakregistraties.csv",
+        "text/csv;charset=utf-8",
+      );
+    else if (kind === "geojson")
+      download(
+        JSON.stringify(roadGeoJSON(visible, clustering.assignments)),
+        "amsterdam-wegvakregistraties.geojson",
+        "application/geo+json",
+      );
     else {
       const r = association(analysisRows, x, y, method);
-      download(JSON.stringify({ dataType: "observed_counts_derived_spatially", sources: observationMeta, geography: snapshot, map: { mode: mapMode, heat: mapMode === "heat" ? { ...heat, reference: heatScale, total: heatView?.total, cellMetres: heatView?.hexWidth ?? 25, sourceCellMetres: 25 } : null }, thresholds: "Illustrative map classes; not official standards", months, reportStart: observationMeta.months[12 - months], reportEndExclusive: observationMeta.reportEndExclusive,
-        aggregation: "Sum raw counts, then divide by eligible lamp statuses or NWB source length; parallel carriageways count separately. Apply filters to whole streets AFTER aggregation. Zero matched records does not establish absence.", streets: visibleStreets.map(({ geometry: ignoredGeometry, roads: ignoredRoads, ...s }) => { void ignoredGeometry; void ignoredRoads; return s; }), filters, mappedMetric: metric, method, level, minimumLength, x, y,
-        correlation: { r: r.r, n: r.n, rawCountSensitivity: countAssociation(analysisRows, x, y, method), excludedMissingPair: r.excluded, excludedShort: allAnalysisRows.length - analysisRows.length }, clusters: { k, variables: clusterMetrics, transform: "log(1+x), z-standardized; citywide streets >=100m; deterministic k-means", centroids: clustering.clusters, excluded: clustering.excluded, iterations: clustering.iterations, converged: clustering.converged, explainedVariance: clustering.explainedVariance }, areas: rankedAreas, shifts: { settings: shiftSettings, method: shiftMethod, citySeries: shifts.citySeries, eligible: shifts.eligible.length, exclusions: shifts.exclusions, rows: shifts.rows },
-        caveat: "Descriptive associations only. Snapshot assets vs historical reports; reporting bias; spatial dependence; no causal inference or street safety score." }, null, 2), "amsterdam-straatmonitor-analyse.json", "application/json");
+      download(
+        JSON.stringify(
+          {
+            dataType: "observed_counts_derived_spatially",
+            sources: observationMeta,
+            geography: snapshot,
+            map: {
+              mode: mapMode,
+              heat:
+                mapMode === "heat"
+                  ? {
+                      ...heat,
+                      reference: heatScale,
+                      total: heatView?.total,
+                      cellMetres: heatView?.hexWidth ?? 25,
+                      sourceCellMetres: 25,
+                    }
+                  : null,
+            },
+            thresholds: "Illustrative map classes; not official standards",
+            months,
+            reportStart: observationMeta.months[12 - months],
+            reportEndExclusive: observationMeta.reportEndExclusive,
+            aggregation:
+              "Sum raw counts, then divide by eligible lamp statuses or NWB source length; parallel carriageways count separately. Apply filters to whole streets AFTER aggregation. Zero matched records does not establish absence.",
+            streets: visibleStreets.map(
+              ({ geometry: ignoredGeometry, roads: ignoredRoads, ...s }) => {
+                void ignoredGeometry;
+                void ignoredRoads;
+                return s;
+              },
+            ),
+            filters,
+            mappedMetric: metric,
+            method,
+            level,
+            minimumLength,
+            x,
+            y,
+            correlation: {
+              r: r.r,
+              n: r.n,
+              rawCountSensitivity: countAssociation(analysisRows, x, y, method),
+              excludedMissingPair: r.excluded,
+              excludedShort: allAnalysisRows.length - analysisRows.length,
+            },
+            clusters: {
+              k,
+              variables: clusterMetrics,
+              transform:
+                "log(1+x), z-standardized; citywide streets >=100m; deterministic k-means",
+              centroids: clustering.clusters,
+              excluded: clustering.excluded,
+              iterations: clustering.iterations,
+              converged: clustering.converged,
+              explainedVariance: clustering.explainedVariance,
+            },
+            areas: rankedAreas,
+            shifts: {
+              settings: shiftSettings,
+              method: shiftMethod,
+              citySeries: shifts.citySeries,
+              eligible: shifts.eligible.length,
+              exclusions: shifts.exclusions,
+              rows: shifts.rows,
+            },
+            caveat:
+              "Descriptive associations only. Snapshot assets vs historical reports; reporting bias; spatial dependence; no causal inference or street safety score.",
+          },
+          null,
+          2,
+        ),
+        "amsterdam-straatmonitor-analyse.json",
+        "application/json",
+      );
     }
-    setNotice(`${kind === "analysis" ? "Analyseverslag" : kind === "heat" ? "Concentratievakken" : kind === "streetcsv" ? `${number(visibleStreets.length)} straatindicatoren` : `${number(visible.length)} gefilterde wegvakken`} geëxporteerd met bronaantallen, perioden en koppelregels.`);
+    setNotice(
+      `${kind === "analysis" ? "Analyseverslag" : kind === "heat" ? "Concentratievakken" : kind === "streetcsv" ? `${number(visibleStreets.length)} straatindicatoren` : `${number(visible.length)} gefilterde wegvakken`} geëxporteerd met bronaantallen, perioden en koppelregels.`,
+    );
   };
   const ready = !!roads && !!runtime;
-  const activeFilters = !!filters.ward || !!filters.query || filters.status !== "all" || filters.cluster !== null || filters.doubleDeficit;
-  return <main lang="nl" className={`an-root st-root${mapMode === "heat" && heatExpanded ? " st-heat-expanded" : ""}`} data-streets data-ready={ready ? "true" : undefined} data-count={visible.length} data-street-count={visibleStreets.length} data-map-mode={mapMode} data-heat-ready={heatView ? "true" : undefined}>
-    <a href="#street-map" className="skip-link">Direct naar de kaart</a>
-    <header className="an-header st-header"><Link className="an-brand" href="/" prefetch={false}><Image src={assetPath("/logo.svg")} alt="" width={31} height={31} priority /><span>Map Master<small>VAN STRAAT NAAR INZICHT</small></span></Link><nav aria-label="Analysevoorbeelden"><Link href="/analysis/" prefetch={false}><Layers2 size={14} />Vrije analyse</Link><Link href="/analysis/bnb/" prefetch={false}><BedDouble size={14} />B&B</Link><Link href="/analysis/streets/" aria-current="page" prefetch={false}><Route size={15} />Straatkwaliteit</Link></nav><button className="an-button" onClick={() => setHelp(true)}><Info size={14} />Bronnen & methode</button></header>
-    <section className="st-hero"><div><div className="st-kicker">AMSTERDAM / STRAATLAB <span>ECHTE OPEN DATA · {observationMeta.retrieved}</span></div><h1>Amsterdam door de ogen van data<span>.</span></h1><p>Verken gemeentelijke bomen, lichtobjecten en meldingen. Vergelijk straten en ontdek patronen in echte registraties.</p></div><details className="an-export"><summary className="an-button"><ArrowDownToLine size={14} />Exporteer selectie</summary><div>{(["streetcsv", "csv", "geojson", "analysis", ...(mapMode === "heat" ? ["heat" as const] : [])] as const).map(kind => <button disabled={!ready || !visible.length || kind === "heat" && !heatView?.total} key={kind} onClick={event => { exportData(kind); event.currentTarget.closest("details")!.open = false; }}>{kind === "streetcsv" ? "Straatindicatoren CSV" : kind === "csv" ? "Wegvakken CSV" : kind === "geojson" ? "Lijnen GeoJSON" : kind === "heat" ? "Concentraties GeoJSON" : "Analyseverslag JSON"}</button>)}</div></details></section>
-    <div className="st-demo-strip"><span><i />Echte gemeentelijke registraties · gekoppeld aan NWB-wegvakken</span><span>Registraties zijn signalen, geen veiligheidsoordeel. <button onClick={() => setHelp(true)}>Hoe werkt dit? <ArrowUpRight size={11} /></button></span></div>
-    <div className="st-layout">
-      <aside ref={sidebar} role={drawer ? "dialog" : undefined} aria-modal={drawer || undefined} className={`st-sidebar${drawer ? " st-open" : ""}`} aria-label="Gebieden en filters">
-        <div className="st-side-title"><h2><SlidersHorizontal size={15} />Je onderzoeksgebied</h2><button className="st-mobile-close an-icon" aria-label="Sluit filters" onClick={() => setDrawer(false)}><X size={16} /></button></div>
-        <label className="st-search"><Search size={14} /><input aria-label="Zoek straat of wegvak" placeholder="Straatnaam of NWB-ID…" value={filters.query} onChange={e => update({ query: e.target.value })} /></label>
-        <label className="st-field">Periode meldingen<select aria-label="Periode meldingen" value={months} onChange={e => { setMonths(+e.target.value); setSelected(null); }}><option value={12}>12 volledige maanden</option><option value={3}>3 volledige maanden</option></select></label><p className="st-side-explanation">{observationMeta.months[12 - months]} t/m {observationMeta.months.at(-1)} · lichtobjecten/bomen: download {observationMeta.retrieved}</p>
-        <label className="st-field">{mapMode === "heat" ? "Straatfilters op indicator" : "Kaartindicator"}<select aria-label="Kaartindicator" value={metric} onChange={e => { setMetric(e.target.value as Metric); setSelected(null); }}>{metrics.map(m => <option value={m} key={m}>{labels[m]}</option>)}</select></label>
-        <p className="st-side-explanation">{descriptions[metric]}<br />Eenheid: {units[metric]}</p>
-        <label className="st-field">Kleurfilter<select aria-label="Kleurfilter" value={filters.status} onChange={e => update({ status: e.target.value as Status })}><option value="all">Alle klassen</option>{Object.entries(legendLabels(metric)).map(([key, name]) => <option key={key} value={key}>{key === "missing" ? name : `${statusLabels[key as keyof typeof statusLabels]} · ${name}`}</option>)}</select></label>
-        <label className="st-check"><input type="checkbox" checked={filters.doubleDeficit} onChange={e => update({ doubleDeficit: e.target.checked })} /><span>Minstens 2 aandachtssignalen<small>Veel storingen, weinig bomen, hoge meldingsdruk</small></span></label>
-        {filters.cluster !== null && <button className="st-filter-chip" onClick={() => update({ cluster: null })}>Profiel {filters.cluster + 1} actief <X size={13} /></button>}
-        {activeFilters && <button className="st-reset" onClick={reset}>Wis alle filters</button>}
-        <div className="st-area-title"><h3><MapPinned size={14} />Gebieden</h3><span>{wards.length} wijken</span></div>
-        <label className="st-search st-ward-search"><Search size={13} /><input aria-label="Zoek wijk" placeholder="Zoek wijk…" value={wardSearch} onChange={e => setWardSearch(e.target.value)} /></label>
-        <div className="st-ward-list"><button className={!filters.ward ? "st-active" : ""} aria-pressed={!filters.ward} onClick={() => chooseWard(null)}><span>Heel Amsterdam</span><small>{number(roads?.length ?? snapshot.count)}</small></button>{[...wards.map(w => ({ id: w.properties.code, name: w.properties.name })), { id: "outside", name: "Buiten wijkindeling" }].filter(w => w.name.toLocaleLowerCase("nl").includes(wardSearch.trim().toLocaleLowerCase("nl"))).map(w => <button key={w.id} aria-pressed={filters.ward === w.id} className={filters.ward === w.id ? "st-active" : ""} onClick={() => chooseWard(w.id)}><span>{w.name}</span><small>{number(areaCounts.get(w.id) ?? 0)}</small></button>)}</div>
-        <p className="st-side-foot">Dezelfde 110 gebieden als in het B&B-voorbeeld. De aantallen naast de wijken zijn bronwegvakken. Een grensoverschrijdend wegvak hoort bij het gebied van zijn representatieve punt. Eerst tellen we de registraties binnen dit gebied op; daarna filteren we op straatindicatoren. Zo blijven alle wegvakken van een straat samen.</p>
-      </aside>
-      <div className="st-center">
-        <div className="st-stats" aria-label="Statistieken van de selectie"><div><span>Straten in selectie</span><strong data-st-stat="count">{ready ? number(visibleStreets.length) : "…"}</strong><small>{number(visible.length)} bronwegvakken · {number(stats.km)} km NWB</small></div>{mapMode === "heat" ? <><div><span>{heatLabels[heat.kind]} in selectie</span><strong className="st-heat-number" data-st-stat="heat-total">{heatView ? number(heatView.total) : "…"}</strong><small>{heatView ? number(heatView.cells) : "…"} {heat.shape === "hex" ? `hexagonen · ${heat.radius} m breed` : "bronvakken · 25 × 25 m"}</small></div><div><span>Kleurenschaal</span><strong className="st-heat-scale">Vast</strong><small>Per onderwerp en vakmaat · gelijk bij filteren</small></div></> : <><div><span>{labels[metric]}</span><strong style={{ color: scoreColor(stats.average, metric) }} data-st-stat="average">{formatValue(stats.average, metric)}</strong><small>{units[metric]} · uit opgetelde bronaantallen</small></div><div><span>Rode klasse</span><strong className="st-red">{number(stats.counts.poor)}</strong><small>{visibleStreets.length ? number(stats.counts.poor / visibleStreets.length * 100, 1) : 0}% van straten · {number(stats.counts.missing)} met onvoldoende basis</small></div></>}</div>
-        <div className="st-map-toolbar"><div className="st-segmented" aria-label="Kaartweergave">{(["streets", "heat", "wards", "clusters"] as const).map(mode => <button aria-pressed={mapMode === mode} key={mode} onClick={() => { if (mode === "heat" && mapMode !== "heat") setHeatFailure(""); setMapMode(mode); }}>{mode === "streets" ? "Straten" : mode === "heat" ? "Concentraties" : mode === "wards" ? "Wijken" : "Profielen"}</button>)}</div><button className="an-button st-mobile-filters" onClick={event => { event.currentTarget.focus(); setDrawer(true); }}><SlidersHorizontal size={13} />Filters</button><button className="st-fit" aria-label="Zoom naar onderzoeksgebied" onClick={() => mapMode === "heat" ? runtime?.fitHeat() : runtime?.fit(filters.ward)}><Focus size={14} /><span>{mapMode === "heat" ? "Zoom naar concentraties" : "Zoom naar gebied"}</span></button></div>
-        {mapMode === "heat" && <div className="st-heat-controls" aria-label="Instellingen concentratiekaart"><fieldset className="st-heat-shapes"><legend>Weergave concentraties</legend><div className="st-heat-radii">{(["smooth", "hex"] as const).map(shape => <button key={shape} aria-pressed={heat.shape === shape} onClick={() => { setHeat(h => ({ ...h, shape })); setSelectedHeatId(null); }}>{shape === "smooth" ? "Vloeiend" : "Hexagonen"}</button>)}</div><span>{heat.shape === "hex" ? "Registraties opgeteld per vast zeshoekig vak" : "Vloeiende spreiding van bronregistraties"}</span></fieldset><div className="st-heat-control-grid"><label>Onderwerp<select aria-label="Onderwerp concentraties" value={heat.kind} onChange={e => { setHeat(h => ({ ...h, kind: e.target.value as HeatSettings["kind"] })); setSelectedHeatId(null); }}>{heatKinds.map(kind => <option key={kind} value={kind}>{heatLabels[kind]}</option>)}</select></label><fieldset><legend>{heat.shape === "hex" ? "Vakbreedte · vlak tot vlak" : "Vervaging · radius"}</legend><div className="st-heat-radii">{[100, 250, 500].map(radius => <button key={radius} aria-pressed={heat.radius === radius} onClick={() => setHeat(h => ({ ...h, radius }))}>{radius} m</button>)}</div></fieldset><label className="st-heat-contrast">Contrast <output>{heat.contrast.toLocaleString("nl-NL", { maximumFractionDigits: 1 })}×</output><input aria-label="Contrast concentraties" type="range" min="0.5" max="1.8" step="0.1" value={heat.contrast} onChange={e => setHeat(h => ({ ...h, contrast: +e.target.value }))} /></label><button className="st-text-button st-heat-expand" aria-pressed={heatExpanded} onClick={() => setHeatExpanded(v => !v)}><Focus size={14} />{heatExpanded ? "Compacte kaart" : "Grotere kaart"}</button></div><p>{["reports", "nuisance", "maintenance"].includes(heat.kind) ? `${observationMeta.months[12 - months]} t/m ${observationMeta.months.at(-1)} · periode aanpassen bij filters` : `Bronstand ${observationMeta.retrieved} · periodefilter geldt alleen voor meldingen`}<span className="st-heat-view-buttons"><button onClick={() => runtime?.heatCity()}>Stadsdetail</button><button onClick={() => runtime?.fitHeat()}>Hele selectie</button><button onClick={() => { setHeat(defaultHeat); setSelectedHeatId(null); }}>Herstel weergave</button></span></p></div>}
-        <section className={`st-map-frame${mapMode === "heat" ? " st-heat-frame" : ""}${mapMode === "heat" && heat.shape === "hex" ? " st-hex-frame" : ""}`} aria-label={mapMode === "heat" ? "Concentratiekaart Amsterdam" : "Kaart straatkwaliteit"}><div ref={container} id="street-map" className="st-map" role="region" aria-label="Amsterdamse straatindicatoren en wijken" tabIndex={-1} />
-          {!ready && <div className="st-loading"><Route size={30} /><strong>{failure ? "Laden lukt nog niet" : "Amsterdam wordt in kaart gebracht…"}</strong><span>{failure || `${number(snapshot.count)} echte wegvakken · lokale dataset`}</span>{failure && <button className="an-button" onClick={() => { setFailure(""); setRuntime(null); setDataset(null); setAttempt(a => a + 1); }}>Opnieuw proberen</button>}</div>}
-          <div className="st-map-caption"><MapPinned size={13} /><span>{filters.ward ? wardNames.get(filters.ward) : "Heel Amsterdam"}</span><select aria-label="Informatie bij aanwijzen" value={hoverMode} onChange={e => setHoverMode(e.target.value as HoverMode)}><option value="follow">Info volgt muis</option><option value="fixed">Info in het midden</option><option value="click">Bij klik in het midden</option><option value="off">Info uit</option></select></div>
-          {mapMode === "heat" ? <>
-            {!heatView && <div className="st-heat-message" role="status"><strong>{heatFailure ? "Concentraties laden lukt nog niet" : "Bronlocaties worden voorbereid…"}</strong><p>{heatFailure || "De straatkaart en analyses blijven beschikbaar."}</p>{heatFailure && <button className="an-button" onClick={() => { setHeatFailure(""); setHeatAttempt(v => v + 1); }}>Probeer concentraties opnieuw</button>}</div>}
-            {heatView && !heatView.total && <div className="st-heat-message" role="status"><strong>Geen {heatLabels[heat.kind].toLocaleLowerCase("nl")} in deze selectie</strong><p>Kies een ander onderwerp of verruim de straatfilters.</p><button className="an-button" onClick={reset}>Wis straatfilters</button></div>}
-            {heat.shape === "hex" ? <div className="st-heat-legend st-hex-legend"><span className="st-heat-eyebrow">HEXAGONEN · {heat.radius} M BREED</span><strong>{heatLabels[heat.kind]}</strong><div className="st-heat-gradient" style={{ background: hexGradient(heat.kind) }} /><div className="st-heat-legend-ends"><span>1</span><span>≥{number(Math.max(1, Math.ceil(heatScale / heat.contrast)))}</span></div><p>Registraties per hexagon.<br />Vaste vakken · geen vervaging.</p></div> : <div className="st-heat-legend"><span className="st-heat-eyebrow">CONCENTRATIE · {heat.radius} M</span><span className="st-heat-detail-eyebrow">BRONVAKKEN · 25 × 25 M</span><strong>{heatLabels[heat.kind]}</strong><div className="st-heat-density-legend"><div className="st-heat-gradient" style={{ background: heatGradient(heat.kind) }} /><div className="st-heat-legend-ends"><span>Weinig</span><span>Veel</span></div><p>Aantallen, geen risico of percentage.<br />Zoom in voor bronvakken van 25 m.</p></div><div className="st-heat-detail-legend"><div className="st-heat-dot-key" style={{ color: heat.kind === "trees" ? "#13434f" : "#742339" }}><i /><i /><i /></div><div className="st-heat-legend-ends"><span>Minder</span><span>Meer</span></div><p>Puntgrootte toont aantallen per vak.<br />Klik op een punt of kies in de tabel.</p></div></div>}
-            {selectedCell && hoverMode !== "off" && <div className="st-heat-cell" role="region" aria-label="Geselecteerd bronvak" aria-live="polite"><button className="an-icon" aria-label="Sluit bronvak" onClick={() => setSelectedHeatId(null)}><X size={14} /></button><span>{heat.shape === "hex" ? `HEXAGON · ${heat.radius} M BREED` : "BRONVAK · 25 × 25 M"}</span><strong>{number(selectedCell.properties.count)} {heatLabels[heat.kind].toLocaleLowerCase("nl")}</strong><p>Gekoppeld aan:</p><div>{selectedCell.properties.names.slice(0, 3).map(name => <button key={name} onClick={() => selectStreet(name)}>{name} <ArrowUpRight size={11} /></button>)}</div>{selectedCell.properties.names.length > 3 && <small>+{selectedCell.properties.names.length - 3} andere straatnamen</small>}</div>}
-          </> : <div className="st-legend"><strong>{mapMode === "clusters" && !(showSegments && selectedStreet) ? "Straatprofielen · geen kwaliteitsoordeel" : `${labels[metric]} · ${mapMode === "wards" ? `wijkindicator · ${units[metric]}` : showSegments && selectedStreet ? "wegvakindicatoren geselecteerde straat" : `straatindicator · ${units[metric]}`}`}</strong><div>{mapMode === "clusters" && !(showSegments && selectedStreet) ? <>{clustering.clusters.map(c => <span key={c.id}><i style={{ background: c.color }} />Profiel {c.id + 1}</span>)}<span><i style={{ background: statusColors.missing }} />Geen profiel</span></> : Object.entries(legendLabels(metric)).map(([key, label]) => <span key={key}><i style={{ background: statusColors[key as keyof typeof statusColors] }} />{label}</span>)}</div><small>{mapMode === "wards" ? "Opgetelde aantallen en noemers · klik een gebied" : showSegments && selectedStreet ? "Losse wegvakken · overige straten gedimd" : "Vereenvoudigde lijnen · één kleur per straat · klik voor details"}</small></div>}
-        </section>
-        {mapMode === "heat" && heatView && <HeatTable view={heatView} selected={selectedHeatId} select={setSelectedHeatId} />}
-        <div className="st-story"><Lightbulb size={17} /><div><strong>Begin met een onderzoeksvraag</strong><p>Waar combineren weinig bomen en veel meldingen?</p></div><button onClick={() => { reset(); setMetric("treeDensity"); setX("treeDensity"); setY("reports"); setLevel("street"); setMethod("spearman"); setPanel("correlations"); setMapMode("streets"); }}>Bekijk het verband <ArrowUpRight size={13} /></button><button onClick={() => { update({ doubleDeficit: !filters.doubleDeficit }); setPanel("areas"); setMapMode("wards"); }}>Vind aandachtspunten <ArrowUpRight size={13} /></button><button onClick={() => { setPanel("shifts"); setMapMode("streets"); }}>Wat verandert er? <ArrowUpRight size={13} /></button></div>
-        {panel === "shifts" && <ShiftExplorer result={shifts} settings={shiftSettings} selected={selectedStreet?.id ?? null} select={selectStreet} />}
-        {selectedStreet && <StreetDetail key={selectedStreet.id} street={selectedStreet} metric={metric} cluster={clustering.assignments.get(selectedStreet.id)} clear={() => { setSelected(null); setShowSegments(false); }} zoom={() => { runtime?.focus(selectedStreet); container.current?.closest(".st-map-frame")?.scrollIntoView({ block: "center", behavior: "auto" }); }} showSegments={showSegments && mapMode !== "heat"} toggleSegments={() => { if (mapMode === "heat") { setMapMode("streets"); setShowSegments(true); } else setShowSegments(v => !v); setSelectedSegment(null); }} segment={selectedSegment} selectSegment={setSelectedSegment} scoped={!!filters.ward} />}
-        <StreetTable streets={visibleStreets} metric={metric} select={selectStreet} selected={selectedStreet?.id ?? null} />
+  const activeFilters =
+    !!filters.ward ||
+    !!filters.query ||
+    filters.status !== "all" ||
+    filters.cluster !== null ||
+    filters.doubleDeficit;
+  return (
+    <main
+      lang="nl"
+      className={`an-root st-root${mapMode === "heat" && heatExpanded ? " st-heat-expanded" : ""}`}
+      data-streets
+      data-ready={ready ? "true" : undefined}
+      data-count={visible.length}
+      data-street-count={visibleStreets.length}
+      data-map-mode={mapMode}
+      data-heat-ready={heatView ? "true" : undefined}
+    >
+      <a href="#street-map" className="skip-link">
+        Direct naar de kaart
+      </a>
+      <header className="an-header st-header">
+        <Link className="an-brand" href="/" prefetch={false}>
+          <Image
+            src={assetPath("/logo.svg")}
+            alt=""
+            width={31}
+            height={31}
+            priority
+          />
+          <span>
+            Map Master<small>VAN STRAAT NAAR INZICHT</small>
+          </span>
+        </Link>
+        <WorkspaceNavigation current="/analysis/streets/" />
+        <button className="an-button" onClick={() => setHelp(true)}>
+          <Info size={14} />
+          Bronnen & methode
+        </button>
+      </header>
+      <SourceAge retrievedAt={observationMeta.retrieved} />
+      <ShareView
+        app="streets"
+        data={{
+          metric,
+          months,
+          selected,
+          filters,
+          mapMode,
+          x,
+          y,
+          method,
+          level,
+          k,
+          heat,
+          shiftSettings,
+          panel,
+          minimumLength,
+        }}
+        defaults={{
+          metric: "treeDensity",
+          months: 12,
+          selected: null,
+          filters: emptyFilters,
+          mapMode: "streets",
+          x: "treeDensity",
+          y: "reports",
+          method: "spearman",
+          level: "street",
+          k: 4,
+          heat: defaultHeat,
+          shiftSettings: defaultShift,
+          panel: "correlations",
+          minimumLength: 100,
+        }}
+        rules={{
+          metric: oneOf(metrics),
+          months: oneOf([1, 3, 6, 12]),
+          selected: (v) => v === null || text(v),
+          filters: (v) =>
+            !!v &&
+            typeof v === "object" &&
+            "query" in v &&
+            text(v.query) &&
+            "ward" in v &&
+            (v.ward === null ||
+              wards.some((w) => w.properties.code === v.ward)) &&
+            "status" in v &&
+            oneOf(["all", "poor", "medium", "good", "missing"])(v.status) &&
+            "cluster" in v &&
+            (v.cluster === null || oneOf([0, 1, 2, 3, 4, 5])(v.cluster)) &&
+            "doubleDeficit" in v &&
+            flag(v.doubleDeficit),
+          mapMode: oneOf(["streets", "wards", "clusters", "heat"]),
+          x: oneOf(metrics),
+          y: oneOf(metrics),
+          method: oneOf(["pearson", "spearman"]),
+          level: oneOf(["street", "ward"]),
+          k: oneOf([2, 3, 4, 5, 6]),
+          heat: recordOf({
+            kind: oneOf(heatKinds),
+            radius: oneOf([100, 250, 500]),
+            contrast: bounded(0.5, 1.8),
+            shape: oneOf(["smooth", "hex"]),
+          }),
+          shiftSettings: recordOf({
+            kind: oneOf(["reports", "nuisance", "maintenance"]),
+            minimum: bounded(0, 10000),
+            direction: oneOf(["up", "down", "all"]),
+            sort: oneOf(["count", "relative"]),
+          }),
+          panel: oneOf(["correlations", "profiles", "areas", "shifts"]),
+          minimumLength: bounded(0, 10000),
+        }}
+        apply={(v) => {
+          setMetric(v.metric as Metric);
+          setMonths(v.months as number);
+          setSelected(v.selected as string | null);
+          setFilters(v.filters as Filters);
+          setMapMode(v.mapMode as MapMode);
+          setX(v.x as Metric);
+          setY(v.y as Metric);
+          setMethod(v.method as "pearson" | "spearman");
+          setLevel(v.level as "street" | "ward");
+          setK(v.k as number);
+          setHeat(v.heat as HeatSettings);
+          setShiftSettings(v.shiftSettings as typeof defaultShift);
+          setPanel(v.panel as Panel);
+          setMinimumLength(v.minimumLength as number);
+        }}
+      />
+      <section className="st-hero">
+        <div>
+          <div className="st-kicker">
+            AMSTERDAM / STRAATLAB{" "}
+            <span>ECHTE OPEN DATA · {observationMeta.retrieved}</span>
+          </div>
+          <h1>
+            Amsterdam door de ogen van data<span>.</span>
+          </h1>
+          <p>
+            Verken gemeentelijke bomen, lichtobjecten en meldingen. Vergelijk
+            straten en ontdek patronen in echte registraties.
+          </p>
+        </div>
+        <details className="an-export">
+          <summary className="an-button">
+            <ArrowDownToLine size={14} />
+            Exporteer selectie
+          </summary>
+          <div>
+            {(
+              [
+                "streetcsv",
+                "csv",
+                "geojson",
+                "analysis",
+                ...(mapMode === "heat" ? ["heat" as const] : []),
+              ] as const
+            ).map((kind) => (
+              <button
+                disabled={
+                  !ready ||
+                  !visible.length ||
+                  (kind === "heat" && !heatView?.total)
+                }
+                key={kind}
+                onClick={(event) => {
+                  exportData(kind);
+                  event.currentTarget.closest("details")!.open = false;
+                }}
+              >
+                {kind === "streetcsv"
+                  ? "Straatindicatoren CSV"
+                  : kind === "csv"
+                    ? "Wegvakken CSV"
+                    : kind === "geojson"
+                      ? "Lijnen GeoJSON"
+                      : kind === "heat"
+                        ? "Concentraties GeoJSON"
+                        : "Analyseverslag JSON"}
+              </button>
+            ))}
+          </div>
+        </details>
+      </section>
+      <div className="st-demo-strip">
+        <span>
+          <i />
+          Echte gemeentelijke registraties · gekoppeld aan NWB-wegvakken
+        </span>
+        <span>
+          Registraties zijn signalen, geen veiligheidsoordeel.{" "}
+          <button onClick={() => setHelp(true)}>
+            Hoe werkt dit? <ArrowUpRight size={11} />
+          </button>
+        </span>
       </div>
-      <aside className="st-insights" aria-label="Analyses van de selectie"><div className="st-analysis-tabs" role="tablist" aria-label="Analysetype" onKeyDown={event => {
-        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-        const tabs = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("button")], index = tabs.indexOf(document.activeElement as HTMLButtonElement);
-        const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
-        event.preventDefault(); tabs[next]?.focus(); tabs[next]?.click();
-      }}>{(["correlations", "profiles", "areas", "shifts"] as const).map(p => <button key={p} id={`st-tab-${p}`} role="tab" tabIndex={panel === p ? 0 : -1} aria-controls={`st-panel-${p}`} aria-selected={panel === p} onClick={() => setPanel(p)}>{p === "correlations" ? "Verbanden" : p === "profiles" ? "Clusters" : p === "areas" ? "Gebieden" : "Verandering"}</button>)}</div><div className="st-analysis-body" id={`st-panel-${panel}`} role="tabpanel" aria-labelledby={`st-tab-${panel}`}>
-        {!roads ? <p className="st-muted">De analyses verschijnen zodra de straatgegevens geladen zijn.</p> : panel === "shifts" ? <ShiftPanel result={shifts} settings={shiftSettings} setSettings={setShiftSettings} selected={selectedStreet?.id ?? null} select={selectStreet} /> : panel === "correlations" ? <CorrelationPanel rows={analysisRows} minimumLength={minimumLength} setMinimumLength={setMinimumLength} excludedShort={allAnalysisRows.length - analysisRows.length} x={x} y={y} setX={setX} setY={setY} method={method} setMethod={setMethod} level={level} setLevel={setLevel} select={selectObservation} /> : panel === "profiles" ? <><div className="st-card-heading"><span className="st-kicker">VERGELIJKBARE STRATEN</span><h2>Welke profielen zie je?</h2><p>K-means groepeert straten op lichtobjectdichtheid, boomdichtheid en meldingsdruk. Een profiel is geen aaneengesloten gebied.</p>{clustering.clusters.length < k && <p>Er zijn {clustering.clusters.length} verschillende profielen mogelijk; lege of identieke clusters zijn weggelaten.</p>}</div><label className="st-field">Aantal clusters<select aria-label="Aantal clusters" value={k} onChange={e => { setK(+e.target.value); update({ cluster: null }); }}>{[3, 4, 5, 6].map(n => <option key={n} value={n}>{n} profielen</option>)}</select></label><button className="an-button st-wide" onClick={() => setMapMode("clusters")}><GitBranch size={14} />Toon profielen op de kaart</button><div className="st-cluster-list">{clustering.clusters.map(c => { const count = streets.filter(s => clustering.assignments.get(s.id) === c.id).length;  return <section key={c.id} className={filters.cluster === c.id ? "st-selected-cluster" : ""}><div className="st-cluster-heading"><h3><i style={{ background: c.color }} />Profiel {c.id + 1}</h3><span>{number(count)} in selectie</span></div><p>Teruggetransformeerd logcentrum · {c.members} straten</p>{clusterMetrics.map((m, i) => <div className="st-profile-bar" key={m}><span>{labels[m]}<small>{units[m]}</small></span><i><em style={{ width: `${Math.min(100, c.centroid[i]! / Math.max(1, ...clustering.clusters.map(p => p.centroid[i]!)) * 100)}%`, background: c.color }} /></i><b>{formatValue(c.centroid[i]!, m)}</b></div>)}<button className="st-text-button" aria-pressed={filters.cluster === c.id} onClick={() => { update({ cluster: filters.cluster === c.id ? null : c.id }); setMapMode("clusters"); }}>{filters.cluster === c.id ? "Wis profielfilter" : "Onderzoek dit profiel"} <ArrowUpRight size={12} /></button><small>{number(c.members)} straatnamen in heel Amsterdam</small></section>; })}</div><div className="st-profile-quality"><strong>{clustering.clusters.length} profielen · {number(clustering.assignments.size)} straten</strong><p>{clustering.converged ? `Geconvergeerd na ${clustering.iterations} iteraties.` : "Iteratielimiet bereikt; interpreteer de profielen voorzichtig."} {clustering.explainedVariance === null ? "Onvoldoende variatie om profielen te onderscheiden." : `${number(clustering.explainedVariance * 100, 1)}% minder spreiding binnen clusters dan bij één gezamenlijk centrum (log/z-ruimte). Dit meet compactheid, geen juistheid of betrouwbaarheid.`}</p></div><div className="st-caution">Getraind op heel Amsterdam met straten van minimaal 100 m NWB; {clustering.excluded} straten uitgesloten. Eerst log(1+x), daarna standaardiseren (z-scores). Balken zijn per indicator relatief aan het hoogste clustercentrum; getallen hebben hun eigen eenheid. Kleuren zijn categorieën, geen rapportcijfers. Clustercentra zijn gemiddelden in logruimte, teruggetransformeerd; geen gewone straatgemiddelden. Filters veranderen de profielen niet. Het aantal clusters én de meldingsperiode trainen opnieuw. Bij een wijkfilter blijft het profiel gebaseerd op de hele straat in de stad.</div></> : <><div className="st-card-heading"><span className="st-kicker">VAN STRAAT NAAR GEBIED</span><h2>Welke gebieden vallen op?</h2><p>{labels[metric]} per gebied, berekend uit opgetelde bronaantallen en hun noemers. De meest opvallende klasse staat bovenaan.</p></div><button className="an-button st-wide" onClick={() => setMapMode("wards")}><MapPinned size={14} />Toon wijkindicatoren op de kaart</button><div className="st-area-ranking">{rankedAreas.map(a => <button key={a.id} onClick={() => { chooseWard(a.id); runtime?.fit(a.id); }}><span><strong>{a.name}</strong><b style={{ color: scoreColor(a[metric], metric) }}>{formatValue(a[metric], metric)}</b></span><small>{units[metric]} · {number(a.length / 1000, 1)} km NWB · {a.count} wegvakken · {a.raw.lights} lichtobjecten · {a.raw.trees} bomen · {windowTotal(a.raw.reports, months)} meldingen</small></button>)}</div>{!rankedAreas.length && <p className="st-muted">Geen gebieden in deze selectie. Wis een filter om verder te kijken.</p>}<div className="st-caution">Dit is een ranglijst van registraties, geen getoetste hotspot of kwaliteitsoordeel. De gemeentelijke bronnen zijn niet volledig voor alle objecten en meldingen. De 110 gebieden zijn de B&B-vergunningswijken; bronwegvakken zijn via een representatief punt toegewezen. Straatfilters werken door.</div></>}
-
-      </div></aside>
-    </div>
-    <footer className="st-footer"><span><i />Lokale snapshot · geen live monitor</span><span>Gemeente Amsterdam + NWB / PDOK · download {observationMeta.retrieved}</span><button onClick={() => setHelp(true)}>Bronnen, dekking & rekenregels <ArrowUpRight size={12} /></button></footer>
-    {notice && <div className="an-notice" role="status"><span>{notice}</span><button aria-label="Sluit melding" onClick={() => setNotice("")}><X size={15} /></button></div>}
-    {help && <Help close={() => setHelp(false)} />}
-  </main>;
+      <div className="st-layout">
+        <aside
+          ref={sidebar}
+          role={drawer ? "dialog" : undefined}
+          aria-modal={drawer || undefined}
+          className={`st-sidebar${drawer ? " st-open" : ""}`}
+          aria-label="Gebieden en filters"
+        >
+          <div className="st-side-title">
+            <h2>
+              <SlidersHorizontal size={15} />
+              Je onderzoeksgebied
+            </h2>
+            <button
+              className="st-mobile-close an-icon"
+              aria-label="Sluit filters"
+              onClick={() => setDrawer(false)}
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <label className="st-search">
+            <Search size={14} />
+            <input
+              aria-label="Zoek straat of wegvak"
+              placeholder="Straatnaam of NWB-ID…"
+              value={filters.query}
+              onChange={(e) => update({ query: e.target.value })}
+            />
+          </label>
+          <label className="st-field">
+            Periode meldingen
+            <select
+              aria-label="Periode meldingen"
+              value={months}
+              onChange={(e) => {
+                setMonths(+e.target.value);
+                setSelected(null);
+              }}
+            >
+              <option value={12}>12 volledige maanden</option>
+              <option value={3}>3 volledige maanden</option>
+            </select>
+          </label>
+          <p className="st-side-explanation">
+            {observationMeta.months[12 - months]} t/m{" "}
+            {observationMeta.months.at(-1)} · lichtobjecten/bomen: download{" "}
+            {observationMeta.retrieved}
+          </p>
+          <label className="st-field">
+            {mapMode === "heat"
+              ? "Straatfilters op indicator"
+              : "Kaartindicator"}
+            <select
+              aria-label="Kaartindicator"
+              value={metric}
+              onChange={(e) => {
+                setMetric(e.target.value as Metric);
+                setSelected(null);
+              }}
+            >
+              {metrics.map((m) => (
+                <option value={m} key={m}>
+                  {labels[m]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="st-side-explanation">
+            {descriptions[metric]}
+            <br />
+            Eenheid: {units[metric]}
+          </p>
+          <label className="st-field">
+            Kleurfilter
+            <select
+              aria-label="Kleurfilter"
+              value={filters.status}
+              onChange={(e) => update({ status: e.target.value as Status })}
+            >
+              <option value="all">Alle klassen</option>
+              {Object.entries(legendLabels(metric)).map(([key, name]) => (
+                <option key={key} value={key}>
+                  {key === "missing"
+                    ? name
+                    : `${statusLabels[key as keyof typeof statusLabels]} · ${name}`}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="st-check">
+            <input
+              type="checkbox"
+              checked={filters.doubleDeficit}
+              onChange={(e) => update({ doubleDeficit: e.target.checked })}
+            />
+            <span>
+              Minstens 2 aandachtssignalen
+              <small>Veel storingen, weinig bomen, hoge meldingsdruk</small>
+            </span>
+          </label>
+          {filters.cluster !== null && (
+            <button
+              className="st-filter-chip"
+              onClick={() => update({ cluster: null })}
+            >
+              Profiel {filters.cluster + 1} actief <X size={13} />
+            </button>
+          )}
+          {activeFilters && (
+            <button className="st-reset" onClick={reset}>
+              Wis alle filters
+            </button>
+          )}
+          <div className="st-area-title">
+            <h3>
+              <MapPinned size={14} />
+              Gebieden
+            </h3>
+            <span>{wards.length} wijken</span>
+          </div>
+          <label className="st-search st-ward-search">
+            <Search size={13} />
+            <input
+              aria-label="Zoek wijk"
+              placeholder="Zoek wijk…"
+              value={wardSearch}
+              onChange={(e) => setWardSearch(e.target.value)}
+            />
+          </label>
+          <div className="st-ward-list">
+            <button
+              className={!filters.ward ? "st-active" : ""}
+              aria-pressed={!filters.ward}
+              onClick={() => chooseWard(null)}
+            >
+              <span>Heel Amsterdam</span>
+              <small>{number(roads?.length ?? snapshot.count)}</small>
+            </button>
+            {[
+              ...wards.map((w) => ({
+                id: w.properties.code,
+                name: w.properties.name,
+              })),
+              { id: "outside", name: "Buiten wijkindeling" },
+            ]
+              .filter((w) =>
+                w.name
+                  .toLocaleLowerCase("nl")
+                  .includes(wardSearch.trim().toLocaleLowerCase("nl")),
+              )
+              .map((w) => (
+                <button
+                  key={w.id}
+                  aria-pressed={filters.ward === w.id}
+                  className={filters.ward === w.id ? "st-active" : ""}
+                  onClick={() => chooseWard(w.id)}
+                >
+                  <span>{w.name}</span>
+                  <small>{number(areaCounts.get(w.id) ?? 0)}</small>
+                </button>
+              ))}
+          </div>
+          <p className="st-side-foot">
+            Dezelfde 110 gebieden als in het B&B-voorbeeld. De aantallen naast
+            de wijken zijn bronwegvakken. Een grensoverschrijdend wegvak hoort
+            bij het gebied van zijn representatieve punt. Eerst tellen we de
+            registraties binnen dit gebied op; daarna filteren we op
+            straatindicatoren. Zo blijven alle wegvakken van een straat samen.
+          </p>
+        </aside>
+        <div className="st-center">
+          <div className="st-stats" aria-label="Statistieken van de selectie">
+            <div>
+              <span>Straten in selectie</span>
+              <strong data-st-stat="count">
+                {ready ? number(visibleStreets.length) : "…"}
+              </strong>
+              <small>
+                {number(visible.length)} bronwegvakken · {number(stats.km)} km
+                NWB
+              </small>
+            </div>
+            {mapMode === "heat" ? (
+              <>
+                <div>
+                  <span>{heatLabels[heat.kind]} in selectie</span>
+                  <strong className="st-heat-number" data-st-stat="heat-total">
+                    {heatView ? number(heatView.total) : "…"}
+                  </strong>
+                  <small>
+                    {heatView ? number(heatView.cells) : "…"}{" "}
+                    {heat.shape === "hex"
+                      ? `hexagonen · ${heat.radius} m breed`
+                      : "bronvakken · 25 × 25 m"}
+                  </small>
+                </div>
+                <div>
+                  <span>Kleurenschaal</span>
+                  <strong className="st-heat-scale">Vast</strong>
+                  <small>Per onderwerp en vakmaat · gelijk bij filteren</small>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <span>{labels[metric]}</span>
+                  <strong
+                    style={{ color: scoreColor(stats.average, metric) }}
+                    data-st-stat="average"
+                  >
+                    {formatValue(stats.average, metric)}
+                  </strong>
+                  <small>{units[metric]} · uit opgetelde bronaantallen</small>
+                </div>
+                <div>
+                  <span>Rode klasse</span>
+                  <strong className="st-red">
+                    {number(stats.counts.poor)}
+                  </strong>
+                  <small>
+                    {visibleStreets.length
+                      ? number(
+                          (stats.counts.poor / visibleStreets.length) * 100,
+                          1,
+                        )
+                      : 0}
+                    % van straten · {number(stats.counts.missing)} met
+                    onvoldoende basis
+                  </small>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="st-map-toolbar">
+            <div className="st-segmented" aria-label="Kaartweergave">
+              {(["streets", "heat", "wards", "clusters"] as const).map(
+                (mode) => (
+                  <button
+                    aria-pressed={mapMode === mode}
+                    key={mode}
+                    onClick={() => {
+                      if (mode === "heat" && mapMode !== "heat")
+                        setHeatFailure("");
+                      setMapMode(mode);
+                    }}
+                  >
+                    {mode === "streets"
+                      ? "Straten"
+                      : mode === "heat"
+                        ? "Concentraties"
+                        : mode === "wards"
+                          ? "Wijken"
+                          : "Profielen"}
+                  </button>
+                ),
+              )}
+            </div>
+            <button
+              className="an-button st-mobile-filters"
+              onClick={(event) => {
+                event.currentTarget.focus();
+                setDrawer(true);
+              }}
+            >
+              <SlidersHorizontal size={13} />
+              Filters
+            </button>
+            <button
+              className="st-fit"
+              aria-label="Zoom naar onderzoeksgebied"
+              onClick={() =>
+                mapMode === "heat"
+                  ? runtime?.fitHeat()
+                  : runtime?.fit(filters.ward)
+              }
+            >
+              <Focus size={14} />
+              <span>
+                {mapMode === "heat"
+                  ? "Zoom naar concentraties"
+                  : "Zoom naar gebied"}
+              </span>
+            </button>
+          </div>
+          {mapMode === "heat" && (
+            <div
+              className="st-heat-controls"
+              aria-label="Instellingen concentratiekaart"
+            >
+              <fieldset className="st-heat-shapes">
+                <legend>Weergave concentraties</legend>
+                <div className="st-heat-radii">
+                  {(["smooth", "hex"] as const).map((shape) => (
+                    <button
+                      key={shape}
+                      aria-pressed={heat.shape === shape}
+                      onClick={() => {
+                        setHeat((h) => ({ ...h, shape }));
+                        setSelectedHeatId(null);
+                      }}
+                    >
+                      {shape === "smooth" ? "Vloeiend" : "Hexagonen"}
+                    </button>
+                  ))}
+                </div>
+                <span>
+                  {heat.shape === "hex"
+                    ? "Registraties opgeteld per vast zeshoekig vak"
+                    : "Vloeiende spreiding van bronregistraties"}
+                </span>
+              </fieldset>
+              <div className="st-heat-control-grid">
+                <label>
+                  Onderwerp
+                  <select
+                    aria-label="Onderwerp concentraties"
+                    value={heat.kind}
+                    onChange={(e) => {
+                      setHeat((h) => ({
+                        ...h,
+                        kind: e.target.value as HeatSettings["kind"],
+                      }));
+                      setSelectedHeatId(null);
+                    }}
+                  >
+                    {heatKinds.map((kind) => (
+                      <option key={kind} value={kind}>
+                        {heatLabels[kind]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <fieldset>
+                  <legend>
+                    {heat.shape === "hex"
+                      ? "Vakbreedte · vlak tot vlak"
+                      : "Vervaging · radius"}
+                  </legend>
+                  <div className="st-heat-radii">
+                    {[100, 250, 500].map((radius) => (
+                      <button
+                        key={radius}
+                        aria-pressed={heat.radius === radius}
+                        onClick={() => setHeat((h) => ({ ...h, radius }))}
+                      >
+                        {radius} m
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+                <label className="st-heat-contrast">
+                  Contrast{" "}
+                  <output>
+                    {heat.contrast.toLocaleString("nl-NL", {
+                      maximumFractionDigits: 1,
+                    })}
+                    ×
+                  </output>
+                  <input
+                    aria-label="Contrast concentraties"
+                    type="range"
+                    min="0.5"
+                    max="1.8"
+                    step="0.1"
+                    value={heat.contrast}
+                    onChange={(e) =>
+                      setHeat((h) => ({ ...h, contrast: +e.target.value }))
+                    }
+                  />
+                </label>
+                <button
+                  className="st-text-button st-heat-expand"
+                  aria-pressed={heatExpanded}
+                  onClick={() => setHeatExpanded((v) => !v)}
+                >
+                  <Focus size={14} />
+                  {heatExpanded ? "Compacte kaart" : "Grotere kaart"}
+                </button>
+              </div>
+              <p>
+                {["reports", "nuisance", "maintenance"].includes(heat.kind)
+                  ? `${observationMeta.months[12 - months]} t/m ${observationMeta.months.at(-1)} · periode aanpassen bij filters`
+                  : `Bronstand ${observationMeta.retrieved} · periodefilter geldt alleen voor meldingen`}
+                <span className="st-heat-view-buttons">
+                  <button onClick={() => runtime?.heatCity()}>
+                    Stadsdetail
+                  </button>
+                  <button onClick={() => runtime?.fitHeat()}>
+                    Hele selectie
+                  </button>
+                  <button
+                    onClick={() => {
+                      setHeat(defaultHeat);
+                      setSelectedHeatId(null);
+                    }}
+                  >
+                    Herstel weergave
+                  </button>
+                </span>
+              </p>
+            </div>
+          )}
+          <section
+            className={`st-map-frame${mapMode === "heat" ? " st-heat-frame" : ""}${mapMode === "heat" && heat.shape === "hex" ? " st-hex-frame" : ""}`}
+            aria-label={
+              mapMode === "heat"
+                ? "Concentratiekaart Amsterdam"
+                : "Kaart straatkwaliteit"
+            }
+          >
+            <div
+              ref={container}
+              id="street-map"
+              className="st-map"
+              role="region"
+              aria-label="Amsterdamse straatindicatoren en wijken"
+              tabIndex={-1}
+            />
+            {!ready && (
+              <div className="st-loading">
+                <Route size={30} />
+                <strong>
+                  {failure
+                    ? "Laden lukt nog niet"
+                    : "Amsterdam wordt in kaart gebracht…"}
+                </strong>
+                <span>
+                  {failure ||
+                    `${number(snapshot.count)} echte wegvakken · lokale dataset`}
+                </span>
+                {failure && (
+                  <button
+                    className="an-button"
+                    onClick={() => {
+                      setFailure("");
+                      setRuntime(null);
+                      setDataset(null);
+                      setAttempt((a) => a + 1);
+                    }}
+                  >
+                    Opnieuw proberen
+                  </button>
+                )}
+              </div>
+            )}
+            <div className="st-map-caption">
+              <MapPinned size={13} />
+              <span>
+                {filters.ward ? wardNames.get(filters.ward) : "Heel Amsterdam"}
+              </span>
+              <select
+                aria-label="Informatie bij aanwijzen"
+                value={hoverMode}
+                onChange={(e) => setHoverMode(e.target.value as HoverMode)}
+              >
+                <option value="follow">Info volgt muis</option>
+                <option value="fixed">Info in het midden</option>
+                <option value="click">Bij klik in het midden</option>
+                <option value="off">Info uit</option>
+              </select>
+            </div>
+            {mapMode === "heat" ? (
+              <>
+                {!heatView && (
+                  <div className="st-heat-message" role="status">
+                    <strong>
+                      {heatFailure
+                        ? "Concentraties laden lukt nog niet"
+                        : "Bronlocaties worden voorbereid…"}
+                    </strong>
+                    <p>
+                      {heatFailure ||
+                        "De straatkaart en analyses blijven beschikbaar."}
+                    </p>
+                    {heatFailure && (
+                      <button
+                        className="an-button"
+                        onClick={() => {
+                          setHeatFailure("");
+                          setHeatAttempt((v) => v + 1);
+                        }}
+                      >
+                        Probeer concentraties opnieuw
+                      </button>
+                    )}
+                  </div>
+                )}
+                {heatView && !heatView.total && (
+                  <div className="st-heat-message" role="status">
+                    <strong>
+                      Geen {heatLabels[heat.kind].toLocaleLowerCase("nl")} in
+                      deze selectie
+                    </strong>
+                    <p>Kies een ander onderwerp of verruim de straatfilters.</p>
+                    <button className="an-button" onClick={reset}>
+                      Wis straatfilters
+                    </button>
+                  </div>
+                )}
+                {heat.shape === "hex" ? (
+                  <div className="st-heat-legend st-hex-legend">
+                    <span className="st-heat-eyebrow">
+                      HEXAGONEN · {heat.radius} M BREED
+                    </span>
+                    <strong>{heatLabels[heat.kind]}</strong>
+                    <div
+                      className="st-heat-gradient"
+                      style={{ background: hexGradient(heat.kind) }}
+                    />
+                    <div className="st-heat-legend-ends">
+                      <span>1</span>
+                      <span>
+                        ≥
+                        {number(
+                          Math.max(1, Math.ceil(heatScale / heat.contrast)),
+                        )}
+                      </span>
+                    </div>
+                    <p>
+                      Registraties per hexagon.
+                      <br />
+                      Vaste vakken · geen vervaging.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="st-heat-legend">
+                    <span className="st-heat-eyebrow">
+                      CONCENTRATIE · {heat.radius} M
+                    </span>
+                    <span className="st-heat-detail-eyebrow">
+                      BRONVAKKEN · 25 × 25 M
+                    </span>
+                    <strong>{heatLabels[heat.kind]}</strong>
+                    <div className="st-heat-density-legend">
+                      <div
+                        className="st-heat-gradient"
+                        style={{ background: heatGradient(heat.kind) }}
+                      />
+                      <div className="st-heat-legend-ends">
+                        <span>Weinig</span>
+                        <span>Veel</span>
+                      </div>
+                      <p>
+                        Aantallen, geen risico of percentage.
+                        <br />
+                        Zoom in voor bronvakken van 25 m.
+                      </p>
+                    </div>
+                    <div className="st-heat-detail-legend">
+                      <div
+                        className="st-heat-dot-key"
+                        style={{
+                          color: heat.kind === "trees" ? "#13434f" : "#742339",
+                        }}
+                      >
+                        <i />
+                        <i />
+                        <i />
+                      </div>
+                      <div className="st-heat-legend-ends">
+                        <span>Minder</span>
+                        <span>Meer</span>
+                      </div>
+                      <p>
+                        Puntgrootte toont aantallen per vak.
+                        <br />
+                        Klik op een punt of kies in de tabel.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {selectedCell && hoverMode !== "off" && (
+                  <div
+                    className="st-heat-cell"
+                    role="region"
+                    aria-label="Geselecteerd bronvak"
+                    aria-live="polite"
+                  >
+                    <button
+                      className="an-icon"
+                      aria-label="Sluit bronvak"
+                      onClick={() => setSelectedHeatId(null)}
+                    >
+                      <X size={14} />
+                    </button>
+                    <span>
+                      {heat.shape === "hex"
+                        ? `HEXAGON · ${heat.radius} M BREED`
+                        : "BRONVAK · 25 × 25 M"}
+                    </span>
+                    <strong>
+                      {number(selectedCell.properties.count)}{" "}
+                      {heatLabels[heat.kind].toLocaleLowerCase("nl")}
+                    </strong>
+                    <p>Gekoppeld aan:</p>
+                    <div>
+                      {selectedCell.properties.names.slice(0, 3).map((name) => (
+                        <button key={name} onClick={() => selectStreet(name)}>
+                          {name} <ArrowUpRight size={11} />
+                        </button>
+                      ))}
+                    </div>
+                    {selectedCell.properties.names.length > 3 && (
+                      <small>
+                        +{selectedCell.properties.names.length - 3} andere
+                        straatnamen
+                      </small>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="st-legend">
+                <strong>
+                  {mapMode === "clusters" && !(showSegments && selectedStreet)
+                    ? "Straatprofielen · geen kwaliteitsoordeel"
+                    : `${labels[metric]} · ${mapMode === "wards" ? `wijkindicator · ${units[metric]}` : showSegments && selectedStreet ? "wegvakindicatoren geselecteerde straat" : `straatindicator · ${units[metric]}`}`}
+                </strong>
+                <div>
+                  {mapMode === "clusters" &&
+                  !(showSegments && selectedStreet) ? (
+                    <>
+                      {clustering.clusters.map((c) => (
+                        <span key={c.id}>
+                          <i style={{ background: c.color }} />
+                          Profiel {c.id + 1}
+                        </span>
+                      ))}
+                      <span>
+                        <i style={{ background: statusColors.missing }} />
+                        Geen profiel
+                      </span>
+                    </>
+                  ) : (
+                    Object.entries(legendLabels(metric)).map(([key, label]) => (
+                      <span key={key}>
+                        <i
+                          style={{
+                            background:
+                              statusColors[key as keyof typeof statusColors],
+                          }}
+                        />
+                        {label}
+                      </span>
+                    ))
+                  )}
+                </div>
+                <small>
+                  {mapMode === "wards"
+                    ? "Opgetelde aantallen en noemers · klik een gebied"
+                    : showSegments && selectedStreet
+                      ? "Losse wegvakken · overige straten gedimd"
+                      : "Vereenvoudigde lijnen · één kleur per straat · klik voor details"}
+                </small>
+              </div>
+            )}
+          </section>
+          {mapMode === "heat" && heatView && (
+            <HeatTable
+              view={heatView}
+              selected={selectedHeatId}
+              select={setSelectedHeatId}
+            />
+          )}
+          <div className="st-story">
+            <Lightbulb size={17} />
+            <div>
+              <strong>Begin met een onderzoeksvraag</strong>
+              <p>Waar combineren weinig bomen en veel meldingen?</p>
+            </div>
+            <button
+              onClick={() => {
+                reset();
+                setMetric("treeDensity");
+                setX("treeDensity");
+                setY("reports");
+                setLevel("street");
+                setMethod("spearman");
+                setPanel("correlations");
+                setMapMode("streets");
+              }}
+            >
+              Bekijk het verband <ArrowUpRight size={13} />
+            </button>
+            <button
+              onClick={() => {
+                update({ doubleDeficit: !filters.doubleDeficit });
+                setPanel("areas");
+                setMapMode("wards");
+              }}
+            >
+              Vind aandachtspunten <ArrowUpRight size={13} />
+            </button>
+            <button
+              onClick={() => {
+                setPanel("shifts");
+                setMapMode("streets");
+              }}
+            >
+              Wat verandert er? <ArrowUpRight size={13} />
+            </button>
+          </div>
+          {panel === "shifts" && (
+            <ShiftExplorer
+              result={shifts}
+              settings={shiftSettings}
+              selected={selectedStreet?.id ?? null}
+              select={selectStreet}
+            />
+          )}
+          {selectedStreet && (
+            <StreetDetail
+              key={selectedStreet.id}
+              street={selectedStreet}
+              metric={metric}
+              cluster={clustering.assignments.get(selectedStreet.id)}
+              clear={() => {
+                setSelected(null);
+                setShowSegments(false);
+              }}
+              zoom={() => {
+                runtime?.focus(selectedStreet);
+                container.current
+                  ?.closest(".st-map-frame")
+                  ?.scrollIntoView({ block: "center", behavior: "auto" });
+              }}
+              showSegments={showSegments && mapMode !== "heat"}
+              toggleSegments={() => {
+                if (mapMode === "heat") {
+                  setMapMode("streets");
+                  setShowSegments(true);
+                } else setShowSegments((v) => !v);
+                setSelectedSegment(null);
+              }}
+              segment={selectedSegment}
+              selectSegment={setSelectedSegment}
+              scoped={!!filters.ward}
+            />
+          )}
+          <StreetTable
+            streets={visibleStreets}
+            metric={metric}
+            select={selectStreet}
+            selected={selectedStreet?.id ?? null}
+          />
+        </div>
+        <aside className="st-insights" aria-label="Analyses van de selectie">
+          <div
+            className="st-analysis-tabs"
+            role="tablist"
+            aria-label="Analysetype"
+            onKeyDown={(event) => {
+              if (
+                !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
+              )
+                return;
+              const tabs = [
+                  ...event.currentTarget.querySelectorAll<HTMLButtonElement>(
+                    "button",
+                  ),
+                ],
+                index = tabs.indexOf(
+                  document.activeElement as HTMLButtonElement,
+                );
+              const next =
+                event.key === "Home"
+                  ? 0
+                  : event.key === "End"
+                    ? tabs.length - 1
+                    : (index +
+                        (event.key === "ArrowRight" ? 1 : -1) +
+                        tabs.length) %
+                      tabs.length;
+              event.preventDefault();
+              tabs[next]?.focus();
+              tabs[next]?.click();
+            }}
+          >
+            {(["correlations", "profiles", "areas", "shifts"] as const).map(
+              (p) => (
+                <button
+                  key={p}
+                  id={`st-tab-${p}`}
+                  role="tab"
+                  tabIndex={panel === p ? 0 : -1}
+                  aria-controls={`st-panel-${p}`}
+                  aria-selected={panel === p}
+                  onClick={() => setPanel(p)}
+                >
+                  {p === "correlations"
+                    ? "Verbanden"
+                    : p === "profiles"
+                      ? "Clusters"
+                      : p === "areas"
+                        ? "Gebieden"
+                        : "Verandering"}
+                </button>
+              ),
+            )}
+          </div>
+          <div
+            className="st-analysis-body"
+            id={`st-panel-${panel}`}
+            role="tabpanel"
+            aria-labelledby={`st-tab-${panel}`}
+          >
+            {!roads ? (
+              <p className="st-muted">
+                De analyses verschijnen zodra de straatgegevens geladen zijn.
+              </p>
+            ) : panel === "shifts" ? (
+              <ShiftPanel
+                result={shifts}
+                settings={shiftSettings}
+                setSettings={setShiftSettings}
+                selected={selectedStreet?.id ?? null}
+                select={selectStreet}
+              />
+            ) : panel === "correlations" ? (
+              <CorrelationPanel
+                rows={analysisRows}
+                minimumLength={minimumLength}
+                setMinimumLength={setMinimumLength}
+                excludedShort={allAnalysisRows.length - analysisRows.length}
+                x={x}
+                y={y}
+                setX={setX}
+                setY={setY}
+                method={method}
+                setMethod={setMethod}
+                level={level}
+                setLevel={setLevel}
+                select={selectObservation}
+              />
+            ) : panel === "profiles" ? (
+              <>
+                <div className="st-card-heading">
+                  <span className="st-kicker">VERGELIJKBARE STRATEN</span>
+                  <h2>Welke profielen zie je?</h2>
+                  <p>
+                    K-means groepeert straten op lichtobjectdichtheid,
+                    boomdichtheid en meldingsdruk. Een profiel is geen
+                    aaneengesloten gebied.
+                  </p>
+                  {clustering.clusters.length < k && (
+                    <p>
+                      Er zijn {clustering.clusters.length} verschillende
+                      profielen mogelijk; lege of identieke clusters zijn
+                      weggelaten.
+                    </p>
+                  )}
+                </div>
+                <label className="st-field">
+                  Aantal clusters
+                  <select
+                    aria-label="Aantal clusters"
+                    value={k}
+                    onChange={(e) => {
+                      setK(+e.target.value);
+                      update({ cluster: null });
+                    }}
+                  >
+                    {[3, 4, 5, 6].map((n) => (
+                      <option key={n} value={n}>
+                        {n} profielen
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className="an-button st-wide"
+                  onClick={() => setMapMode("clusters")}
+                >
+                  <GitBranch size={14} />
+                  Toon profielen op de kaart
+                </button>
+                <div className="st-cluster-list">
+                  {clustering.clusters.map((c) => {
+                    const count = streets.filter(
+                      (s) => clustering.assignments.get(s.id) === c.id,
+                    ).length;
+                    return (
+                      <section
+                        key={c.id}
+                        className={
+                          filters.cluster === c.id ? "st-selected-cluster" : ""
+                        }
+                      >
+                        <div className="st-cluster-heading">
+                          <h3>
+                            <i style={{ background: c.color }} />
+                            Profiel {c.id + 1}
+                          </h3>
+                          <span>{number(count)} in selectie</span>
+                        </div>
+                        <p>
+                          Teruggetransformeerd logcentrum · {c.members} straten
+                        </p>
+                        {clusterMetrics.map((m, i) => (
+                          <div className="st-profile-bar" key={m}>
+                            <span>
+                              {labels[m]}
+                              <small>{units[m]}</small>
+                            </span>
+                            <i>
+                              <em
+                                style={{
+                                  width: `${Math.min(100, (c.centroid[i]! / Math.max(1, ...clustering.clusters.map((p) => p.centroid[i]!))) * 100)}%`,
+                                  background: c.color,
+                                }}
+                              />
+                            </i>
+                            <b>{formatValue(c.centroid[i]!, m)}</b>
+                          </div>
+                        ))}
+                        <button
+                          className="st-text-button"
+                          aria-pressed={filters.cluster === c.id}
+                          onClick={() => {
+                            update({
+                              cluster: filters.cluster === c.id ? null : c.id,
+                            });
+                            setMapMode("clusters");
+                          }}
+                        >
+                          {filters.cluster === c.id
+                            ? "Wis profielfilter"
+                            : "Onderzoek dit profiel"}{" "}
+                          <ArrowUpRight size={12} />
+                        </button>
+                        <small>
+                          {number(c.members)} straatnamen in heel Amsterdam
+                        </small>
+                      </section>
+                    );
+                  })}
+                </div>
+                <div className="st-profile-quality">
+                  <strong>
+                    {clustering.clusters.length} profielen ·{" "}
+                    {number(clustering.assignments.size)} straten
+                  </strong>
+                  <p>
+                    {clustering.converged
+                      ? `Geconvergeerd na ${clustering.iterations} iteraties.`
+                      : "Iteratielimiet bereikt; interpreteer de profielen voorzichtig."}{" "}
+                    {clustering.explainedVariance === null
+                      ? "Onvoldoende variatie om profielen te onderscheiden."
+                      : `${number(clustering.explainedVariance * 100, 1)}% minder spreiding binnen clusters dan bij één gezamenlijk centrum (log/z-ruimte). Dit meet compactheid, geen juistheid of betrouwbaarheid.`}
+                  </p>
+                </div>
+                <div className="st-caution">
+                  Getraind op heel Amsterdam met straten van minimaal 100 m NWB;{" "}
+                  {clustering.excluded} straten uitgesloten. Eerst log(1+x),
+                  daarna standaardiseren (z-scores). Balken zijn per indicator
+                  relatief aan het hoogste clustercentrum; getallen hebben hun
+                  eigen eenheid. Kleuren zijn categorieën, geen rapportcijfers.
+                  Clustercentra zijn gemiddelden in logruimte,
+                  teruggetransformeerd; geen gewone straatgemiddelden. Filters
+                  veranderen de profielen niet. Het aantal clusters én de
+                  meldingsperiode trainen opnieuw. Bij een wijkfilter blijft het
+                  profiel gebaseerd op de hele straat in de stad.
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="st-card-heading">
+                  <span className="st-kicker">VAN STRAAT NAAR GEBIED</span>
+                  <h2>Welke gebieden vallen op?</h2>
+                  <p>
+                    {labels[metric]} per gebied, berekend uit opgetelde
+                    bronaantallen en hun noemers. De meest opvallende klasse
+                    staat bovenaan.
+                  </p>
+                </div>
+                <button
+                  className="an-button st-wide"
+                  onClick={() => setMapMode("wards")}
+                >
+                  <MapPinned size={14} />
+                  Toon wijkindicatoren op de kaart
+                </button>
+                <div className="st-area-ranking">
+                  {rankedAreas.map((a) => (
+                    <button
+                      key={a.id}
+                      onClick={() => {
+                        chooseWard(a.id);
+                        runtime?.fit(a.id);
+                      }}
+                    >
+                      <span>
+                        <strong>{a.name}</strong>
+                        <b style={{ color: scoreColor(a[metric], metric) }}>
+                          {formatValue(a[metric], metric)}
+                        </b>
+                      </span>
+                      <small>
+                        {units[metric]} · {number(a.length / 1000, 1)} km NWB ·{" "}
+                        {a.count} wegvakken · {a.raw.lights} lichtobjecten ·{" "}
+                        {a.raw.trees} bomen ·{" "}
+                        {windowTotal(a.raw.reports, months)} meldingen
+                      </small>
+                    </button>
+                  ))}
+                </div>
+                {!rankedAreas.length && (
+                  <p className="st-muted">
+                    Geen gebieden in deze selectie. Wis een filter om verder te
+                    kijken.
+                  </p>
+                )}
+                <div className="st-caution">
+                  Dit is een ranglijst van registraties, geen getoetste hotspot
+                  of kwaliteitsoordeel. De gemeentelijke bronnen zijn niet
+                  volledig voor alle objecten en meldingen. De 110 gebieden zijn
+                  de B&B-vergunningswijken; bronwegvakken zijn via een
+                  representatief punt toegewezen. Straatfilters werken door.
+                </div>
+              </>
+            )}
+          </div>
+        </aside>
+      </div>
+      <footer className="st-footer">
+        <span>
+          <i />
+          Lokale snapshot · geen live monitor
+        </span>
+        <span>
+          Gemeente Amsterdam + NWB / PDOK · download {observationMeta.retrieved}
+        </span>
+        <button onClick={() => setHelp(true)}>
+          Bronnen, dekking & rekenregels <ArrowUpRight size={12} />
+        </button>
+      </footer>
+      {notice && (
+        <div className="an-notice" role="status">
+          <span>{notice}</span>
+          <button aria-label="Sluit melding" onClick={() => setNotice("")}>
+            <X size={15} />
+          </button>
+        </div>
+      )}
+      {help && <Help close={() => setHelp(false)} />}
+    </main>
+  );
 }
 
-function HeatTable({ view, selected, select }: { view: HeatView; selected: string | null; select: (id: string) => void }) {
-  const [open, setOpen] = useState(false), [paging, setPaging] = useState({ view, page: 0 });
-  const ranked = useMemo(() => open ? [...view.data.features].sort((a, b) => b.properties.count - a.properties.count || a.properties.id.localeCompare(b.properties.id)) : [], [view, open]);
-  const current = paging.view === view ? Math.min(paging.page, Math.max(0, Math.ceil(ranked.length / 20) - 1)) : 0;
-  return <details className="st-heat-table" onToggle={e => setOpen(e.currentTarget.open)}><summary>{view.hexWidth ? "Hexagonen als tabel" : "Bronvakken als tabel"} <span>{number(view.cells)} vakken · {number(view.total)} registraties</span></summary>{open && <><p>Dezelfde gewogen vakken als op de kaart, met de hoogste aantallen eerst. Selecteren markeert een vak en verandert de kaartpositie niet.</p><div className="st-table-scroll"><table><thead><tr><th>{view.hexWidth ? `Hexagon · ${view.hexWidth} m` : "Bronvak · 25 m"}</th><th>Aantal</th><th>Gekoppelde straatnamen</th></tr></thead><tbody>{ranked.slice(current * 20, (current + 1) * 20).map(f => <tr key={f.properties.id} className={selected === f.properties.id ? "st-row-selected" : ""}><td><button aria-pressed={selected === f.properties.id} onClick={() => select(f.properties.id)}>{f.properties.id}</button></td><td>{number(f.properties.count)}</td><td>{f.properties.names.join(" / ")}</td></tr>)}</tbody></table></div><div className="st-table-pagination"><span>{ranked.length ? `${current * 20 + 1}–${Math.min((current + 1) * 20, ranked.length)}` : 0} van {number(ranked.length)}</span><div><button aria-label="Vorige bronvakken" disabled={!current} onClick={() => setPaging({ view, page: current - 1 })}><ChevronLeft size={15} /></button><button aria-label="Volgende bronvakken" disabled={(current + 1) * 20 >= ranked.length} onClick={() => setPaging({ view, page: current + 1 })}><ChevronRight size={15} /></button></div></div></>}</details>;
+function HeatTable({
+  view,
+  selected,
+  select,
+}: {
+  view: HeatView;
+  selected: string | null;
+  select: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false),
+    [paging, setPaging] = useState({ view, page: 0 });
+  const ranked = useMemo(
+    () =>
+      open
+        ? [...view.data.features].sort(
+            (a, b) =>
+              b.properties.count - a.properties.count ||
+              a.properties.id.localeCompare(b.properties.id),
+          )
+        : [],
+    [view, open],
+  );
+  const current =
+    paging.view === view
+      ? Math.min(paging.page, Math.max(0, Math.ceil(ranked.length / 20) - 1))
+      : 0;
+  return (
+    <details
+      className="st-heat-table"
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
+      <summary>
+        {view.hexWidth ? "Hexagonen als tabel" : "Bronvakken als tabel"}{" "}
+        <span>
+          {number(view.cells)} vakken · {number(view.total)} registraties
+        </span>
+      </summary>
+      {open && (
+        <>
+          <p>
+            Dezelfde gewogen vakken als op de kaart, met de hoogste aantallen
+            eerst. Selecteren markeert een vak en verandert de kaartpositie
+            niet.
+          </p>
+          <div className="st-table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>
+                    {view.hexWidth
+                      ? `Hexagon · ${view.hexWidth} m`
+                      : "Bronvak · 25 m"}
+                  </th>
+                  <th>Aantal</th>
+                  <th>Gekoppelde straatnamen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ranked.slice(current * 20, (current + 1) * 20).map((f) => (
+                  <tr
+                    key={f.properties.id}
+                    className={
+                      selected === f.properties.id ? "st-row-selected" : ""
+                    }
+                  >
+                    <td>
+                      <button
+                        aria-pressed={selected === f.properties.id}
+                        onClick={() => select(f.properties.id)}
+                      >
+                        {f.properties.id}
+                      </button>
+                    </td>
+                    <td>{number(f.properties.count)}</td>
+                    <td>{f.properties.names.join(" / ")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="st-table-pagination">
+            <span>
+              {ranked.length
+                ? `${current * 20 + 1}–${Math.min((current + 1) * 20, ranked.length)}`
+                : 0}{" "}
+              van {number(ranked.length)}
+            </span>
+            <div>
+              <button
+                aria-label="Vorige bronvakken"
+                disabled={!current}
+                onClick={() => setPaging({ view, page: current - 1 })}
+              >
+                <ChevronLeft size={15} />
+              </button>
+              <button
+                aria-label="Volgende bronvakken"
+                disabled={(current + 1) * 20 >= ranked.length}
+                onClick={() => setPaging({ view, page: current + 1 })}
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </details>
+  );
 }
 
-const rankMetric = (a: Street, b: Street, metric: Metric) => a[metric] === null ? b[metric] === null ? a.id.localeCompare(b.id) : 1 : b[metric] === null ? -1 : (highIsMore[metric] ? a[metric]! - b[metric]! : b[metric]! - a[metric]!) || a.name.localeCompare(b.name);
-function StreetDetail({ street, metric, cluster, clear, zoom, showSegments, toggleSegments, segment, selectSegment, scoped }: { street: Street; metric: Metric; cluster?: number; clear: () => void; zoom: () => void; showSegments: boolean; toggleSegments: () => void; segment: string | null; selectSegment: (id: string) => void; scoped: boolean }) {
+const rankMetric = (a: Street, b: Street, metric: Metric) =>
+  a[metric] === null
+    ? b[metric] === null
+      ? a.id.localeCompare(b.id)
+      : 1
+    : b[metric] === null
+      ? -1
+      : (highIsMore[metric]
+          ? a[metric]! - b[metric]!
+          : b[metric]! - a[metric]!) || a.name.localeCompare(b.name);
+function StreetDetail({
+  street,
+  metric,
+  cluster,
+  clear,
+  zoom,
+  showSegments,
+  toggleSegments,
+  segment,
+  selectSegment,
+  scoped,
+}: {
+  street: Street;
+  metric: Metric;
+  cluster?: number;
+  clear: () => void;
+  zoom: () => void;
+  showSegments: boolean;
+  toggleSegments: () => void;
+  segment: string | null;
+  selectSegment: (id: string) => void;
+  scoped: boolean;
+}) {
   const [page, setPage] = useState(0);
-  const detail = metricDetail(street.roads, metric), selectedRoad = street.roads.find(r => r.id === segment);
-  const ranked = useMemo(() => [...street.roads].sort((a, b) => a[metric] === null ? 1 : b[metric] === null ? -1 : (highIsMore[metric] ? a[metric]! - b[metric]! : b[metric]! - a[metric]!)), [street, metric]);
-  const total = windowTotal(street.raw.reports, street.months), nuisance = windowTotal(street.raw.nuisance, street.months);
-  const notes = { outages: `${street.raw.faults} storingen / ${street.raw.known} bekende statussen`, lightDensity: `${street.raw.lights} gekoppelde lichtobjecten`, treeDensity: `${street.raw.trees} gekoppelde bomen`, reports: `${total} meldingen in ${street.months} maanden`, nuisance: `${nuisance} overlastmeldingen in ${street.months} maanden` };
-  return <section className="st-detail" aria-label="Geselecteerde straat">
-    <div className="st-detail-heading"><div><span className="st-kicker">ECHTE REGISTRATIES · AFGELEIDE STRAATINDICATOREN</span><h2>{street.name}</h2><p>{street.wards.map(w => wardNames.get(w)).join(" / ")} · {street.count} wegvakken · {number(street.length)} m NWB{cluster !== undefined ? ` · Profiel ${cluster + 1}` : " · Geen profiel (o.a. straten <100 m)"}</p></div><button className="an-icon" aria-label="Deselecteer straat" onClick={clear}><X size={16} /></button></div>
-    <div className="st-detail-scores">{metrics.map(m => <div key={m}><span>{labels[m]}</span><b style={{ color: scoreColor(street[m], m) }}>{formatValue(street[m], m)}</b><small>{units[m]}</small><p>{notes[m]}</p></div>)}</div>
-    <div className="st-spread" aria-label={`Spreiding ${labels[metric]}`}><div><span>Lokale min–max</span><strong>{formatValue(detail.min, metric)} – {formatValue(detail.max, metric)}</strong><small>{units[metric]} · {detail.count}/{street.count} berekenbare wegvakken</small></div><div><span>Onderhoudsmeldingen</span><strong>{windowTotal(street.raw.maintenance, street.months)}</strong><small>wegen, verkeer en straatmeubilair · onderdeel van totaal</small></div><div><span>Bekende objectstatus</span><strong>{street.raw.known} / {street.raw.lights}</strong><small>storingspercentage pas vanaf 5 bekende statussen</small></div></div>
-    <p className="st-muted">{scoped ? "Dit zijn de gekoppelde registraties bij het straatdeel in je gekozen wijk." : "Dit omvat de hele straatnaam, ook over wijkgrenzen."} Aantallen zijn eerst opgeteld, daarna gedeeld door de noemer. Bronlengte telt parallelle rijbanen apart. Nul gekoppelde registraties bewijst geen afwezigheid; de koppeling gebruikt maximaal 30 m afstand en laat twijfelgevallen weg.</p>
-    {attentionCount(street) >= 2 && <p className="st-detail-warning">Deze straat overschrijdt {attentionCount(street)} indicatieve aandachtgrenzen. Bekijk de bronaantallen en lokale verschillen voordat je een inspectie plant.</p>}
-    <MonthlyChart street={street} />
-    <div className="st-detail-actions"><button className="an-button" aria-expanded={showSegments} onClick={toggleSegments}><Route size={14} />{showSegments ? "Verberg wegvakken" : `Bekijk ${street.count} wegvakken`}</button><button className="st-text-button" onClick={zoom}><Focus size={14} />Zoom naar straat</button></div>
-    {showSegments && <div className="st-segment-detail"><p className="st-muted">Oorspronkelijke NWB-lijnen met nabij gekoppelde registraties. Zeer korte wegvakken kunnen extreme dichtheden hebben. Je kaartpositie blijft staan.</p><div className="st-table-scroll"><table><thead><tr><th>Wegvak</th><th>Type</th><th>{labels[metric]} ({units[metric]})</th><th>Lengte</th></tr></thead><tbody>{ranked.slice(page * 20, (page + 1) * 20).map(r => <tr key={r.id} className={segment === r.id ? "st-row-selected" : ""}><td><button aria-pressed={segment === r.id} onClick={() => selectSegment(r.id)}>NWB {r.id}</button></td><td>{r.kind}</td><td style={{ color: scoreColor(r[metric], metric) }}>{formatValue(r[metric], metric)}</td><td>{r.length} m</td></tr>)}</tbody></table></div>
-      <div className="st-table-pagination"><span>{page * 20 + 1}–{Math.min((page + 1) * 20, street.count)} van {street.count} wegvakken</span><div><button aria-label="Vorige straatwegvakken" disabled={!page} onClick={() => setPage(p => p - 1)}><ChevronLeft size={15} /></button><button aria-label="Volgende straatwegvakken" disabled={(page + 1) * 20 >= street.count} onClick={() => setPage(p => p + 1)}><ChevronRight size={15} /></button></div></div>
-      {selectedRoad && <div className="st-segment-scores" aria-label="Geselecteerd wegvak"><strong>NWB {selectedRoad.id} · {selectedRoad.kind} · {selectedRoad.length} m</strong><p>{selectedRoad.raw.lights} lichtobjecten · {selectedRoad.raw.faults} storingen · {selectedRoad.raw.trees} bomen · {windowTotal(selectedRoad.raw.reports, street.months)} meldingen</p><div>{metrics.map(m => <span key={m}>{labels[m]} <b style={{ color: scoreColor(selectedRoad[m], m) }}>{formatValue(selectedRoad[m], m)} {units[m]}</b></span>)}</div></div>}
-    </div>}
-  </section>;
+  const detail = metricDetail(street.roads, metric),
+    selectedRoad = street.roads.find((r) => r.id === segment);
+  const ranked = useMemo(
+    () =>
+      [...street.roads].sort((a, b) =>
+        a[metric] === null
+          ? 1
+          : b[metric] === null
+            ? -1
+            : highIsMore[metric]
+              ? a[metric]! - b[metric]!
+              : b[metric]! - a[metric]!,
+      ),
+    [street, metric],
+  );
+  const total = windowTotal(street.raw.reports, street.months),
+    nuisance = windowTotal(street.raw.nuisance, street.months);
+  const notes = {
+    outages: `${street.raw.faults} storingen / ${street.raw.known} bekende statussen`,
+    lightDensity: `${street.raw.lights} gekoppelde lichtobjecten`,
+    treeDensity: `${street.raw.trees} gekoppelde bomen`,
+    reports: `${total} meldingen in ${street.months} maanden`,
+    nuisance: `${nuisance} overlastmeldingen in ${street.months} maanden`,
+  };
+  return (
+    <section className="st-detail" aria-label="Geselecteerde straat">
+      <div className="st-detail-heading">
+        <div>
+          <span className="st-kicker">
+            ECHTE REGISTRATIES · AFGELEIDE STRAATINDICATOREN
+          </span>
+          <h2>{street.name}</h2>
+          <p>
+            {street.wards.map((w) => wardNames.get(w)).join(" / ")} ·{" "}
+            {street.count} wegvakken · {number(street.length)} m NWB
+            {cluster !== undefined
+              ? ` · Profiel ${cluster + 1}`
+              : " · Geen profiel (o.a. straten <100 m)"}
+          </p>
+        </div>
+        <button
+          className="an-icon"
+          aria-label="Deselecteer straat"
+          onClick={clear}
+        >
+          <X size={16} />
+        </button>
+      </div>
+      <div className="st-detail-scores">
+        {metrics.map((m) => (
+          <div key={m}>
+            <span>{labels[m]}</span>
+            <b style={{ color: scoreColor(street[m], m) }}>
+              {formatValue(street[m], m)}
+            </b>
+            <small>{units[m]}</small>
+            <p>{notes[m]}</p>
+          </div>
+        ))}
+      </div>
+      <div className="st-spread" aria-label={`Spreiding ${labels[metric]}`}>
+        <div>
+          <span>Lokale min–max</span>
+          <strong>
+            {formatValue(detail.min, metric)} –{" "}
+            {formatValue(detail.max, metric)}
+          </strong>
+          <small>
+            {units[metric]} · {detail.count}/{street.count} berekenbare
+            wegvakken
+          </small>
+        </div>
+        <div>
+          <span>Onderhoudsmeldingen</span>
+          <strong>{windowTotal(street.raw.maintenance, street.months)}</strong>
+          <small>
+            wegen, verkeer en straatmeubilair · onderdeel van totaal
+          </small>
+        </div>
+        <div>
+          <span>Bekende objectstatus</span>
+          <strong>
+            {street.raw.known} / {street.raw.lights}
+          </strong>
+          <small>storingspercentage pas vanaf 5 bekende statussen</small>
+        </div>
+      </div>
+      <p className="st-muted">
+        {scoped
+          ? "Dit zijn de gekoppelde registraties bij het straatdeel in je gekozen wijk."
+          : "Dit omvat de hele straatnaam, ook over wijkgrenzen."}{" "}
+        Aantallen zijn eerst opgeteld, daarna gedeeld door de noemer. Bronlengte
+        telt parallelle rijbanen apart. Nul gekoppelde registraties bewijst geen
+        afwezigheid; de koppeling gebruikt maximaal 30 m afstand en laat
+        twijfelgevallen weg.
+      </p>
+      {attentionCount(street) >= 2 && (
+        <p className="st-detail-warning">
+          Deze straat overschrijdt {attentionCount(street)} indicatieve
+          aandachtgrenzen. Bekijk de bronaantallen en lokale verschillen voordat
+          je een inspectie plant.
+        </p>
+      )}
+      <MonthlyChart street={street} />
+      <div className="st-detail-actions">
+        <button
+          className="an-button"
+          aria-expanded={showSegments}
+          onClick={toggleSegments}
+        >
+          <Route size={14} />
+          {showSegments
+            ? "Verberg wegvakken"
+            : `Bekijk ${street.count} wegvakken`}
+        </button>
+        <button className="st-text-button" onClick={zoom}>
+          <Focus size={14} />
+          Zoom naar straat
+        </button>
+      </div>
+      {showSegments && (
+        <div className="st-segment-detail">
+          <p className="st-muted">
+            Oorspronkelijke NWB-lijnen met nabij gekoppelde registraties. Zeer
+            korte wegvakken kunnen extreme dichtheden hebben. Je kaartpositie
+            blijft staan.
+          </p>
+          <div className="st-table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Wegvak</th>
+                  <th>Type</th>
+                  <th>
+                    {labels[metric]} ({units[metric]})
+                  </th>
+                  <th>Lengte</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ranked.slice(page * 20, (page + 1) * 20).map((r) => (
+                  <tr
+                    key={r.id}
+                    className={segment === r.id ? "st-row-selected" : ""}
+                  >
+                    <td>
+                      <button
+                        aria-pressed={segment === r.id}
+                        onClick={() => selectSegment(r.id)}
+                      >
+                        NWB {r.id}
+                      </button>
+                    </td>
+                    <td>{r.kind}</td>
+                    <td style={{ color: scoreColor(r[metric], metric) }}>
+                      {formatValue(r[metric], metric)}
+                    </td>
+                    <td>{r.length} m</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="st-table-pagination">
+            <span>
+              {page * 20 + 1}–{Math.min((page + 1) * 20, street.count)} van{" "}
+              {street.count} wegvakken
+            </span>
+            <div>
+              <button
+                aria-label="Vorige straatwegvakken"
+                disabled={!page}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                <ChevronLeft size={15} />
+              </button>
+              <button
+                aria-label="Volgende straatwegvakken"
+                disabled={(page + 1) * 20 >= street.count}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          </div>
+          {selectedRoad && (
+            <div className="st-segment-scores" aria-label="Geselecteerd wegvak">
+              <strong>
+                NWB {selectedRoad.id} · {selectedRoad.kind} ·{" "}
+                {selectedRoad.length} m
+              </strong>
+              <p>
+                {selectedRoad.raw.lights} lichtobjecten ·{" "}
+                {selectedRoad.raw.faults} storingen · {selectedRoad.raw.trees}{" "}
+                bomen · {windowTotal(selectedRoad.raw.reports, street.months)}{" "}
+                meldingen
+              </p>
+              <div>
+                {metrics.map((m) => (
+                  <span key={m}>
+                    {labels[m]}{" "}
+                    <b style={{ color: scoreColor(selectedRoad[m], m) }}>
+                      {formatValue(selectedRoad[m], m)} {units[m]}
+                    </b>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
 }
 function MonthlyChart({ street }: { street: Street }) {
   const maximum = Math.max(1, ...street.raw.reports);
-  return <div className="st-monthly"><h3>Meldingen per maand</h3><p className="st-muted">Totaal (groen), waarvan overlast (oranje). Gedimde maanden vallen buiten de gekozen periode. Verschillen kunnen ook komen door meldingsbereidheid of wijzigingen in registratie.</p><svg viewBox="0 0 600 150" role="img" aria-label={`Meldingen per maand voor ${street.name}; ${windowTotal(street.raw.reports, street.months)} in de geselecteerde periode. De maandcijfers staan ook in de uitklapbare tabel.`}><text x="0" y="14">{maximum}</text><line x1="28" x2="600" y1="120" y2="120" stroke="#d7e1d0" />{observationMeta.months.map((month, i) => <g key={month} opacity={i < 12 - street.months ? .3 : 1}><rect x={34 + i * 47} y={120 - street.raw.reports[i]! / maximum * 100} width="26" height={street.raw.reports[i]! / maximum * 100} rx="2" fill="#6c9d7d" /><rect x={34 + i * 47} y={120 - street.raw.nuisance[i]! / maximum * 100} width="26" height={street.raw.nuisance[i]! / maximum * 100} rx="2" fill="#d59c56" /><text x={47 + i * 47} y="140" textAnchor="middle">{month.slice(5)}/{month.slice(2, 4)}</text></g>)}</svg><details><summary>Bekijk de maandcijfers</summary><div className="st-table-scroll"><table><thead><tr><th>Maand</th><th>Alle meldingen</th><th>Waarvan overlast</th><th>Waarvan wegonderhoud</th></tr></thead><tbody>{observationMeta.months.map((month, i) => <tr key={month}><td>{month}</td><td>{street.raw.reports[i]}</td><td>{street.raw.nuisance[i]}</td><td>{street.raw.maintenance[i]}</td></tr>)}</tbody></table></div></details></div>;
+  return (
+    <div className="st-monthly">
+      <h3>Meldingen per maand</h3>
+      <p className="st-muted">
+        Totaal (groen), waarvan overlast (oranje). Gedimde maanden vallen buiten
+        de gekozen periode. Verschillen kunnen ook komen door meldingsbereidheid
+        of wijzigingen in registratie.
+      </p>
+      <svg
+        viewBox="0 0 600 150"
+        role="img"
+        aria-label={`Meldingen per maand voor ${street.name}; ${windowTotal(street.raw.reports, street.months)} in de geselecteerde periode. De maandcijfers staan ook in de uitklapbare tabel.`}
+      >
+        <text x="0" y="14">
+          {maximum}
+        </text>
+        <line x1="28" x2="600" y1="120" y2="120" stroke="#d7e1d0" />
+        {observationMeta.months.map((month, i) => (
+          <g key={month} opacity={i < 12 - street.months ? 0.3 : 1}>
+            <rect
+              x={34 + i * 47}
+              y={120 - (street.raw.reports[i]! / maximum) * 100}
+              width="26"
+              height={(street.raw.reports[i]! / maximum) * 100}
+              rx="2"
+              fill="#6c9d7d"
+            />
+            <rect
+              x={34 + i * 47}
+              y={120 - (street.raw.nuisance[i]! / maximum) * 100}
+              width="26"
+              height={(street.raw.nuisance[i]! / maximum) * 100}
+              rx="2"
+              fill="#d59c56"
+            />
+            <text x={47 + i * 47} y="140" textAnchor="middle">
+              {month.slice(5)}/{month.slice(2, 4)}
+            </text>
+          </g>
+        ))}
+      </svg>
+      <details>
+        <summary>Bekijk de maandcijfers</summary>
+        <div className="st-table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Maand</th>
+                <th>Alle meldingen</th>
+                <th>Waarvan overlast</th>
+                <th>Waarvan wegonderhoud</th>
+              </tr>
+            </thead>
+            <tbody>
+              {observationMeta.months.map((month, i) => (
+                <tr key={month}>
+                  <td>{month}</td>
+                  <td>{street.raw.reports[i]}</td>
+                  <td>{street.raw.nuisance[i]}</td>
+                  <td>{street.raw.maintenance[i]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </div>
+  );
 }
-function StreetTable({ streets, metric, select, selected }: { streets: Street[]; metric: Metric; select: (id: string) => void; selected: string | null }) {
+function StreetTable({
+  streets,
+  metric,
+  select,
+  selected,
+}: {
+  streets: Street[];
+  metric: Metric;
+  select: (id: string) => void;
+  selected: string | null;
+}) {
   const [paging, setPaging] = useState({ streets, metric, page: 0 });
-  const page = paging.streets === streets && paging.metric === metric ? Math.min(paging.page, Math.max(0, Math.ceil(streets.length / 30) - 1)) : 0;
-  const ranked = useMemo(() => [...streets].sort((a, b) => rankMetric(a, b, metric)), [streets, metric]);
-  return <section className="st-table-card" aria-label="Straten in de selectie"><div className="st-table-title"><div><h2>Van inzicht naar inspectie</h2><p>Eén rij per straat · {highIsMore[metric] ? "laagste" : "hoogste"} {labels[metric].toLocaleLowerCase("nl")} eerst · indicatieve klassen</p></div><span>{number(streets.length)} straten</span></div><div className="st-table-scroll"><table><thead><tr><th>Straat</th>{metrics.map(m => <th key={m} aria-sort={m === metric ? highIsMore[metric] ? "ascending" : "descending" : undefined}>{labels[m]}<small>{units[m]}</small></th>)}<th>Gekoppelde registraties</th></tr></thead><tbody>{ranked.slice(page * 30, (page + 1) * 30).map(s => <tr key={s.id} className={selected === s.id ? "st-row-selected" : ""}><td><button aria-label={`Bekijk ${s.name}${s.named ? "" : ` ${s.id}`}`} onClick={() => select(s.id)}><strong>{s.name}</strong><small>{s.count} wegvakken · {number(s.length)} m NWB</small></button></td>{metrics.map(m => <td key={m}><span className="st-score-pill" style={{ color: scoreColor(s[m], m) }}><i style={{ background: scoreColor(s[m], m) }} />{formatValue(s[m], m)}</span></td>)}<td>{s.raw.lights} lichtobjecten · {s.raw.trees} bomen<small>{windowTotal(s.raw.reports, s.months)} meldingen · {s.months} maanden</small></td></tr>)}</tbody></table>{!streets.length && <div className="st-empty"><Search size={24} /><strong>Geen straten gevonden</strong><span>Pas je zoekopdracht of filters aan.</span></div>}</div><div className="st-table-pagination"><span>{streets.length ? `${page * 30 + 1}–${Math.min((page + 1) * 30, streets.length)}` : "0"} van {number(streets.length)} · echte registraties, afgeleide indicatoren</span><div><button aria-label="Vorige straten" disabled={!page} onClick={() => setPaging({ streets, metric, page: page - 1 })}><ChevronLeft size={15} /></button><button aria-label="Volgende straten" disabled={(page + 1) * 30 >= streets.length} onClick={() => setPaging({ streets, metric, page: page + 1 })}><ChevronRight size={15} /></button></div></div></section>;
+  const page =
+    paging.streets === streets && paging.metric === metric
+      ? Math.min(paging.page, Math.max(0, Math.ceil(streets.length / 30) - 1))
+      : 0;
+  const ranked = useMemo(
+    () => [...streets].sort((a, b) => rankMetric(a, b, metric)),
+    [streets, metric],
+  );
+  return (
+    <section className="st-table-card" aria-label="Straten in de selectie">
+      <div className="st-table-title">
+        <div>
+          <h2>Van inzicht naar inspectie</h2>
+          <p>
+            Eén rij per straat · {highIsMore[metric] ? "laagste" : "hoogste"}{" "}
+            {labels[metric].toLocaleLowerCase("nl")} eerst · indicatieve klassen
+          </p>
+        </div>
+        <span>{number(streets.length)} straten</span>
+      </div>
+      <div className="st-table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Straat</th>
+              {metrics.map((m) => (
+                <th
+                  key={m}
+                  aria-sort={
+                    m === metric
+                      ? highIsMore[metric]
+                        ? "ascending"
+                        : "descending"
+                      : undefined
+                  }
+                >
+                  {labels[m]}
+                  <small>{units[m]}</small>
+                </th>
+              ))}
+              <th>Gekoppelde registraties</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ranked.slice(page * 30, (page + 1) * 30).map((s) => (
+              <tr
+                key={s.id}
+                className={selected === s.id ? "st-row-selected" : ""}
+              >
+                <td>
+                  <button
+                    aria-label={`Bekijk ${s.name}${s.named ? "" : ` ${s.id}`}`}
+                    onClick={() => select(s.id)}
+                  >
+                    <strong>{s.name}</strong>
+                    <small>
+                      {s.count} wegvakken · {number(s.length)} m NWB
+                    </small>
+                  </button>
+                </td>
+                {metrics.map((m) => (
+                  <td key={m}>
+                    <span
+                      className="st-score-pill"
+                      style={{ color: scoreColor(s[m], m) }}
+                    >
+                      <i style={{ background: scoreColor(s[m], m) }} />
+                      {formatValue(s[m], m)}
+                    </span>
+                  </td>
+                ))}
+                <td>
+                  {s.raw.lights} lichtobjecten · {s.raw.trees} bomen
+                  <small>
+                    {windowTotal(s.raw.reports, s.months)} meldingen ·{" "}
+                    {s.months} maanden
+                  </small>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!streets.length && (
+          <div className="st-empty">
+            <Search size={24} />
+            <strong>Geen straten gevonden</strong>
+            <span>Pas je zoekopdracht of filters aan.</span>
+          </div>
+        )}
+      </div>
+      <div className="st-table-pagination">
+        <span>
+          {streets.length
+            ? `${page * 30 + 1}–${Math.min((page + 1) * 30, streets.length)}`
+            : "0"}{" "}
+          van {number(streets.length)} · echte registraties, afgeleide
+          indicatoren
+        </span>
+        <div>
+          <button
+            aria-label="Vorige straten"
+            disabled={!page}
+            onClick={() => setPaging({ streets, metric, page: page - 1 })}
+          >
+            <ChevronLeft size={15} />
+          </button>
+          <button
+            aria-label="Volgende straten"
+            disabled={(page + 1) * 30 >= streets.length}
+            onClick={() => setPaging({ streets, metric, page: page + 1 })}
+          >
+            <ChevronRight size={15} />
+          </button>
+        </div>
+      </div>
+    </section>
+  );
 }
 function Help({ close }: { close: () => void }) {
-  return <Modal title="Straatmonitor · bronnen & methode" close={close} className="st-help"><div className="an-intro-body"><p className="st-help-lead">Echte gemeentelijke registraties, gekoppeld aan {number(snapshot.count)} NWB-wegvakken. Download: {observationMeta.retrieved}. Geen fictieve cijfers of samengestelde veiligheidsscore.</p>
-    <h3>Bronnen en koppeldekking</h3><p>Alle pagina’s zijn opgehaald en op unieke bron-ID gecontroleerd. Deze tabel beschrijft de hele download, onafhankelijk van je filters. Bomen in parken of lampen ver van een weg hoeven niet aan een straat gekoppeld te zijn.</p><div className="st-table-scroll"><table><thead><tr><th>Bron</th><th>Bronrecords</th><th>Gekoppeld</th><th>Twijfel</th><th>Te ver</th><th>Uitgesloten / ongeldig</th></tr></thead><tbody>{observationMeta.sources.map(source => <tr key={source.key}><td><a href={source.documentation} target="_blank" rel="noreferrer">{source.key === "lights" ? "Verlichting" : source.key === "trees" ? "Gemeentelijke bomen" : "MORA-meldingen"}</a></td><td>{number(source.total)}</td><td>{number(source.matched)}</td><td>{number(source.ambiguous)}</td><td>{number(source.unmatched)}</td><td>{number(source.excluded + source.invalid)}</td></tr>)}</tbody></table></div>
-    <h3>Wat meten de indicatoren?</h3><ul>{metrics.map(m => <li key={m}><b>{labels[m]} ({units[m]}):</b> {descriptions[m]}</li>)}</ul><p>Meldingen beslaan {observationMeta.reportStart} tot {observationMeta.reportEndExclusive} (exclusief); je kunt de laatste 3 of 12 volledige maanden kiezen. Bomen en objectstatus zijn de stand bij download, geen historie uit dezelfde periode. Afhandeldatums zijn niet openbaar beschikbaar in deze API; daarom berekenen we geen afhandeltijden.</p>
-    <h3>Hoe worden punten aan straten gekoppeld?</h3><p>Elk punt krijgt hoogstens één dichtstbijzijnd bronwegvak binnen 30 m. Liggen twee verschillende straatnamen binnen 3 m van dezelfde beste afstand, dan wordt het punt als twijfelgeval uitgesloten. Autobaanhoofdrijbanen, op- en afritten zijn uitgesloten van de koppeling. Voor verlichting tellen de geregistreerde typen Gevel Armaturen, LSD Objecten, Grachtmast, Overspanning en Schijnwerpers mee; Laadzuilen zijn uitgesloten. We tellen bronobjecten, geen afzonderlijke lampen. LSD omvat lichtkunst, stadsilluminatie en decoratieve verlichting; deze bron is dus geen zuivere inventaris van functionele straatlampen. De bomenbron bevat gemeentelijke registraties en geen volledige inventaris van particuliere bomen. MORA gebruikt publiek beschikbare visualisatiecoördinaten: dit is een benadering van de meldlocatie.</p>
-    <p>Nul gekoppelde registraties bewijst niet dat een straat geen bomen, lichtobjecten of overlast heeft. Een ontbrekend storingspercentage betekent minder dan 5 bekende objectstatussen. De brondekking is geen percentage van alle werkelijke objecten; we kennen dat totaal niet.</p>
-    <h3>Straten, gebieden en noemers</h3><p>We tellen eerst alle bronaantallen in je geografische selectie op. Percentages delen storingen door bekende objectstatussen; dichtheden delen aantallen door bronwegvaklengte. Parallelle rijbanen tellen apart in die lengte. Daarom staat er expliciet “NWB” bij de eenheid. Daarna selecteren zoek-, kleur- en profielfilters hele straten. Een exact gelijke straatnaam vormt één object, ook als losse delen bestaan. De overzichtslijn onderdrukt nabije parallelle lijnen en verbindt eindpunten tot 38 m; dit is een cartografische vereenvoudiging. Originele lijnen blijven zichtbaar bij de details en in GeoJSON.</p><p>De 110 gebiedspolygonen zijn dezelfde B&B-vergunningsgebieden als in het andere voorbeeld. Een representatief punt wijst elk heel bronwegvak aan één gebied toe; grensoverschrijdende lijnen worden niet geknipt. Een wijkfilter toont het toegewezen straatdeel.</p>
-    <h3>Kleuren en aandachtssignalen</h3><p>De grenzen zijn illustratieve instelkeuzes van deze toepassing, geen gemeentelijke normen. Rood bij weinig bomen/lampen of veel storingen/meldingen is een verkenningssignaal. Meer lichtobjecten of minder meldingen bewijst geen hogere kwaliteit.</p><ul>{metrics.map(m => { const legend = legendLabels(m); return <li key={m}>{labels[m]}: rood {legend.poor}, oranje {legend.medium}, groen {legend.good} {units[m]}.</li>; })}</ul><p>“Minstens 2 aandachtssignalen” telt: storingen ≥10%, boomdichtheid &lt;1/100 m NWB en meldingsdruk ≥4/100 m NWB/maand. Er moeten minstens twee grenzen geraakt zijn. Zonder voldoende objectstatussen telt het storingssignaal niet mee.</p>
-    <h3>Concentratiekaarten</h3><p>Deze weergave gebruikt echte bronlocaties, gebundeld in vakken van 25 × 25 m. Alle aantallen blijven behouden; een punt markeert het midden van een bronvak en is geen exacte individuele bronlocatie. Alleen records die aan de huidige straatselectie zijn gekoppeld tellen mee. Ruis en twijfelgevallen blijven uitgesloten zoals hierboven beschreven. Onderwerpen zijn alle meldingen, overlast, wegen/onderhoud, bomen, verlichtingsobjecten en storingen.</p><p>Een Gaussische vervaging gebruikt een radius van 100, 250 of 500 meter. De kleuren tonen relatieve gewogen concentratie, geen kans, percentage of statistisch getoetste hotspot. De schaal gebruikt de stadsbrede 95e percentielwaarde van radiusgrote vakken, voor meldingen steeds over 12 maanden. Filteren, de camera verplaatsen of 3 maanden kiezen schaalt de kaart dus niet automatisch op. Onderwerp, radius of contrast wijzigen de schaal wel. Kleuren kunnen over straat- of wijkgrenzen uitvloeien. Bij inzoomen gaat de vervaging geleidelijk over in afzonderlijke bronvakken. Storingsconcentratie is een aantal; het percentage storingen blijft beschikbaar bij de straatindicatoren. De extra GeoJSON-export bewaart de gewogen bronvakken en weergave-instellingen.</p>
-    <h3>Hexagonen</h3><p>Bij “Concentraties → Hexagonen” tellen we de 25 m-bronvakken op binnen een vast, zeshoekig raster. De vakbreedte van 100, 250 of 500 meter is de afstand tussen parallelle zijden. Elk bronvak valt eenmaal in één hexagon; alle aantallen blijven behouden. Toewijzing gebruikt het midden van het bronvak en is daardoor bij hexagongrenzen een benadering van de oorspronkelijke bronlocaties. De hexagonen veranderen niet bij inzoomen of verplaatsen en worden niet op wijkgrenzen geknipt. Alleen vakken met gekoppelde registraties worden getoond.</p><p>De kleuren tonen aantallen per hexagon, met een vaste stadsbrede 12-maandsreferentie op het 95e percentiel van niet-lege hexagonen. De bovengrens op de legenda volgt het contrast; hogere aantallen delen de donkerste kleur, maar behouden hun volledige getal in details en export. Onderwerp en vakmaat hebben elk hun eigen schaal. Vergelijk daarom steeds dezelfde instellingen. Bij voldoende zoom verschijnen aantallen in de vakken. Selecteren zoomt niet. De extra GeoJSON-export bevat echte hexagonpolygonen, niet alleen middelpunten.</p>
-    <h3>Verbanden en clusters</h3><p>Pearson gebruikt de oorspronkelijke waarden; Spearman gebruikt rangordes met gelijke rangen bij gelijke waarden. Minstens 3 complete meetparen en variatie zijn nodig. Elke straat of elk gebied telt eenmaal. De minimale bronlengte is standaard 100 m en geldt ook voor het analyseverslag. Logaritmische assen gebruiken log(1+x), inclusief nul; dit verandert de berekende correlatie niet. Er is geen fictieve druktecorrectie, significantietoets of causale effectschatting. Dichtheden delen dezelfde lengtenoemer; dat kan zelf samenhang veroorzaken. Overlastmeldingen zijn een subset van het totaal; hun onderlinge samenhang is deels rekenkundig.</p><p>K-means gebruikt straten van minimaal 100 m, met lichtobjectdichtheid, boomdichtheid en meldingsdruk. Eerst log(1+x), daarna z-scores, deterministische initialisatie en maximaal 60 iteraties. Het model gebruikt de hele stad; filters veranderen de training niet. Een andere meldingsperiode of ander aantal clusters wel. Clustercentra zijn terugvertaalde gemiddelden in logruimte, geen gewone rekenkundige gemiddelden.</p>
-    <h3>Verschuivingsradar</h3><p>We vergelijken de laatste drie volledige maanden met de eerdere negen. Referentie = eerdere meldingen van de straat × recente meldingen in de rest van Amsterdam / eerdere meldingen in de rest van Amsterdam. De straat zelf telt niet mee in de stadsreferentie; filters en het periodekeuzemenu veranderen de referentie en vensters niet. Een wijkfilter onderzoekt alleen het toegewezen straatdeel. Verschil = recent minus referentie; relatief verschil = verschil / referentie × 100%.</p><p>De ranglijst gebruikt minimaal 100 m NWB, 5 eerdere meldingen, 5 referentiemeldingen en het gekozen minimumjaartotaal. Straten met beperkte basis blijven in de tabel en CSV, met een uitsluitreden. Rangschik op extra aantallen om omvang te zien, of op procentueel verschil om relatieve verandering te verkennen. Eén jaar bevat geen herhaalde lokale seizoenen: deze vergelijking verklaart geen oorzaken en is geen prognose of significantietoets. De stad kan bovendien uit meerdere gelijktijdige lokale veranderingen bestaan.</p>
-    <h3>Exports en reproduceerbaarheid</h3><p>CSV en GeoJSON bewaren de geselecteerde straten of bronwegvakken, bronaantallen, eenheden, perioden, noemers en herkomst. Het JSON-verslag bevat ook broncontroles, methoden, filters en clustercentra. Bronpagina’s zijn gehasht; de download kan via het script opnieuw worden opgebouwd. De kaart gebruikt een lokale snapshot en is geen live storingsmonitor.</p>
-  </div><div className="an-intro-actions"><button className="an-button an-primary" onClick={close}>Aan de slag <Check size={14} /></button></div></Modal>;
+  return (
+    <Modal
+      title="Straatmonitor · bronnen & methode"
+      close={close}
+      className="st-help"
+    >
+      <div className="an-intro-body">
+        <p className="st-help-lead">
+          Echte gemeentelijke registraties, gekoppeld aan{" "}
+          {number(snapshot.count)} NWB-wegvakken. Download:{" "}
+          {observationMeta.retrieved}. Geen fictieve cijfers of samengestelde
+          veiligheidsscore.
+        </p>
+        <h3>Bronnen en koppeldekking</h3>
+        <p>
+          Alle pagina’s zijn opgehaald en op unieke bron-ID gecontroleerd. Deze
+          tabel beschrijft de hele download, onafhankelijk van je filters. Bomen
+          in parken of lampen ver van een weg hoeven niet aan een straat
+          gekoppeld te zijn.
+        </p>
+        <div className="st-table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Bron</th>
+                <th>Bronrecords</th>
+                <th>Gekoppeld</th>
+                <th>Twijfel</th>
+                <th>Te ver</th>
+                <th>Uitgesloten / ongeldig</th>
+              </tr>
+            </thead>
+            <tbody>
+              {observationMeta.sources.map((source) => (
+                <tr key={source.key}>
+                  <td>
+                    <a
+                      href={source.documentation}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {source.key === "lights"
+                        ? "Verlichting"
+                        : source.key === "trees"
+                          ? "Gemeentelijke bomen"
+                          : "MORA-meldingen"}
+                    </a>
+                  </td>
+                  <td>{number(source.total)}</td>
+                  <td>{number(source.matched)}</td>
+                  <td>{number(source.ambiguous)}</td>
+                  <td>{number(source.unmatched)}</td>
+                  <td>{number(source.excluded + source.invalid)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <h3>Wat meten de indicatoren?</h3>
+        <ul>
+          {metrics.map((m) => (
+            <li key={m}>
+              <b>
+                {labels[m]} ({units[m]}):
+              </b>{" "}
+              {descriptions[m]}
+            </li>
+          ))}
+        </ul>
+        <p>
+          Meldingen beslaan {observationMeta.reportStart} tot{" "}
+          {observationMeta.reportEndExclusive} (exclusief); je kunt de laatste 3
+          of 12 volledige maanden kiezen. Bomen en objectstatus zijn de stand
+          bij download, geen historie uit dezelfde periode. Afhandeldatums zijn
+          niet openbaar beschikbaar in deze API; daarom berekenen we geen
+          afhandeltijden.
+        </p>
+        <h3>Hoe worden punten aan straten gekoppeld?</h3>
+        <p>
+          Elk punt krijgt hoogstens één dichtstbijzijnd bronwegvak binnen 30 m.
+          Liggen twee verschillende straatnamen binnen 3 m van dezelfde beste
+          afstand, dan wordt het punt als twijfelgeval uitgesloten.
+          Autobaanhoofdrijbanen, op- en afritten zijn uitgesloten van de
+          koppeling. Voor verlichting tellen de geregistreerde typen Gevel
+          Armaturen, LSD Objecten, Grachtmast, Overspanning en Schijnwerpers
+          mee; Laadzuilen zijn uitgesloten. We tellen bronobjecten, geen
+          afzonderlijke lampen. LSD omvat lichtkunst, stadsilluminatie en
+          decoratieve verlichting; deze bron is dus geen zuivere inventaris van
+          functionele straatlampen. De bomenbron bevat gemeentelijke
+          registraties en geen volledige inventaris van particuliere bomen. MORA
+          gebruikt publiek beschikbare visualisatiecoördinaten: dit is een
+          benadering van de meldlocatie.
+        </p>
+        <p>
+          Nul gekoppelde registraties bewijst niet dat een straat geen bomen,
+          lichtobjecten of overlast heeft. Een ontbrekend storingspercentage
+          betekent minder dan 5 bekende objectstatussen. De brondekking is geen
+          percentage van alle werkelijke objecten; we kennen dat totaal niet.
+        </p>
+        <h3>Straten, gebieden en noemers</h3>
+        <p>
+          We tellen eerst alle bronaantallen in je geografische selectie op.
+          Percentages delen storingen door bekende objectstatussen; dichtheden
+          delen aantallen door bronwegvaklengte. Parallelle rijbanen tellen
+          apart in die lengte. Daarom staat er expliciet “NWB” bij de eenheid.
+          Daarna selecteren zoek-, kleur- en profielfilters hele straten. Een
+          exact gelijke straatnaam vormt één object, ook als losse delen
+          bestaan. De overzichtslijn onderdrukt nabije parallelle lijnen en
+          verbindt eindpunten tot 38 m; dit is een cartografische
+          vereenvoudiging. Originele lijnen blijven zichtbaar bij de details en
+          in GeoJSON.
+        </p>
+        <p>
+          De 110 gebiedspolygonen zijn dezelfde B&B-vergunningsgebieden als in
+          het andere voorbeeld. Een representatief punt wijst elk heel
+          bronwegvak aan één gebied toe; grensoverschrijdende lijnen worden niet
+          geknipt. Een wijkfilter toont het toegewezen straatdeel.
+        </p>
+        <h3>Kleuren en aandachtssignalen</h3>
+        <p>
+          De grenzen zijn illustratieve instelkeuzes van deze toepassing, geen
+          gemeentelijke normen. De paarse signaalklasse bij weinig bomen/lampen
+          of veel storingen/meldingen is een verkenningssignaal. Meer
+          lichtobjecten of minder meldingen bewijst geen hogere kwaliteit.
+        </p>
+        <ul>
+          {metrics.map((m) => {
+            const legend = legendLabels(m);
+            return (
+              <li key={m}>
+                {labels[m]}: signaalgrens {legend.poor}, tussenklasse{" "}
+                {legend.medium}, buiten signaalgrens {legend.good} {units[m]}.
+              </li>
+            );
+          })}
+        </ul>
+        <p>
+          “Minstens 2 aandachtssignalen” telt: storingen ≥10%, boomdichtheid
+          &lt;1/100 m NWB en meldingsdruk ≥4/100 m NWB/maand. Er moeten minstens
+          twee grenzen geraakt zijn. Zonder voldoende objectstatussen telt het
+          storingssignaal niet mee.
+        </p>
+        <h3>Concentratiekaarten</h3>
+        <p>
+          Deze weergave gebruikt echte bronlocaties, gebundeld in vakken van 25
+          × 25 m. Alle aantallen blijven behouden; een punt markeert het midden
+          van een bronvak en is geen exacte individuele bronlocatie. Alleen
+          records die aan de huidige straatselectie zijn gekoppeld tellen mee.
+          Ruis en twijfelgevallen blijven uitgesloten zoals hierboven
+          beschreven. Onderwerpen zijn alle meldingen, overlast,
+          wegen/onderhoud, bomen, verlichtingsobjecten en storingen.
+        </p>
+        <p>
+          Een Gaussische vervaging gebruikt een radius van 100, 250 of 500
+          meter. De kleuren tonen relatieve gewogen concentratie, geen kans,
+          percentage of statistisch getoetste hotspot. De schaal gebruikt de
+          stadsbrede 95e percentielwaarde van radiusgrote vakken, voor meldingen
+          steeds over 12 maanden. Filteren, de camera verplaatsen of 3 maanden
+          kiezen schaalt de kaart dus niet automatisch op. Onderwerp, radius of
+          contrast wijzigen de schaal wel. Kleuren kunnen over straat- of
+          wijkgrenzen uitvloeien. Bij inzoomen gaat de vervaging geleidelijk
+          over in afzonderlijke bronvakken. Storingsconcentratie is een aantal;
+          het percentage storingen blijft beschikbaar bij de straatindicatoren.
+          De extra GeoJSON-export bewaart de gewogen bronvakken en
+          weergave-instellingen.
+        </p>
+        <h3>Hexagonen</h3>
+        <p>
+          Bij “Concentraties → Hexagonen” tellen we de 25 m-bronvakken op binnen
+          een vast, zeshoekig raster. De vakbreedte van 100, 250 of 500 meter is
+          de afstand tussen parallelle zijden. Elk bronvak valt eenmaal in één
+          hexagon; alle aantallen blijven behouden. Toewijzing gebruikt het
+          midden van het bronvak en is daardoor bij hexagongrenzen een
+          benadering van de oorspronkelijke bronlocaties. De hexagonen
+          veranderen niet bij inzoomen of verplaatsen en worden niet op
+          wijkgrenzen geknipt. Alleen vakken met gekoppelde registraties worden
+          getoond.
+        </p>
+        <p>
+          De kleuren tonen aantallen per hexagon, met een vaste stadsbrede
+          12-maandsreferentie op het 95e percentiel van niet-lege hexagonen. De
+          bovengrens op de legenda volgt het contrast; hogere aantallen delen de
+          donkerste kleur, maar behouden hun volledige getal in details en
+          export. Onderwerp en vakmaat hebben elk hun eigen schaal. Vergelijk
+          daarom steeds dezelfde instellingen. Bij voldoende zoom verschijnen
+          aantallen in de vakken. Selecteren zoomt niet. De extra GeoJSON-export
+          bevat echte hexagonpolygonen, niet alleen middelpunten.
+        </p>
+        <h3>Verbanden en clusters</h3>
+        <p>
+          Pearson gebruikt de oorspronkelijke waarden; Spearman gebruikt
+          rangordes met gelijke rangen bij gelijke waarden. Minstens 3 complete
+          meetparen en variatie zijn nodig. Elke straat of elk gebied telt
+          eenmaal. De minimale bronlengte is standaard 100 m en geldt ook voor
+          het analyseverslag. Logaritmische assen gebruiken log(1+x), inclusief
+          nul; dit verandert de berekende correlatie niet. Er is geen fictieve
+          druktecorrectie, significantietoets of causale effectschatting.
+          Dichtheden delen dezelfde lengtenoemer; dat kan zelf samenhang
+          veroorzaken. Overlastmeldingen zijn een subset van het totaal; hun
+          onderlinge samenhang is deels rekenkundig.
+        </p>
+        <p>
+          K-means gebruikt straten van minimaal 100 m, met lichtobjectdichtheid,
+          boomdichtheid en meldingsdruk. Eerst log(1+x), daarna z-scores,
+          deterministische initialisatie en maximaal 60 iteraties. Het model
+          gebruikt de hele stad; filters veranderen de training niet. Een andere
+          meldingsperiode of ander aantal clusters wel. Clustercentra zijn
+          terugvertaalde gemiddelden in logruimte, geen gewone rekenkundige
+          gemiddelden.
+        </p>
+        <h3>Verschuivingsradar</h3>
+        <p>
+          We vergelijken de laatste drie volledige maanden met de eerdere negen.
+          Referentie = eerdere meldingen van de straat × recente meldingen in de
+          rest van Amsterdam / eerdere meldingen in de rest van Amsterdam. De
+          straat zelf telt niet mee in de stadsreferentie; filters en het
+          periodekeuzemenu veranderen de referentie en vensters niet. Een
+          wijkfilter onderzoekt alleen het toegewezen straatdeel. Verschil =
+          recent minus referentie; relatief verschil = verschil / referentie ×
+          100%.
+        </p>
+        <p>
+          De ranglijst gebruikt minimaal 100 m NWB, 5 eerdere meldingen, 5
+          referentiemeldingen en het gekozen minimumjaartotaal. Straten met
+          beperkte basis blijven in de tabel en CSV, met een uitsluitreden.
+          Rangschik op extra aantallen om omvang te zien, of op procentueel
+          verschil om relatieve verandering te verkennen. Eén jaar bevat geen
+          herhaalde lokale seizoenen: deze vergelijking verklaart geen oorzaken
+          en is geen prognose of significantietoets. De stad kan bovendien uit
+          meerdere gelijktijdige lokale veranderingen bestaan.
+        </p>
+        <h3>Exports en reproduceerbaarheid</h3>
+        <p>
+          CSV en GeoJSON bewaren de geselecteerde straten of bronwegvakken,
+          bronaantallen, eenheden, perioden, noemers en herkomst. Het
+          JSON-verslag bevat ook broncontroles, methoden, filters en
+          clustercentra. Bronpagina’s zijn gehasht; de download kan via het
+          script opnieuw worden opgebouwd. De kaart gebruikt een lokale snapshot
+          en is geen live storingsmonitor.
+        </p>
+      </div>
+      <div className="an-intro-actions">
+        <button className="an-button an-primary" onClick={close}>
+          Aan de slag <Check size={14} />
+        </button>
+      </div>
+    </Modal>
+  );
 }

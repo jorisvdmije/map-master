@@ -1,0 +1,198 @@
+.bd-timeline,
+.bd-map {
+  margin: 0;
+  min-width: 0;
+}
+.bd-timeline > svg,
+.bd-map > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.bd-timeline svg text {
+  fill: #61776c;
+  font:
+    10px "DM Sans Variable",
+    system-ui,
+    sans-serif;
+}
+.bd-timeline svg .bd-chart-unit {
+  font-size: 11px;
+  font-weight: 600;
+}
+.bd-timeline svg line {
+  stroke: #dfe6db;
+  stroke-width: 1;
+}
+.bd-timeline svg .bd-index-line {
+  stroke: #9eafa2;
+  stroke-dasharray: 4 4;
+}
+.bd-timeline svg .bd-series-city path {
+  stroke: #71877a;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+.bd-timeline svg .bd-series-city circle {
+  fill: #71877a;
+  stroke: #fffdf8;
+  stroke-width: 1.4;
+}
+.bd-timeline svg .bd-series-area path {
+  stroke: #176d70;
+  stroke-width: 3;
+}
+.bd-timeline svg .bd-series-area circle {
+  fill: #176d70;
+  stroke: #fffdf8;
+  stroke-width: 1.4;
+}
+.bd-timeline figcaption,
+.bd-map figcaption {
+  color: #687c6e;
+  font-size: 11px;
+  line-height: 1.7;
+  padding-top: 10px;
+}
+.bd-timeline figcaption p,
+.bd-map figcaption p {
+  margin: 9px 0 0;
+}
+.bd-chart-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 20px 4px 0;
+  color: #36574a;
+}
+.bd-chart-legend::before {
+  content: "";
+  width: 25px;
+  border-top: 3px solid #176d70;
+}
+.bd-chart-legend.bd-legend-city::before {
+  border-top: 2px dashed #71877a;
+}
+.bd-chart-empty {
+  display: grid;
+  place-items: center;
+  min-height: 210px;
+  color: #687c6e;
+  font-size: 13px;
+  text-align: center;
+}
+.bd-chart-data {
+  border-top: 1px solid #dfe6db;
+  padding-top: 14px;
+  margin-top: 16px;
+  font-size: 11px;
+  color: #5c7465;
+}
+.bd-chart-data summary {
+  cursor: pointer;
+  color: #315b4a;
+  font-weight: 600;
+}
+.bd-chart-data > p {
+  font-size: 10px;
+  line-height: 1.7;
+  margin: 9px 0 0;
+}
+.bd-chart-table {
+  max-width: 100%;
+  overflow: auto;
+  margin-top: 14px;
+}
+.bd-chart-table table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.bd-chart-table caption {
+  text-align: left;
+  padding-bottom: 10px;
+  color: #315b4a;
+}
+.bd-chart-table th,
+.bd-chart-table td {
+  border-bottom: 1px solid #e3e9dc;
+  padding: 9px 7px;
+  white-space: nowrap;
+}
+.bd-chart-table th:first-child,
+.bd-chart-table td:nth-child(2) {
+  text-align: left;
+}
+.bd-chart-table thead th {
+  font-size: 10px;
+  font-weight: 600;
+}
+.bd-map > svg {
+  background: #f2f5ee;
+  border-radius: 8px;
+}
+.bd-map svg > path {
+  stroke: #fffdf8;
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
+}
+.bd-map svg .bd-map-area {
+  cursor: pointer;
+  transition: fill-opacity 0.12s;
+}
+.bd-map svg .bd-map-area:hover {
+  fill-opacity: 0.7;
+  stroke: #203e35;
+  stroke-width: 1.4;
+}
+.bd-map svg .bd-map-selected {
+  stroke: #b2633c;
+  stroke-width: 2.8;
+}
+.bd-map-north text {
+  fill: #61776c;
+  font:
+    10px system-ui,
+    sans-serif;
+}
+.bd-map-north path {
+  fill: #61776c;
+}
+.bd-map-scale,
+.bd-map-key {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.bd-map-scale {
+  color: #36574a;
+}
+.bd-map-scale > i {
+  width: 100px;
+  height: 9px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #dbe9e7, #1b6c70);
+}
+.bd-map-key {
+  margin-top: 5px;
+}
+.bd-map-key > i {
+  width: 13px;
+  height: 10px;
+  border-radius: 2px;
+  background: #e3e6dd;
+}
+@media (max-width: 480px) {
+  .bd-timeline svg text {
+    font-size: 11px;
+  }
+  .bd-chart-legend {
+    display: flex;
+    margin-right: 0;
+  }
+  .bd-map-scale > i {
+    width: 80px;
+  }
+}

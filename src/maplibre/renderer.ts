@@ -1,3 +1,4 @@
+import { CommittedSourceUpload } from './source-upload.js';
 import { geoJSONSource } from '../gl/map.js';
 import { DataLayerStore, featureDataLayerId, type DataLayer } from '../core/data-layers.js';
 import { TextMarkerOverlay } from './text-marker-overlay.js';
@@ -51,6 +52,7 @@ export class MapLibreRenderer {
   private appearance: EditorAppearance;
   private committed: GeometryFeatureCollection = { type: 'FeatureCollection', features: [] };
   private areasVisible = false;
+  private sourceUpload: { source: unknown; upload: CommittedSourceUpload } | undefined;
 
   constructor(private readonly map: MapLibreMap, private readonly namespace: string, appearance: EditorAppearance, styling: EditorStylingOptions = {}) {
     this.textMarkers = new TextMarkerOverlay(map);
@@ -221,12 +223,19 @@ export class MapLibreRenderer {
     }
     const source = geoJSONSource(this.map, this.featuresId);
     // Encode ID types; keep old tiles hidden until the worker AND visible tiles are ready.
-    void Promise.resolve(source?.setData({
-      type: 'FeatureCollection', features: collection.features.map((feature) => ({
+    if (!source) return;
+    // Small documents retain the synchronous setData path. Use diffs where
+    // transfer costs matter, then keep that source serialized through deletions.
+    if (collection.features.length >= 1000 && this.sourceUpload?.source !== source) this.sourceUpload = { source, upload: new CommittedSourceUpload(source) };
+    const data = {
+      type: 'FeatureCollection' as const, features: collection.features.map((feature) => ({
         ...feature, properties: { [renderIdProperty]: JSON.stringify(feature.id), ...this.styling.properties(feature.id),
           __mm_text: isTextMarker(feature), __mm_pin: this.styling.properties(feature.id).__geo_editor_style_marker_shape === 'pin', [dataLayerProperty]: featureDataLayerId(feature) },
       })),
-    })).then(() => {
+    };
+    const pending = this.sourceUpload?.source === source
+      ? this.sourceUpload.upload.upload(data) : source.setData(data);
+    void Promise.resolve(pending).then(() => {
       if (this.transfer?.revision !== revision || this.map.getSource(this.featuresId) !== source) return;
       this.transfer.ready = true; this.map.triggerRepaint();
     }, () => { /* The renderer reports source errors through the map error event. Keep the final preview. */ });
