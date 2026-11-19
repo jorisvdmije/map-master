@@ -20,6 +20,7 @@ import {
   Focus,
   MapPin,
   Ruler,
+  Search,
   Upload,
   X,
 } from "lucide-react";
@@ -39,6 +40,12 @@ import {
 } from "@/features/analysis/model";
 import type { MeasureState, ReachabilityRuntime } from "./runtime";
 import {
+  addressSearchSource,
+  searchAddressMatches,
+  type AddressMatch,
+} from "@/features/data/address-search";
+import { valhallaEndpoint } from "@/features/data/routing";
+import {
   coordinateInput,
   coordinateOrigin,
   coordinateValue,
@@ -56,9 +63,7 @@ const profiles: { id: TravelProfile; name: string; icon: typeof Bike }[] = [
   { id: "driving", name: "Auto", icon: Car },
 ];
 const provider = createValhallaProvider({
-  endpoint:
-    process.env.NEXT_PUBLIC_VALHALLA_ENDPOINT ||
-    "https://valhalla1.openstreetmap.de/isochrone",
+  endpoint: valhallaEndpoint,
   clientId: "map-master-geometry-editor",
 });
 const number = (n: number, digits = 0) =>
@@ -86,11 +91,23 @@ export function ReachabilityDashboard() {
     validOrigin = coordinateOrigin(location.input);
   const lngInvalid = coordinateValue(location.input.lng, 180) === null,
     latInvalid = coordinateValue(location.input.lat, 85) === null;
-  const editCoordinate = (axis: keyof CoordinateInput, value: string) =>
+  const [addressInput, setAddressInput] = useState(""),
+    [addressQuery, setAddressQuery] = useState(""),
+    [originLabel, setOriginLabel] = useState("");
+  const addresses = useQuery({
+    queryKey: ["reachability-addresses", addressQuery],
+    enabled: addressQuery.length >= 3,
+    queryFn: ({ signal }) => searchAddressMatches(addressQuery, signal),
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const editCoordinate = (axis: keyof CoordinateInput, value: string) => {
+    setOriginLabel("");
     setLocation((previous) => {
       const input = { ...previous.input, [axis]: value };
       return { input, point: coordinateOrigin(input) ?? previous.point };
     });
+  };
   const [runtime, setRuntime] = useState<ReachabilityRuntime | null>(null),
     [mapError, setMapError] = useState("");
   const [profile, setProfile] = useState<TravelProfile>("cycling"),
@@ -108,12 +125,21 @@ export function ReachabilityDashboard() {
   });
   const choose = useRef((point: Coordinate) => {
     const input = coordinateInput(point);
+    setOriginLabel("");
     setLocation((previous) => ({
       input,
       point: coordinateOrigin(input) ?? previous.point,
     }));
     setPicking(false);
   });
+  const pickAddress = (match: AddressMatch) => {
+    if (picking) runtime?.pickOrigin(false);
+    choose.current(match.coordinates);
+    runtime?.reveal(match.coordinates);
+    setOriginLabel(match.label);
+    setAddressInput(match.label);
+    setAddressQuery("");
+  };
   const query = useQuery({
     queryKey: ["reachability", submitted],
     enabled: !!submitted,
@@ -288,6 +314,76 @@ export function ReachabilityDashboard() {
               </button>
             ))}
           </div>
+          <form
+            className="ra-address"
+            role="search"
+            aria-label="Vertrekpunt zoeken"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const q = addressInput.trim();
+              if (q === addressQuery) void addresses.refetch();
+              else setAddressQuery(q);
+            }}
+          >
+            <label htmlFor="ra-address">Adres als vertrekpunt</label>
+            <div>
+              <input
+                id="ra-address"
+                type="search"
+                minLength={3}
+                maxLength={200}
+                required
+                autoComplete="street-address"
+                value={addressInput}
+                placeholder="Straat + huisnummer of postcode"
+                onChange={(e) => setAddressInput(e.target.value)}
+              />
+              <button
+                className="an-button"
+                disabled={
+                  addressInput.trim().length < 3 || addresses.isFetching
+                }
+              >
+                <Search size={14} aria-hidden="true" />
+                {addresses.isFetching ? "Zoeken…" : "Zoek adres"}
+              </button>
+            </div>
+          </form>
+          {addressQuery && (
+            <div className="ra-address-results" aria-live="polite">
+              {addresses.error ? (
+                <p role="alert">
+                  Adreszoeken is niet gelukt. Probeer opnieuw, of kies het
+                  vertrekpunt op de kaart.
+                </p>
+              ) : addresses.data?.length === 0 ? (
+                <p>Geen adres gevonden. Voeg een huisnummer of postcode toe.</p>
+              ) : (
+                addresses.data?.map((match) => (
+                  <button
+                    key={match.id}
+                    type="button"
+                    onClick={() => pickAddress(match)}
+                  >
+                    <MapPin size={14} aria-hidden="true" />
+                    {match.label}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+          {originLabel && (
+            <p className="ra-origin" role="status">
+              Vertrekpunt: <strong>{originLabel}</strong>
+            </p>
+          )}
+          <p className="hs-note">
+            Zoeken stuurt alleen je zoekterm naar de{" "}
+            <a href={addressSearchSource} target="_blank" rel="noreferrer">
+              PDOK Locatieserver
+            </a>
+            . Of vul hieronder coördinaten in.
+          </p>
           <div className="ra-coordinates">
             <label>
               Lengtegraad

@@ -27,6 +27,7 @@ import { download } from "@/lib/download";
 import { homeNoise, nearbyTrees } from "../housing/environment";
 import { number, type Snapshot } from "../housing/model";
 import { searchAddresses, type Address } from "./address";
+import { valhallaEndpoint } from "@/features/data/routing";
 import {
   addressSource,
   amenityMetrics,
@@ -48,9 +49,7 @@ import "./report.css";
 const date = (s: string) =>
   new Date(s).toLocaleString("nl-NL", { timeZone: "Europe/Amsterdam" });
 const routing = createValhallaProvider({
-  endpoint:
-    process.env.NEXT_PUBLIC_VALHALLA_ENDPOINT ||
-    "https://valhalla1.openstreetmap.de/isochrone",
+  endpoint: valhallaEndpoint,
   clientId: "map-master-area-report",
 });
 
@@ -203,9 +202,7 @@ export function AreaReport() {
     },
     reachability: {
       ...liveResult(reach),
-      source:
-        process.env.NEXT_PUBLIC_VALHALLA_ENDPOINT ||
-        "https://valhalla1.openstreetmap.de/isochrone",
+      source: valhallaEndpoint,
       sourcePeriod:
         "Modelberekening bij opvraag; geen vastgesteld OSM-bronjaar",
     },

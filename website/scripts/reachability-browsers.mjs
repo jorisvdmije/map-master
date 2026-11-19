@@ -20,6 +20,14 @@ try{
     const {lon,lat}=p.locations[0];const features=p.contours.map(({time})=>{const d=time*.001,offset=nonCumulative&&time===10?.1:0;return {type:'Feature',properties:{metric:'time',contour:time},geometry:{type:'Polygon',coordinates:[[[lon-d+offset,lat-d],[lon+d+offset,lat-d],[lon+d+offset,lat+d],[lon-d+offset,lat+d],[lon-d+offset,lat-d]]]}};});
     await r.fulfill({json:{type:'FeatureCollection',features}}).catch(()=>{});
    });
+   let addressCalls=0,addressMode='ok',addressQuery='';
+   const addressRow=(label,lng,lat)=>({id:`adr-${lng}`,type:'adres',gemeentecode:'0363',weergavenaam:label,centroide_ll:`POINT(${lng} ${lat})`});
+   await context.route('https://api.pdok.nl/bzk/locatieserver/search/v3_1/free*',r=>{
+    addressCalls++;addressQuery=new URL(r.request().url()).searchParams.get('q');
+    if(addressMode==='error')return r.fulfill({status:503,body:'Offline'});
+    if(addressMode==='invalid')return r.fulfill({json:{response:{docs:[{...addressRow('Nergens 1','abc','def')}]}}});
+    return r.fulfill({json:{response:{docs:addressMode==='empty'?[]:[addressRow('Concertgebouwplein 10, 1071LN Amsterdam','4.87949023','52.35642539'),addressRow('Domplein 9, 3512JC Utrecht','5.12128','52.09084')]}}});
+   });
    const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
    for(const query of ['lng=&lat=%20','lng=181&lat=86']) {
     await page.goto(`${origin}${basePath}/analysis/reachability/?${query}`);await page.locator('[data-reachability][data-ready=true]').waitFor();
@@ -35,7 +43,7 @@ try{
    await page.goto(`${origin}${basePath}/analysis/reachability/?lng=4.904&lat=52.367`);await page.locator('[data-reachability][data-ready=true]').waitFor();await page.locator('.ra-map[data-idle=true]').waitFor();
    assert.equal(calls,0,'No routing requests before an explicit calculation');
    assert.equal(await page.getByLabel('Lengtegraad vertrekpunt').inputValue(),'4.904');
-   const camera=await page.locator('.ra-map').getAttribute('data-camera');
+   let camera=await page.locator('.ra-map').getAttribute('data-camera');
    const lng=page.getByLabel('Lengtegraad vertrekpunt'),lat=page.getByLabel('Breedtegraad vertrekpunt'),calculate=page.getByRole('button',{name:'Bereken bereikbaarheid',exact:true});
    const expectOrigin=point=>page.waitForFunction(expected=>document.querySelector('.ra-map').dataset.origin===JSON.stringify(expected),point);
    await expectOrigin([4.904,52.367]);
@@ -50,6 +58,33 @@ try{
    await lng.fill('');await page.getByRole('button',{name:'Kies vertrekpunt op kaart',exact:true}).click();
    await page.locator('.ra-map canvas').click({position:{x:220,y:220}});
    assert.notEqual(await lng.getAttribute('aria-invalid'),'true');assert.notEqual(await lat.getAttribute('aria-invalid'),'true');assert.equal(await calculate.isEnabled(),true,'Map picking repairs an incomplete coordinate draft');
+   assert.equal(addressCalls,0,'No address requests before an explicit search');
+   const address=page.getByLabel('Adres als vertrekpunt',{exact:true}),findAddress=page.getByRole('button',{name:'Zoek adres',exact:true});
+   await address.fill('Co');assert.equal(await findAddress.isDisabled(),true,'Address search needs three characters');
+   const originBefore=await page.locator('.ra-map').getAttribute('data-origin');
+   for(const [mode,message] of [['error',/niet gelukt/],['empty',/Geen adres gevonden/],['invalid',/niet gelukt/]]){
+    addressMode=mode;await address.fill(`Concertgebouwplein ${mode}`);await findAddress.click();
+    await page.locator('.ra-address-results').filter({hasText:message}).waitFor();
+    assert.equal(await page.locator('.ra-map').getAttribute('data-origin'),originBefore,`A failed address search (${mode}) keeps the point`);
+   }
+   addressMode='ok';await lng.fill('4.904');await lat.fill('52.367');await expectOrigin([4.904,52.367]);
+   await address.fill('Concertgebouwplein 10');await findAddress.click();
+   const result=page.getByRole('button',{name:'Concertgebouwplein 10, 1071LN Amsterdam',exact:true});await result.waitFor();
+   assert.equal(addressQuery,'Concertgebouwplein 10','Only the typed query is sent');
+   await result.click();
+   await expectOrigin([4.87949023,52.35642539]);
+   assert.equal(await lng.inputValue(),'4.87949023');assert.equal(await lat.inputValue(),'52.35642539');
+   assert.match(await page.locator('.ra-origin').textContent(),/Concertgebouwplein 10/);
+   assert.equal(await page.locator('.ra-address-results').count(),0,'Choosing an address closes the results');
+   assert.equal(await page.locator('.ra-map').getAttribute('data-camera'),camera,'An address inside the view moves the point, not the camera');
+   await address.fill('Domplein 9');await findAddress.click();await page.getByRole('button',{name:'Domplein 9, 3512JC Utrecht',exact:true}).click();
+   await expectOrigin([5.12128,52.09084]);
+   await page.waitForFunction(previous=>document.querySelector('.ra-map').dataset.camera!==previous,camera);
+   assert.equal(calls,0,'Choosing an address never starts a routing request');
+   await lng.fill('4.904');assert.equal(await page.locator('.ra-origin').count(),0,'Editing a coordinate drops the address label');
+   // Back to the Amsterdam view for the routing checks below.
+   await page.goto(`${origin}${basePath}/analysis/reachability/?lng=4.904&lat=52.367`);await page.locator('[data-reachability][data-ready=true]').waitFor();await page.locator('.ra-map[data-idle=true]').waitFor();
+   camera=await page.locator('.ra-map').getAttribute('data-camera');
    await lng.fill('4.904');await lat.fill('52.367');await expectOrigin([4.904,52.367]);assert.equal(calls,0);
    await page.getByRole('button',{name:'Bereken bereikbaarheid',exact:true}).click();await page.locator('.ra-map[data-contours="3"]').waitFor();
    assert.equal(lastRequest.costing,'bicycle');assert.equal(lastRequest.polygons,true);assert.equal(await page.locator('.ra-result tbody tr').count(),3);
