@@ -16,3 +16,66 @@
   box-shadow: inset 0 0 0 1px rgb(28 58 48 / 0.25);
   vertical-align: middle;
 }
+
+/*
+ * Stepped legend for a classed map (ClassLegend): equal blocks per class,
+ * the class boundaries underneath.
+ */
+.mm-class-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  font-size: var(--mm-text-xs);
+  color: var(--mm-text);
+}
+.mm-class-legend > strong {
+  color: var(--mm-ink);
+  font-weight: 600;
+}
+.mm-class-legend-scale {
+  flex: 1 1 300px;
+  min-width: min(100%, 260px);
+  max-width: 460px;
+  padding-bottom: 18px;
+}
+.mm-class-legend-bar {
+  display: grid;
+  grid-template-columns: repeat(var(--mm-classes, 5), 1fr);
+  gap: 2px;
+  height: 10px;
+}
+.mm-class-legend-bar i {
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgb(28 58 48 / 0.12);
+}
+.mm-class-legend-bounds {
+  position: relative;
+  display: block;
+  height: 0;
+}
+.mm-class-legend-bounds > span {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--mm-muted);
+}
+.mm-class-legend-bounds > span:first-child {
+  transform: none;
+}
+.mm-class-legend-bounds > span:last-child {
+  transform: translateX(-100%);
+}
+.mm-class-legend-unknown {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--mm-muted);
+}
+.mm-class-legend-unknown i {
+  width: 12px;
+  height: 10px;
+  border-radius: 2px;
+}

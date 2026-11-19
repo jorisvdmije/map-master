@@ -1,10 +1,10 @@
 import { pairedCorrelation } from "@/features/data/joins";
+import { niceAxis, tickFormatter } from "@/lib/scales";
 import {
   units,
   labels,
   metricValue,
   format,
-  number,
   type Neighborhood,
   type Metric,
 } from "./model";
@@ -31,24 +31,14 @@ export function Scatter({
     );
   const xs = pairs.map((p) => p.x),
     ys = pairs.map((p) => p.y);
-  let xmin = Math.min(...xs),
-    xmax = Math.max(...xs),
-    ymin = Math.min(...ys),
-    ymax = Math.max(...ys);
-  if (xmin === xmax) {
-    const padding = Math.max(Math.abs(xmin) * 0.05, 0.1);
-    xmin -= padding;
-    xmax += padding;
-  }
-  if (ymin === ymax) {
-    const padding = Math.max(Math.abs(ymin) * 0.05, 1000);
-    ymin = Math.max(0, ymin - padding);
-    ymax += padding;
-  }
+  const xAxis = niceAxis(Math.min(...xs), Math.max(...xs));
+  const yAxis = niceAxis(Math.min(...ys), Math.max(...ys), { count: 5 });
+  const xTick = tickFormatter(xAxis.ticks),
+    yTick = tickFormatter(yAxis.ticks);
   const x = (n: number) =>
-    78 + (xmax === xmin ? 0.5 : (n - xmin) / (xmax - xmin)) * 440;
+    78 + ((n - xAxis.min) / (xAxis.max - xAxis.min)) * 440;
   const y = (n: number) =>
-    245 - (ymax === ymin ? 0.5 : (n - ymin) / (ymax - ymin)) * 210;
+    245 - ((n - yAxis.min) / (yAxis.max - yAxis.min)) * 210;
   return (
     <figure className="hs-scatter">
       <svg
@@ -59,27 +49,45 @@ export function Scatter({
         <text x="78" y="18">
           Gemiddelde WOZ (€)
         </text>
-        {[0, 0.5, 1].map((t) => (
-          <g key={t}>
+        {yAxis.ticks.map((value) => (
+          <g key={value}>
             <line
               x1="78"
               x2="518"
-              y1={35 + 210 * t}
-              y2={35 + 210 * t}
+              y1={y(value)}
+              y2={y(value)}
               stroke="#dce5df"
             />
-            <text x="68" y={39 + 210 * t} textAnchor="end">
-              {number((ymax - (ymax - ymin) * t) / 1000)}k
+            <text x="68" y={y(value) + 4} textAnchor="end">
+              {yTick(value)}
             </text>
           </g>
         ))}
         <line x1="78" x2="518" y1="245" y2="245" stroke="#82978e" />
-        <text x="78" y="266">
-          {number(xmin, 1)}
-        </text>
-        <text x="518" y="266" textAnchor="end">
-          {number(xmax, 1)}
-        </text>
+        {xAxis.ticks.map((value, index) => (
+          <g key={value}>
+            <line
+              x1={x(value)}
+              x2={x(value)}
+              y1="245"
+              y2="250"
+              stroke="#82978e"
+            />
+            <text
+              x={x(value)}
+              y="266"
+              textAnchor={
+                index === 0
+                  ? "start"
+                  : index === xAxis.ticks.length - 1
+                    ? "end"
+                    : "middle"
+              }
+            >
+              {xTick(value)}
+            </text>
+          </g>
+        ))}
         <text x="298" y="293" textAnchor="middle">
           {labels[axis]} ({units[axis]})
         </text>

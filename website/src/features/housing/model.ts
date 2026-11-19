@@ -5,6 +5,12 @@ import type {
   Point,
   Polygon,
 } from "geojson";
+import {
+  classColor,
+  classScale,
+  compactNumber,
+  type ClassScale,
+} from "@/lib/scales";
 
 export const themes = [
   "value",
@@ -230,27 +236,30 @@ export function medianValue(rows: Neighborhood[], metric: Metric) {
       ? values[middle]
       : (values[middle - 1] + values[middle]) / 2;
 }
-export function color(
-  value: number | null,
-  range: [number, number],
-  metric?: Metric,
-) {
-  if (value === null) return "#aeb8b7";
-  if (metric === "wozChange") {
-    const t = Math.min(
-      1,
-      Math.abs(value) / (Math.max(Math.abs(range[0]), Math.abs(range[1])) || 1),
-    );
-    return value < 0
-      ? `rgb(${Math.round(239 - t * 53)}, ${Math.round(236 - t * 132)}, ${Math.round(225 - t * 146)})`
-      : `rgb(${Math.round(239 - t * 211)}, ${Math.round(236 - t * 119)}, ${Math.round(225 - t * 98)})`;
-  }
-  const t = Math.max(
-    0,
-    Math.min(1, (value - range[0]) / (range[1] - range[0] || 1)),
+/**
+ * City-wide quantile classes for the map layer. They are computed from every
+ * neighbourhood, not the filtered selection, so a colour keeps its meaning
+ * while filtering. WOZ change gets separate classes for decreases.
+ */
+export function mapScale(rows: Neighborhood[], metric: Metric): ClassScale {
+  return classScale(
+    rows.map((row) => metricValue(row, metric)),
+    { diverging: metric === "wozChange" },
   );
-  return `rgb(${Math.round(199 - t * 171)}, ${Math.round(227 - t * 110)}, ${Math.round(229 - t * 102)})`;
 }
+export function color(value: number | null, scale: ClassScale) {
+  return classColor(value, scale);
+}
+const euroMetric = (metric: Metric) => metric === "woz" || metric === "income";
+/** The unit for a legend title; euro amounts carry € in each value instead. */
+export const unitSuffix = (metric: Metric) =>
+  metric === "income"
+    ? " (per jaar)"
+    : euroMetric(metric)
+      ? ""
+      : ` (${units[metric]})`;
+export const legendValue = (value: number, metric: Metric) =>
+  compactNumber(value, { euro: euroMetric(metric) });
 export type RangeFilter = { metric: Metric; min: string; max: string };
 export function rangeBound(value: string): number | null {
   if (!value.trim()) return null;

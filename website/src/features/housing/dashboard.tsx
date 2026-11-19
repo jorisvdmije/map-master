@@ -10,6 +10,7 @@ import {
   oneOf,
 } from "@/components/workspaces/view-state";
 import { WorkspaceHeader } from "@/components/workspaces/header";
+import { ClassLegend } from "@/components/workspaces/class-legend";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -33,7 +34,9 @@ import {
   metrics,
   rangeError,
   areasCsv,
-  extent,
+  legendValue,
+  mapScale,
+  unitSuffix,
   filtered,
   format,
   labels,
@@ -121,6 +124,7 @@ export function HousingDashboard() {
     () => snapshot.data?.data.features ?? [],
     [snapshot.data],
   );
+  const legendScale = useMemo(() => mapScale(all, metric), [all, metric]);
   const rows = useMemo(
     () =>
       sortNeighborhoods(
@@ -570,19 +574,17 @@ export function HousingDashboard() {
               )}
             </small>
           </div>
-          <div
-            className="hs-legend"
-            data-diverging={metric === "wozChange" || undefined}
-          >
-            <strong>{labels[metric]}</strong>
-            <span>
-              <i />
-              {format(extent(all, metric)[0], metric)} –{" "}
-              {format(extent(all, metric)[1], metric)}
-            </span>
+          <div className="hs-legend">
+            <ClassLegend
+              title={`${labels[metric]}${unitSuffix(metric)}`}
+              scale={legendScale}
+              format={(value) => legendValue(value, metric)}
+            />
             <small>
-              Vaste stadsschaal · grijs: onbekend · hoger is niet automatisch
-              beter
+              {legendScale.diverging
+                ? "Dalingen en stijgingen apart ingedeeld, met ongeveer evenveel buurten per klasse"
+                : "Klassen met ongeveer evenveel buurten"}{" "}
+              · vaste stadsschaal · hoger is niet automatisch beter
             </small>
           </div>
         </section>

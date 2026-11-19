@@ -74,9 +74,10 @@ WOZ onder de stadsmediaan, recente bouw, voorzieningen dichtbij en lager gasverb
 De mediaan in de samenvatting volgt de gekozen kaartlaag en selectie. Ontbrekende
 waarden worden bij een actieve getalgrens uitgesloten; zonder zo’n grens blijven
 ze zichtbaar als onbekend. Negatieve WOZ-ontwikkeling blijft een geldige waarde.
-De kleurverdeling gebruikt steeds alle Amsterdamse buurten; WOZ-ontwikkeling heeft
-een symmetrische schaal met nul als midden. Selectie en kaartlaag wisselen
-verplaatsen de camera niet.
+De kleurklassen gebruiken steeds alle Amsterdamse buurten: vijf kwantielklassen
+met afgeronde grenzen, zodat een scheve verdeling zoals de WOZ-waarde niet in één
+lichte tint verdwijnt. WOZ-ontwikkeling deelt dalingen en stijgingen apart in, met
+nul als grens. Selectie en kaartlaag wisselen verplaatsen de camera niet.
 
 De officiële CBS-tabellen zijn **85618NED (2023)**, **85984NED (2024)** en
 **86165NED (2025)**. Voor WOZ-geschiedenis is dezelfde code onvoldoende: voor ieder

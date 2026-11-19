@@ -9,6 +9,15 @@ import {
   type Comparison,
   type Period,
 } from "./model";
+import { ClassLegend } from "@/components/workspaces/class-legend";
+import {
+  classColor,
+  classScale,
+  compactNumber,
+  niceAxis,
+  niceStep,
+  tickFormatter,
+} from "@/lib/scales";
 import "./charts.css";
 
 type Point = { year: number; value: number | null; raw: number | null };
@@ -52,20 +61,26 @@ export function DevelopmentTimeline({
   const values = [...cityPoints, ...areaPoints].flatMap((point) =>
     point.value === null ? [] : [point.value],
   );
-  const min = Math.min(...values, indexed ? 100 : Infinity);
-  const max = Math.max(...values, indexed ? 100 : -Infinity);
-  const padding = Math.max((max - min) * 0.12, indexed ? 5 : 10000);
-  const lower = Math.max(0, min - padding);
-  const upper = max + padding;
+  const axis = niceAxis(
+    Math.min(...values, indexed ? 100 : Infinity),
+    Math.max(...values, indexed ? 100 : -Infinity),
+  );
+  const { min: lower, max: upper } = axis;
+  const tick = tickFormatter(axis.ticks);
   const x = (year: number) =>
     74 + ((year - period.start) / (period.end - period.start)) * 504;
   const y = (value: number) => 236 - ((value - lower) / (upper - lower)) * 202;
   const years = cityPoints.map((point) => point.year);
+  // Every round step from the first year; the last year only when it stays
+  // clear of the previous label.
+  const yearStep = niceStep(period.end - period.start, 5, true);
+  const lastStep =
+    period.start +
+    Math.floor((period.end - period.start) / yearStep) * yearStep;
   const ticks = years.filter(
-    (_, index) =>
-      index === 0 ||
-      index === years.length - 1 ||
-      index % Math.max(1, Math.ceil((years.length - 1) / 4)) === 0,
+    (year) =>
+      (year - period.start) % yearStep === 0 ||
+      (year === period.end && period.end - lastStep > yearStep / 2),
   );
   const series = [
     {
@@ -111,17 +126,14 @@ export function DevelopmentTimeline({
           <text x="74" y="18" className="bd-chart-unit">
             {indexed ? `Index · ${period.start} = 100` : "Gemiddelde WOZ (€)"}
           </text>
-          {[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
-            const value = lower + fraction * (upper - lower);
-            return (
-              <g key={fraction}>
-                <line x1="74" x2="578" y1={y(value)} y2={y(value)} />
-                <text x="63" y={y(value) + 4} textAnchor="end">
-                  {indexed ? number(value) : `${number(value / 1000)}k`}
-                </text>
-              </g>
-            );
-          })}
+          {axis.ticks.map((value) => (
+            <g key={value}>
+              <line x1="74" x2="578" y1={y(value)} y2={y(value)} />
+              <text x="63" y={y(value) + 4} textAnchor="end">
+                {tick(value)}
+              </text>
+            </g>
+          ))}
           {indexed && (
             <line
               className="bd-index-line"
@@ -320,11 +332,8 @@ function shapes(geometry: AreaGeometry) {
   }));
 }
 
-function shade(value: number, min: number, max: number) {
-  const t =
-    max === min ? 0.5 : Math.max(0, Math.min(1, (value - min) / (max - min)));
-  return `rgb(${[219, 233, 231].map((channel, i) => Math.round(channel + ([27, 108, 112][i] - channel) * t)).join(",")})`;
-}
+const growthLabel = (value: number) =>
+  `${value > 0 ? "+" : ""}${compactNumber(value)}%`;
 
 export function DevelopmentMap({
   geometry,
@@ -343,8 +352,10 @@ export function DevelopmentMap({
   const mapped = rows.filter((row) =>
     paths.some((shape) => shape.code === row.area.code),
   );
-  const min = mapped.length ? Math.min(...mapped.map((row) => row.growth)) : 0;
-  const max = mapped.length ? Math.max(...mapped.map((row) => row.growth)) : 0;
+  const scale = classScale(
+    mapped.map((row) => row.growth),
+    { diverging: true },
+  );
   const selectedPath = paths.find((path) => path.code === selected);
   return (
     <figure className="bd-map">
@@ -355,10 +366,11 @@ export function DevelopmentMap({
       >
         <title id={`${id}-title`}>WOZ-verandering per Amsterdamse buurt</title>
         <desc id={`${id}-description`}>
-          Donkerder betekent een grotere procentuele verandering. Grijs betekent
-          buiten de selectie of geen vergelijkbaar cijfer. Kies een buurt via de
-          kaart of de buurtenlijst. {mapped.length} buurten met een cijfer op de
-          kaart.
+          De buurten zijn verdeeld in groepen van gelijke omvang. Donkerder
+          blauwgroen betekent een grotere stijging, roodbruin een daling. Grijs
+          betekent buiten de selectie of geen vergelijkbaar cijfer. Kies een
+          buurt via de kaart of de buurtenlijst. {mapped.length} buurten met een
+          cijfer op de kaart.
         </desc>
         {paths.map((shape) => {
           const row = lookup.get(shape.code);
@@ -366,7 +378,7 @@ export function DevelopmentMap({
             <path
               key={shape.code}
               d={shape.path}
-              fill={row ? shade(row.growth, min, max) : "#e3e6dd"}
+              fill={row ? classColor(row.growth, scale) : "#e3e6dd"}
               fillRule="evenodd"
               className={row ? "bd-map-area" : "bd-map-muted"}
               data-code={shape.code}
@@ -402,18 +414,19 @@ export function DevelopmentMap({
         </g>
       </svg>
       <figcaption>
-        <div className="bd-map-scale">
-          {mapped.length ? (
-            <>
-              <span>{percent(min)}</span>
-              <i aria-hidden="true" />
-              <span>{percent(max)}</span>
-              <span>WOZ-verandering</span>
-            </>
-          ) : (
+        {mapped.length ? (
+          <ClassLegend
+            className="bd-map-scale"
+            title="WOZ-verandering"
+            scale={scale}
+            format={growthLabel}
+            unknown={false}
+          />
+        ) : (
+          <div className="bd-map-scale">
             <span>Geen buurten binnen deze selectie op de kaart.</span>
-          )}
-        </div>
+          </div>
+        )}
         <div className="bd-map-key">
           <i aria-hidden="true" /> Buiten selectie / onbekend
         </div>
