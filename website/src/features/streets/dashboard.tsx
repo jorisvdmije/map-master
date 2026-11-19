@@ -33,6 +33,7 @@ import type { FeatureCollection, MultiLineString } from "geojson";
 import { assetPath } from "@/lib/paths";
 import { Modal } from "@/features/analysis/modal";
 import { download } from "@/features/playground/project";
+import { niceAxis } from "@/lib/scales";
 import type { HoverMode } from "@/features/bnb/model";
 import {
   buildHeat,
@@ -2212,7 +2213,12 @@ function StreetDetail({
   );
 }
 function MonthlyChart({ street }: { street: Street }) {
-  const maximum = Math.max(1, ...street.raw.reports);
+  const axis = niceAxis(0, Math.max(1, ...street.raw.reports), {
+    zero: true,
+    integer: true,
+    count: 3,
+  });
+  const maximum = axis.max;
   return (
     <div className="st-monthly">
       <h3>Meldingen per maand</h3>
@@ -2226,10 +2232,20 @@ function MonthlyChart({ street }: { street: Street }) {
         role="img"
         aria-label={`Meldingen per maand voor ${street.name}; ${windowTotal(street.raw.reports, street.months)} in de geselecteerde periode. De maandcijfers staan ook in de uitklapbare tabel.`}
       >
-        <text x="0" y="14">
-          {maximum}
-        </text>
-        <line x1="28" x2="600" y1="120" y2="120" stroke="#d7e1d0" />
+        {axis.ticks.map((value) => (
+          <g key={value}>
+            <line
+              x1="28"
+              x2="600"
+              y1={120 - (value / maximum) * 100}
+              y2={120 - (value / maximum) * 100}
+              stroke={value === 0 ? "#d7e1d0" : "#edf1e9"}
+            />
+            <text x="22" y={124 - (value / maximum) * 100} textAnchor="end">
+              {value}
+            </text>
+          </g>
+        ))}
         {observationMeta.months.map((month, i) => (
           <g key={month} opacity={i < 12 - street.months ? 0.3 : 1}>
             <rect

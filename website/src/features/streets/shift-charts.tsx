@@ -7,6 +7,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { download } from "@/features/playground/project";
+import { niceAxis } from "@/lib/scales";
 import { observationMeta } from "./model";
 import {
   rankShifts,
@@ -416,8 +417,12 @@ export function ShiftExplorer({
 }
 
 function MonthlyComparison({ row }: { row: ShiftRow }) {
-  const max =
-    Math.max(1, ...row.series, ...row.expectedSeries.map((v) => v ?? 0)) * 1.12;
+  const axis = niceAxis(
+    0,
+    Math.max(1, ...row.series, ...row.expectedSeries.map((v) => v ?? 0)),
+    { zero: true, integer: true },
+  );
+  const max = axis.max;
   const plot = (compact: boolean) => {
     const step = compact ? 26 : 47,
       left = compact ? 36 : 44,
@@ -443,17 +448,17 @@ function MonthlyComparison({ row }: { row: ShiftRow }) {
         <text x={left + 10.5 * step} y="18" textAnchor="middle">
           {compact ? "RECENT" : "RECENT KWARTAAL"}
         </text>
-        {[0, 0.25, 0.5, 0.75, 1].map((t) => (
-          <g key={t}>
+        {axis.ticks.map((value) => (
+          <g key={value}>
             <line
               x1={left}
               x2={right}
-              y1={py(t * max)}
-              y2={py(t * max)}
+              y1={py(value)}
+              y2={py(value)}
               stroke="#e1e7de"
             />
-            <text x={left - 8} y={py(t * max) + 4} textAnchor="end">
-              {n(t * max)}
+            <text x={left - 8} y={py(value) + 4} textAnchor="end">
+              {n(value)}
             </text>
           </g>
         ))}

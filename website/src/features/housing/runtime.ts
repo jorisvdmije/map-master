@@ -18,8 +18,8 @@ import {
 import type { PropertyMode } from "@/features/examples/property-position";
 import {
   color,
-  extent,
   format,
+  mapScale,
   labels,
   metricValue,
   number,
@@ -245,14 +245,14 @@ export class HousingRuntime {
     this.selected = selected;
     this.lookup = new Map(visible.map((f) => [f.properties.code, f]));
     this.homeLookup = new Map(homes.map((f) => [f.properties.id, f]));
-    const range = extent(all, metric);
+    const scale = mapScale(all, metric);
     this.areas = {
       type: "FeatureCollection",
       features: all.map((f) => ({
         ...f,
         properties: {
           ...f.properties,
-          color: color(metricValue(f, metric), range, metric),
+          color: color(metricValue(f, metric), scale),
           visible: this.lookup.has(f.properties.code),
         },
       })),

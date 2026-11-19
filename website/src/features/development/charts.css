@@ -169,12 +169,6 @@
 .bd-map-scale {
   color: var(--mm-text);
 }
-.bd-map-scale > i {
-  width: 100px;
-  height: 9px;
-  border-radius: 5px;
-  background: linear-gradient(90deg, #dbe9e7, #1b6c70);
-}
 .bd-map-key {
   margin-top: 5px;
 }
@@ -191,8 +185,5 @@
   .bd-chart-legend {
     display: flex;
     margin-right: 0;
-  }
-  .bd-map-scale > i {
-    width: 80px;
   }
 }

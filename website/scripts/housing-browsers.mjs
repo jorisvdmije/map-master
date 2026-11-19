@@ -93,7 +93,7 @@ try {
       await page.getByLabel('Kaartlaag wonen',{exact:true}).selectOption('wozChange');
       await page.locator('.hs-map[data-idle=true]').waitFor();
       assert.equal(await page.locator('.hs-map').getAttribute('data-camera'),mapCamera,'Changing layers and filters preserves camera');
-      assert.equal(await page.locator('.hs-legend').getAttribute('data-diverging'),'true');
+      assert.equal(await page.locator('.hs-legend .mm-class-legend').getAttribute('data-diverging'),'true');
       assert.match(await page.locator('.hs-legend').textContent(),/-\d/,'WOZ legend includes decreases');
       await page.getByRole('button',{name:'WOZ onder stadsmediaan',exact:true}).click();
       await page.getByLabel('Filter 1 kenmerk',{exact:true}).selectOption('wozChange');
