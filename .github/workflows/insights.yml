@@ -1,0 +1,43 @@
+name: Atlas insights
+
+on:
+  pull_request:
+    paths: ['insights/**', '.github/workflows/insights.yml']
+  push:
+    branches: [main]
+    paths: ['insights/**', '.github/workflows/insights.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  standalone:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: insights/package-lock.json
+      - run: npm ci
+        working-directory: insights
+      - run: npm test
+        working-directory: insights
+      - run: npm run build
+        working-directory: insights
+      - run: npx playwright install --with-deps chromium
+        working-directory: insights
+      - run: npm run check:browser
+        working-directory: insights
+      - name: Browser evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: atlas-insights
+          path: artifacts/atlas/
+          retention-days: 14
