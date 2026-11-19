@@ -1,0 +1,37 @@
+/*
+ * Shared design values for the documentation and every workspace.
+ * Feature styles use these instead of defining their own sizes and colours.
+ */
+:root {
+  /* Type. The interface is never set below 12px. */
+  --mm-text-xs: 0.75rem;
+  --mm-text-sm: 0.8125rem;
+  --mm-text-md: 0.875rem;
+
+  /* Text. Each value keeps at least 4.5:1 on every surface below. */
+  --mm-ink: #1c3a30;
+  --mm-text: #33493f;
+  --mm-muted: #56695e;
+  --mm-accent: #1f6a4f;
+  --mm-caution: #84561a;
+
+  /* Surfaces, from the page to the strongest fill. */
+  --mm-surface: #ffffff;
+  --mm-paper: #fffdf8;
+  --mm-wash: #f6f8f2;
+  --mm-tint: #ebf2e6;
+  --mm-tint-strong: #dfeadb;
+
+  /* Lines. */
+  --mm-line: #dce4d8;
+  --mm-line-strong: #c5d2c3;
+
+  /* Workspace header. */
+  --mm-header-height: 60px;
+  --mm-gutter: clamp(16px, 2.2vw, 32px);
+}
+@media (max-width: 760px) {
+  :root {
+    --mm-header-height: 56px;
+  }
+}

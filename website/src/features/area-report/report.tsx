@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -21,7 +20,7 @@ import {
   calculateReachability,
   createValhallaProvider,
 } from "@jorisvdmije/map-master";
-import { WorkspaceNavigation } from "@/components/workspaces/navigation";
+import { WorkspaceHeader } from "@/components/workspaces/header";
 import { SourceAge } from "@/components/workspaces/source-age";
 import { assetPath } from "@/lib/paths";
 import { download } from "@/lib/download";
@@ -256,23 +255,23 @@ export function AreaReport() {
       <a className="skip-link" href="#gr-report">
         Naar het rapport
       </a>
-      <header className="db-header">
-        <Link className="db-brand" href="/" prefetch={false}>
-          <Image src={assetPath("/logo.svg")} alt="" width={34} height={34} />
-          <span>
-            Map Master<small>VAN BRON NAAR BUURT</small>
-          </span>
-        </Link>
-        <nav aria-label="Rapportnavigatie">
-          <Link href="/data/" prefetch={false}>
-            Databank
-          </Link>
-          <Link href="/guides/open-data-amsterdam/" prefetch={false}>
-            Bronnen & methode
-          </Link>
-        </nav>
-        <WorkspaceNavigation current="/area-report/" />
-      </header>
+      <WorkspaceHeader
+        current="/area-report/"
+        tagline="Van bron naar buurt"
+        className="db-header"
+        brandClassName="db-brand"
+      >
+        <div className="workspace-header-actions">
+          <nav aria-label="Rapportnavigatie" className="workspace-optional">
+            <Link href="/data/" prefetch={false}>
+              Databank
+            </Link>
+            <Link href="/guides/open-data-amsterdam/" prefetch={false}>
+              Bronnen & methode
+            </Link>
+          </nav>
+        </div>
+      </WorkspaceHeader>
       <section className="gr-intro">
         <span className="db-eyebrow">
           <FileText size={15} /> GEBIEDSRAPPORT · AMSTERDAM

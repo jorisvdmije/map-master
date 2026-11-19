@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { QueryProvider } from "@/providers/query-provider";
 import { assetPath } from "@/lib/paths";
+import "../components/workspaces/tokens.css";
+import "../components/workspaces/primitives.css";
 import "../style.css";
 import "../components.css";
 import "maplibre-gl/dist/maplibre-gl.css";

@@ -378,8 +378,8 @@ export function CorrelationPanel({
                       r === null
                         ? "#eef0ed"
                         : r < 0
-                          ? `rgba(177, 118, 81,${0.12 + Math.abs(r) * 0.65})`
-                          : `rgba(54, 130, 131,${0.12 + Math.abs(r) * 0.65})`,
+                          ? `rgba(177, 118, 81,${0.1 + Math.abs(r) * 0.5})`
+                          : `rgba(54, 130, 131,${0.1 + Math.abs(r) * 0.5})`,
                   }}
                   onClick={() => {
                     setX(a);

@@ -1,17 +1,17 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  Info,
   ArrowDownToLine,
   ArrowUpRight,
   ChartNoAxesCombined,
   Search,
   TrendingUp,
 } from "lucide-react";
-import { WorkspaceNavigation } from "@/components/workspaces/navigation";
+import { WorkspaceHeader } from "@/components/workspaces/header";
 import {
   ShareView,
   flag,
@@ -19,7 +19,6 @@ import {
   text,
 } from "@/components/workspaces/view-state";
 import { SourceAge } from "@/components/workspaces/source-age";
-import { assetPath } from "@/lib/paths";
 import { loadDevelopment } from "./data";
 import { DevelopmentMap, DevelopmentTimeline } from "./charts";
 import { DevelopmentControls, DevelopmentRanking } from "./panels";
@@ -137,24 +136,19 @@ export function DevelopmentDashboard() {
       <a className="bd-skip" href="#development-main">
         Naar de buurtontwikkeling
       </a>
-      <header className="bd-header">
-        <Link className="bd-brand" href="/" prefetch={false}>
-          <Image
-            src={assetPath("/logo.svg")}
-            alt=""
-            width={31}
-            height={31}
-            priority
-          />
-          <span>
-            Map Master<small>AMSTERDAM IN ONTWIKKELING</small>
-          </span>
-        </Link>
-        <WorkspaceNavigation current="/analysis/development/" />
-        <a href="#development-method" className="bd-button">
-          Bronnen & methode
-        </a>
-      </header>
+      <WorkspaceHeader
+        current="/analysis/development/"
+        tagline="Amsterdam in ontwikkeling"
+        className="bd-header"
+        brandClassName="bd-brand"
+      >
+        <div className="workspace-header-actions">
+          <a href="#development-method" className="workspace-action">
+            <Info size={15} aria-hidden="true" />
+            <span className="workspace-label">Bronnen & methode</span>
+          </a>
+        </div>
+      </WorkspaceHeader>
       <main id="development-main">
         <section className="bd-intro">
           <div>

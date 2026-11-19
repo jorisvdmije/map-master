@@ -1,12 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { WorkspaceNavigation } from "@/components/workspaces/navigation";
+import { WorkspaceHeader } from "@/components/workspaces/header";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, Check, ChevronRight, Columns2, Download, FileJson2, FolderOpen, Layers, LocateFixed, MapPinned, MousePointer2, Plus, Redo2, SlidersHorizontal, Undo2, Upload, X } from "lucide-react";
-import { assetPath } from "@/lib/paths";
 import { AttributeTable, Dialog, Inspector, LayersPanel, PropertyDialog, type EditField, type Run } from "./panels";
 import { download, emptyProject, filename, layerId, maxFeatures, parseProject, projectFormat, readFile, sampleProject, type Project } from "./project";
 import type { PlaygroundRuntime } from "./runtime";
@@ -76,17 +74,13 @@ export function Playground({ version }: { version: string }) {
     <a href="#playground-map" className="skip-link">Skip to map</a>
     <div ref={container} id="playground-map" className="pg-map" tabIndex={-1} role="region" aria-label="Playground map" />
     {session ? <Workbench session={session} version={version} message={message} notify={notify} dismiss={() => setMessage(null)} /> : <>
-      <header className="pg-header"><Brand /><WorkspaceNavigation current="/playground/" language="en" /><span className="pg-loading-label">Your workspace is opening…</span><Link href="/" prefetch={false}>Documentation <ArrowUpRight size={14} /></Link></header>
+      <WorkspaceHeader current="/playground/" language="en" tagline="Playground" className="pg-header" brandClassName="pg-brand"><span className="pg-loading-label">Your workspace is opening…</span><Link href="/" prefetch={false}>Documentation <ArrowUpRight size={14} /></Link></WorkspaceHeader>
       <div className="pg-loading-card"><MapPinned size={34} /><h1>{failure ? "The map could not start" : "Making room for your data."}</h1><p>{failure || "Loading the editor and restoring your local project…"}</p>
         {failure && <button className="pg-button pg-primary" onClick={() => { setFailure(""); setAttempt(value => value + 1); }}>Try again</button>}
         <noscript>This playground needs JavaScript and WebGL. Your files are processed locally.</noscript>
       </div>
     </>}
   </main>;
-}
-
-function Brand() {
-  return <Link href="/" className="pg-brand" prefetch={false} aria-label="Map Master documentation"><Image src={assetPath("/logo.svg")} width={31} height={31} alt="" priority /><span>Map Master<small>PLAYGROUND</small></span></Link>;
 }
 
 function Workbench({ session, version, message, notify, dismiss }: { session: Session; version: string; message: Message | null; notify: (text: string, error?: boolean) => void; dismiss: () => void }) {
@@ -225,7 +219,7 @@ function Workbench({ session, version, message, notify, dismiss }: { session: Se
   const status = !storage ? "Download to keep your work" : session.blocked ? "Local save paused" : savedRevision === snapshot.revision ? "Saved locally" : "Saving locally…";
 
   return <div className={`pg-workbench${drawer ? ` pg-show-${drawer}` : ""}${dragging ? " pg-dragging" : ""}`} data-busy={busy ? "true" : undefined} data-feature-count={state.featureCount} data-layer-count={project.layers.length} data-mode={state.mode} aria-busy={busy}>
-    <header className="pg-header"><Brand /><WorkspaceNavigation current="/playground/" language="en" /><span className="pg-header-divider" />
+    <WorkspaceHeader current="/playground/" language="en" tagline="Playground" className="pg-header" brandClassName="pg-brand"><span className="pg-header-divider" />
       <div className="pg-project-heading"><input key={project.name} aria-label="Project name" defaultValue={project.name} maxLength={150} onBlur={event => runtime.rename(event.target.value)} onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); }} disabled={busy} />
         <span className={`pg-save-state${session.blocked || !storage ? " pg-save-warning" : ""}`} role="status">{savedRevision === snapshot.revision && !session.blocked ? <Check size={11} /> : <span className="pg-status-dot" />}{status}</span></div>
       <div className="pg-project-actions">    {storage && <LocalProjects storage={storage} capture={() => runtime.capture()} open={requestReplace} disabled={!idle || recovery !== null} />}<button className="pg-icon-button pg-new" title="New project" aria-label="New project" disabled={!idle || recovery !== null} onClick={() => requestReplace(emptyProject())}><Plus size={18} /></button>
@@ -234,7 +228,7 @@ function Workbench({ session, version, message, notify, dismiss }: { session: Se
         <button className="pg-button" aria-label="Save project" disabled={!idle} onClick={saveProject}><Download size={15} /><span>Save project</span></button>
         <button className="pg-button pg-primary" aria-label="Export GeoJSON" disabled={!idle || !state.featureCount} onClick={() => setExporting(true)}><ArrowUpRight size={16} /><span>Export GeoJSON</span></button>
 </div>
-    </header>
+    </WorkspaceHeader>
     <div className="pg-ribbon" role="toolbar" aria-label="Workspace actions">
 
       <button className="pg-button pg-import-button" disabled={!idle || recovery !== null} onClick={() => fileInput.current?.click()}><Upload size={15} />Import data</button>

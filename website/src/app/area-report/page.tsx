@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AreaReport } from "@/features/area-report/report";
 import Link from "next/link";
-import { WorkspaceNavigation } from "@/components/workspaces/navigation";
+import { WorkspaceHeader } from "@/components/workspaces/header";
 export const metadata: Metadata = {
   title: "Gebiedsrapport Amsterdam",
   description:
@@ -13,12 +13,12 @@ export default function AreaReportPage() {
     <Suspense
       fallback={
         <main lang="nl" className="db-root gr-root" data-area-report>
-          <header className="db-header">
-            <Link className="db-brand" href="/" prefetch={false}>
-              Map Master
-            </Link>
-            <WorkspaceNavigation current="/area-report/" />
-          </header>
+          <WorkspaceHeader
+            current="/area-report/"
+            tagline="Van bron naar buurt"
+            className="db-header"
+            brandClassName="db-brand"
+          />
           <section className="gr-intro">
             <h1>Gebiedsrapport Amsterdam</h1>
             <p>Buurtkeuze laden…</p>
